@@ -27,6 +27,10 @@ type Config struct {
 	// to be compatible with verifiers forcefully generating the same block while catching up the sequencing window timeout.
 	RecoverMode bool `json:"recover_mode"`
 
+	// SequencerUseFinalized is true when sequencer should use only finalized L1 blocks as origin.
+	// If this is set to true, the value of `SequencerConfDepth` is ignored.
+	SequencerUseFinalized bool `json:"sequencer_use_finalized"`
+
 	// Finalizer contains runtime configuration for finality behavior.
 	Finalizer *finality.Config `json:"finalizer,omitempty"`
 }
