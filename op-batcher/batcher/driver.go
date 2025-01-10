@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -20,6 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
 	config "github.com/ethereum-optimism/optimism/op-batcher/config"
@@ -73,6 +76,7 @@ func (r txRef) string(txIDStringer func(txID) string) string {
 type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
+	bind.ContractBackend
 }
 
 type L2Client interface {
@@ -89,17 +93,20 @@ type AltDAClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	closeApp          context.CancelCauseFunc
-	Log               log.Logger
-	Metr              metrics.Metricer
-	RollupConfig      *rollup.Config
-	Config            BatcherConfig
-	Txmgr             txmgr.TxManager
-	L1Client          L1Client
-	EndpointProvider  dial.L2EndpointProvider
-	ChannelConfig     ChannelConfigProvider
-	AltDA             AltDAClient
-	ChannelOutFactory ChannelOutFactory
+	closeApp            context.CancelCauseFunc
+	Log                 log.Logger
+	Metr                metrics.Metricer
+	RollupConfig        *rollup.Config
+	Config              BatcherConfig
+	Txmgr               txmgr.TxManager
+	L1Client            L1Client
+	EndpointProvider    dial.L2EndpointProvider
+	ChannelConfig       ChannelConfigProvider
+	AltDA               AltDAClient
+	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
+	ChannelOutFactory   ChannelOutFactory
+	ActiveSeqChanged    chan struct{} // optional
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -937,6 +944,48 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 	l.sendTx(txData{}, true, candidate, queue, receiptsCh)
 }
 
+type EspressoCommitment struct {
+	Signature []byte
+	TxHash    []byte
+}
+
+func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
+	return append(c.TxHash, c.Signature...)
+}
+
+func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+	// sanity checks
+	if nf := len(txdata.frames); nf != 1 {
+		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
+	}
+	if txdata.daType == DaTypeBlob {
+		l.Log.Crit("Unexpected blob txdata with AltDA enabled")
+	}
+
+	// when posting txdata to an external DA Provider, we use a goroutine to avoid blocking the main loop
+	// since it may take a while for the request to return.
+	goroutineSpawned := daGroup.TryGo(func() error {
+		espComm, err := l.submitToEspresso(txdata)
+		if err != nil {
+			l.Log.Error("Failed to submit transaction", "error", err)
+			l.recordFailedDARequest(txdata.ID(), err)
+			return err
+		}
+		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
+
+		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
+		l.sendTx(txdata, false, candidate, queue, receiptsCh)
+
+		return nil
+	})
+	if !goroutineSpawned {
+		// We couldn't start the goroutine because the errgroup.Group limit
+		// is already reached. Since we can't send the txdata, we have to
+		// return it for later processing. We use nil error to skip error logging.
+		l.recordFailedDARequest(txdata.ID(), nil)
+	}
+}
+
 // publishToAltDAAndStoreCommitment posts the txdata to the DA Provider and stores the returned commitment
 // in the channelMgr. The commitment will later be sent to the L1 while making sure to follow holocene's strict ordering rules.
 func (l *BatchSubmitter) publishToAltDAAndStoreCommitment(txdata txData, daGroup *errgroup.Group) {
@@ -984,6 +1033,12 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}
+
+		if l.Config.UseEspresso {
+			l.publishToEspressoAndL1(txdata, queue, receiptsCh, daGroup)
+			return nil
+		}
+
 		if txdata.altDACommitment == nil {
 			// This means the txdata was not sent to the DA Provider yet.
 			// This will send the txdata to the DA Provider and store the commitment in the channelMgr.
