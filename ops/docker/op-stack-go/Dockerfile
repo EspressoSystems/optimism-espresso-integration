@@ -14,7 +14,7 @@ ARG UBUNTU_TARGET_BASE_IMAGE=ubuntu:22.04
 
 # The version of kona to use.
 # The only build that uses this is `op-challenger-target`.
-ARG KONA_VERSION=none
+ARG KONA_VERSION="kona-client-v0.1.0-beta.5"
 
 # The version of asterisc to use.
 # The only build that uses this is `op-challenger-target`.

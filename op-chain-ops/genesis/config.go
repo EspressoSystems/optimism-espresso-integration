@@ -1028,6 +1028,9 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 
 	var altDA *rollup.AltDAConfig
 	if d.UseAltDA {
+		if d.DACommitmentType == altda.GenericCommitmentString {
+			d.DAChallengeProxy = common.Address{}
+		}
 		altDA = &rollup.AltDAConfig{
 			CommitmentType:     d.DACommitmentType,
 			DAChallengeAddress: d.DAChallengeProxy,
