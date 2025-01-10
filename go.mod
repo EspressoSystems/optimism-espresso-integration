@@ -310,7 +310,8 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101605.0-rc.2
+// Use this command to find the pseudoversion for an op-geth commit `go list -m github.com/celo-org/op-geth@<commit-hash>`
+replace github.com/ethereum/go-ethereum => github.com/celo-org/op-geth v1.101411.1-0.20260122170355-ed4697ae80d7
 
 // replace github.com/ethereum/go-ethereum => ../op-geth
 
