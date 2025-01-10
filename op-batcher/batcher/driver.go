@@ -884,6 +884,48 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 	l.sendTx(txData{}, true, candidate, queue, receiptsCh, nil)
 }
 
+type EspressoCommitment struct {
+	Signature []byte
+	TxHash    []byte
+}
+
+func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
+	return append(c.TxHash, c.Signature...)
+}
+
+func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+	// sanity checks
+	if nf := len(txdata.frames); nf != 1 {
+		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
+	}
+	if txdata.daType == DaTypeBlob {
+		l.Log.Crit("Unexpected blob txdata with AltDA enabled")
+	}
+
+	// when posting txdata to an external DA Provider, we use a goroutine to avoid blocking the main loop
+	// since it may take a while for the request to return.
+	goroutineSpawned := daGroup.TryGo(func() error {
+		espComm, err := l.submitToEspresso(txdata)
+		if err != nil {
+			l.Log.Error("Failed to submit transaction", "error", err)
+			l.recordFailedDARequest(txdata.ID(), err)
+			return err
+		}
+		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
+
+		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
+		l.sendTx(txdata, false, candidate, queue, receiptsCh)
+
+		return nil
+	})
+	if !goroutineSpawned {
+		// We couldn't start the goroutine because the errgroup.Group limit
+		// is already reached. Since we can't send the txdata, we have to
+		// return it for later processing. We use nil error to skip error logging.
+		l.recordFailedDARequest(txdata.ID(), nil)
+	}
+}
+
 // publishToAltDAAndStoreCommitment posts the txdata to the DA Provider and stores the returned commitment
 // in the channelMgr. The commitment will later be sent to the L1 while making sure to follow holocene's strict ordering rules.
 func (l *BatchSubmitter) publishToAltDAAndStoreCommitment(txdata txData, daGroup *errgroup.Group) {
@@ -931,6 +973,12 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}
+
+		if l.Config.UseEspresso {
+			l.publishToEspressoAndL1(txdata, queue, receiptsCh, daGroup)
+			return nil
+		}
+
 		if txdata.altDACommitment == nil {
 			// This means the txdata was not sent to the DA Provider yet.
 			// This will send the txdata to the DA Provider and store the commitment in the channelMgr.

@@ -47,7 +47,8 @@ type BatcherConfig struct {
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA bool
+	UseAltDA    bool
+	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
 	WaitNodeSync            bool
@@ -68,12 +69,14 @@ type BatcherConfig struct {
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	Log              log.Logger
-	Metrics          metrics.Metricer
-	L1Client         *ethclient.Client
-	EndpointProvider dial.L2EndpointProvider
-	TxManager        txmgr.TxManager
-	AltDA            *altda.DAClient
+	Log                 log.Logger
+	Metrics             metrics.Metricer
+	L1Client            *ethclient.Client
+	EndpointProvider    dial.L2EndpointProvider
+	TxManager           txmgr.TxManager
+	AltDA               *altda.DAClient
+	Espresso            *espresso.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
 
 	BatcherConfig
 
