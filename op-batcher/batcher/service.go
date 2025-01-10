@@ -9,6 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	espresso "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -42,9 +45,10 @@ type BatcherConfig struct {
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA bool
+	UseAltDA    bool
 	// GenericDA is true if the DA server generates commitments for the input
-	GenericDA bool
+	GenericDA   bool
+	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
 
@@ -58,13 +62,15 @@ type BatcherConfig struct {
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	closeApp         context.CancelCauseFunc
-	Log              log.Logger
-	Metrics          metrics.Metricer
-	L1Client         *ethclient.Client
-	EndpointProvider dial.L2EndpointProvider
-	TxManager        txmgr.TxManager
-	AltDA            *altda.DAClient
+	closeApp            context.CancelCauseFunc
+	Log                 log.Logger
+	Metrics             metrics.Metricer
+	L1Client            *ethclient.Client
+	EndpointProvider    dial.L2EndpointProvider
+	TxManager           txmgr.TxManager
+	AltDA               *altda.DAClient
+	Espresso            *espresso.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
 
 	BatcherConfig
 
@@ -171,6 +177,17 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 
 	if err := bs.initRPCClients(ctx, cfg); err != nil {
 		return err
+	}
+
+	if cfg.EspressoUrl != "" {
+		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
+		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
+		if err != nil {
+			return fmt.Errorf("Failed to create Espresso light client")
+		}
+		bs.EspressoLightClient = espressoLightClient
+		bs.UseEspresso = true
+		bs.UseAltDA = true
 	}
 
 	if err := bs.initRollupConfig(ctx); err != nil {
@@ -494,16 +511,18 @@ func (bs *BatcherService) initMetricsServer(cfg *CLIConfig) error {
 
 func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 	ds := DriverSetup{
-		closeApp:         bs.closeApp,
-		Log:              bs.Log,
-		Metr:             bs.Metrics,
-		RollupConfig:     bs.RollupConfig,
-		Config:           bs.BatcherConfig,
-		Txmgr:            bs.TxManager,
-		L1Client:         bs.L1Client,
-		EndpointProvider: bs.EndpointProvider,
-		ChannelConfig:    bs.ChannelConfig,
-		AltDA:            bs.AltDA,
+		closeApp:            bs.closeApp,
+		Log:                 bs.Log,
+		Metr:                bs.Metrics,
+		RollupConfig:        bs.RollupConfig,
+		Config:              bs.BatcherConfig,
+		Txmgr:               bs.TxManager,
+		L1Client:            bs.L1Client,
+		EndpointProvider:    bs.EndpointProvider,
+		ChannelConfig:       bs.ChannelConfig,
+		AltDA:               bs.AltDA,
+		Espresso:            bs.Espresso,
+		EspressoLightClient: bs.EspressoLightClient,
 	}
 	for _, opt := range opts {
 		opt(&ds)
