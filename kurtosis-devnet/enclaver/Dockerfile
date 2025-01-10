@@ -1,0 +1,109 @@
+# automatically set by buildkit, can be changed with --platform flag
+# see https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope
+# TARGETOS
+# TARGETARCH
+# TARGETPLATFORM
+# BUILDPLATFORM
+
+# All target images use this as base image, and add the final build results.
+# It will default to the target platform.
+ARG TARGET_BASE_IMAGE=alpine:3.20
+
+# The ubuntu target base image is used for the op-challenger build with kona and asterisc.
+ARG UBUNTU_TARGET_BASE_IMAGE=ubuntu:22.04
+
+# The version of kona to use.
+# The only build that uses this is `op-challenger-target`.
+ARG KONA_VERSION="kona-client-v0.1.0-beta.5"
+
+# We may be cross-building for another platform. Specify which platform we need as builder.
+FROM --platform=$BUILDPLATFORM golang:1.22.7-alpine3.20 AS builder
+
+
+RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
+
+# install yq
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && \
+  chmod +x /usr/local/bin/yq
+
+# install versioned toolchain
+COPY ./mise.toml .
+RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
+  tar xz -C /usr/local/bin just
+
+# We copy the go.mod/sum first, so the `go mod download` does not have to re-run if dependencies do not change.
+COPY ./go.mod /app/go.mod
+
+COPY ./kurtosis-devnet/enclaver/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+WORKDIR /app
+
+RUN echo "go mod cache: $(go env GOMODCACHE)"
+RUN echo "go build cache: $(go env GOCACHE)"
+
+# warm-up the cache
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
+
+# NOTE: the Dockerfile.dockerignore file effectively describes all dependencies
+COPY . /app
+
+
+# We avoid copying the full .git dir into the build for just some metadata.
+# Instead, specify:
+# --build-arg GIT_COMMIT=$(git rev-parse HEAD)
+# --build-arg GIT_DATE=$(git show -s --format='%ct')
+ARG GIT_COMMIT
+ARG GIT_DATE
+
+ARG TARGETOS
+ARG TARGETARCH
+
+# Build the Go services, utilizing caches and share the many common packages.
+# The "id" defaults to the value of "target", the cache will thus be reused during this build.
+# "sharing" defaults to "shared", the cache will thus be available to other concurrent docker builds.
+
+FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/cannon:v1.0.0 AS cannon-builder-v1-0-0
+FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/cannon:v1.2.0 AS cannon-builder-v1-2-0
+
+FROM --platform=$BUILDPLATFORM builder AS cannon-builder
+ARG CANNON_VERSION=v0.0.0
+# Copy cannon binaries from previous versions
+COPY --from=cannon-builder-v1-0-0 /usr/local/bin/cannon ./cannon/multicannon/embeds/cannon-0
+COPY --from=cannon-builder-v1-2-0 /usr/local/bin/cannon-3 ./cannon/multicannon/embeds/cannon-3
+# Build current binaries
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd cannon && make cannon  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$CANNON_VERSION"
+
+FROM --platform=$BUILDPLATFORM builder AS op-batcher-builder
+ARG OP_BATCHER_VERSION=v0.0.0
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-batcher && make op-batcher  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_BATCHER_VERSION"
+
+
+FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS cannon-target
+COPY --from=cannon-builder /app/cannon/bin/cannon /usr/local/bin/
+COPY --from=cannon-builder /app/cannon/multicannon/embeds/* /usr/local/bin/
+CMD ["cannon"]
+
+# Make the kona docker image published by upstream available as a source to copy kona and asterisc from.
+FROM --platform=$TARGETPLATFORM ghcr.io/op-rs/kona/kona-fpp-asterisc:$KONA_VERSION AS kona
+
+# Also produce an op-challenger loaded with kona and asterisc using ubuntu
+FROM --platform=$TARGETPLATFORM $UBUNTU_TARGET_BASE_IMAGE AS op-challenger-target
+RUN apt-get update && apt-get install -y --no-install-recommends musl openssl ca-certificates
+COPY --from=op-challenger-builder /app/op-challenger/bin/op-challenger /usr/local/bin/
+# Copy in op-program and cannon
+COPY --from=op-program-builder /app/op-program/bin/op-program /usr/local/bin/
+ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
+COPY --from=cannon-builder /app/cannon/bin/cannon /usr/local/bin/
+ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
+# Copy in kona and asterisc
+FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS op-batcher-target
+COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
+
+RUN apk add --no-cache socat
+# Copy entrypoint.sh from the builder stage (adjust "builder" if needed to match your stage name)
+COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
