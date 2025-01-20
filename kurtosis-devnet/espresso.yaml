@@ -39,6 +39,11 @@ optimism_package:
         granite_time_offset: 0
         holocene_time_offset: 0
         fund_dev_accounts: true
+      alt_da_params:
+        enabled: true,
+        da_challenge_window: 1
+        da_resolve_window: 1
+        da_commitment_type: GenericCommitment
       batcher_params:
         image: '{{ localDockerImage "op-batcher" }}'
         extra_params:
