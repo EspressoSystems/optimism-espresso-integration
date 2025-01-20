@@ -73,3 +73,6 @@ interop-devnet-test: (devnet-test "interop-devnet" "interop-smoke-test.sh")
 
 # Espresso devnet
 espresso-devnet: (devnet "espresso.yaml" "github.com/QuentinI/espresso-optimism-package")
+
+# Espresso devnet with external batcher
+espresso-eb-devnet: (devnet "espresso-eb.yaml" "github.com/QuentinI/espresso-optimism-package")
