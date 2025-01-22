@@ -116,3 +116,23 @@ external-batcher:
   echo "Running batcher:"
   echo "$command"
   $command
+
+# Start an external batcher (assuming espresso-eb-devnet is running)
+external-batcher-parameters:
+  #!/usr/bin/env sh
+  set -e
+  function external_url () {
+    kurtosis service inspect espresso-eb-devnet "${1}" | yq .Ports."${2}" | sed -E 's#.*->\s+(.*\/)?#http://#'
+  }
+
+  parameter="l2-eth-rpc = $(external_url 'op-el-1-op-geth-op-node-op-kurtosis' 'rpc')"
+  parameter2="rollup-rpc = $(external_url 'op-cl-1-op-node-op-geth-op-kurtosis' 'http') "
+  parameter3="l1-eth-rpc = $(external_url 'el-1-geth-lighthouse' 'rpc') "
+  parameter4="espresso-url = $(external_url 'op-espresso-devnode' 'sequencer') "
+  parameter5="altda.da-server = $(external_url 'op-espresso-das' 'espresso-das')"
+
+  echo "$parameter"
+  echo "$parameter2"
+  echo "$parameter3"
+  echo "$parameter4"
+  echo "$parameter5"
