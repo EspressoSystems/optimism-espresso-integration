@@ -796,7 +796,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 		}
 		txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
 		if err != nil {
-			l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
+			l.Log.Error("Failed to submit transaction", "error", err)
 			l.recordFailedDARequest(txdata.ID(), err)
 			return fmt.Errorf("failed to submit transaction: %w", err)
 		}
