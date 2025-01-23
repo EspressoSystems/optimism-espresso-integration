@@ -76,3 +76,25 @@ espresso-devnet: (devnet "espresso.yaml" "github.com/QuentinI/espresso-optimism-
 
 # Espresso devnet with external batcher
 espresso-eb-devnet: (devnet "espresso-eb.yaml" "github.com/QuentinI/espresso-optimism-package")
+
+# Start an external batcher (assuming espresso-eb-devnet is running)
+external-batcher:
+  #!/usr/bin/env sh
+  function external_url () {
+    kurtosis service inspect espresso-eb-devnet "${1}" | yq .Ports."${2}" | sed -E 's#.*->\s+(.*\/)?#http://#'
+  }
+  batcher="$(pwd)/../op-batcher/bin/op-batcher"
+  command="${batcher} "\
+  "--l2-eth-rpc=$(external_url 'op-el-1-op-geth-op-node-op-kurtosis' 'rpc') "\
+  "--rollup-rpc=$(external_url 'op-cl-1-op-node-op-geth-op-kurtosis' 'http') "\
+  "--l1-eth-rpc=$(external_url 'el-1-geth-lighthouse' 'rpc') "\
+  "--espresso-url=$(external_url 'op-espresso-devnode' 'sequencer') "\
+  "--altda.da-server=$(external_url 'op-espresso-das' 'espresso-das') "\
+  "--poll-interval=1s --sub-safety-margin=6 --num-confirmations=1 --safe-abort-nonce-too-low-count=3 "\
+  "--resubmission-timeout=30s --rpc.addr=0.0.0.0 --rpc.port=8548 --rpc.enable-admin "\
+  "--max-channel-duration=1 --private-key=0xb3d2d558e3491a3709b7c451100a0366b5872520c7aa020c17a0e7fa35b6a8df "\
+  "--data-availability-type=calldata --metrics.enabled --metrics.addr=0.0.0.0 --metrics.port=9001 "\
+  "--altda.enabled=true"
+  echo "Running batcher:"
+  echo "$command"
+  $command
