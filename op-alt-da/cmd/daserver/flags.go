@@ -152,7 +152,7 @@ func (c CLIConfig) Check() error {
 }
 
 func (c CLIConfig) EspressoEnabled() bool {
-	return !(c.EspressoBaseUrl == "")
+	return c.EspressoBaseUrl != ""
 }
 
 func (c CLIConfig) S3Enabled() bool {
