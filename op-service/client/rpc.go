@@ -3,12 +3,12 @@ package client
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
 	"regexp"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/proxy"
 	"golang.org/x/time/rate"
 
 	"github.com/ethereum/go-ethereum"
@@ -185,8 +185,7 @@ func IsURLAvailable(ctx context.Context, address string) bool {
 			return true
 		}
 	}
-	dialer := net.Dialer{Timeout: 5 * time.Second}
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	conn, err := proxy.Dial(ctx, "tcp", addr)
 	if err != nil {
 		return false
 	}
