@@ -124,7 +124,8 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoUrl string
+	EspressoUrl             string
+	EspressoLightClientAddr string
 }
 
 func (c *CLIConfig) Check() error {
@@ -222,5 +223,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		ThrottleAlwaysBlockSize:      ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
 		PreferLocalSafeL2:            ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
 		EspressoUrl:                  ctx.String(flags.EspressoUrlFlag.Name),
+		EspressoLightClientAddr:      ctx.String(flags.EspressoLCAddrFlag.Name),
 	}
 }
