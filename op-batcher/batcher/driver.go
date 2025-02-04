@@ -1,6 +1,8 @@
 package batcher
 
 import (
+	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
+	"C"
 	"context"
 	"errors"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -82,17 +85,18 @@ type RollupClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log               log.Logger
-	Metr              metrics.Metricer
-	RollupConfig      *rollup.Config
-	Config            BatcherConfig
-	Txmgr             txmgr.TxManager
-	L1Client          L1Client
-	EndpointProvider  dial.L2EndpointProvider
-	ChannelConfig     ChannelConfigProvider
-	AltDA             *altda.DAClient
-	Espresso          *espressoClient.Client
-	ChannelOutFactory ChannelOutFactory
+	Log                 log.Logger
+	Metr                metrics.Metricer
+	RollupConfig        *rollup.Config
+	Config              BatcherConfig
+	Txmgr               txmgr.TxManager
+	L1Client            L1Client
+	EndpointProvider    dial.L2EndpointProvider
+	ChannelConfig       ChannelConfigProvider
+	AltDA               *altda.DAClient
+	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
+	ChannelOutFactory   ChannelOutFactory
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -791,6 +795,8 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 	goroutineSpawned := daGroup.TryGo(func() error {
 		espComm, err := l.submitToEspresso(txdata)
 		if err != nil {
+			l.Log.Warn("Error publishing to Espresso", "err", err)
+			l.recordFailedDARequest(txdata.ID(), err)
 			return err
 		}
 

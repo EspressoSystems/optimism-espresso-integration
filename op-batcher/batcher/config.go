@@ -120,7 +120,8 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoUrl string
+	EspressoUrl             string
+	EspressoLightClientAddr string
 }
 
 func (c *CLIConfig) Check() error {
@@ -216,6 +217,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		ThrottleBlockSize:            ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
 		ThrottleAlwaysBlockSize:      ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
 
-		EspressoUrl: ctx.String(flags.EspressoUrlFlag.Name),
+		EspressoUrl:             ctx.String(flags.EspressoUrlFlag.Name),
+		EspressoLightClientAddr: ctx.String(flags.EspressoLCAddrFlag.Name),
 	}
 }

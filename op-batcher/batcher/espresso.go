@@ -1,11 +1,14 @@
 package batcher
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
-	espressoCommon "github.com/EspressoSystems/espresso-sequencer-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-sequencer-go/verification"
+
+	espressoCommon "github.com/EspressoSystems/espresso-sequencer-go/types"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // TODO: Pull out to be re-used in op-node for derivation from Espresso
@@ -35,7 +38,6 @@ func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, e
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
 	if err != nil {
 		l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
-		l.recordFailedDARequest(txdata.ID(), err)
 		return nil, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
@@ -57,23 +59,75 @@ Loop:
 			l.Log.Warn("Retry fetching transaction by hash", "txHash", txHash, "error", err)
 		case <-timer.C:
 			l.Log.Error("Failed to fetch transaction by hash after multiple attempts", "txHash", txHash)
+			l.recordFailedDARequest(txdata.ID(), err)
 			return nil, fmt.Errorf("failed to fetch transaction by hash: %w", err)
 		}
 	}
 
-	// TODO: Fetch and verify proofs here
-	header, err := l.Espresso.FetchHeaderByHeight(l.shutdownCtx, txQueryData.BlockHeight)
+	rawHeader, err := l.Espresso.FetchRawHeaderByHeight(l.shutdownCtx, txQueryData.BlockHeight)
 	if err != nil {
 		return nil, err
 	}
-	_ = header
+
+	var header espressoCommon.HeaderImpl
+	err = json.Unmarshal(rawHeader, &header)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshal header from bytes")
+	}
+
+	height := header.Header.GetBlockHeight()
+
+	log.Info("Fetching Merkle Root at hotshot", "height", height)
+	// Verify the merkle proof
+	snapshot, err := l.EspressoLightClient.FetchMerkleRoot(height, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Error fetching merkle root: %w", err)
+	}
+
+	if snapshot.Height <= height {
+		return nil, fmt.Errorf("snapshot height is less than or equal to the requested height")
+	}
+
+	nextHeader, err := l.Espresso.FetchHeaderByHeight(l.shutdownCtx, snapshot.Height)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
+	}
+
+	proof, err := l.Espresso.FetchBlockMerkleProof(l.shutdownCtx, snapshot.Height, height)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching merkle proof")
+	}
+
+	blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
+
+	log.Info("Verifying merkle proof", "height", height)
+	ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
+	if !ok {
+		return nil, fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", height, snapshot.Height)
+	}
+
+	// Verify the namespace proof
+	log.Info("Verifying namespace proof", "height", height)
+	resp, err := l.Espresso.FetchTransactionsInBlock(l.shutdownCtx, height, 42)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch the transactions in block")
+	}
+
+	namespaceOk := espressoVerification.VerifyNamespace(
+		42,
+		resp.Proof,
+		*header.Header.GetPayloadCommitment(),
+		*header.Header.GetNsTable(),
+		resp.Transactions,
+		resp.VidCommon,
+	)
+
+	if !namespaceOk {
+		return nil, fmt.Errorf("error validating namespace proof (height: %d)", height)
+	}
 
 	// TODO: Generate a real attestation
 	teeAttestation := []byte{1, 2, 3, 4}
-
-	espressoVerification.VerifyMerkleProof(
-		txQueryData.Proof,
-	)
 
 	espComm := EspressoCommitment{
 		TeeAttestation: teeAttestation,
