@@ -64,8 +64,7 @@ optimism_package:
         rollup_boost_image: ""
         builder_host: ""
         builder_port: ""
-      additional_services:
-        - blockscout
+      additional_services: []
   op_contract_deployer_params:
     image: '{{ localDockerImage "op-deployer" }}'
     l1_artifacts_locator: '{{ localContractArtifacts "l1" }}'
