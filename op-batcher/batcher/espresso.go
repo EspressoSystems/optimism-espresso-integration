@@ -29,6 +29,74 @@ func (t Transaction) toEspresso() espressoCommon.Transaction {
 	}
 }
 
+func (l *BatchSubmitter) waitForFinality(height uint64, rawHeader json.RawMessage, header *espressoCommon.HeaderImpl) error {
+	timer := time.NewTimer(2 * time.Minute)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	var snapshot espressoCommon.BlockMerkleSnapshot
+
+Loop:
+	for {
+		select {
+		case <-ticker.C:
+			res, err := l.EspressoLightClient.FetchMerkleRoot(height, nil)
+			if err == nil {
+				snapshot = res
+				break Loop
+			}
+		case <-timer.C:
+			return fmt.Errorf("failed to fetch merkle root")
+		}
+	}
+
+	if snapshot.Height <= height {
+		return fmt.Errorf("snapshot height is less than or equal to the requested height")
+	}
+
+	nextHeader, err := l.Espresso.FetchHeaderByHeight(l.shutdownCtx, snapshot.Height)
+	if err != nil {
+		return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
+	}
+
+	proof, err := l.Espresso.FetchBlockMerkleProof(l.shutdownCtx, snapshot.Height, height)
+	if err != nil {
+		return fmt.Errorf("error fetching merkle proof")
+	}
+
+	blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
+
+	log.Info("Verifying merkle proof", "height", height)
+	ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
+	if !ok {
+		return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", height, snapshot.Height)
+	}
+
+	// Verify the namespace proof
+	log.Info("Verifying namespace proof", "height", height)
+	resp, err := l.Espresso.FetchTransactionsInBlock(l.shutdownCtx, height, 42)
+	if err != nil {
+		return fmt.Errorf("failed to fetch the transactions in block")
+	}
+
+	namespaceOk := espressoVerification.VerifyNamespace(
+		42,
+		resp.Proof,
+		*header.Header.GetPayloadCommitment(),
+		*header.Header.GetNsTable(),
+		resp.Transactions,
+		resp.VidCommon,
+	)
+
+	if !namespaceOk {
+		return fmt.Errorf("error validating namespace proof (height: %d)", height)
+	}
+
+	return nil
+}
+
 func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, error) {
 	transaction := Transaction{
 		Namespace: 42,
@@ -38,6 +106,7 @@ func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, e
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
 	if err != nil {
 		l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
+		l.recordFailedDARequest(txdata.ID(), err)
 		return nil, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
@@ -77,53 +146,9 @@ Loop:
 
 	height := header.Header.GetBlockHeight()
 
-	log.Info("Fetching Merkle Root at hotshot", "height", height)
-	// Verify the merkle proof
-	snapshot, err := l.EspressoLightClient.FetchMerkleRoot(height, nil)
+	err = l.waitForFinality(height, rawHeader, &header)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching merkle root: %w", err)
-	}
-
-	if snapshot.Height <= height {
-		return nil, fmt.Errorf("snapshot height is less than or equal to the requested height")
-	}
-
-	nextHeader, err := l.Espresso.FetchHeaderByHeight(l.shutdownCtx, snapshot.Height)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
-	}
-
-	proof, err := l.Espresso.FetchBlockMerkleProof(l.shutdownCtx, snapshot.Height, height)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching merkle proof")
-	}
-
-	blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
-
-	log.Info("Verifying merkle proof", "height", height)
-	ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
-	if !ok {
-		return nil, fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", height, snapshot.Height)
-	}
-
-	// Verify the namespace proof
-	log.Info("Verifying namespace proof", "height", height)
-	resp, err := l.Espresso.FetchTransactionsInBlock(l.shutdownCtx, height, 42)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch the transactions in block")
-	}
-
-	namespaceOk := espressoVerification.VerifyNamespace(
-		42,
-		resp.Proof,
-		*header.Header.GetPayloadCommitment(),
-		*header.Header.GetNsTable(),
-		resp.Transactions,
-		resp.VidCommon,
-	)
-
-	if !namespaceOk {
-		return nil, fmt.Errorf("error validating namespace proof (height: %d)", height)
+		return nil, err
 	}
 
 	// TODO: Generate a real attestation
