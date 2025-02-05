@@ -1,24 +1,23 @@
 # enclaver.yaml
 version: v1
-name: "op-batcher:app"
-target: "enclave:latest"
+name: "op-batcher"
+target: "enclave-batcher:latest"
 # description: "Run op-batcher inside an enclave"
 sources:
   app: "op-batcher:app"
 
 defaults:
-  memory_mb: 1024
+  memory_mb: 4096
   cpu_count: 2
 
 # Networking policies
 ingress:
-  - listen_port: 32799
+  - listen_port: 33333
 
 egress:
   allow:
     - host
-#      - 127.0.0.1:32799 # L1 ETH RPC
-#      - 127.0.0.1:32811 # L2 ETH RPC
-#      - 127.0.0.1:32814 # Rollup RPC
-#      - 127.0.0.1:32805 # Espresso URL
-#      - 127.0.0.1:32806 # ALTDA DA Server
+    - 127.0.0.1
+    - 0.0.0.0
+    - 18.118.102.71 
+    - 172.31.37.114

@@ -34,6 +34,9 @@ RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' m
 # We copy the go.mod/sum first, so the `go mod download` does not have to re-run if dependencies do not change.
 COPY ./go.mod /app/go.mod
 
+COPY ./kurtosis-devnet/enclaver/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 WORKDIR /app
 
 RUN echo "go mod cache: $(go env GOMODCACHE)"
@@ -98,24 +101,9 @@ ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
 # Copy in kona and asterisc
 FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS op-batcher-target
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
-CMD ["/usr/local/bin/op-batcher", \
-     "--l2-eth-rpc=http://0.0.0.0:32786", \
-     "--rollup-rpc=http://0.0.0.0:32789", \
-     "--l1-eth-rpc=http://0.0.0.0:32774", \
-     "--espresso-url=http://0.0.0.0:32780", \
-     "--altda.da-server=http://0.0.0.0:32781", \
-     "--poll-interval=1s", \
-     "--sub-safety-margin=6", \
-     "--num-confirmations=1", \
-     "--safe-abort-nonce-too-low-count=3", \
-     "--resubmission-timeout=30s", \
-     "--rpc.addr=0.0.0.0", \
-     "--rpc.port=8548", \
-     "--rpc.enable-admin", \
-     "--max-channel-duration=1", \
-     "--private-key=0xb3d2d558e3491a3709b7c451100a0366b5872520c7aa020c17a0e7fa35b6a8df", \
-     "--data-availability-type=calldata", \
-     "--metrics.enabled", \
-     "--metrics.addr=0.0.0.0", \
-     "--metrics.port=9001", \
-     "--altda.enabled=true"]
+
+RUN apk add --no-cache socat
+# Copy entrypoint.sh from the builder stage (adjust "builder" if needed to match your stage name)
+COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]

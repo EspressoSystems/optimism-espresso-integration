@@ -102,11 +102,11 @@ RUN apk add proxychains-ng
 ENV HTTP_PROXY=127.0.0.1:10000
 RUN echo "http 127.0.0.1 10000" > /etc/proxychains.conf
 CMD ["proxychains4", "/usr/local/bin/op-batcher", \
-"--l2-eth-rpc=http://host:32811", \
-"--rollup-rpc=http://host:32814", \
-"--l1-eth-rpc=http://host:32799", \
-"--espresso-url=http://host:32805", \
-"--altda.da-server=http://host:32806", \
+"--l2-eth-rpc=http://127.0.0.1:32807", \
+"--rollup-rpc=http://127.0.0.1:32810", \
+"--l1-eth-rpc=http://127.0.0.1:32795", \
+"--espresso-url=http://127.0.0.1:32801", \
+"--altda.da-server=http://127.0.0.1:32802", \
 "--poll-interval=1s", \
 "--sub-safety-margin=6", \
 "--num-confirmations=1", \
