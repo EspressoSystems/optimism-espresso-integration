@@ -9,7 +9,7 @@ export PROXY_PORT="10000"
 export REMOTE_HOST="172.31.37.114"
 
 # Define the ports for each service.
-export REMOTE_PORT_L1_RPC="32774"   # Used for l1-eth-rpc 
+export REMOTE_PORT_L1_RPC="32774"   # Used for l1-eth-rpc
 export REMOTE_PORT_L2_RPC="32786"   # Used for l2-eth-rpc
 export REMOTE_PORT_ROLLUP="32789"   # For rollup-rpc (if needed)
 export REMOTE_PORT_ESPRESSO="32780" # For espresso-url
@@ -24,7 +24,7 @@ socat -d TCP4-LISTEN:"${REMOTE_PORT_L1_RPC}",reuseaddr,fork PROXY:"${PROXY_HOST}
 echo "Starting socat for L2 RPC on port ${REMOTE_PORT_L2_RPC}..."
 socat -d TCP4-LISTEN:"${REMOTE_PORT_L2_RPC}",reuseaddr,fork PROXY:"${PROXY_HOST}":"${REMOTE_HOST}":"${REMOTE_PORT_L2_RPC}",proxyport="${PROXY_PORT}" &
 
-echo "Starting socat for L2 RPC on port ${REMOTE_PORT_ROLLUP}..."
+echo "Starting socat for Rollup on port ${REMOTE_PORT_ROLLUP}..."
 socat -d TCP4-LISTEN:"${REMOTE_PORT_ROLLUP}",reuseaddr,fork PROXY:"${PROXY_HOST}":"${REMOTE_HOST}":"${REMOTE_PORT_ROLLUP}",proxyport="${PROXY_PORT}" &
 
 echo "Starting socat for Espresso on port ${REMOTE_PORT_ESPRESSO}..."
