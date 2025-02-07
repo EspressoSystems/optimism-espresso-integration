@@ -34,8 +34,8 @@ RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' m
 # We copy the go.mod/sum first, so the `go mod download` does not have to re-run if dependencies do not change.
 COPY ./go.mod /app/go.mod
 
-COPY ./kurtosis-devnet/enclaver/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY ./kurtosis-devnet/enclaver/entrypoint_non_enclave.sh /app/entrypoint_non_enclave.sh
+RUN chmod +x /app/entrypoint_non_enclave.sh
 
 WORKDIR /app
 
@@ -137,7 +137,7 @@ COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 
 RUN apk add --no-cache socat
 RUN apk add gcc
-# Copy entrypoint.sh from the builder stage (adjust "builder" if needed to match your stage name)
-COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
+# Copy entrypoint_non_enclave.sh from the builder stage (adjust "builder" if needed to match your stage name)
+COPY --from=builder /app/entrypoint_non_enclave.sh /app/entrypoint_non_enclave.sh
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint_non_enclave.sh"]
