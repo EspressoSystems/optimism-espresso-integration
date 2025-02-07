@@ -6,20 +6,17 @@ import (
 
 	"encoding/json"
 	"fmt"
+	"op-batcher/enclave"
 	"time"
 
-	espressoVerification "github.com/EspressoSystems/espresso-sequencer-go/verification"
-
 	espressoCommon "github.com/EspressoSystems/espresso-sequencer-go/types"
+	espressoVerification "github.com/EspressoSystems/espresso-sequencer-go/verification"
 	"github.com/ethereum/go-ethereum/log"
 )
 
 // TODO: these are placeholders waiting for real implementation of
 // attestation generation and batch signing
 const exampleNamespace = 42
-
-var exampleSignature = [...]byte{1, 2, 3, 4}
-var exampleTeeAttn = [...]byte{5, 6, 7, 8}
 
 // TODO: Pull out to be re-used in op-node for derivation from Espresso
 type Transaction struct {
@@ -121,10 +118,17 @@ Loop:
 	return nil
 }
 
-func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, error) {
+func (l *BatchSubmitter) submitToEspresso(txdata txData, sig []byte) (*EspressoCommitment, error) {
+
+	// Get attestation for the transaction data
+	TeeAttn, err := enclave.GetAttestationWithTxData(txdata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attestation: %w", err)
+	}
+
 	transaction := Transaction{
 		Namespace: exampleNamespace,
-		TeeAttn:   exampleTeeAttn[:],
+		TeeAttn:   TeeAttn,
 		CallData:  txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
@@ -176,8 +180,7 @@ Loop:
 	}
 
 	espComm := EspressoCommitment{
-		// TODO: Generate a real signature
-		Signature: exampleSignature[:],
+		Signature: sig,
 		TxHash:    txQueryData.Hash.Value(),
 	}
 
