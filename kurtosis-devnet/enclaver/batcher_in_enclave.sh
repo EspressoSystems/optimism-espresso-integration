@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-# Build the docker image
-docker build --no-cache -t op-batcher:app -f kurtosis-devnet/enclaver/Dockerfile .
+# Build the docker image, only use "--no-cache" when needed
+docker build -t op-batcher:app -f kurtosis-devnet/enclaver/Dockerfile .
 
 # Build the enclave
 sudo enclaver build --file kurtosis-devnet/enclaver/enclaver.yaml
