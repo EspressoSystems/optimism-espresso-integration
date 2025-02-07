@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -12,10 +13,12 @@ import (
 	espresso "github.com/EspressoSystems/espresso-sequencer-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/op-batcher/enclave"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
@@ -45,6 +48,9 @@ type BatcherConfig struct {
 	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
+	// public key and private key of the batcher
+	BatcherPublicKey  *ecdsa.PublicKey
+	BatcherPrivateKey *ecdsa.PrivateKey
 
 	WaitNodeSync        bool
 	CheckRecentTxsDepth int
@@ -85,6 +91,8 @@ type BatcherService struct {
 	stopped         atomic.Bool
 
 	NotSubmittingOnStart bool
+
+	Attestation []byte
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -96,6 +104,18 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	var bs BatcherService
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
+	}
+
+	if bs.UseEspresso {
+		// try to generate attestation on public key when start batcher
+		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
+		if err != nil {
+			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
+		} else {
+			// output length of attestation
+			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestation))
+			bs.Attestation = attestation
+		}
 	}
 	return &bs, nil
 }
@@ -130,11 +150,14 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
 		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
-			return fmt.Errorf("Failed to create Espresso light client")
+			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
 		bs.UseEspresso = true
 		bs.UseAltDA = true
+		if err := bs.initKeyPair(); err != nil {
+			return fmt.Errorf("failed to create key pair for batcher: %w", err)
+		}
 	}
 
 	if err := bs.initRollupConfig(ctx); err != nil {
@@ -243,6 +266,16 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 		return fmt.Errorf("invalid rollup config: %w", err)
 	}
 	bs.RollupConfig.LogDescription(bs.Log, chaincfg.L2ChainIDToNetworkDisplayName)
+	return nil
+}
+
+func (bs *BatcherService) initKeyPair() error {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
+	}
+	bs.BatcherPrivateKey = key
+	bs.BatcherPublicKey = &key.PublicKey
 	return nil
 }
 
