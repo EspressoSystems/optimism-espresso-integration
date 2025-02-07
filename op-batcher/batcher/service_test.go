@@ -1,0 +1,31 @@
+package batcher
+
+import (
+	"testing"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBatchSubmitter_SignatureGeneration(t *testing.T) {
+
+	// initialize BatcherService
+	var bs BatcherService
+	if err := bs.initKeyPair(); err != nil {
+		t.Fatalf("failed to create key pair for batcher: %v", err)
+	}
+
+	txdata := emptyTxData
+
+	// add batcher's signature on txdata sent to L1
+	sig, err := txdata.signTx(bs.BatcherPrivateKey)
+	require.NoError(t, err)
+
+	// test that the valid signature can be verified
+	pubKeyBytes := crypto.FromECDSAPub(bs.BatcherPublicKey)
+	require.True(t, crypto.VerifySignature(pubKeyBytes, crypto.Keccak256(txdata.CallData()), sig[:len(sig)-1]))
+
+	// test that the invalid signature cannot be verified
+	badSig := []byte{1, 2, 3, 4}
+	require.False(t, crypto.VerifySignature(pubKeyBytes, crypto.Keccak256(txdata.CallData()), badSig[:len(badSig)-1]))
+}
