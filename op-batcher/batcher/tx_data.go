@@ -1,6 +1,7 @@
 package batcher
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/params"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // DaType determines how txData is submitted to L1.
@@ -132,4 +134,8 @@ func (id txID) string(chIDStringer func(id derive.ChannelID) string) string {
 		}
 	}
 	return sb.String()
+}
+
+func (td *txData) signTx(privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	return crypto.Sign(crypto.Keccak256(td.CallData()), privateKey)
 }
