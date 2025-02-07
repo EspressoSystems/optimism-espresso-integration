@@ -6,7 +6,7 @@ set -e
 # -----------------------------------------------------------------------------
 export PROXY_HOST="127.0.0.1"
 export PROXY_PORT="10000"
-export REMOTE_HOST="172.31.37.114"
+export REMOTE_HOST=$(hostname -I | awk '{print $1}')
 
 # Define the ports for each service.
 export REMOTE_PORT_L1_RPC="32774"   # Used for l1-eth-rpc
