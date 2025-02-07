@@ -3,11 +3,11 @@ package batcher
 import (
 	"encoding/json"
 	"fmt"
+	"op-batcher/enclave"
 	"time"
 
-	espressoVerification "github.com/EspressoSystems/espresso-sequencer-go/verification"
-
 	espressoCommon "github.com/EspressoSystems/espresso-sequencer-go/types"
+	espressoVerification "github.com/EspressoSystems/espresso-sequencer-go/verification"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -98,9 +98,16 @@ Loop:
 }
 
 func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, error) {
+
+	// Get attestation for the transaction data
+	TeeAttn, err := enclave.GetAttestationWithTxData(txdata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attestation: %w", err)
+	}
+
 	transaction := Transaction{
 		Namespace: 42,
-		TeeAttn:   []byte{1, 2, 3, 4},
+		TeeAttn:   TeeAttn,
 		CallData:  txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
