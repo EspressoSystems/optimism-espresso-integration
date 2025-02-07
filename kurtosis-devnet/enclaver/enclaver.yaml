@@ -11,13 +11,7 @@ defaults:
   cpu_count: 2
 
 # Networking policies
-ingress:
-  - listen_port: 33333
 
 egress:
   allow:
-    - host
-    - 127.0.0.1
-    - 0.0.0.0
-    - 18.118.102.71 
-    - 172.31.37.114
+    - 172.31.37.114 # <YOUR_IP>
