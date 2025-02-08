@@ -801,6 +801,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 		}
 
 		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
+		// Sishan TODO: add batcher's signature on txdata sent to L1 here
 		l.sendTx(txdata, false, candidate, queue, receiptsCh)
 
 		return nil

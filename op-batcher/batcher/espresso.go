@@ -17,6 +17,7 @@ type Transaction struct {
 	Namespace uint64
 	// TEE attestation to be verified by op-node
 	TeeAttn []byte
+	// Sishan TODO: Append sequencer'ssignature of the transaction
 	// Frames serialized as they would be for posting to L1 as calldata
 	CallData []byte
 }
