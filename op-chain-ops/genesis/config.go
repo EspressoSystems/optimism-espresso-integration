@@ -354,6 +354,8 @@ type UpgradeScheduleDeployConfig struct {
 
 	// When Cancun activates. Relative to L1 genesis.
 	L1CancunTimeOffset *hexutil.Uint64 `json:"l1CancunTimeOffset,omitempty"`
+	// When Prague activates. Relative to L1 genesis.
+	L1PragueTimeOffset *hexutil.Uint64 `json:"l1PragueTimeOffset,omitempty"`
 
 	// UseInterop is a flag that indicates if the system is using interop
 	UseInterop bool `json:"useInterop,omitempty"`
@@ -974,6 +976,13 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 	if d.SystemConfigProxy == (common.Address{}) {
 		return nil, errors.New("SystemConfigProxy cannot be address(0)")
 	}
+
+	chainOpConfig := &params.OptimismConfig{
+		EIP1559Elasticity:        d.EIP1559Elasticity,
+		EIP1559Denominator:       d.EIP1559Denominator,
+		EIP1559DenominatorCanyon: &d.EIP1559DenominatorCanyon,
+	}
+
 	var altDA *rollup.AltDAConfig
 	if d.UseAltDA {
 		if d.DACommitmentType == altda.GenericCommitmentString {
@@ -999,13 +1008,8 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 				Hash:   l2GenesisBlockHash,
 				Number: l2GenesisBlockNumber,
 			},
-			L2Time: l1StartBlock.Time,
-			SystemConfig: eth.SystemConfig{
-				BatcherAddr: d.BatchSenderAddress,
-				Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleOverhead))),
-				Scalar:      eth.Bytes32(d.FeeScalar()),
-				GasLimit:    uint64(d.L2GenesisBlockGasLimit),
-			},
+			L2Time:       l1StartBlock.Time,
+			SystemConfig: d.GenesisSystemConfig(),
 		},
 		BlockTime:               d.L2BlockTime,
 		MaxSequencerDrift:       d.MaxSequencerDrift,
@@ -1027,7 +1031,19 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 		InteropTime:             d.InteropTime(l1StartTime),
 		ProtocolVersionsAddress: d.ProtocolVersionsProxy,
 		AltDAConfig:             altDA,
+		ChainOpConfig:           chainOpConfig,
 	}, nil
+}
+
+// GenesisSystemConfig converts a DeployConfig to a eth.SystemConfig. If Ecotone is active at genesis, the
+// Overhead value is considered a noop.
+func (d *DeployConfig) GenesisSystemConfig() eth.SystemConfig {
+	return eth.SystemConfig{
+		BatcherAddr: d.BatchSenderAddress,
+		Overhead:    eth.Bytes32(common.BigToHash(new(big.Int).SetUint64(d.GasPriceOracleOverhead))),
+		Scalar:      d.FeeScalar(),
+		GasLimit:    uint64(d.L2GenesisBlockGasLimit),
+	}
 }
 
 // NewDeployConfig reads a config file given a path on the filesystem.
