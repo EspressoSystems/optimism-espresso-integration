@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
+import "crypto/ecdsa"
 
 var (
 	ErrBatcherNotRunning = errors.New("batcher is not running")
@@ -781,7 +783,7 @@ func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
 	return c.TxHash
 }
 
-func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey *ecdsa.PrivateKey, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
 	// sanity checks
 	if nf := len(txdata.frames); nf != 1 {
 		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
@@ -801,7 +803,14 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 		}
 
 		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
-		// Sishan TODO: add batcher's signature on txdata sent to L1 here
+		// add batcher's signature on txdata sent to L1
+		sig, err := crypto.Sign(crypto.Keccak256(txdata.CallData()), batcherPrivateKey)
+		if err != nil {
+			l.Log.Warn("Error signning txdata when submitting to L1", "err", err)
+			l.recordFailedDARequest(txdata.ID(), err)
+			return err
+		}
+		candidate.TxData = append(candidate.TxData, sig...)
 		l.sendTx(txdata, false, candidate, queue, receiptsCh)
 
 		return nil
@@ -867,7 +876,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 	// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 	if l.Config.UseAltDA {
 		if l.Config.UseEspresso {
-			l.publishToEspressoAndL1(txdata, queue, receiptsCh, daGroup)
+			l.publishToEspressoAndL1(txdata, l.Config.BatcherPrivateKey, queue, receiptsCh, daGroup)
 			// we return nil to allow publishStateToL1 to keep processing the next txdata
 			return nil
 		} else {

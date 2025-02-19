@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	espresso "github.com/EspressoSystems/espresso-sequencer-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -45,6 +47,9 @@ type BatcherConfig struct {
 	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
+	// public key and private key of the batcher
+	BatcherPublicKey  *ecdsa.PublicKey
+	BatcherPrivateKey *ecdsa.PrivateKey
 
 	WaitNodeSync        bool
 	CheckRecentTxsDepth int
@@ -127,11 +132,14 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
 		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
-			return fmt.Errorf("Failed to create Espresso light client")
+			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
 		bs.UseEspresso = true
 		bs.UseAltDA = true
+		if err := bs.initKeyPair(); err != nil {
+			return fmt.Errorf("failed to create key pair for batcher: %w", err)
+		}
 	}
 
 	if err := bs.initRollupConfig(ctx); err != nil {
@@ -217,6 +225,16 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 		return fmt.Errorf("invalid rollup config: %w", err)
 	}
 	bs.RollupConfig.LogDescription(bs.Log, chaincfg.L2ChainIDToNetworkDisplayName)
+	return nil
+}
+
+func (bs *BatcherService) initKeyPair() error {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
+	}
+	bs.BatcherPrivateKey = key
+	bs.BatcherPublicKey = &key.PublicKey
 	return nil
 }
 
