@@ -3,13 +3,12 @@ package client
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"net"
 	"net/url"
 	"regexp"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/net/proxy"
 	"golang.org/x/time/rate"
 
 	"github.com/ethereum/go-ethereum"
@@ -156,12 +155,12 @@ func dialRPCClientWithBackoff(ctx context.Context, log log.Logger, addr string, 
 		return CheckAndDial(ctx, log, addr, cfg.gethRPCOptions...)
 	})
 }
+
 func CheckAndDial(ctx context.Context, log log.Logger, addr string, options ...rpc.ClientOption) (*rpc.Client, error) {
 	if !IsURLAvailable(ctx, addr) {
 		log.Warn("failed to dial address, but may connect later", "addr", addr)
 		return nil, fmt.Errorf("address unavailable (%s)", addr)
 	}
-	options = append(options, rpc.WithHTTPClient(http.DefaultClient))
 	client, err := rpc.DialOptions(ctx, addr, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial address (%s): %w", addr, err)
@@ -186,7 +185,8 @@ func IsURLAvailable(ctx context.Context, address string) bool {
 			return true
 		}
 	}
-	conn, err := proxy.Dial(ctx, "tcp", addr)
+	dialer := net.Dialer{Timeout: 5 * time.Second}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return false
 	}
