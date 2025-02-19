@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -13,6 +14,7 @@ import (
 const (
 	HintL2BlockHeader  = "l2-block-header"
 	HintL2Transactions = "l2-transactions"
+	HintL2Receipts     = "l2-receipts"
 	HintL2Code         = "l2-code"
 	HintL2StateNode    = "l2-state-node"
 	HintL2Output       = "l2-output"
@@ -30,13 +32,13 @@ func (l LegacyBlockHeaderHint) Hint() string {
 
 type HashAndChainID struct {
 	Hash    common.Hash
-	ChainID uint64
+	ChainID eth.ChainID
 }
 
 func (h HashAndChainID) Marshal() []byte {
 	d := make([]byte, 32+8)
 	copy(d[:32], h.Hash[:])
-	binary.BigEndian.PutUint64(d[32:], h.ChainID)
+	binary.BigEndian.PutUint64(d[32:], eth.EvilChainIDToUInt64(h.ChainID))
 	return d
 }
 
@@ -62,6 +64,14 @@ var _ preimage.Hint = TransactionsHint{}
 
 func (l TransactionsHint) Hint() string {
 	return HintL2Transactions + " " + hexutil.Encode(HashAndChainID(l).Marshal())
+}
+
+type ReceiptsHint HashAndChainID
+
+var _ preimage.Hint = ReceiptsHint{}
+
+func (l ReceiptsHint) Hint() string {
+	return HintL2Receipts + " " + hexutil.Encode(HashAndChainID(l).Marshal())
 }
 
 type CodeHint HashAndChainID
@@ -115,7 +125,7 @@ func (l LegacyL2OutputHint) Hint() string {
 type L2BlockDataHint struct {
 	AgreedBlockHash common.Hash
 	BlockHash       common.Hash
-	ChainID         uint64
+	ChainID         eth.ChainID
 }
 
 var _ preimage.Hint = L2BlockDataHint{}
@@ -124,7 +134,7 @@ func (l L2BlockDataHint) Hint() string {
 	hintBytes := make([]byte, 32+32+8)
 	copy(hintBytes[:32], (common.Hash)(l.AgreedBlockHash).Bytes())
 	copy(hintBytes[32:64], (common.Hash)(l.BlockHash).Bytes())
-	binary.BigEndian.PutUint64(hintBytes[64:], l.ChainID)
+	binary.BigEndian.PutUint64(hintBytes[64:], eth.EvilChainIDToUInt64(l.ChainID))
 	return fmt.Sprintf("%s 0x%s", HintL2BlockData, common.Bytes2Hex(hintBytes))
 }
 

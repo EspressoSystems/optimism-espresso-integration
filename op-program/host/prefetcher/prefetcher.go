@@ -36,6 +36,13 @@ var acceleratedPrecompiles = []common.Address{
 	common.BytesToAddress([]byte{0x1}),  // ecrecover
 	common.BytesToAddress([]byte{0x8}),  // bn256Pairing
 	common.BytesToAddress([]byte{0x0a}), // KZG Point Evaluation
+	common.BytesToAddress([]byte{0x0b}), // BLS12-381 G1 add
+	common.BytesToAddress([]byte{0x0c}), // BLS12-381 G1 multi-scalar-multiply
+	common.BytesToAddress([]byte{0x0d}), // BLS12-381 G2 add
+	common.BytesToAddress([]byte{0x0e}), // BLS12-381 G2 multi-scalar-multiply
+	common.BytesToAddress([]byte{0x0f}), // BLS12-381 pairing check
+	common.BytesToAddress([]byte{0x10}), // BLS12-381 hash-to-g1
+	common.BytesToAddress([]byte{0x11}), // BLS12-381 hash-to-g2
 }
 
 type L1Source interface {
@@ -53,7 +60,7 @@ type Prefetcher struct {
 	logger         log.Logger
 	l1Fetcher      L1Source
 	l1BlobFetcher  L1BlobSource
-	defaultChainID uint64
+	defaultChainID eth.ChainID
 	l2Sources      hosttypes.L2Sources
 	lastHint       string
 	kvStore        kvstore.KV
@@ -69,7 +76,7 @@ func NewPrefetcher(
 	logger log.Logger,
 	l1Fetcher L1Source,
 	l1BlobFetcher L1BlobSource,
-	defaultChainID uint64,
+	defaultChainID eth.ChainID,
 	l2Sources hosttypes.L2Sources,
 	kvStore kvstore.KV,
 	executor ProgramExecutor,
@@ -294,6 +301,20 @@ func (p *Prefetcher) prefetch(ctx context.Context, hint string) error {
 			return fmt.Errorf("failed to fetch L2 state node %s: %w", hash, err)
 		}
 		return p.kvStore.Put(preimage.Keccak256Key(hash).PreimageKey(), node)
+	case l2.HintL2Receipts:
+		hash, chainID, err := p.parseHashAndChainID("L2 receipts", hintBytes)
+		if err != nil {
+			return err
+		}
+		source, err := p.l2Sources.ForChainID(chainID)
+		if err != nil {
+			return err
+		}
+		_, receipts, err := source.FetchReceipts(ctx, hash)
+		if err != nil {
+			return fmt.Errorf("failed to fetch L1 block %s receipts: %w", hash, err)
+		}
+		return p.storeReceipts(receipts)
 	case l2.HintL2Code:
 		hash, chainID, err := p.parseHashAndChainID("L2 code", hintBytes)
 		if err != nil {
@@ -359,7 +380,7 @@ func (p *Prefetcher) prefetch(ctx context.Context, hint string) error {
 		}
 		agreedBlockHash := common.Hash(hintBytes[:32])
 		blockHash := common.Hash(hintBytes[32:64])
-		chainID := binary.BigEndian.Uint64(hintBytes[64:72])
+		chainID := eth.ChainIDFromUInt64(binary.BigEndian.Uint64(hintBytes[64:72]))
 		key := BlockDataKey(blockHash)
 		if _, err := p.kvStore.Get(key.Key()); err == nil {
 			return nil
@@ -378,14 +399,14 @@ func (p *Prefetcher) prefetch(ctx context.Context, hint string) error {
 	return fmt.Errorf("unknown hint type: %v", hintType)
 }
 
-func (p *Prefetcher) parseHashAndChainID(hintType string, hintBytes []byte) (common.Hash, uint64, error) {
+func (p *Prefetcher) parseHashAndChainID(hintType string, hintBytes []byte) (common.Hash, eth.ChainID, error) {
 	switch len(hintBytes) {
 	case 32:
 		return common.Hash(hintBytes), p.defaultChainID, nil
 	case 40:
-		return common.Hash(hintBytes[0:32]), binary.BigEndian.Uint64(hintBytes[32:]), nil
+		return common.Hash(hintBytes[0:32]), eth.ChainIDFromUInt64(binary.BigEndian.Uint64(hintBytes[32:])), nil
 	default:
-		return common.Hash{}, 0, fmt.Errorf("invalid %s hint: %x", hintType, hintBytes)
+		return common.Hash{}, eth.ChainID{}, fmt.Errorf("invalid %s hint: %x", hintType, hintBytes)
 	}
 }
 
@@ -437,5 +458,5 @@ func parseHint(hint string) (string, []byte, error) {
 }
 
 func getPrecompiledContract(address common.Address) vm.PrecompiledContract {
-	return vm.PrecompiledContractsCancun[address]
+	return vm.PrecompiledContractsPrague[address]
 }
