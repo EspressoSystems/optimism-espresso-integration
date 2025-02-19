@@ -343,7 +343,7 @@ func runPreMigration(opts preMigrationOptions) ([]*rawdb.NumberHash, uint64, err
 		}
 		// Scanning for stray ancient blocks is slow, so we do it as soon as we can after the lock on oldDB is released by migrateAncientsDb
 		// Doing this in parallel with copyDbExceptAncients still saves time if ancients have already been pre-migrated
-		if strayAncientBlocks, err = getStrayAncientBlocks(opts.oldDBPath); err != nil {
+		if strayAncientBlocks, err = getStrayAncientBlocks(opts.oldDBPath, numAncientsNewAfter); err != nil {
 			return fmt.Errorf("failed to get stray ancient blocks: %w", err)
 		}
 		return nil
@@ -501,20 +501,21 @@ func runDBCheck(opts dbCheckOptions) (err error) {
 
 	log.Info("DB Continuity Check Started", "dbPath", opts.dbPath)
 
-	// We want to open the db in readonly mode to take advantage of concurrency, but opening in readonly
+	// We want to open the ancient db in readonly mode to take advantage of concurrency, but opening in readonly
 	// mode will fail if the db is missing some files suffixed by ".meta". Our legacy celo db does not have
 	// ".meta" files, so opening in readonly mode will fail. Opening the db in readwrite mode will create the
 	// ".meta" files if they don't exist. So, we can open the db in readwrite mode and then close it so
 	// that the ".meta" files are created. We then reopen the db in readonly mode to run the actual script.
-	db, err := openDB(opts.dbPath, false)
+	ancientDB, err := NewChainFreezer(filepath.Join(opts.dbPath, "ancient"), "", false)
 	if err != nil {
-		return fmt.Errorf("failed to open db in readwrite mode: %w", err)
+		return fmt.Errorf("failed to open ancient db: %w", err)
 	}
-	if err = db.Close(); err != nil {
-		return fmt.Errorf("failed to close db in readwrite mode: %w", err)
+	err = ancientDB.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close ancient db: %w", err)
 	}
 
-	ancientDB, err := NewChainFreezer(filepath.Join(opts.dbPath, "ancient"), "", true)
+	ancientDB, err = NewChainFreezer(filepath.Join(opts.dbPath, "ancient"), "", true)
 	if err != nil {
 		return fmt.Errorf("failed to open ancient db: %w", err)
 	}
