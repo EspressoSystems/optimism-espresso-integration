@@ -90,10 +90,10 @@ enter-devnet DEVNET CHAIN='Ethereum':
     exec go run ../devnet-sdk/shell/cmd/enter/main.go --devnet tests/{{DEVNET}}.json --chain {{CHAIN}}
 
 # Espresso devnet
-espresso-devnet: (devnet "espresso.yaml" "" "" "github.com/QuentinI/espresso-optimism-package")
+espresso-devnet: (devnet "espresso.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package")
 
 # Espresso devnet with external batcher
-espresso-eb-devnet: (devnet "espresso-eb.yaml" "" "" "github.com/QuentinI/espresso-optimism-package")
+espresso-eb-devnet: (devnet "espresso-eb.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package")
 
 # Start an external batcher (assuming espresso-eb-devnet is running)
 external-batcher:
@@ -107,7 +107,7 @@ external-batcher:
   "--rollup-rpc=$(external_url 'op-cl-1-op-node-op-geth-op-kurtosis' 'http') "\
   "--l1-eth-rpc=$(external_url 'el-1-geth-lighthouse' 'rpc') "\
   "--espresso-url=$(external_url 'op-espresso-devnode' 'sequencer') "\
-  "--altda.da-server=$(external_url 'op-espresso-das' 'espresso-das') "\
+  "--altda.da-server=$(external_url 'da-server-op-kurtosis' 'http') "\
   "--poll-interval=1s --sub-safety-margin=6 --num-confirmations=1 --safe-abort-nonce-too-low-count=3 "\
   "--resubmission-timeout=30s --rpc.addr=0.0.0.0 --rpc.port=8548 --rpc.enable-admin "\
   "--max-channel-duration=1 --private-key=0xb3d2d558e3491a3709b7c451100a0366b5872520c7aa020c17a0e7fa35b6a8df "\
