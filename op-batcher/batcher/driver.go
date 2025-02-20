@@ -809,7 +809,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 	goroutineSpawned := daGroup.TryGo(func() error {
 		espComm, err := l.submitToEspresso(txdata)
 		if err != nil {
-			l.Log.Warn("Error publishing to Espresso", "err", err)
+			l.Log.Error("Failed to submit transaction", "error", err)
 			l.recordFailedDARequest(txdata.ID(), err)
 			return err
 		}
