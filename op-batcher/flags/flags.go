@@ -190,15 +190,15 @@ var (
 	}
 	EspressoUrlFlag = &cli.StringFlag{
 		Name:    "espresso-url",
-		Usage:   "",
+		Usage:   "URL of Espresso query service",
 		Value:   "",
 		EnvVars: prefixEnvVars("ESPRESSO_URL"),
 	}
 
 	EspressoLCAddrFlag = &cli.StringFlag{
 		Name:    "espresso-light-client-addr",
-		Usage:   "",
-		Value:   "0x422a3492e218383753d8006c7bfa97815b44373f",
+		Usage:   "Address of Espresso Light Client contract proxy",
+		Value:   "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
 		EnvVars: prefixEnvVars("ESPRESSO_LIGHT_CLIENT_ADDR"),
 	}
 	// Legacy Flags
