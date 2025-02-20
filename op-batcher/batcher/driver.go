@@ -811,6 +811,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 			l.recordFailedDARequest(txdata.ID(), err)
 			return err
 		}
+		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
 
 		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
 		l.sendTx(txdata, false, candidate, queue, receiptsCh)

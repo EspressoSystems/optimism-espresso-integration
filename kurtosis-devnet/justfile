@@ -132,8 +132,9 @@ external-batcher:
   command="${batcher} "\
   "--l2-eth-rpc=$(external_url 'op-el-1-op-geth-op-node-op-kurtosis' 'rpc') "\
   "--rollup-rpc=$(external_url 'op-cl-1-op-node-op-geth-op-kurtosis' 'http') "\
-  "--l1-eth-rpc=$(external_url 'el-1-geth-lighthouse' 'rpc') "\
+  "--l1-eth-rpc=$(external_url 'el-1-geth-teku' 'rpc') "\
   "--espresso-url=$(external_url 'op-espresso-devnode' 'sequencer') "\
+  "--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797" \
   "--altda.da-server=$(external_url 'da-server-op-kurtosis' 'http') "\
   "--poll-interval=1s --sub-safety-margin=6 --num-confirmations=1 --safe-abort-nonce-too-low-count=3 "\
   "--resubmission-timeout=30s --rpc.addr=0.0.0.0 --rpc.port=8548 --rpc.enable-admin "\
