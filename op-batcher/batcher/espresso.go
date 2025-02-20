@@ -11,6 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+// TODO: these are placeholders waiting for real implementation of
+// attestation generation and batch signing
+const exampleNamespace = 42
+
+var exampleSignature = [...]byte{1, 2, 3, 4}
+var exampleTeeAttn = [...]byte{5, 6, 7, 8}
+
 // TODO: Pull out to be re-used in op-node for derivation from Espresso
 type Transaction struct {
 	// Namespace of transaction to be published
@@ -21,6 +28,20 @@ type Transaction struct {
 	CallData []byte
 }
 
+// Parameters for transaction fetching loop, which waits for transactions
+// to be sequenced on Espresso
+const (
+	transactionFetchTimeout  = 2 * time.Minute
+	transactionFetchInterval = 100 * time.Millisecond
+)
+
+// Parameters for finality checking loop, which waits for merkle proof for
+// Espresso transaction to be available from Light Client contract
+const (
+	finalityTimeout       = 2 * time.Minute
+	finalityCheckInterval = 100 * time.Millisecond
+)
+
 func (t Transaction) toEspresso() espressoCommon.Transaction {
 	payload := append(t.TeeAttn, t.CallData...)
 	return espressoCommon.Transaction{
@@ -30,10 +51,10 @@ func (t Transaction) toEspresso() espressoCommon.Transaction {
 }
 
 func (l *BatchSubmitter) waitForFinality(height uint64, rawHeader json.RawMessage, header *espressoCommon.HeaderImpl) error {
-	timer := time.NewTimer(2 * time.Minute)
+	timer := time.NewTimer(finalityTimeout)
 	defer timer.Stop()
 
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(finalityCheckInterval)
 	defer ticker.Stop()
 
 	var snapshot espressoCommon.BlockMerkleSnapshot
@@ -82,7 +103,7 @@ Loop:
 	}
 
 	namespaceOk := espressoVerification.VerifyNamespace(
-		42,
+		exampleNamespace,
 		resp.Proof,
 		*header.Header.GetPayloadCommitment(),
 		*header.Header.GetNsTable(),
@@ -99,8 +120,8 @@ Loop:
 
 func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, error) {
 	transaction := Transaction{
-		Namespace: 42,
-		TeeAttn:   []byte{1, 2, 3, 4},
+		Namespace: exampleNamespace,
+		TeeAttn:   exampleTeeAttn[:],
 		CallData:  txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
@@ -110,10 +131,10 @@ func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, e
 		return nil, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
-	timer := time.NewTimer(2 * time.Minute)
+	timer := time.NewTimer(transactionFetchTimeout)
 	defer timer.Stop()
 
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(transactionFetchInterval)
 	defer ticker.Stop()
 
 	var txQueryData espressoCommon.TransactionQueryData
@@ -151,12 +172,10 @@ Loop:
 		return nil, err
 	}
 
-	// TODO: Generate a real attestation
-	teeAttestation := []byte{1, 2, 3, 4}
-
 	espComm := EspressoCommitment{
-		TeeAttestation: teeAttestation,
-		TxHash:         txQueryData.Hash.Value(),
+		// TODO: Generate a real signature
+		Signature: exampleSignature[:],
+		TxHash:    txQueryData.Hash.Value(),
 	}
 
 	return &espComm, nil
