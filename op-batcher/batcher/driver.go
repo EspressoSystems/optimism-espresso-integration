@@ -834,7 +834,7 @@ type EspressoCommitment struct {
 }
 
 func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
-	return c.TxHash
+	return append(c.TxHash, c.Signature...)
 }
 
 func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
