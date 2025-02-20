@@ -16,7 +16,6 @@ type Transaction struct {
 	Namespace uint64
 	// TEE attestation to be verified by op-node
 	TeeAttn []byte
-	// Sishan TODO: Append sequencer's signature of the transaction
 	// Frames serialized as they would be for posting to L1 as calldata
 	CallData []byte
 }
@@ -99,15 +98,9 @@ Loop:
 
 func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, error) {
 
-	// Get attestation for the transaction data
-	// TeeAttn, err := enclave.GetAttestationWithTxData(txdata)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get attestation: %w", err)
-	// }
-
 	transaction := Transaction{
 		Namespace: 42,
-		TeeAttn:   []byte{1, 2, 3, 4},
+		TeeAttn:   []byte{1, 2, 3, 4}, // TODO: Change to sequencer's signature on the transaction
 		CallData:  txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
@@ -158,7 +151,7 @@ Loop:
 		return nil, err
 	}
 
-	// TODO: Generate a real attestation
+	// TODO: remove it or change to sequencer's signature on the transaction
 	teeAttestation := []byte{1, 2, 3, 4}
 
 	espComm := EspressoCommitment{

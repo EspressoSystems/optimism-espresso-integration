@@ -75,10 +75,43 @@ COPY --from=cannon-builder-v1-2-0 /usr/local/bin/cannon-3 ./cannon/multicannon/e
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd cannon && make cannon  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$CANNON_VERSION"
 
-FROM --platform=$BUILDPLATFORM builder AS op-batcher-builder
+FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
+ARG ESPRESSO_SEQUENCER_GO_VER=0.0.30
+RUN apk add perl make openssl-dev musl-dev gcc
+ADD https://github.com/EspressoSystems/espresso-sequencer-go/archive/refs/tags/v$ESPRESSO_SEQUENCER_GO_VER.tar.gz /source.tgz
+RUN tar -oxzf /source.tgz
+WORKDIR /espresso-sequencer-go-$ESPRESSO_SEQUENCER_GO_VER
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+  --mount=type=cache,target=/espresso-sequencer-go/verification/rust/target \
+  cargo build --release  --locked  --manifest-path ./verification/rust/Cargo.toml
+RUN mkdir -p /libespresso
+RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
+  /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.a
+RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
+  /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+
+# We don't use the golang image for batcher because it doesn't play well with CGO
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS op-batcher-builder
 ARG OP_BATCHER_VERSION=v0.0.0
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-batcher && make op-batcher  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_BATCHER_VERSION"
+# Install dependencies
+RUN apk add  musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
+# Install just from mise (alpine's outdated and incompatible)
+COPY ./mise.toml .
+RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
+  tar xz -C /usr/local/bin just
+# Go sources
+COPY ./go.mod /app/go.mod
+COPY ./go.sum /app/go.sum
+# Copy rust libs for dynamic linking
+COPY --from=rust-builder /libespresso/* /lib
+# Warm-up the cache
+WORKDIR /app
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
+# Build
+COPY . /app
+WORKDIR /app/op-batcher
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_BATCHER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
 
 
 FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS cannon-target
@@ -103,6 +136,7 @@ FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS op-batcher-target
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 
 RUN apk add --no-cache socat
+RUN apk add gcc
 # Copy entrypoint.sh from the builder stage (adjust "builder" if needed to match your stage name)
 COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
 

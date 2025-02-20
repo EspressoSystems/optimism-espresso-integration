@@ -14,4 +14,7 @@ defaults:
 
 egress:
   allow:
-    - 172.31.37.114 # <YOUR_IP>
+    - 172.31.44.220 # <YOUR_IP>
+    - github.com
+    - objects.githubusercontent.com
+    - 172.31.37.114

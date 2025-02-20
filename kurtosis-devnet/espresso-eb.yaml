@@ -44,10 +44,7 @@ optimism_package:
         holocene_time_offset: 0
         fund_dev_accounts: true
       batcher_params:
-        dry_run: true
-        image: '{{ localDockerImage "op-batcher" }}'
-        extra_params:
-          - "--espresso-url=http://op-espresso-devnode:24000"
+        image: ""
       challenger_params:
         image: '{{ localDockerImage "op-challenger" }}'
         cannon_prestate_path: ""

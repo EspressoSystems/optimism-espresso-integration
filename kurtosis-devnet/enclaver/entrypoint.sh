@@ -6,14 +6,14 @@ set -e
 # -----------------------------------------------------------------------------
 export PROXY_HOST="127.0.0.1"
 export PROXY_PORT="10000"
-export REMOTE_HOST="172.31.37.114" # get your ip address with $(hostname -I | awk '{print $1}')
+export REMOTE_HOST="172.31.44.220" # get your ip address with $(hostname -I | awk '{print $1}')
 
 # Define the ports for each service.
 export REMOTE_PORT_L2_RPC="32786"   # Used for l2-eth-rpc
-export REMOTE_PORT_ROLLUP="32789"   # For rollup-rpc (if needed)
+export REMOTE_PORT_ROLLUP="32789"   # For rollup-rpc
 export REMOTE_PORT_L1_RPC="32774"   # Used for l1-eth-rpc
-export REMOTE_PORT_ESPRESSO="32780" # For espresso-url
-export REMOTE_PORT_ALTDA="32781"    # For altda.da-server
+export REMOTE_PORT_ESPRESSO="32779" # For espresso-url
+export REMOTE_PORT_ALTDA="32780"    # For altda.da-server
 
 # -----------------------------------------------------------------------------
 # Start socat proxies in the background
