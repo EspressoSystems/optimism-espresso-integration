@@ -787,12 +787,12 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 }
 
 type EspressoCommitment struct {
-	TeeAttestation []byte
-	TxHash         []byte
+	Signature []byte
+	TxHash    []byte
 }
 
 func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
-	return c.TxHash
+	return append(c.TxHash, c.Signature...)
 }
 
 func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey *ecdsa.PrivateKey, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
@@ -813,6 +813,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 			l.recordFailedDARequest(txdata.ID(), err)
 			return err
 		}
+		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
 
 		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
 		// add batcher's signature on txdata sent to L1
