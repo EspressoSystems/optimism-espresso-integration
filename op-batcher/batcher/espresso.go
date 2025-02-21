@@ -14,7 +14,6 @@ import (
 // attestation generation and batch signing
 const exampleNamespace = 42
 
-var exampleSignature = [...]byte{1, 2, 3, 4}
 var exampleTeeAttn = [...]byte{5, 6, 7, 8}
 
 // TODO: Pull out to be re-used in op-node for derivation from Espresso
