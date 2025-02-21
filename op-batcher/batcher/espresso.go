@@ -117,7 +117,7 @@ Loop:
 	return nil
 }
 
-func (l *BatchSubmitter) submitToEspresso(txdata txData) (*EspressoCommitment, error) {
+func (l *BatchSubmitter) submitToEspresso(txdata txData, sig []byte) (*EspressoCommitment, error) {
 
 	transaction := Transaction{
 		Namespace: exampleNamespace,
@@ -173,8 +173,7 @@ Loop:
 	}
 
 	espComm := EspressoCommitment{
-		// TODO: Generate a real signature
-		Signature: exampleSignature[:],
+		Signature: sig,
 		TxHash:    txQueryData.Hash.Value(),
 	}
 
