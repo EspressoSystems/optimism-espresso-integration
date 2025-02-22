@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/op-batcher/enclave"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
@@ -89,6 +90,8 @@ type BatcherService struct {
 	stopped         atomic.Bool
 
 	NotSubmittingOnStart bool
+
+	Attestation []byte
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -101,6 +104,12 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
+	// add attestation on public key here
+	attestation, err := enclave.GetAttestationWithTxData(bs.BatcherPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attestation: %w", err)
+	}
+	bs.Attestation = attestation
 	return &bs, nil
 }
 
