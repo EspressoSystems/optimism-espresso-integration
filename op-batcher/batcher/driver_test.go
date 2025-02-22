@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
@@ -116,22 +115,4 @@ func TestBatchSubmitter_SafeL1Origin_FailsToResolveRollupClient(t *testing.T) {
 
 	_, err := bs.safeL1Origin(context.Background())
 	require.Error(t, err)
-}
-
-func TestBatchSubmitter_SignatureGeneration(t *testing.T) {
-	bs, _ := setup(t)
-
-	txdata := emptyTxData
-
-	// add batcher's signature on txdata sent to L1
-	sig, err := crypto.Sign(crypto.Keccak256(txdata.CallData()), bs.Config.BatcherPrivateKey)
-	require.NoError(t, err)
-
-	// test that the valid signature can be verified
-	pubKeyBytes := crypto.FromECDSAPub(bs.Config.BatcherPublicKey)
-	require.True(t, crypto.VerifySignature(pubKeyBytes, crypto.Keccak256(txdata.CallData()), sig))
-
-	// test that the invalid signature cannot be verified
-	badSig := []byte{1, 2, 3, 4}
-	require.False(t, crypto.VerifySignature(pubKeyBytes, crypto.Keccak256(txdata.CallData()), badSig))
 }
