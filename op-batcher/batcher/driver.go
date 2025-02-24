@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -843,7 +842,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 	goroutineSpawned := daGroup.TryGo(func() error {
 
 		// add batcher's signature on txdata sent to L1
-		sig, err := crypto.Sign(crypto.Keccak256(txdata.CallData()), batcherPrivateKey)
+		sig, err := txdata.signTx(batcherPrivateKey)
 		if err != nil {
 			l.Log.Warn("Error signning txdata when submitting to L1", "err", err)
 			l.recordFailedDARequest(txdata.ID(), err)

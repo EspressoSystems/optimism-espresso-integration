@@ -75,6 +75,7 @@ COPY --from=cannon-builder-v1-2-0 /usr/local/bin/cannon-3 ./cannon/multicannon/e
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd cannon && make cannon  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$CANNON_VERSION"
 
+# Download and build the espresso-sequencer-go library
 FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
 ARG ESPRESSO_SEQUENCER_GO_VER=0.0.30
 RUN apk add perl make openssl-dev musl-dev gcc
