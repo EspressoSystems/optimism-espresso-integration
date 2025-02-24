@@ -123,11 +123,14 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	}
 	// add attestation on public key when running in enclave
 	if bs.UseEspresso && isRunningInEnclave() {
+		bs.Log.Info("Successfully connected to enclave")
 		attestation, err := enclave.GetAttestationWithTxData(bs.BatcherPublicKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get attestation: %w", err)
 		}
 		bs.Attestation = attestation
+	} else {
+		bs.Log.Info("Not running in enclave, skipping attestation")
 	}
 	return &bs, nil
 }
