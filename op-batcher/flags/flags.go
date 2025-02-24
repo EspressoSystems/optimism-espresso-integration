@@ -188,9 +188,16 @@ var (
 	}
 	EspressoUrlFlag = &cli.StringFlag{
 		Name:    "espresso-url",
-		Usage:   "",
-		Value:   "", // should be larger than the builder's max-l2-tx-size to prevent endlessly throttling some txs
+		Usage:   "URL of Espresso query service",
+		Value:   "",
 		EnvVars: prefixEnvVars("ESPRESSO_URL"),
+	}
+
+	EspressoLCAddrFlag = &cli.StringFlag{
+		Name:    "espresso-light-client-addr",
+		Usage:   "Address of Espresso Light Client contract proxy",
+		Value:   "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
+		EnvVars: prefixEnvVars("ESPRESSO_LIGHT_CLIENT_ADDR"),
 	}
 	// Legacy Flags
 	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
@@ -226,6 +233,7 @@ var optionalFlags = []cli.Flag{
 	ThrottleBlockSizeFlag,
 	ThrottleAlwaysBlockSizeFlag,
 	EspressoUrlFlag,
+	EspressoLCAddrFlag,
 }
 
 func init() {

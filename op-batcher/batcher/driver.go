@@ -1,6 +1,8 @@
 package batcher
 
 import (
+	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
+	"C"
 	"context"
 	"errors"
 	"fmt"
@@ -21,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-sequencer-go/types"
+	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -83,17 +85,18 @@ type RollupClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log               log.Logger
-	Metr              metrics.Metricer
-	RollupConfig      *rollup.Config
-	Config            BatcherConfig
-	Txmgr             txmgr.TxManager
-	L1Client          L1Client
-	EndpointProvider  dial.L2EndpointProvider
-	ChannelConfig     ChannelConfigProvider
-	AltDA             *altda.DAClient
-	Espresso          *espressoClient.Client
-	ChannelOutFactory ChannelOutFactory
+	Log                 log.Logger
+	Metr                metrics.Metricer
+	RollupConfig        *rollup.Config
+	Config              BatcherConfig
+	Txmgr               txmgr.TxManager
+	L1Client            L1Client
+	EndpointProvider    dial.L2EndpointProvider
+	ChannelConfig       ChannelConfigProvider
+	AltDA               *altda.DAClient
+	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
+	ChannelOutFactory   ChannelOutFactory
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -782,12 +785,12 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 }
 
 type EspressoCommitment struct {
-	TeeAttestation []byte
-	TxHash         []byte
+	Signature []byte
+	TxHash    []byte
 }
 
 func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
-	return c.TxHash
+	return append(c.TxHash, c.Signature...)
 }
 
 func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
@@ -802,52 +805,17 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 	// when posting txdata to an external DA Provider, we use a goroutine to avoid blocking the main loop
 	// since it may take a while for the request to return.
 	goroutineSpawned := daGroup.TryGo(func() error {
-		transaction := espressoCommon.Transaction{
-			Namespace: 42,
-			Payload:   txdata.CallData(),
-		}
-		txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
+		espComm, err := l.submitToEspresso(txdata)
 		if err != nil {
 			l.Log.Error("Failed to submit transaction", "error", err)
 			l.recordFailedDARequest(txdata.ID(), err)
-			return fmt.Errorf("failed to submit transaction: %w", err)
+			return err
 		}
-
-		timer := time.NewTimer(2 * time.Minute)
-		defer timer.Stop()
-
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-
-		var txQueryData espressoCommon.TransactionQueryData
-	Loop:
-		for {
-			select {
-			case <-ticker.C:
-				txQueryData, err = l.Espresso.FetchTransactionByHash(l.shutdownCtx, txHash)
-				if err == nil {
-					break Loop
-				}
-				l.Log.Warn("Retry fetching transaction by hash", "txHash", txHash, "error", err)
-			case <-timer.C:
-				l.Log.Error("Failed to fetch transaction by hash after multiple attempts", "txHash", txHash)
-				return fmt.Errorf("failed to fetch transaction by hash: %w", err)
-			}
-		}
-
-		// TODO: Fetch and verify proofs here
-		// ...
-
-		// TODO: Generate a real attestation
-		teeAttestation := []byte{}
-
-		espComm := EspressoCommitment{
-			TeeAttestation: teeAttestation,
-			TxHash:         txQueryData.Hash.Value(),
-		}
+		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
 
 		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
 		l.sendTx(txdata, false, candidate, queue, receiptsCh)
+
 		return nil
 	})
 	if !goroutineSpawned {

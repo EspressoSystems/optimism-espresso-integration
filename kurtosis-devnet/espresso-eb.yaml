@@ -45,9 +45,9 @@ optimism_package:
         fund_dev_accounts: true
       batcher_params:
         dry_run: true
-        image: '{{ localDockerImage "op-batcher" }}'
         extra_params:
           - "--espresso-url=http://op-espresso-devnode:24000"
+          - "--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
       challenger_params:
         image: '{{ localDockerImage "op-challenger" }}'
         cannon_prestate_path: ""
