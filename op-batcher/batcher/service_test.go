@@ -20,7 +20,7 @@ func TestBatchSubmitter_SignatureGeneration(t *testing.T) {
 	bs.Config.BatcherPublicKey = &key.PublicKey
 
 	// add batcher's signature on txdata sent to L1
-	sig, err := crypto.Sign(crypto.Keccak256(txdata.CallData()), bs.Config.BatcherPrivateKey)
+	sig, err := txdata.signTx(bs.Config.BatcherPrivateKey)
 	require.NoError(t, err)
 
 	// test that the valid signature can be verified
