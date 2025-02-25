@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/op-batcher/enclave"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
@@ -32,6 +33,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/mdlayher/vsock"
 )
 
 var ErrAlreadyStopped = errors.New("already stopped")
@@ -89,9 +91,27 @@ type BatcherService struct {
 	stopped         atomic.Bool
 
 	NotSubmittingOnStart bool
+
+	Attestation []byte
 }
 
 type DriverSetupOption func(setup *DriverSetup)
+
+const (
+	attestationCID  = 3    // Well-known vsock CID for the attestation agent
+	attestationPort = 8000 // Default port for the attestation agent
+)
+
+func isRunningInEnclave() bool {
+	// Attempt to dial the Nitro Enclaves attestation agent via vsock.
+	// We use a short timeout to avoid blocking too long if not present.
+	conn, err := vsock.Dial(attestationCID, attestationPort, &vsock.Config{})
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
 
 // BatcherServiceFromCLIConfig creates a new BatcherService from a CLIConfig.
 // The service components are fully started, except for the driver,
@@ -100,6 +120,17 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	var bs BatcherService
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
+	}
+	// add attestation on public key when running in enclave
+	if bs.UseEspresso && isRunningInEnclave() {
+		bs.Log.Info("Successfully connected to enclave")
+		attestation, err := enclave.GetAttestationWithTxData(bs.BatcherPublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get attestation: %w", err)
+		}
+		bs.Attestation = attestation
+	} else {
+		bs.Log.Info("Not running in enclave, skipping attestation")
 	}
 	return &bs, nil
 }

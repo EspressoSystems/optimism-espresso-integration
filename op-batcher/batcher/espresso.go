@@ -20,7 +20,7 @@ var exampleTeeAttn = [...]byte{5, 6, 7, 8}
 type Transaction struct {
 	// Namespace of transaction to be published
 	Namespace uint64
-	// TEE attestation to be verified by op-node
+	// TODO: we'll use sequencer's signature instead
 	TeeAttn []byte
 	// Frames serialized as they would be for posting to L1 as calldata
 	CallData []byte
