@@ -155,7 +155,7 @@ external-batcher-parameters:
 
   parameter="l2-eth-rpc = $(external_url 'op-el-1-op-geth-op-node-op-kurtosis' 'rpc')"
   parameter2="rollup-rpc = $(external_url 'op-cl-1-op-node-op-geth-op-kurtosis' 'http') "
-  parameter3="l1-eth-rpc = $(external_url 'el-1-geth-lighthouse' 'rpc') "
+  parameter3="l1-eth-rpc = $(external_url 'el-1-geth-teku' 'rpc') "
   parameter4="espresso-url = $(external_url 'op-espresso-devnode' 'sequencer') "
   parameter5="altda.da-server = $(external_url 'op-espresso-das' 'espresso-das')"
 

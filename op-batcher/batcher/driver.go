@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
+import "crypto/ecdsa"
 
 var (
 	ErrBatcherNotRunning = errors.New("batcher is not running")
@@ -793,7 +794,7 @@ func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
 	return append(c.TxHash, c.Signature...)
 }
 
-func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey *ecdsa.PrivateKey, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
 	// sanity checks
 	if nf := len(txdata.frames); nf != 1 {
 		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
@@ -805,7 +806,16 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, queue *txmgr.Queu
 	// when posting txdata to an external DA Provider, we use a goroutine to avoid blocking the main loop
 	// since it may take a while for the request to return.
 	goroutineSpawned := daGroup.TryGo(func() error {
-		espComm, err := l.submitToEspresso(txdata)
+
+		// add batcher's signature on txdata sent to L1
+		sig, err := txdata.signTx(batcherPrivateKey)
+		if err != nil {
+			l.Log.Warn("Error signning txdata when submitting to L1", "err", err)
+			l.recordFailedDARequest(txdata.ID(), err)
+			return err
+		}
+
+		espComm, err := l.submitToEspresso(txdata, sig)
 		if err != nil {
 			l.Log.Error("Failed to submit transaction", "error", err)
 			l.recordFailedDARequest(txdata.ID(), err)
@@ -879,7 +889,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 	// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 	if l.Config.UseAltDA {
 		if l.Config.UseEspresso {
-			l.publishToEspressoAndL1(txdata, queue, receiptsCh, daGroup)
+			l.publishToEspressoAndL1(txdata, l.Config.BatcherPrivateKey, queue, receiptsCh, daGroup)
 			// we return nil to allow publishStateToL1 to keep processing the next txdata
 			return nil
 		} else {

@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -12,10 +13,12 @@ import (
 	espresso "github.com/EspressoSystems/espresso-sequencer-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/op-batcher/enclave"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
@@ -30,6 +33,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/mdlayher/vsock"
 )
 
 var ErrAlreadyStopped = errors.New("already stopped")
@@ -45,6 +49,9 @@ type BatcherConfig struct {
 	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
+	// public key and private key of the batcher
+	BatcherPublicKey  *ecdsa.PublicKey
+	BatcherPrivateKey *ecdsa.PrivateKey
 
 	WaitNodeSync        bool
 	CheckRecentTxsDepth int
@@ -84,9 +91,27 @@ type BatcherService struct {
 	stopped         atomic.Bool
 
 	NotSubmittingOnStart bool
+
+	Attestation []byte
 }
 
 type DriverSetupOption func(setup *DriverSetup)
+
+const (
+	attestationCID  = 3    // Well-known vsock CID for the attestation agent
+	attestationPort = 8000 // Default port for the attestation agent
+)
+
+func isRunningInEnclave() bool {
+	// Attempt to dial the Nitro Enclaves attestation agent via vsock.
+	// We use a short timeout to avoid blocking too long if not present.
+	conn, err := vsock.Dial(attestationCID, attestationPort, &vsock.Config{})
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
 
 // BatcherServiceFromCLIConfig creates a new BatcherService from a CLIConfig.
 // The service components are fully started, except for the driver,
@@ -95,6 +120,17 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	var bs BatcherService
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
+	}
+	// generate attestation on public key when start batcher in enclave
+	if bs.UseEspresso && isRunningInEnclave() {
+		bs.Log.Info("Successfully connected to enclave")
+		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get attestation: %w", err)
+		}
+		bs.Attestation = attestation
+	} else {
+		bs.Log.Info("Not running in enclave, skipping attestation")
 	}
 	return &bs, nil
 }
@@ -127,11 +163,14 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
 		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
-			return fmt.Errorf("Failed to create Espresso light client")
+			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
 		bs.UseEspresso = true
 		bs.UseAltDA = true
+		if err := bs.initKeyPair(); err != nil {
+			return fmt.Errorf("failed to create key pair for batcher: %w", err)
+		}
 	}
 
 	if err := bs.initRollupConfig(ctx); err != nil {
@@ -217,6 +256,16 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 		return fmt.Errorf("invalid rollup config: %w", err)
 	}
 	bs.RollupConfig.LogDescription(bs.Log, chaincfg.L2ChainIDToNetworkDisplayName)
+	return nil
+}
+
+func (bs *BatcherService) initKeyPair() error {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
+	}
+	bs.BatcherPrivateKey = key
+	bs.BatcherPublicKey = &key.PublicKey
 	return nil
 }
 
