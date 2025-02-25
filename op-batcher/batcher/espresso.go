@@ -10,18 +10,17 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// TODO: these are placeholders waiting for real implementation of
-// attestation generation and batch signing
 const exampleNamespace = 42
 
-var exampleTeeAttn = [...]byte{5, 6, 7, 8}
+// TODO: this is a placeholder for relaying sequencer's signature
+var exampleSignature = [...]byte{5, 6, 7, 8}
 
 // TODO: Pull out to be re-used in op-node for derivation from Espresso
 type Transaction struct {
 	// Namespace of transaction to be published
 	Namespace uint64
-	// TODO: we'll use sequencer's signature instead
-	TeeAttn []byte
+	// TODO: placeholder for sequencer's signature
+	SequencerSignature []byte
 	// Frames serialized as they would be for posting to L1 as calldata
 	CallData []byte
 }
@@ -41,7 +40,7 @@ const (
 )
 
 func (t Transaction) toEspresso() espressoCommon.Transaction {
-	payload := append(t.TeeAttn, t.CallData...)
+	payload := append(t.SequencerSignature, t.CallData...)
 	return espressoCommon.Transaction{
 		Namespace: t.Namespace,
 		Payload:   payload,
@@ -119,9 +118,9 @@ Loop:
 func (l *BatchSubmitter) submitToEspresso(txdata txData, sig []byte) (*EspressoCommitment, error) {
 
 	transaction := Transaction{
-		Namespace: exampleNamespace,
-		TeeAttn:   exampleTeeAttn[:],
-		CallData:  txdata.CallData(),
+		Namespace:          exampleNamespace,
+		SequencerSignature: exampleSignature[:],
+		CallData:           txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
 	if err != nil {

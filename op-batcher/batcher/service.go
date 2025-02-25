@@ -121,7 +121,7 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
-	// add attestation on public key when running in enclave
+	// generate attestation on public key when start batcher in enclave
 	if bs.UseEspresso && isRunningInEnclave() {
 		bs.Log.Info("Successfully connected to enclave")
 		attestation, err := enclave.GetAttestationWithTxData(bs.BatcherPublicKey)
