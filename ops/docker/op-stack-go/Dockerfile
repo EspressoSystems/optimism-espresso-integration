@@ -212,6 +212,8 @@ COPY --from=op-dispute-mon-builder /app/op-dispute-mon/bin/op-dispute-mon /usr/l
 CMD ["op-dispute-mon"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 RUN apk add gcc
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
