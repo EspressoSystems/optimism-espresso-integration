@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -33,7 +34,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/mdlayher/vsock"
 )
 
 var ErrAlreadyStopped = errors.New("already stopped")
@@ -97,20 +97,15 @@ type BatcherService struct {
 
 type DriverSetupOption func(setup *DriverSetup)
 
-const (
-	attestationCID  = 3    // Well-known vsock CID for the attestation agent
-	attestationPort = 8000 // Default port for the attestation agent
-)
-
 func isRunningInEnclave() bool {
-	// Attempt to dial the Nitro Enclaves attestation agent via vsock.
-	// We use a short timeout to avoid blocking too long if not present.
-	conn, err := vsock.Dial(attestationCID, attestationPort, &vsock.Config{})
+	// Check whether `/sys/devices/virtual/misc/nitro_enclaves/` exists.
+	// If the directory does not exist, you're inside an enclave.
+	// If it does exist, you're outside the enclave.
+	fi, err := os.Stat("/sys/devices/virtual/misc/nitro_enclaves/")
 	if err != nil {
-		return false
+		return true
 	}
-	_ = conn.Close()
-	return true
+	return !fi.IsDir()
 }
 
 // BatcherServiceFromCLIConfig creates a new BatcherService from a CLIConfig.
@@ -128,6 +123,8 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 		if err != nil {
 			return nil, fmt.Errorf("failed to get attestation: %w", err)
 		}
+		// output length of attestation
+		bs.Log.Info("Attestation length", "length", len(attestation))
 		bs.Attestation = attestation
 	} else {
 		bs.Log.Info("Not running in enclave, skipping attestation")
