@@ -97,13 +97,14 @@ type BatcherService struct {
 
 type DriverSetupOption func(setup *DriverSetup)
 
-func isRunningInEnclave() bool {
+func (bs *BatcherService) isRunningInEnclave() bool {
 	// Check whether `/sys/devices/virtual/misc/nitro_enclaves/` exists.
 	// If the directory does not exist, you're inside an enclave.
 	// If it does exist, you're outside the enclave.
 	fi, err := os.Stat("/sys/devices/virtual/misc/nitro_enclaves/")
 	if err != nil {
-		return true
+		bs.Log.Error("failed to check whether running in enclave: %w", err)
+		return false
 	}
 	return !fi.IsDir()
 }
@@ -117,7 +118,7 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
 	// generate attestation on public key when start batcher in enclave
-	if bs.UseEspresso && isRunningInEnclave() {
+	if bs.UseEspresso && bs.isRunningInEnclave() {
 		bs.Log.Info("Successfully connected to enclave")
 		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
