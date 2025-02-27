@@ -205,7 +205,7 @@ jobs:
   cannon-go-lint-and-test:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     parameters:
       skip_slow_tests:
         type: boolean
@@ -309,7 +309,7 @@ jobs:
   diff-asterisc-bytecode:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - run:
@@ -664,10 +664,9 @@ jobs:
           working_directory: packages/contracts-bedrock
 
   contracts-bedrock-tests:
-    circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     parameters:
       test_list:
         description: List of test files to run
@@ -750,10 +749,9 @@ jobs:
       - notify-failures-on-develop
 
   contracts-bedrock-coverage:
-    circleci_ip_ranges: true
     docker:
         - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     parameters:
       test_flags:
         description: Additional flags to pass to the test command
@@ -826,8 +824,7 @@ jobs:
       - notify-failures-on-develop
 
   contracts-bedrock-tests-upgrade:
-    circleci_ip_ranges: true
-    parameters:
+   parameters:
       fork_op_chain:
         description: Fork OP Chain
         type: string
@@ -917,7 +914,7 @@ jobs:
   contracts-bedrock-checks:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - attach_workspace: { at: "." }
@@ -985,7 +982,7 @@ jobs:
         default: false
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - check-changed:
@@ -1011,7 +1008,7 @@ jobs:
   go-lint:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - run:
@@ -1033,7 +1030,7 @@ jobs:
       resource_class:
         description: Machine resource class
         type: string
-        default: xlarge
+        default: large
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
@@ -1258,7 +1255,7 @@ jobs:
   cannon-prestate-quick:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - restore_cache:
@@ -1299,7 +1296,7 @@ jobs:
   publish-cannon-prestates:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - attach_workspace:
@@ -1387,7 +1384,7 @@ jobs:
       SEMGREP_COMMIT: << pipeline.git.revision >>
     docker:
       - image: returntocorp/semgrep
-    resource_class: xlarge
+    resource_class: large
     steps:
       - checkout # no need to use mise here since the docker image contains the only dependency
       - unless:
@@ -1456,7 +1453,7 @@ jobs:
   op-program-compat:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - run:
@@ -1468,7 +1465,7 @@ jobs:
   check-generated-mocks-op-node:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - check-changed:
@@ -1480,7 +1477,7 @@ jobs:
   check-generated-mocks-op-service:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - check-changed:
@@ -1492,7 +1489,7 @@ jobs:
   kontrol-tests:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - install-contracts-dependencies
@@ -1999,7 +1996,7 @@ workflows:
           mentions: "@proofs-team"
           no_output_timeout: 60m
           test_timeout: 59m
-          resource_class: xlarge
+          resource_class: large
           environment_overrides: |
             export OP_E2E_CANNON_ENABLED="true"
             export PARALLEL=24
