@@ -103,8 +103,7 @@ func (bs *BatcherService) isRunningInEnclave() bool {
 	// If it does exist, you're outside the enclave.
 	fi, err := os.Stat("/sys/devices/virtual/misc/nitro_enclaves/")
 	if err != nil {
-		bs.Log.Error("failed to check whether running in enclave: %w", err)
-		return false
+		return true
 	}
 	return !fi.IsDir()
 }
