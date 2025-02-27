@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -97,17 +96,6 @@ type BatcherService struct {
 
 type DriverSetupOption func(setup *DriverSetup)
 
-func (bs *BatcherService) isRunningInEnclave() bool {
-	// Check whether `/sys/devices/virtual/misc/nitro_enclaves/` exists.
-	// If the directory does not exist, you're inside an enclave.
-	// If it does exist, you're outside the enclave.
-	fi, err := os.Stat("/sys/devices/virtual/misc/nitro_enclaves/")
-	if err != nil {
-		return true
-	}
-	return !fi.IsDir()
-}
-
 // BatcherServiceFromCLIConfig creates a new BatcherService from a CLIConfig.
 // The service components are fully started, except for the driver,
 // which will not be submitting batches (if it was configured to) until the Start part of the lifecycle.
@@ -116,18 +104,17 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
-	// generate attestation on public key when start batcher in enclave
-	if bs.UseEspresso && bs.isRunningInEnclave() {
-		bs.Log.Info("Successfully connected to enclave")
+
+	if bs.UseEspresso {
+		// try to generate attestation on public key when start batcher
 		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get attestation: %w", err)
+			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
+		} else {
+			// output length of attestation
+			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestation))
+			bs.Attestation = attestation
 		}
-		// output length of attestation
-		bs.Log.Info("Attestation length", "length", len(attestation))
-		bs.Attestation = attestation
-	} else {
-		bs.Log.Info("Not running in enclave, skipping attestation")
 	}
 	return &bs, nil
 }
