@@ -73,6 +73,8 @@ type OpChainDeployment struct {
 	// DelayedWETHPermissionlessGameProxyAddress common.Address `json:"delayedWETHPermissionlessGameProxyAddress"`
 	DataAvailabilityChallengeProxyAddress common.Address `json:"dataAvailabilityChallengeProxyAddress"`
 	DataAvailabilityChallengeImplAddress  common.Address `json:"dataAvailabilityChallengeImplAddress"`
+	BatchInboxAddress                     common.Address `json:"batchInboxAddress"`
+	BatchVerifierAddress                  common.Address `json:"batchVerifierAddress"`
 }
 
 type ImplementationsDeployment struct {
@@ -142,6 +144,8 @@ func L1(globalState *state.State, chainID common.Hash) (*L1Contracts, error) {
 			DelayedWETHPermissionedGameProxyAddress:  chainState.DelayedWETHPermissionedGameProxyAddress,
 			DataAvailabilityChallengeProxyAddress:    chainState.DataAvailabilityChallengeProxyAddress,
 			DataAvailabilityChallengeImplAddress:     chainState.DataAvailabilityChallengeImplAddress,
+			BatchInboxAddress:                        chainState.BatchInboxAddress,
+			BatchVerifierAddress:                     chainState.BatchVerifierAddress,
 			// DelayedWETHPermissionlessGameProxyAddress: chainState.DelayedWETHPermissionlessGameProxyAddress,
 		},
 		ImplementationsDeployment: ImplementationsDeployment{

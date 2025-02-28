@@ -152,7 +152,7 @@ type Config struct {
 	ChainOpConfig *params.OptimismConfig `json:"chain_op_config,omitempty"`
 
 	// Caff Node config
-	CaffNodeConfig CaffNodeConfig
+	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
 }
 
 // CaffNodeConfig is the config for the Caff Node
@@ -161,6 +161,7 @@ type CaffNodeConfig struct {
 	NextHotShotBlockNum           uint64
 	PollingHotShotPollingInterval time.Duration
 	HotShotUrls                   []string
+	BatchVerifierAddress          common.Address `json:"batch_verifier_address"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

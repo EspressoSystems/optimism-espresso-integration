@@ -40,6 +40,7 @@ optimism_package:
         granite_time_offset: 0
         holocene_time_offset: 0
         fund_dev_accounts: true
+        pre_approve_batcher: true
       batcher_params:
         image: {{ localDockerImage "op-batcher" }}
         extra_params:

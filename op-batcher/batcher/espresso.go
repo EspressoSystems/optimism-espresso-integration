@@ -11,9 +11,15 @@ import (
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
 // Parameters for transaction fetching loop, which waits for transactions
@@ -321,4 +327,116 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	}
 
 	return block, nil
+}
+
+func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
+	if l.Attestation == nil {
+		l.Log.Warn("Attestation is nil, skipping registration")
+		return nil
+	}
+
+	batchVerifier, err := bindings.NewBatchVerifier(l.RollupConfig.CaffNodeConfig.BatchVerifierAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create batch verifier contract bindings: %w", err)
+	}
+
+	// Decode the attestation off-chain to conserve gas
+	attestationTbs, signature, err := batchVerifier.DecodeAttestationTbs(&bind.CallOpts{}, l.Attestation)
+	if err != nil {
+		return fmt.Errorf("failed to decode attestation: %w", err)
+	}
+
+	txOpts, err := bind.NewKeyedTransactorWithChainID(l.Config.BatcherPrivateKey, l.RollupConfig.L1ChainID)
+	if err != nil {
+		return fmt.Errorf("failed to create transactor: %w", err)
+	}
+
+	// Submit decoded attestation to batch inbox contract
+	tx, err := batchVerifier.RegisterSigner(txOpts, attestationTbs, signature)
+	if err != nil {
+		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
+	}
+
+	candidate := txmgr.TxCandidate{
+		TxData: tx.Data(),
+		To:     tx.To(),
+	}
+
+	_, err = l.Txmgr.Send(ctx, candidate)
+	if err != nil {
+		return fmt.Errorf("failed to send transaction: %w", err)
+	}
+
+	return nil
+}
+
+func setGasLimit(candidate *txmgr.TxCandidate) error {
+	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, nil, false, true, true, false, nil, nil)
+	if err != nil {
+		return err
+	} else {
+		candidate.GasLimit = intrinsicGas
+	}
+	floorDataGas, err := floorDataGas(candidate.TxData)
+	if err != nil {
+		return err
+	} else if floorDataGas > candidate.GasLimit {
+		candidate.GasLimit = floorDataGas
+	}
+
+	return nil
+}
+
+// sendEspressoTx uses the txmgr queue to send the given transaction candidate after setting its
+// gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
+func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
+	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
+
+	commitment := crypto.Keccak256Hash(candidate.TxData)
+
+	signature, err := crypto.Sign(commitment[:], l.Config.BatcherPrivateKey)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to sign transaction: %w", err),
+		}
+		return
+	}
+
+	batchVerifierAbi, err := bindings.BatchVerifierMetaData.GetAbi()
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to get batch verifier ABI: %w", err),
+		}
+		return
+	}
+
+	verifyBatchCalldata, err := batchVerifierAbi.Pack("verifyBatch", commitment, signature)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to pack verifyBatch calldata: %w", err),
+		}
+		return
+	}
+
+	verifyCandidate := txmgr.TxCandidate{
+		TxData: verifyBatchCalldata,
+		To:     &l.RollupConfig.BatchInboxAddress,
+	}
+	setGasLimit(&verifyCandidate)
+
+	verifyReceiptCh := make(chan txmgr.TxReceipt[txRef])
+	queue.Send(transactionReference, *&verifyCandidate, verifyReceiptCh)
+
+	verifyReceipt := <-verifyReceiptCh
+	if verifyReceipt.Err != nil {
+		// forward error to receiptsCh
+		receiptsCh <- verifyReceipt
+		return
+	}
+
+	setGasLimit(candidate)
+	queue.Send(transactionReference, *candidate, receiptsCh)
 }

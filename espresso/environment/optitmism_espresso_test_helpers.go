@@ -27,7 +27,6 @@ import (
 
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
 
-
 const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
 
 // This is the mnemonic that we use to create the private key for deploying
@@ -338,7 +337,6 @@ func allowHostDockerInternalVirtualHost() DevNetLauncherOption {
 		}
 	}
 }
-
 
 // This code is adapted from a gist file:
 // https://gist.github.com/sevkin/96bdae9274465b2d09191384f86ef39d

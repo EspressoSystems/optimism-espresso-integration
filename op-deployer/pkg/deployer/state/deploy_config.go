@@ -90,7 +90,7 @@ func CombineDeployConfig(intent *Intent, chainIntent *ChainIntent, state *State,
 				SequencerWindowSize:       3600,
 				ChannelTimeoutBedrock:     300,
 				SystemConfigStartBlock:    0,
-				BatchInboxAddress:         calculateBatchInboxAddr(chainState.ID),
+				BatchInboxAddress:         calculateBatchInboxAddr(chainState),
 			},
 			OperatorDeployConfig: genesis.OperatorDeployConfig{
 				BatchSenderAddress:  chainIntent.Roles.Batcher,
@@ -181,8 +181,12 @@ func mustHexBigFromHex(hex string) *hexutil.Big {
 	return &hexBig
 }
 
-func calculateBatchInboxAddr(chainID common.Hash) common.Address {
+func calculateBatchInboxAddr(chainState *ChainState) common.Address {
+	if chainState.BatchInboxAddress != (common.Address{}) {
+		return chainState.BatchInboxAddress
+	}
+
 	var out common.Address
-	copy(out[1:], crypto.Keccak256(chainID[:])[:19])
+	copy(out[1:], crypto.Keccak256(chainState.ID[:])[:19])
 	return out
 }
