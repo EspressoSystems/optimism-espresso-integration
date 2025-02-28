@@ -150,6 +150,8 @@ type Config struct {
 	// parameters to the protocol values, like the execution layer does.
 	// If missing, it is loaded by the op-node from the embedded superchain config at startup.
 	ChainOpConfig *params.OptimismConfig `json:"chain_op_config,omitempty"`
+
+	EspressoEnabled bool `json:"espresso_enabled,omitempty"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

@@ -32,3 +32,6 @@
 [submodule "packages/contracts-bedrock/lib/superchain-registry"]
 	path = packages/contracts-bedrock/lib/superchain-registry
 	url = https://github.com/ethereum-optimism/superchain-registry
+[submodule "packages/contracts-bedrock/lib/nitro-validator"]
+	path = packages/contracts-bedrock/lib/nitro-validator
+	url = git@github.com:base/nitro-validator.git

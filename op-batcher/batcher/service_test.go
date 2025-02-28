@@ -18,11 +18,11 @@ func TestBatchSubmitter_SignatureGeneration(t *testing.T) {
 	txdata := emptyTxData
 
 	// add batcher's signature on txdata sent to L1
-	sig, err := txdata.signTx(bs.BatcherPrivateKey)
+	sig, err := txdata.signTx(bs.EphemeralPrivateKey)
 	require.NoError(t, err)
 
 	// test that the valid signature can be verified
-	pubKeyBytes := crypto.FromECDSAPub(bs.BatcherPublicKey)
+	pubKeyBytes := crypto.FromECDSAPub(bs.EphemeralPublicKey)
 	require.True(t, crypto.VerifySignature(pubKeyBytes, crypto.Keccak256(txdata.CallData()), sig[:len(sig)-1]))
 
 	// test that the invalid signature cannot be verified

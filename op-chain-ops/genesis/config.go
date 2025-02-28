@@ -580,6 +580,8 @@ type L2CoreDeployConfig struct {
 	// from. It is an override to set this value on legacy networks where it is not set by
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
+
+	EspressoEnabled bool `json:"espressoEnabled"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)

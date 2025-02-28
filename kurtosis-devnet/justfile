@@ -90,10 +90,10 @@ enter-devnet DEVNET CHAIN='Ethereum':
     exec go run ../devnet-sdk/shell/cmd/enter/main.go --devnet tests/{{DEVNET}}.json --chain {{CHAIN}}
 
 # Espresso devnet
-espresso-devnet: (devnet "espresso.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package")
+espresso-devnet: (devnet "espresso.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package@ag/deploy-contracts")
 
 # Espresso devnet with external batcher
-espresso-eb-devnet: (devnet "espresso-eb.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package")
+espresso-eb-devnet: (devnet "espresso-eb.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package@ag/deploy-contracts")
 
 # Start an external batcher (assuming espresso-eb-devnet is running)
 external-batcher:

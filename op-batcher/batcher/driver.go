@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -93,12 +94,13 @@ type DriverSetup struct {
 	RollupConfig        *rollup.Config
 	Config              BatcherConfig
 	Txmgr               txmgr.TxManager
-	L1Client            L1Client
+	L1Client            *ethclient.Client
 	EndpointProvider    dial.L2EndpointProvider
 	ChannelConfig       ChannelConfigProvider
 	AltDA               *altda.DAClient
 	Espresso            *espressoClient.Client
 	EspressoLightClient *espressoLightClient.LightClientReader
+	Attestation         []byte
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
 	ChainSigner         opcrypto.ChainSigner
@@ -503,6 +505,15 @@ func (l *BatchSubmitter) blockLoadingLoop(ctx context.Context, wg *sync.WaitGrou
 	defer close(pendingBytesUpdated)
 	defer close(publishSignal)
 	defer wg.Done()
+
+	if l.Config.UseEspresso {
+		err := l.registerBatcher(ctx)
+		if err != nil {
+			l.Log.Error("could not register with batch inbox contract", "err", err)
+			return
+		}
+	}
+
 	for {
 		select {
 		case <-ticker.C:
@@ -831,7 +842,7 @@ func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
 	return append(c.TxHash, c.Signature...)
 }
 
-func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey *ecdsa.PrivateKey, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, ephemeralPrivateKey *ecdsa.PrivateKey, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
 	// sanity checks
 	if nf := len(txdata.frames); nf != 1 {
 		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
@@ -845,7 +856,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 	goroutineSpawned := daGroup.TryGo(func() error {
 
 		// add batcher's signature on txdata sent to L1
-		sig, err := txdata.signTx(batcherPrivateKey)
+		sig, err := txdata.signTx(ephemeralPrivateKey)
 		if err != nil {
 			l.Log.Warn("Error signning txdata when submitting to L1", "err", err)
 			l.recordFailedDARequest(txdata.ID(), err)
@@ -869,8 +880,8 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 		}
 		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
 
-		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
-		l.sendTx(txdata, false, candidate, queue, receiptsCh)
+		//candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
+		l.sendEspressoTx(espComm, txdata.ID(), queue, receiptsCh)
 
 		return nil
 	})
@@ -931,7 +942,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		}
 		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 		if l.Config.UseEspresso {
-			l.publishToEspressoAndL1(txdata, l.Config.BatcherPrivateKey, queue, receiptsCh, daGroup)
+			l.publishToEspressoAndL1(txdata, l.Config.EphemeralPrivateKey, queue, receiptsCh, daGroup)
 		} else {
 			l.publishToAltDAAndL1(txdata, queue, receiptsCh, daGroup)
 		}

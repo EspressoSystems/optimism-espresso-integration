@@ -4,12 +4,17 @@ import (
 	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
 	"C"
 
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -38,6 +43,47 @@ const (
 	finalityTimeout       = 2 * time.Minute
 	finalityCheckInterval = 100 * time.Millisecond
 )
+
+func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
+	if l.Attestation == nil {
+		l.Log.Warn("Attestation is nil, skipping registration")
+		return nil
+	}
+
+	batchInbox, err := bindings.NewBatchInbox(l.RollupConfig.BatchInboxAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create batch inbox contract bindings: %w", err)
+	}
+
+	// Decode the attestation off-chain to conserve gas
+	decoded, err := batchInbox.DecodeAttestationTbs(&bind.CallOpts{}, l.Attestation)
+	if err != nil {
+		return fmt.Errorf("failed to decode attestation: %w", err)
+	}
+
+	txOpts, err := bind.NewKeyedTransactorWithChainID(l.Config.EphemeralPrivateKey, l.RollupConfig.L1ChainID)
+	if err != nil {
+		return fmt.Errorf("failed to create transactor: %w", err)
+	}
+
+	// Submit decoded attestation to batch inbox contract
+	tx, err := batchInbox.RegisterSigner(txOpts, decoded.AttestationTbs, decoded.Signature)
+	if err != nil {
+		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
+	}
+
+	candidate := txmgr.TxCandidate{
+		TxData: tx.Data(),
+		To:     tx.To(),
+	}
+
+	_, err = l.Txmgr.Send(ctx, candidate)
+	if err != nil {
+		return fmt.Errorf("failed to send transaction: %w", err)
+	}
+
+	return nil
+}
 
 func (t Transaction) toEspresso() espressoCommon.Transaction {
 	payload := append(t.BatcherSignature, t.CallData...)
@@ -175,4 +221,36 @@ Loop:
 	}
 
 	return &espComm, nil
+}
+
+// sendEspressoTx uses the txmgr queue to send the given transaction candidate after setting its
+// gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
+func (l *BatchSubmitter) sendEspressoTx(commitment *EspressoCommitment, txId txID, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) error {
+	encodedCommitment := commitment.toGeneric().TxData()
+
+	signature, err := crypto.Sign(crypto.Keccak256(encodedCommitment), l.Config.EphemeralPrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to sign transaction data: %w", err)
+	}
+
+	batchInboxAbi, err := bindings.BatchInboxMetaData.GetAbi()
+	if err != nil {
+		return fmt.Errorf("failed to get batch inbox ABI: %w", err)
+	}
+
+	data, err := batchInboxAbi.Pack("submitBatch", encodedCommitment, signature)
+
+	if err != nil {
+		return fmt.Errorf("failed to pack transaction data: %w", err)
+	}
+
+	candidate := &txmgr.TxCandidate{
+		TxData:   data,
+		To:       &l.RollupConfig.BatchInboxAddress,
+		GasLimit: 210_000,
+	}
+
+	queue.Send(txRef{id: txId, isCancel: false, isBlob: false}, *candidate, receiptsCh)
+
+	return nil
 }
