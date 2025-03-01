@@ -14,7 +14,7 @@ ARG UBUNTU_TARGET_BASE_IMAGE=ubuntu:22.04
 
 # The version of kona to use.
 # The only build that uses this is `op-challenger-target`.
-ARG KONA_VERSION=none
+ARG KONA_VERSION="kona-client-v0.1.0-beta.5"
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
 FROM --platform=$BUILDPLATFORM golang:1.22.7-alpine3.20 AS builder
@@ -23,12 +23,12 @@ RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 
 # install yq
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && \
-    chmod +x /usr/local/bin/yq
+  chmod +x /usr/local/bin/yq
 
 # install versioned toolchain
 COPY ./mise.toml .
 RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
-    tar xz -C /usr/local/bin just
+  tar xz -C /usr/local/bin just
 
 # We copy the go.mod/sum first, so the `go mod download` does not have to re-run if dependencies do not change.
 COPY ./go.mod /app/go.mod
@@ -104,10 +104,43 @@ ARG OP_DISPUTE_MON_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-dispute-mon && make op-dispute-mon  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_DISPUTE_MON_VERSION"
 
-FROM --platform=$BUILDPLATFORM builder AS op-batcher-builder
+FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
+ARG ESPRESSO_SEQUENCER_GO_VER=0.0.30
+RUN apk add perl make openssl-dev musl-dev gcc
+ADD https://github.com/EspressoSystems/espresso-sequencer-go/archive/refs/tags/v$ESPRESSO_SEQUENCER_GO_VER.tar.gz /source.tgz
+RUN tar -oxzf /source.tgz
+WORKDIR /espresso-sequencer-go-$ESPRESSO_SEQUENCER_GO_VER
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+  --mount=type=cache,target=/espresso-sequencer-go/verification/rust/target \
+  cargo build --release  --locked  --manifest-path ./verification/rust/Cargo.toml
+RUN mkdir -p /libespresso
+RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
+  /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.a
+RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
+  /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+
+# We don't use the golang image for batcher because it doesn't play well with CGO
+FROM --platform=$BUILDPLATFORM alpine:3.20 AS op-batcher-builder
 ARG OP_BATCHER_VERSION=v0.0.0
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-batcher && make op-batcher  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_BATCHER_VERSION"
+# Install dependencies
+RUN apk add  musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
+# Install just from mise (alpine's outdated and incompatible)
+COPY ./mise.toml .
+RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
+  tar xz -C /usr/local/bin just
+# Go sources
+COPY ./go.mod /app/go.mod
+COPY ./go.sum /app/go.sum
+# Copy rust libs for dynamic linking
+COPY --from=rust-builder /libespresso/* /lib
+# Warm-up the cache
+WORKDIR /app
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
+# Build
+COPY . /app
+WORKDIR /app/op-batcher
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_BATCHER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
 
 FROM --platform=$BUILDPLATFORM builder AS op-proposer-builder
 ARG OP_PROPOSER_VERSION=v0.0.0
@@ -179,6 +212,9 @@ COPY --from=op-dispute-mon-builder /app/op-dispute-mon/bin/op-dispute-mon /usr/l
 CMD ["op-dispute-mon"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
+RUN apk add gcc
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
 
