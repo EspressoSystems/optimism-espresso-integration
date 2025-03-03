@@ -116,7 +116,8 @@ func (o *FastCanonicalBlockHeaderOracle) getHistoricalBlockHash(head *types.Head
 	// for safety. But it shouldn't be required since we only read from state
 	statedb.MakeSinglethreaded()
 
-	context := core.NewEVMBlockContext(head, o.ctx, nil, o.config, statedb)
+	feeCurrencyContext := core.GetFeeCurrencyContext(head, o.config, statedb)
+	context := core.NewEVMBlockContext(head, o.ctx, nil, o.config, statedb, feeCurrencyContext)
 	vmenv := vm.NewEVM(context, statedb, o.config, vm.Config{})
 	var caller vm.AccountRef // can be anything as long as it's not the system contract
 	gas := uint64(1000000)
