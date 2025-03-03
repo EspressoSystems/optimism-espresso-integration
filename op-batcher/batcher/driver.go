@@ -917,6 +917,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}
+		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 		if l.Config.UseEspresso {
 			l.publishToEspressoAndL1(txdata, l.Config.BatcherPrivateKey, queue, receiptsCh, daGroup)
 		} else {
