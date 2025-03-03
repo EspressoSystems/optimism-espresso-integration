@@ -799,7 +799,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 	if nf := len(txdata.frames); nf != 1 {
 		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
 	}
-	if txdata.asBlob {
+	if txdata.daType == DaTypeBlob {
 		l.Log.Crit("Unexpected blob txdata with AltDA enabled")
 	}
 
@@ -884,7 +884,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}
 		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
-		else if l.Config.UseEspresso {
+		if l.Config.UseEspresso {
 			l.publishToEspressoAndL1(txdata, l.Config.BatcherPrivateKey, queue, receiptsCh, daGroup)
 		} else {
 			l.publishToAltDAAndL1(txdata, queue, receiptsCh, daGroup)
