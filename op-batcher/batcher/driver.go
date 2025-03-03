@@ -933,6 +933,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 			return nil
 		}
 
+		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 		if txdata.altDACommitment == nil {
 			// This means the txdata was not sent to the DA Provider yet.
 			// This will send the txdata to the DA Provider and store the commitment in the channelMgr.
