@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
@@ -58,6 +59,9 @@ type OpNode struct {
 	l1HeadsSub     ethereum.Subscription // Subscription to get L1 heads (automatically re-subscribes on error)
 	l1SafeSub      ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 	l1FinalizedSub ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
+
+	CafeNode    bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
+	EspressoSub espressoClient.MultipleNodesClient // Client to get Espresso blocks
 
 	eventSys   event.System
 	eventDrain event.Drainer
