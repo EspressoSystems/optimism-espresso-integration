@@ -212,6 +212,7 @@ func (db *DB) addLink(derivedFrom eth.BlockRef, derived eth.BlockRef, invalidate
 		// Repeat of same information. No entries to be written.
 		// But we can silently ignore and not return an error, as that brings the caller
 		// in a consistent state, after which it can insert the actual new derived-from information.
+		db.log.Debug("Database link already written", "derived", derived, "lastDerived", lastDerived)
 		return nil
 	}
 
@@ -238,7 +239,7 @@ func (db *DB) addLink(derivedFrom eth.BlockRef, derived eth.BlockRef, invalidate
 		return fmt.Errorf("cannot add block (%s derived from %s), last block (%s derived from %s) is too far behind: (%w)",
 			derived, derivedFrom,
 			lastDerived, lastSource,
-			types.ErrOutOfOrder)
+			types.ErrFuture)
 	} else {
 		return fmt.Errorf("derived block %s is older than current derived block %s: %w",
 			derived, lastDerived, types.ErrOutOfOrder)
@@ -262,7 +263,7 @@ func (db *DB) addLink(derivedFrom eth.BlockRef, derived eth.BlockRef, invalidate
 		return fmt.Errorf("cannot add block (%s derived from %s), last block (%s derived from %s) is too far behind: (%w)",
 			derived, derivedFrom,
 			lastDerived, lastSource,
-			types.ErrOutOfOrder)
+			types.ErrFuture)
 	} else {
 		if lastDerived.Hash == derived.Hash {
 			// we might see L1 blocks repeat,

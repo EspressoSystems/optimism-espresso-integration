@@ -1,0 +1,19 @@
+# enclaver.yaml
+version: v1
+name: "op-batcher"
+target: "enclave-batcher:latest"
+# description: "Run op-batcher inside an enclave"
+sources:
+  app: "op-batcher:app"
+
+defaults:
+  memory_mb: 4096
+  cpu_count: 2
+
+# Networking policies
+
+egress:
+  allow:
+    - 172.31.44.220 # <YOUR_IP>
+    - github.com
+    - objects.githubusercontent.com

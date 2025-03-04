@@ -143,7 +143,7 @@ func NewSupervisorBackend(ctx context.Context, logger log.Logger,
 	eventSys.Register("sync-controller", super.syncNodesController, event.DefaultRegisterOpts())
 
 	// create status tracker
-	super.statusTracker = status.NewStatusTracker()
+	super.statusTracker = status.NewStatusTracker(depSet.Chains())
 	eventSys.Register("status", super.statusTracker, event.DefaultRegisterOpts())
 
 	// Initialize the resources of the supervisor backend.
@@ -167,7 +167,15 @@ func (su *SupervisorBackend) OnEvent(ev event.Event) bool {
 		su.emitter.Emit(superevents.UpdateCrossUnsafeRequestEvent{
 			ChainID: x.ChainID,
 		})
+	case superevents.CrossUnsafeUpdateEvent:
+		su.emitter.Emit(superevents.UpdateCrossUnsafeRequestEvent{
+			ChainID: x.ChainID,
+		})
 	case superevents.LocalSafeUpdateEvent:
+		su.emitter.Emit(superevents.UpdateCrossSafeRequestEvent{
+			ChainID: x.ChainID,
+		})
+	case superevents.CrossSafeUpdateEvent:
 		su.emitter.Emit(superevents.UpdateCrossSafeRequestEvent{
 			ChainID: x.ChainID,
 		})
@@ -301,7 +309,7 @@ func (su *SupervisorBackend) AttachProcessorSource(chainID eth.ChainID, src proc
 	if !ok {
 		return fmt.Errorf("unknown chain %s, cannot attach RPC to processor", chainID)
 	}
-	proc.SetSource(src)
+	proc.AddSource(src)
 	return nil
 }
 
@@ -592,7 +600,7 @@ func (su *SupervisorBackend) SuperRootAtTimestamp(ctx context.Context, timestamp
 }
 
 func (su *SupervisorBackend) SyncStatus() (eth.SupervisorSyncStatus, error) {
-	return su.statusTracker.SyncStatus(), nil
+	return su.statusTracker.SyncStatus()
 }
 
 // PullLatestL1 makes the supervisor aware of the latest L1 block. Exposed for testing purposes.
