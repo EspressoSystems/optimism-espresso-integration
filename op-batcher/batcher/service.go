@@ -79,6 +79,7 @@ type BatcherService struct {
 	EspressoLightClient *espressoLightClient.LightClientReader
 
 	BatcherConfig
+	opcrypto.ChainSigner
 
 	ChannelConfig ChannelConfigProvider
 	RollupConfig  *rollup.Config
