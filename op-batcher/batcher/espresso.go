@@ -15,15 +15,12 @@ import (
 
 const exampleNamespace = 42
 
-// TODO: this is a placeholder for relaying sequencer's signature
-var exampleSignature = [...]byte{5, 6, 7, 8}
-
 // TODO: Pull out to be re-used in op-node for derivation from Espresso
 type Transaction struct {
 	// Namespace of transaction to be published
 	Namespace uint64
 	// TODO: placeholder for sequencer's signature
-	SequencerSignature []byte
+	BatcherSignature []byte
 	// Frames serialized as they would be for posting to L1 as calldata
 	CallData []byte
 }
@@ -43,7 +40,7 @@ const (
 )
 
 func (t Transaction) toEspresso() espressoCommon.Transaction {
-	payload := append(t.SequencerSignature, t.CallData...)
+	payload := append(t.BatcherSignature, t.CallData...)
 	return espressoCommon.Transaction{
 		Namespace: t.Namespace,
 		Payload:   payload,
@@ -118,11 +115,11 @@ Loop:
 	return nil
 }
 
-func (l *BatchSubmitter) submitToEspresso(txdata txData, sig []byte) (*EspressoCommitment, error) {
+func (l *BatchSubmitter) submitToEspresso(txdata txData, sig, batcherSignature []byte) (*EspressoCommitment, error) {
 	transaction := Transaction{
-		Namespace:          exampleNamespace,
-		SequencerSignature: exampleSignature[:],
-		CallData:           txdata.CallData(),
+		Namespace:        exampleNamespace,
+		BatcherSignature: batcherSignature,
+		CallData:         txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
 	if err != nil {
