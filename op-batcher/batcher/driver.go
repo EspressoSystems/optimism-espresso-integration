@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -99,6 +101,7 @@ type DriverSetup struct {
 	EspressoLightClient *espressoLightClient.LightClientReader
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
+	ChainSigner         opcrypto.ChainSigner
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -849,7 +852,16 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 			return err
 		}
 
-		espComm, err := l.submitToEspresso(txdata, sig)
+		ctx := context.Background()
+		batcherSignature, err := l.ChainSigner.Sign(ctx, l.RollupConfig.BatchInboxAddress, crypto.Keccak256(txdata.CallData()))
+
+		if err != nil {
+			l.Log.Warn("Error signing txdata for Espresso", "err", err)
+			l.recordFailedDARequest(txdata.ID(), err)
+			return err
+		}
+
+		espComm, err := l.submitToEspresso(txdata, sig, batcherSignature)
 		if err != nil {
 			l.Log.Error("Failed to submit transaction", "error", err)
 			l.recordFailedDARequest(txdata.ID(), err)
