@@ -33,7 +33,8 @@ type ChainSigner interface {
 	Sign(ctx context.Context, addr common.Address, hash []byte) ([]byte, error)
 }
 
-// SignerFn is a function that signs a transaction with the given address.
+// clientSigner is a ChainSigner that utilizes a remote signer to perform
+// Sign and SignTransaction
 type clientSigner struct {
 	signerClient *opsigner.SignerClient
 	fromAddress  common.Address
@@ -55,8 +56,10 @@ func (c *clientSigner) SignTransaction(ctx context.Context, address common.Addre
 
 var _ ChainSigner = &clientSigner{}
 
-// PrivateKeySignerFn creates a SignerFn that signs transactions with the given
-// private key.
+// privateKeySigner creates a is a ChainSigner that delegates to the stored
+// functions for performing Sign and SignTransaction. In general these stored
+// functions are expected to have access to a private key that is not
+// explicitly stored within the structure itself.
 type privateKeySigner struct {
 	chainID *big.Int
 	st      bind.SignerFn
