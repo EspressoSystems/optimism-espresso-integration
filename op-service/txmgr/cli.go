@@ -354,6 +354,8 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		Signer:  chainSigner.SignTransaction,
 		From:    from,
 
+		ChainSigner: chainSigner,
+
 		TxSendTimeout:              cfg.TxSendTimeout,
 		TxNotInMempoolTimeout:      cfg.TxNotInMempoolTimeout,
 		NetworkTimeout:             cfg.NetworkTimeout,

@@ -433,6 +433,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		Metr:                bs.Metrics,
 		RollupConfig:        bs.RollupConfig,
 		Config:              bs.BatcherConfig,
+		ChainSigner:         bs.ChainSigner,
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,
