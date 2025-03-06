@@ -11,6 +11,8 @@ import (
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 	"github.com/ethereum/go-ethereum/log"
+
+	espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
 )
 
 const exampleNamespace = 42

@@ -108,11 +108,6 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 	}
 }
 
-// Sishan TODO: Implement
-// func (aq *AttributesQueue) NextEspressoBlock(ctx context.Context, espressoHead eth.L2BlockRef) (*eth.PayloadAttributes, error) {
-// 	VerifyNewEspressoOrigin(ctx, espressoHead, aq.prev.Origin(), espressoHead)
-// }
-
 // createNextAttributes transforms a batch into a payload attributes. This sets `NoTxPool` and appends the batched transactions
 // to the attributes transaction list
 func (aq *AttributesQueue) createNextAttributes(ctx context.Context, batch *SingularBatch, l2SafeHead eth.L2BlockRef) (*eth.PayloadAttributes, error) {

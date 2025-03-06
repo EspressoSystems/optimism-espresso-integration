@@ -92,8 +92,6 @@ type DerivationPipeline struct {
 	engineIsReset  bool
 
 	metrics Metrics
-
-	useCaffNode bool
 }
 
 // NewDerivationPipeline creates a DerivationPipeline, to turn L1 data into L2 block-inputs.
@@ -213,29 +211,15 @@ func (dp *DerivationPipeline) Step(ctx context.Context, pendingSafeHead eth.L2Bl
 		dp.origin = newOrigin
 	}
 
-	if dp.useCaffNode {
-		// Sishan TODO: Implement
-		// if attrib, err := dp.attrib.NextEspressoBlock(ctx, EspressoHead); err == nil {
-		// 	return attrib, nil
-		// } else if err == io.EOF {
-		// 	// If every stage has returned io.EOF, try to advance the L1 Origin
-		// 	return nil, dp.traversal.AdvanceL1Block(ctx)
-		// } else if errors.Is(err, EngineELSyncing) {
-		// 	return nil, err
-		// } else {
-		// 	return nil, fmt.Errorf("derivation failed: %w", err)
-		// }
+	if attrib, err := dp.attrib.NextAttributes(ctx, pendingSafeHead); err == nil {
+		return attrib, nil
+	} else if err == io.EOF {
+		// If every stage has returned io.EOF, try to advance the L1 Origin
+		return nil, dp.traversal.AdvanceL1Block(ctx)
+	} else if errors.Is(err, EngineELSyncing) {
+		return nil, err
 	} else {
-		if attrib, err := dp.attrib.NextAttributes(ctx, pendingSafeHead); err == nil {
-			return attrib, nil
-		} else if err == io.EOF {
-			// If every stage has returned io.EOF, try to advance the L1 Origin
-			return nil, dp.traversal.AdvanceL1Block(ctx)
-		} else if errors.Is(err, EngineELSyncing) {
-			return nil, err
-		} else {
-			return nil, fmt.Errorf("derivation failed: %w", err)
-		}
+		return nil, fmt.Errorf("derivation failed: %w", err)
 	}
 }
 

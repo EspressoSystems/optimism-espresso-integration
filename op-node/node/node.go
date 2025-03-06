@@ -60,8 +60,9 @@ type OpNode struct {
 	l1SafeSub      ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 	l1FinalizedSub ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 
-	CafeNode    bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
-	EspressoSub espressoClient.MultipleNodesClient // Client to get Espresso blocks
+	CafeNode         bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
+	EspressoClient   espressoClient.MultipleNodesClient // Client to get Espresso blocks
+	espressoStreamer EspressoStreamer
 
 	eventSys   event.System
 	eventDrain event.Drainer
