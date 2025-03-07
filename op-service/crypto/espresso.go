@@ -56,7 +56,7 @@ func (c *clientSigner) SignTransaction(ctx context.Context, address common.Addre
 
 var _ ChainSigner = &clientSigner{}
 
-// privateKeySigner creates a is a ChainSigner that delegates to the stored
+// privateKeySigner is a ChainSigner that delegates to the stored
 // functions for performing Sign and SignTransaction. In general these stored
 // functions are expected to have access to a private key that is not
 // explicitly stored within the structure itself.
