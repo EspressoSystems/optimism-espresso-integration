@@ -1,6 +1,8 @@
 package batcher
 
 import (
+	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
+	"C"
 	"encoding/json"
 	"fmt"
 	"time"
