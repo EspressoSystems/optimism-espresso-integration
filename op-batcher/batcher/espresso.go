@@ -124,6 +124,7 @@ func (l *BatchSubmitter) submitToEspresso(txdata txData, sig, batcherSignature [
 		CallData:         txdata.CallData(),
 	}.toEspresso()
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
+	// Sishan TODO: txHash, err := l.EspressoMultipleNodesClient.SubmitTransaction(l.shutdownCtx, transaction)
 	if err != nil {
 		l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
 		l.recordFailedDARequest(txdata.ID(), err)

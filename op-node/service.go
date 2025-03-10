@@ -81,6 +81,9 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		log.Warn("Heartbeat functionality is not supported anymore, CLI flags will be removed in following release.")
 	}
 	conductorRPCEndpoint := ctx.String(flags.ConductorRpcFlag.Name)
+
+	caffNodeConfig := NewCaffNodeConfig(ctx)
+
 	cfg := &node.Config{
 		L1:            l1Endpoint,
 		L2:            l2Endpoint,
@@ -115,6 +118,8 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		ConductorRpcTimeout: ctx.Duration(flags.ConductorRpcTimeoutFlag.Name),
 
 		AltDA: altda.ReadCLIConfig(ctx),
+
+		CaffNodeConfig: *caffNodeConfig,
 	}
 
 	if err := cfg.LoadPersisted(log); err != nil {
@@ -291,4 +296,14 @@ func NewSyncConfig(ctx *cli.Context, log log.Logger) (*sync.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func NewCaffNodeConfig(ctx *cli.Context) *node.CaffNodeConfig {
+	return &node.CaffNodeConfig{
+		IsCaffNode:                    ctx.Bool(flags.CaffNodeFlag.Name),
+		Namespace:                     ctx.Uint64(flags.CaffNodeNamespace.Name),
+		NextHotshotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotshotBlockNum.Name),
+		PollingHotshotPollingInterval: ctx.Duration(flags.CaffNodePollingHotshotPollingInterval.Name),
+		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
+	}
 }

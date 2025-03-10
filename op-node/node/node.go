@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
@@ -60,9 +61,8 @@ type OpNode struct {
 	l1SafeSub      ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 	l1FinalizedSub ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 
-	CafeNode         bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
-	EspressoClient   espressoClient.MultipleNodesClient // Client to get Espresso blocks
-	espressoStreamer EspressoStreamer
+	CaffNode         bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
+	espressoStreamer *espressoStreamer.EspressoStreamer // Changed from interface to pointer type
 
 	eventSys   event.System
 	eventDrain event.Drainer
@@ -172,6 +172,9 @@ func (n *OpNode) init(ctx context.Context, cfg *Config) error {
 	n.metrics.RecordUp()
 	if err := n.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
+	}
+	if err := n.initEspressoStreamer(cfg); err != nil {
+		return fmt.Errorf("failed to init espresso streamer: %w", err)
 	}
 	return nil
 }
@@ -526,6 +529,22 @@ func (n *OpNode) initPProf(cfg *Config) error {
 	return nil
 }
 
+func (n *OpNode) initEspressoStreamer(cfg *Config) error {
+
+	if !n.cfg.CaffNodeConfig.IsCaffNode {
+		return nil
+	}
+	n.espressoStreamer = espressoStreamer.NewEspressoStreamer(
+		cfg.CaffNodeConfig.Namespace,
+		cfg.CaffNodeConfig.NextHotshotBlockNum,
+		cfg.CaffNodeConfig.PollingHotshotPollingInterval,
+		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
+		n.log,
+	)
+	n.log.Info("Espresso streamer initialized", "namespace", cfg.CaffNodeConfig.Namespace, "next hotshot block num", cfg.CaffNodeConfig.NextHotshotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotshotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
+	return nil
+}
+
 func (n *OpNode) p2pEnabled() bool {
 	return n.cfg.P2PEnabled()
 }
@@ -565,6 +584,10 @@ func (n *OpNode) Start(ctx context.Context) error {
 			n.log.Error("Could not start interop sub system", "err", err)
 			return err
 		}
+	}
+	if n.cfg.CaffNodeConfig.IsCaffNode {
+		// Sishan TODO: deal with this in a better way and add error handling
+		go n.espressoStreamer.Start(ctx)
 	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine

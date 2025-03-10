@@ -88,20 +88,21 @@ type RollupClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log                 log.Logger
-	Metr                metrics.Metricer
-	RollupConfig        *rollup.Config
-	Config              BatcherConfig
-	Txmgr               txmgr.TxManager
-	L1Client            L1Client
-	EndpointProvider    dial.L2EndpointProvider
-	ChannelConfig       ChannelConfigProvider
-	AltDA               *altda.DAClient
-	Espresso            *espressoClient.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
-	ChannelOutFactory   ChannelOutFactory
-	ActiveSeqChanged    chan struct{} // optional
-	ChainSigner         opcrypto.ChainSigner
+	Log                         log.Logger
+	Metr                        metrics.Metricer
+	RollupConfig                *rollup.Config
+	Config                      BatcherConfig
+	Txmgr                       txmgr.TxManager
+	L1Client                    L1Client
+	EndpointProvider            dial.L2EndpointProvider
+	ChannelConfig               ChannelConfigProvider
+	AltDA                       *altda.DAClient
+	ChannelOutFactory           ChannelOutFactory
+	ActiveSeqChanged            chan struct{} // optional
+	Espresso                    *espressoClient.Client
+	EspressoLightClient         *espressoLightClient.LightClientReader
+	EspressoMultipleNodesClient *espressoClient.MultipleNodesClient
+	ChainSigner                 opcrypto.ChainSigner
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx

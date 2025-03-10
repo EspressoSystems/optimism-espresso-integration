@@ -76,6 +76,18 @@ type Config struct {
 
 	// AltDA config
 	AltDA altda.CLIConfig
+
+	// Caff Node config
+	CaffNodeConfig CaffNodeConfig
+}
+
+// CaffNodeConfig is the config for the Caff Node
+type CaffNodeConfig struct {
+	IsCaffNode                    bool
+	Namespace                     uint64
+	NextHotshotBlockNum           uint64
+	PollingHotshotPollingInterval time.Duration
+	HotShotUrls                   []string
 }
 
 // ConductorRPCFunc retrieves the endpoint. The RPC may not immediately be available.
