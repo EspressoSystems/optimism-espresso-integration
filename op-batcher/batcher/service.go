@@ -12,6 +12,7 @@ import (
 
 	espresso "github.com/EspressoSystems/espresso-sequencer-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -75,6 +76,7 @@ type BatcherService struct {
 	EspressoLightClient *espressoLightClient.LightClientReader
 
 	BatcherConfig
+	opcrypto.ChainSigner
 
 	ChannelConfig ChannelConfigProvider
 	RollupConfig  *rollup.Config
@@ -378,6 +380,14 @@ func (bs *BatcherService) initTxManager(cfg *CLIConfig) error {
 		return err
 	}
 	bs.TxManager = txManager
+
+	// We want to be able to access the signer
+	cast, castOk := bs.TxManager.(opcrypto.ChainSigner)
+	if !castOk {
+		return fmt.Errorf("tx manager does not implement ChainSigner")
+	}
+	bs.ChainSigner = cast
+
 	return nil
 }
 
@@ -423,6 +433,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		Metr:                bs.Metrics,
 		RollupConfig:        bs.RollupConfig,
 		Config:              bs.BatcherConfig,
+		ChainSigner:         bs.ChainSigner,
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,
