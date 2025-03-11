@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	espressoCommon "github.com/EspressoSystems/espresso-sequencer-go/types"
-	espressoVerification "github.com/EspressoSystems/espresso-sequencer-go/verification"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 	"github.com/ethereum/go-ethereum/log"
 )
 
