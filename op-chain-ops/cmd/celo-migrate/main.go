@@ -120,6 +120,11 @@ var (
 		Usage: "Fail fast on the first error encountered. If set, the db check will stop on the first error encountered, otherwise it will continue to check all blocks and print out all errors at the end.",
 		Value: false,
 	}
+	skipDbCheck = &cli.BoolFlag{
+		Name:  "skip-db-check",
+		Usage: "Skip the db continuity check.",
+		Value: false,
+	}
 
 	preMigrationFlags = []cli.Flag{
 		oldDBPathFlag,
@@ -128,6 +133,7 @@ var (
 		bufferSizeFlag,
 		memoryLimitFlag,
 		reset,
+		skipDbCheck,
 	}
 	fullMigrationFlags = append(
 		preMigrationFlags,
@@ -144,6 +150,7 @@ var (
 		dbCheckPathFlag,
 		batchSizeFlag,
 		dbCheckFailFastFlag,
+		dbCheckStartFlag,
 	}
 )
 
@@ -154,6 +161,7 @@ type preMigrationOptions struct {
 	bufferSize       uint64
 	memoryLimit      int64
 	resetNonAncients bool
+	skipDbCheck      bool
 }
 
 type stateMigrationOptions struct {
@@ -187,6 +195,7 @@ func parsePreMigrationOptions(ctx *cli.Context) preMigrationOptions {
 		bufferSize:       ctx.Uint64(bufferSizeFlag.Name),
 		memoryLimit:      ctx.Int64(memoryLimitFlag.Name),
 		resetNonAncients: ctx.Bool(reset.Name),
+		skipDbCheck:      ctx.Bool(skipDbCheck.Name),
 	}
 }
 
@@ -340,9 +349,13 @@ func runPreMigration(opts preMigrationOptions) ([]*rawdb.NumberHash, uint64, err
 		}
 	}
 
-	err = runDBCheckFromLastMigrated(opts)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to run db check from last migrated block: %w", err)
+	if !opts.skipDbCheck {
+		err = runDBCheckFromLastMigrated(opts)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to run db check from last migrated block: %w", err)
+		}
+	} else {
+		log.Info("Skipping db continuity check")
 	}
 
 	var numAncientsNewBefore uint64
@@ -554,7 +567,7 @@ func runDBCheck(opts dbCheckOptions) (err error) {
 	// First, check continuity between ancients and non-ancients.
 	// Gaps in data will often halt the freezing process, so attempting to load the first non-ancient block
 	// will most likely fail if there is a gap.
-	firstNonAncientRange, err := loadNonAncientRange(nonAncientDB, lastAncientNumber+1, 1)
+	firstNonAncientRange, err := loadNonAncientRange(nonAncientDB, lastAncientNumber+1, 1, false)
 	if err != nil {
 		if opts.failFast {
 			return fmt.Errorf("failed to load first non-ancient block: %w", err)
@@ -631,13 +644,13 @@ func runDBCheck(opts dbCheckOptions) (err error) {
 
 	log.Info("Checking continuity of ancient blocks", "start", opts.start, "end", lastAncientNumber, "count", lastAncientNumber-opts.start+1)
 	if err := checkContinuity(opts.start, lastAncientNumber, func(start, count uint64) (*RLPBlockRange, error) {
-		return loadAncientRange(ancientDB, start, count)
+		return loadAncientRange(ancientDB, start, count, false)
 	}); err != nil {
 		return err
 	}
 	log.Info("Checking continuity of non-ancient blocks", "start", lastAncientNumber+1, "end", lastBlockNumber, "count", lastBlockNumber-lastAncientNumber)
 	if err := checkContinuity(lastAncientNumber+1, lastBlockNumber, func(start, count uint64) (*RLPBlockRange, error) {
-		return loadNonAncientRange(nonAncientDB, start, count)
+		return loadNonAncientRange(nonAncientDB, start, count, false)
 	}); err != nil {
 		return err
 	}
