@@ -16,8 +16,8 @@ github.com/DataDog/datadog-go v2.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e h1:ZIWapoIRN1VqT8GR8jAwb1Ie9GyehWjVcGh32Y2MznE=
 github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
-github.com/EspressoSystems/espresso-sequencer-go v0.0.30 h1:tJ8CXxm3cc2Smsy1Zeii1yixjYOXRfv996UrD9BAiSw=
-github.com/EspressoSystems/espresso-sequencer-go v0.0.30/go.mod h1:BbU8N23RGl45QXSf/bYc8OQ8TG/vlMaPC1GU1acqKmc=
+github.com/EspressoSystems/espresso-network-go v0.0.34 h1:tJ8CXxm3cc2Smsy1Zeii1yixjYOXRfv996UrD9BAiSw=
+github.com/EspressoSystems/espresso-network-go v0.0.34/go.mod h1:BbU8N23RGl45QXSf/bYc8OQ8TG/vlMaPC1GU1acqKmc=
 github.com/Masterminds/semver/v3 v3.1.1 h1:hLg3sBzpNErnxhQtUy/mmLR2I9foDujNK030IGemrRc=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
