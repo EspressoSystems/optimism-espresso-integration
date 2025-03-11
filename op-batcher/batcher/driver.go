@@ -23,8 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
 	config "github.com/ethereum-optimism/optimism/op-batcher/config"
