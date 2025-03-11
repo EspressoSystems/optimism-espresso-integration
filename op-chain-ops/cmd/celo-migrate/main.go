@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -68,11 +67,6 @@ var (
 	migrationBlockNumberFlag = &cli.Uint64Flag{
 		Name:     "migration-block-number",
 		Usage:    "Specifies the migration block number. If the source db is not synced exactly to the block immediately before this number (i.e. migration-block-number - 1), the migration will fail.",
-		Required: true,
-	}
-	migrationBlockTimeFlag = &cli.Uint64Flag{
-		Name:     "migration-block-time",
-		Usage:    "Specifies a unix timestamp to use for the migration block. This should be set to the same timestamp as was used for the sequencer migration. If performing the sequencer migration, this should set to a time in the future around when the migration script is expected to complete.",
 		Required: true,
 	}
 	oldDBPathFlag = &cli.PathFlag{
@@ -120,6 +114,11 @@ var (
 		Usage: "Fail fast on the first error encountered. If set, the db check will stop on the first error encountered, otherwise it will continue to check all blocks and print out all errors at the end.",
 		Value: false,
 	}
+	l1BeaconRPCFlag = &cli.StringFlag{
+		Name:     "l1-beacon-rpc",
+		Usage:    "RPC URL for a node of the L1 beacon chain, required for mainnet migrations but not for alfajores or baklava",
+		Required: false,
+	}
 	skipDbCheck = &cli.BoolFlag{
 		Name:  "skip-db-check",
 		Usage: "Skip the db continuity check.",
@@ -143,8 +142,8 @@ var (
 		l2AllocsFlag,
 		outfileRollupConfigFlag,
 		outfileGenesisFlag,
-		migrationBlockTimeFlag,
 		migrationBlockNumberFlag,
+		l1BeaconRPCFlag,
 	)
 	dbCheckFlags = []cli.Flag{
 		dbCheckPathFlag,
@@ -172,6 +171,7 @@ type stateMigrationOptions struct {
 	outfileRollupConfig string
 	outfileGenesis      string
 	migrationBlockTime  uint64
+	l1BeaconRPC         string
 }
 
 type fullMigrationOptions struct {
@@ -207,7 +207,7 @@ func parseStateMigrationOptions(ctx *cli.Context) stateMigrationOptions {
 		l2AllocsPath:        ctx.Path(l2AllocsFlag.Name),
 		outfileRollupConfig: ctx.Path(outfileRollupConfigFlag.Name),
 		outfileGenesis:      ctx.Path(outfileGenesisFlag.Name),
-		migrationBlockTime:  ctx.Uint64(migrationBlockTimeFlag.Name),
+		l1BeaconRPC:         ctx.String(l1BeaconRPCFlag.Name),
 	}
 }
 
@@ -306,6 +306,23 @@ func runFullMigration(opts fullMigrationOptions) error {
 
 	log.Info("Source db is synced to correct height", "head", head.Number.Uint64(), "migrationBlock", opts.migrationBlockNumber)
 
+	config, err := genesis.NewDeployConfig(opts.deployConfig)
+	if err != nil {
+		return err
+	}
+	switch config.L2ChainID {
+	case 62320: // baklava
+		opts.migrationBlockTime = 1740081460
+	case 44787: // alfajores
+		opts.migrationBlockTime = 1727339320
+	default:
+		opts.migrationBlockTime = head.Time + 60
+	}
+	// Verify that one of l1StartingBlockTag or l1BeaconRPC is set, but not both.
+	if !((config.L1StartingBlockTag != nil) != (opts.l1BeaconRPC != "")) {
+		return fmt.Errorf("exactly one of l1StartingBlockTag or l1BeaconRPC must be set")
+	}
+
 	var numAncients uint64
 	var strayAncientBlocks []*rawdb.NumberHash
 
@@ -316,7 +333,7 @@ func runFullMigration(opts fullMigrationOptions) error {
 	if err = runNonAncientMigration(opts.newDBPath, strayAncientBlocks, opts.batchSize, numAncients); err != nil {
 		return fmt.Errorf("failed to run non-ancient migration: %w", err)
 	}
-	if err = runStateMigration(opts.newDBPath, opts.stateMigrationOptions); err != nil {
+	if err = runStateMigration(head, opts.newDBPath, opts.stateMigrationOptions); err != nil {
 		return fmt.Errorf("failed to run state migration: %w", err)
 	}
 
@@ -421,7 +438,7 @@ func runNonAncientMigration(newDBPath string, strayAncientBlocks []*rawdb.Number
 	return nil
 }
 
-func runStateMigration(newDBPath string, opts stateMigrationOptions) error {
+func runStateMigration(celoL1Head *types.Header, newDBPath string, opts stateMigrationOptions) error {
 	defer timer("state migration")()
 
 	log.Info("State Migration Started", "newDBPath", newDBPath, "deployConfig", opts.deployConfig, "l1Deployments", opts.l1Deployments, "l1RPC", opts.l1RPC, "l2AllocsPath", opts.l2AllocsPath, "outfileRollupConfig", opts.outfileRollupConfig)
@@ -446,37 +463,44 @@ func runStateMigration(newDBPath string, opts stateMigrationOptions) error {
 	}
 	config.SetDeployments(deployments)
 
-	// Get latest block information from L1
 	var l1StartBlock *types.Block
 	client, err := ethclient.Dial(opts.l1RPC)
 	if err != nil {
 		return fmt.Errorf("cannot dial %s: %w", opts.l1RPC, err)
 	}
 
+	chainID, err := client.ChainID(context.Background())
+	if err != nil {
+		return fmt.Errorf("cannot get L1 chain ID: %w", err)
+	}
+
+	// If the L1 starting block tag is not set, we determine it dynamically by
+	// finding the most recent final L1 block at the time of the L2 fork block.
 	if config.L1StartingBlockTag == nil {
-		l1StartBlock, err = client.BlockByNumber(context.Background(), nil)
+		// Find the L1 starting block, the L2 fork block occurs 1 minute after the last celo L1 block.
+		opts.migrationBlockTime = celoL1Head.Time + 60
+		bc := NewBeaconClient(opts.l1BeaconRPC)
+
+		l1StartBlockHash, err := bc.MostRecentFinalizedBlockAtTime(chainID, opts.migrationBlockTime)
 		if err != nil {
-			return fmt.Errorf("cannot fetch latest block: %w", err)
+			return fmt.Errorf("failed to find finalized L1 starting block: %w", err)
 		}
-		tag := rpc.BlockNumberOrHashWithHash(l1StartBlock.Hash(), true)
-		config.L1StartingBlockTag = (*genesis.MarshalableRPCBlockNumberOrHash)(&tag)
-	} else if config.L1StartingBlockTag.BlockHash != nil {
+		config.L1StartingBlockTag = &genesis.MarshalableRPCBlockNumberOrHash{BlockHash: &l1StartBlockHash}
+	}
+
+	if config.L1StartingBlockTag.BlockHash != nil {
 		l1StartBlock, err = client.BlockByHash(context.Background(), *config.L1StartingBlockTag.BlockHash)
 		if err != nil {
-			return fmt.Errorf("cannot fetch block by hash: %w", err)
+			return fmt.Errorf("failed to fetch l1startingBlock by hash (%v): %w", config.L1StartingBlockTag.BlockHash, err)
 		}
 	} else if config.L1StartingBlockTag.BlockNumber != nil {
 		l1StartBlock, err = client.BlockByNumber(context.Background(), big.NewInt(config.L1StartingBlockTag.BlockNumber.Int64()))
 		if err != nil {
-			return fmt.Errorf("cannot fetch block by number: %w", err)
+			return fmt.Errorf("failed to fetch l1startingBlock by number (%v): %w", config.L1StartingBlockTag.BlockNumber, err)
 		}
 	}
 
-	// Ensure that there is a starting L1 block
-	if l1StartBlock == nil {
-		return fmt.Errorf("no starting L1 block")
-	}
-
+	log.Info(fmt.Sprintf("Selected l1StartingBlock as block (%d), with hash (%v)", l1StartBlock.Number(), l1StartBlock.Hash()))
 	// Sanity check the config. Do this after filling in the L1StartingBlockTag
 	// if it is not defined.
 	if err := config.Check(log.New()); err != nil {
