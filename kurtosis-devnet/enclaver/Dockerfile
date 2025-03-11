@@ -75,15 +75,15 @@ COPY --from=cannon-builder-v1-2-0 /usr/local/bin/cannon-3 ./cannon/multicannon/e
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd cannon && make cannon  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$CANNON_VERSION"
 
-# Download and build the espresso-sequencer-go library
+# Download and build the espresso-network-go library
 FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
-ARG ESPRESSO_SEQUENCER_GO_VER=0.0.30
+ARG ESPRESSO_NETWORK_GO_VER=0.0.34
 RUN apk add perl make openssl-dev musl-dev gcc
-ADD https://github.com/EspressoSystems/espresso-sequencer-go/archive/refs/tags/v$ESPRESSO_SEQUENCER_GO_VER.tar.gz /source.tgz
+ADD https://github.com/EspressoSystems/espresso-network-go/archive/refs/tags/v$ESPRESSO_NETWORK_GO_VER.tar.gz /source.tgz
 RUN tar -oxzf /source.tgz
-WORKDIR /espresso-sequencer-go-$ESPRESSO_SEQUENCER_GO_VER
+WORKDIR /espresso-network-go-$ESPRESSO_NETWORK_GO_VER
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-  --mount=type=cache,target=/espresso-sequencer-go/verification/rust/target \
+  --mount=type=cache,target=/espresso-network-go/verification/rust/target \
   cargo build --release  --locked  --manifest-path ./verification/rust/Cargo.toml
 RUN mkdir -p /libespresso
 RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
