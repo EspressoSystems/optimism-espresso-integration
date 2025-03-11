@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
-	tagged_base64 "github.com/EspressoSystems/espresso-sequencer-go/tagged-base64"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	tagged_base64 "github.com/EspressoSystems/espresso-network-go/tagged-base64"
 	"github.com/ethereum/go-ethereum/log"
 )
 

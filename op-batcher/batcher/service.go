@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	espresso "github.com/EspressoSystems/espresso-sequencer-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-sequencer-go/light-client"
+	espresso "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
