@@ -6,7 +6,7 @@ toolchain go1.22.7
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/EspressoSystems/espresso-sequencer-go v0.0.30
+	github.com/EspressoSystems/espresso-network-go v0.0.34
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/andybalholm/brotli v1.1.0
 	github.com/bmatcuk/doublestar/v4 v4.8.1
@@ -43,7 +43,6 @@ require (
 	github.com/libp2p/go-libp2p-testing v0.12.0
 	github.com/lmittmann/w3 v0.17.8
 	github.com/mattn/go-isatty v0.0.20
-	github.com/mdlayher/vsock v1.2.1
 	github.com/minio/minio-go/v7 v7.0.85
 	github.com/minio/sha256-simd v1.0.1
 	github.com/multiformats/go-base32 v0.1.0
@@ -176,7 +175,6 @@ require (
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible // indirect
 	github.com/miekg/dns v1.1.62 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
