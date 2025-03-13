@@ -69,34 +69,68 @@ func (c *BeaconClient) findL1StartingBlock(chainID uint64, unixTime uint64, epoc
 		unixTime, chainID, beaconChainGenesisTimesSeconds[chainID], epoch, EpochStartTime(chainID, uint64(epoch))))
 
 	for ; ; epoch += epochIncrement {
+		log.Info(fmt.Sprintf("Checking epoch %d", epoch))
 		AwaitEpoch(chainID, uint64(epoch))
 		slot := FirstSlotOfEpoch(uint64(epoch))
 		finalityCheckpoints, err := c.FindFinalityCheckpointsForSlot(slot, 10)
 		if err != nil {
 			if errors.Is(err, ethereum.NotFound) {
+				log.Info(fmt.Sprintf("No finality checkpoints found in slots (%d-%d]", slot-10, slot))
 				continue
 			}
 			return common.Hash{}, fmt.Errorf("failed fetching finality checkpoints for slot %d: %w", slot, err)
 		}
 		justifiedEpoch := uint64(finalityCheckpoints.Data.Finalized.Epoch)
+
 		if !withinMaxSequencerDrift(EpochStartTime(chainID, justifiedEpoch), unixTime) {
-			// We've gone too far back and not found a suitable block, so break.
-			break
+			if epochIncrement < 0 {
+				// Searching backwards we exit if we've gone too far.
+				log.Info(fmt.Sprintf(
+					"Searched too far back, justified epoch %d with start time %d more than maxSequencerDrift before %d",
+					justifiedEpoch, EpochStartTime(chainID, justifiedEpoch), unixTime,
+				))
+				// We've gone too far back and not found a suitable block, so break.
+				break
+			} else {
+				// Searching forwards, if the justified epoch is too old we go to the next.
+				log.Info(fmt.Sprintf(
+					"Justified epoch %d with start time %d more than maxSequencerDrift before %d, going to next epoch",
+					justifiedEpoch, EpochStartTime(chainID, justifiedEpoch), unixTime,
+				))
+				continue
+			}
 		}
+
 		finalizedSlot := FirstSlotOfEpoch(justifiedEpoch)
 		l1StartBlockHash, l1StartBlockTime, err = c.FindBlockForSlot(finalizedSlot, 10)
 		if err != nil {
 			if errors.Is(err, ethereum.NotFound) {
+				log.Info(fmt.Sprintf("No finalized block found in slots (%d-%d]", finalizedSlot-10, finalizedSlot))
 				continue
 			}
 			return common.Hash{}, fmt.Errorf("failed fetching L1 block for slot (%v): %w", finalizedSlot, err)
 		}
 		switch {
 		case !withinMaxSequencerDrift(l1StartBlockTime, unixTime):
-			// This block is too old to use with the L2 fork block. Nullify the hash
-			// to signify that no suitable block was yet found.
-			l1StartBlockHash = common.Hash{}
+			if epochIncrement < 0 {
+				// Searching backwards we exit if we've gone too far. Nullify the hash
+				// to signify that no suitable block was yet found.
+				log.Info(fmt.Sprintf(
+					"Found a finalized block (%s) at time (%d) but it is more than maxSequencerDrift before %d", l1StartBlockHash, l1StartBlockTime, unixTime,
+				))
+				l1StartBlockHash = common.Hash{}
+			} else {
+				// Searching forwards, if the block is too old then try the next epoch.
+				log.Info(fmt.Sprintf(
+					"Block (%s) with time %d more than maxSequencerDrift before %d, going to next epoch",
+					l1StartBlockHash, l1StartBlockTime, unixTime,
+				))
+				continue
+			}
 		case l1StartBlockTime >= unixTime:
+			log.Info(fmt.Sprintf(
+				"Found a finalized block (%s) at time (%d) but it is too new it falls after %d", l1StartBlockHash, l1StartBlockTime, unixTime,
+			))
 			// We've gone too far forward and not found a suitable block, so nullify the hash and break.
 			l1StartBlockHash = common.Hash{}
 		default:
