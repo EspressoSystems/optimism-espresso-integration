@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
@@ -540,6 +540,8 @@ func (n *OpNode) initEspressoStreamer(cfg *Config) error {
 		cfg.CaffNodeConfig.PollingHotshotPollingInterval,
 		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
 		n.log,
+		cfg.Rollup.BatchInboxAddress,
+		&cfg.Rollup,
 	)
 	n.log.Info("Espresso streamer initialized", "namespace", cfg.CaffNodeConfig.Namespace, "next hotshot block num", cfg.CaffNodeConfig.NextHotshotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotshotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
 	return nil

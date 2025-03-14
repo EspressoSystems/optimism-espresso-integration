@@ -462,7 +462,7 @@ var (
 		Name:     "caff.polling-hotshot-polling-interval",
 		Usage:    "Polling interval for the hotshot block",
 		EnvVars:  prefixEnvVars("CAFF_NODE_POLLING_HOTSHOT_POLLING_INTERVAL"),
-		Value:    time.Millisecond,
+		Value:    500 * time.Millisecond,
 		Category: OperationsCategory,
 	}
 	CaffNodeHotShotUrls = &cli.StringSliceFlag{

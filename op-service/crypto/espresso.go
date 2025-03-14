@@ -46,6 +46,39 @@ func (c *clientSigner) Sign(ctx context.Context, address common.Address, data []
 	return c.signerClient.Sign(ctx, address, data)
 }
 
+// VerifySignature verifies that the signature was produced by the expected address.
+// data is the original message (e.g., txdata.CallData()) and signature is the result
+// from eth_sign.
+func Verify(data []byte, signature []byte, expected common.Address) error {
+	// Ensure the signature is 65 bytes long (r[32] || s[32] || v[1])
+	if len(signature) != 65 {
+		return fmt.Errorf("signature must be 65 bytes long, got %d", len(signature))
+	}
+	// If the recovery id (v) is 27 or 28, adjust it to be 0 or 1.
+	if signature[64] >= 27 {
+		log.Info("Adjusting recovery id", "recovery id", signature[64], "expected", expected.Hex())
+		signature[64] -= 27
+	}
+
+	// Ethereum's eth_sign prefixes the data before signing.
+	// The prefixed message is: "\x19Ethereum Signed Message:\n" + len(data) + data
+	prefixedMsg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(data), data)
+	msgHash := crypto.Keccak256([]byte(prefixedMsg))
+
+	// Recover the public key from the signature and the message hash.
+	pubKey, err := crypto.SigToPub(msgHash, signature)
+	if err != nil {
+		return fmt.Errorf("failed to recover public key: %w", err)
+	}
+
+	// Derive the Ethereum address from the public key.
+	recoveredAddr := crypto.PubkeyToAddress(*pubKey)
+	if !bytes.Equal(recoveredAddr.Bytes(), expected.Bytes()) {
+		return fmt.Errorf("address mismatch: got %s, expected %s", recoveredAddr.Hex(), expected.Hex())
+	}
+	return nil
+}
+
 // SignTransaction implements Signer.
 func (c *clientSigner) SignTransaction(ctx context.Context, address common.Address, tx *types.Transaction) (*types.Transaction, error) {
 	if !bytes.Equal(address[:], c.fromAddress[:]) {

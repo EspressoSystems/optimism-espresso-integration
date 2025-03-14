@@ -82,13 +82,23 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
-		// Sishan TODO: for caff node, call NextBatch() on EspressoStreamer instead
-		batch, concluding, err := aq.prev.NextBatch(ctx, parent)
-		if err != nil {
-			return nil, err
+		// Sishan TODO: for caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
+		var batch *SingularBatch
+		var concluding bool
+		if isCaffNode {
+			batch, concluding, err = aq.s.NextBatch(ctx, parent)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			batch, concluding, err := aq.prev.NextBatch(ctx, parent)
+			if err != nil {
+				return nil, err
+			}
 		}
 		aq.batch = batch
 		aq.concluding = concluding
+		aq.log.Info("signular batch from op-node is ", "batch", aq.batch, "concluding", concluding)
 	}
 
 	// Actually generate the next attributes

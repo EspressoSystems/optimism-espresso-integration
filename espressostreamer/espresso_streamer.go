@@ -4,16 +4,21 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
 	"sync"
 	"time"
 
-	espressoClient "github.com/EspressoSystems/espresso-sequencer-go/client"
-	espressoTypes "github.com/EspressoSystems/espresso-sequencer-go/types"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -44,8 +49,9 @@ type EspressoStreamer struct {
 	pollingHotshotPollingInterval time.Duration
 	messageWithHeight             []*MessageWithHeight
 	log                           log.Logger
-
-	messageMutex sync.Mutex
+	batchInboxAddr                common.Address
+	rollupConfig                  *rollup.Config
+	messageMutex                  sync.Mutex
 }
 
 func NewEspressoStreamer(namespace uint64,
@@ -53,6 +59,8 @@ func NewEspressoStreamer(namespace uint64,
 	pollingHotshotPollingInterval time.Duration,
 	espressoClientInterface EspressoClientInterface,
 	log log.Logger,
+	batchInboxAddr common.Address,
+	rollupConfig *rollup.Config,
 ) *EspressoStreamer {
 
 	return &EspressoStreamer{
@@ -61,8 +69,21 @@ func NewEspressoStreamer(namespace uint64,
 		pollingHotshotPollingInterval: pollingHotshotPollingInterval,
 		namespace:                     namespace,
 		log:                           log,
+		batchInboxAddr:                batchInboxAddr,
+		rollupConfig:                  rollupConfig,
 	}
 }
+
+// func NewEspressoStreamerDefault(log log.Logger, batchInboxAddr common.Address) *EspressoStreamer {
+// 	return &EspressoStreamer{
+// 		espressoClient:                espressoClient.NewMultipleNodesClient([]string{"http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000"}),
+// 		nextHotshotBlockNum:           1,
+// 		pollingHotshotPollingInterval: time.Millisecond,
+// 		namespace:                     42,
+// 		log:                           log,
+// 		batchInboxAddr:                batchInboxAddr,
+// 	}
+// }
 
 func (s *EspressoStreamer) Reset(currentMessagePos uint64, currentHostshotBlock uint64) {
 	s.messageMutex.Lock()
@@ -72,20 +93,100 @@ func (s *EspressoStreamer) Reset(currentMessagePos uint64, currentHostshotBlock 
 	s.messageWithHeight = []*MessageWithHeight{}
 }
 
-func (s *EspressoStreamer) NextBatch(parent eth.L2BlockRef) (MessageWithHeight, error) {
+type BatchValidity uint8
+
+const (
+	// BatchDrop indicates that the batch is invalid, and will always be in the future, unless we reorg
+	BatchDrop = iota
+	// BatchAccept indicates that the batch is valid and should be processed
+	BatchAccept
+	// BatchUndecided indicates we are lacking L1 information until we can proceed batch filtering
+	BatchUndecided
+	// BatchFuture indicates that the batch may be valid, but cannot be processed yet and should be checked again later
+	BatchFuture
+	// BatchPast indicates that the batch is from the past, i.e. its timestamp is smaller or equal
+	// to the safe head's timestamp.
+	BatchPast
+)
+
+func CheckBatch(ctx context.Context, cfg *rollup.Config, log log.Logger, l2SafeHead eth.L2BlockRef, batch *derive.SingularBatch) BatchValidity {
+	// add details to the log
+	log = batch.LogContext(log)
+
+	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
+	if batch.Timestamp > nextTimestamp {
+		log.Trace("received out-of-order batch for future processing after next batch", "next_timestamp", nextTimestamp)
+		return BatchFuture
+	}
+	if batch.Timestamp < nextTimestamp {
+		log.Warn("dropping past batch with old timestamp", "min_timestamp", nextTimestamp)
+		return BatchDrop
+	}
+
+	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+	if batch.ParentHash != l2SafeHead.Hash {
+		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", l2SafeHead.Hash)
+		return BatchDrop
+	}
+
+	// We can do this check earlier, but it's a more intensive one, so we do this last.
+	for i, txBytes := range batch.Transactions {
+		if len(txBytes) == 0 {
+			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+			return BatchDrop
+		}
+		if txBytes[0] == types.DepositTxType {
+			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			return BatchDrop
+		}
+	}
+
+	return BatchAccept
+}
+
+func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef) (*derive.SingularBatch, bool, error) {
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
-	// Sishan TODO: Find the batch that match the parent block
-	message := s.messageWithHeight[s.currentMessagePos]
-	s.currentMessagePos += 1
-	return *message, nil
+	// Sishan TODO: Find the batch that match the parent block,
+	var returnBatch *derive.SingularBatch
+	var remaining []*MessageWithHeight
+batchLoop:
+	for i, message := range s.messageWithHeight {
+		validity := CheckBatch(ctx, s.rollupConfig, s.log.New("batch_index", i), parent, message.SequencerBatches)
+		// sort out the next batch and drop batch in existing batches
+		switch validity {
+		case BatchFuture:
+			remaining = append(remaining, message)
+			continue
+		case BatchDrop:
+			message.SequencerBatches.LogContext(s.log).Warn("Dropping batch",
+				"parent", parent.ID(),
+				"parent_time", parent.Time,
+			)
+			continue
+		case BatchAccept:
+			returnBatch = message.SequencerBatches
+			// don't keep the current batch in the remaining items since we are processing it now,
+			// but retain every batch we didn't get to yet.
+			remaining = append(remaining, s.messageWithHeight[i+1:]...)
+			break batchLoop
+		case BatchUndecided:
+			remaining = append(remaining, s.messageWithHeight[i:]...)
+			s.messageWithHeight = remaining
+			return nil, false, io.EOF
+		default:
+			return nil, false, derive.NewCriticalError(fmt.Errorf("unknown batch validity type: %d", validity))
+		}
+	}
+	s.messageWithHeight = remaining
+	return returnBatch, false, nil
 }
 
-// Sishan TODO: not sure whether we'll also parse namespace here, maybe there is no namespace in the input payload
 func ParseHotShotPayload(payload []byte) (batcherSignature []byte, sequencerBatchesByte []byte, err error) {
 
 	// Sishan TODO: do real parse, blocked by batcher submitter changes.
+	// (not sure whether we'll also parse namespace here, maybe there is no namespace in the input payload
 	// now the payload is append(batcherSignature, txdata.CallData()...),
 	// what we need will be append(batcherSignature,sequencerBatches...)
 
@@ -98,15 +199,20 @@ func ParseHotShotPayload(payload []byte) (batcherSignature []byte, sequencerBatc
 
 func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*MessageWithHeight, error) {
 	s.log.Info("Parsing espresso transaction", "tx", hex.EncodeToString(tx))
-	// placeholder for batcherSignature and sequencerBatchesByte
-	_, _, err := ParseHotShotPayload(tx)
+	batcherSignature, sequencerBatchesByte, err := ParseHotShotPayload(tx)
 	if err != nil {
 		s.log.Warn("failed to parse hotshot payload", "err", err)
 		return nil, err
 	}
-	// if signature verification fails, we should skip this message
-	// Sishan TODO: verify the signature instead
-	// verifySignature(batcherSignature, sequencerBatchesByte, )
+	// if batcher'ssignature verification fails, we should skip this message
+	// assign some real data for now
+	// Sishan TODO: debug
+	batcherSignature, err = hex.DecodeString("39c969f723e8eefa9c367cd79e29a69dfc39084c9e46e929e3f6fc52e00fbb3b420e37e556434302dd971377d0a5d10b7da8062185eeb896352a952539133dc701")
+	sequencerBatchesByte, err = hex.DecodeString("1e7e580d65989969957450819e382bf27cd04eaf3d390f915b907091f5e50faa")
+	err = crypto.Verify(sequencerBatchesByte, batcherSignature, s.batchInboxAddr)
+	if err != nil {
+		s.log.Warn("failed to verify signature", "err", err)
+	}
 
 	// placeholder for sequencer batches, it should be derived from sequencerBatchesByte
 	rng := rand.New(rand.NewSource(0x543331))
@@ -173,7 +279,7 @@ func (s *EspressoStreamer) QueueMessagesFromHotshot(
 			s.log.Warn("failed to verify espresso transaction", "err", err)
 			continue
 		}
-		// Sishan TODO: Sort it, and filter out the messages have already been seen
+		// Sishan TODO: Filter out the messages have already been seen
 		s.messageWithHeight = append(s.messageWithHeight, messages...)
 	}
 
