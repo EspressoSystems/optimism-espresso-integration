@@ -1,10 +1,8 @@
 optimism_package:
+  observability:
+    enabled: false
   altda_deploy_config:
-    use_altda: true
-    da_challenge_window: 100
-    da_resolve_window: 100
-    da_bond_size: 0
-    da_resolver_refund_percentage: 0
+    use_altda: false
   chains:
     - participants:
         - el_type: op-geth
@@ -44,7 +42,7 @@ optimism_package:
         holocene_time_offset: 0
         fund_dev_accounts: true
       batcher_params:
-        image: ""
+        dry_run: true
       challenger_params:
         image: '{{ localDockerImage "op-challenger" }}'
         cannon_prestate_path: ""
@@ -59,17 +57,9 @@ optimism_package:
         rollup_boost_image: ""
         builder_host: ""
         builder_port: ""
-      additional_services:
-        - da_server
+      additional_services: {}
       da_server_params:
         image: '{{ localDockerImage "da-server" }}'
-        cmd:
-          - "da-server"
-          - "--addr=0.0.0.0"
-          - "--port=3100"
-          - "--log.level=debug"
-          - "--espresso.url=http://op-espresso-devnode:24000"
-          - "--generic-commitment=true"
   op_contract_deployer_params:
     image: '{{ localDockerImage "op-deployer" }}'
     l1_artifacts_locator: '{{ localContractArtifacts "l1" }}'
