@@ -20,14 +20,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
@@ -60,9 +58,6 @@ type OpNode struct {
 	l1HeadsSub     ethereum.Subscription // Subscription to get L1 heads (automatically re-subscribes on error)
 	l1SafeSub      ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 	l1FinalizedSub ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
-
-	CaffNode         bool                     // Flag to check if the node is a caffeinated node that will derive from espresso
-	espressoStreamer *derive.EspressoStreamer // Changed from interface to pointer type
 
 	eventSys   event.System
 	eventDrain event.Drainer
@@ -172,9 +167,6 @@ func (n *OpNode) init(ctx context.Context, cfg *Config) error {
 	n.metrics.RecordUp()
 	if err := n.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
-	}
-	if err := n.initEspressoStreamer(cfg); err != nil {
-		return fmt.Errorf("failed to init espresso streamer: %w", err)
 	}
 	return nil
 }
@@ -526,24 +518,6 @@ func (n *OpNode) initPProf(cfg *Config) error {
 		return fmt.Errorf("failed to start pprof service: %w", err)
 	}
 
-	return nil
-}
-
-func (n *OpNode) initEspressoStreamer(cfg *Config) error {
-
-	if !n.cfg.CaffNodeConfig.IsCaffNode {
-		return nil
-	}
-	n.espressoStreamer = derive.NewEspressoStreamer(
-		cfg.CaffNodeConfig.Namespace,
-		cfg.CaffNodeConfig.NextHotshotBlockNum,
-		cfg.CaffNodeConfig.PollingHotshotPollingInterval,
-		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
-		n.log,
-		cfg.Rollup.BatchInboxAddress,
-		&cfg.Rollup,
-	)
-	n.log.Info("Espresso streamer initialized", "namespace", cfg.CaffNodeConfig.Namespace, "next hotshot block num", cfg.CaffNodeConfig.NextHotshotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotshotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
 	return nil
 }
 

@@ -81,7 +81,6 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		log.Warn("Heartbeat functionality is not supported anymore, CLI flags will be removed in following release.")
 	}
 	conductorRPCEndpoint := ctx.String(flags.ConductorRpcFlag.Name)
-
 	cfg := &node.Config{
 		L1:            l1Endpoint,
 		L2:            l2Endpoint,
