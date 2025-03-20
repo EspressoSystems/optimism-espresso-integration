@@ -39,7 +39,7 @@ type baseBatchStage struct {
 	//  If new L2 block's L1 origin is not included in l1Blocks, fetch and push to l1Blocks.
 	// length of l1Blocks never exceeds SequencerWindowSize
 	l1Blocks []eth.L1BlockRef
-	// Sishan TODO: Add Hotshot Block here
+	// Sishan TODO: Add Hotshot Block reference here maybe? So that checkes with l1Blocks can be done with hotshot block.
 
 	// nextSpan is cached SingularBatches derived from SpanBatch
 	nextSpan []*SingularBatch
