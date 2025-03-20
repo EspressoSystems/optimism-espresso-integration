@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -57,6 +58,9 @@ type AttributesQueue struct {
 	batch       *SingularBatch
 	concluding  bool
 	lastAttribs *AttributesWithParent
+
+	isCaffNode       bool
+	espressoStreamer *EspressoStreamer
 }
 
 type SingularBatchProvider interface {
@@ -66,12 +70,32 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer {
+
+	if !cfg.CaffNodeConfig.IsCaffNode {
+		return nil
+	}
+	espressoStreamer := NewEspressoStreamer(
+		cfg.CaffNodeConfig.Namespace,
+		cfg.CaffNodeConfig.NextHotshotBlockNum,
+		cfg.CaffNodeConfig.PollingHotshotPollingInterval,
+		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
+		log,
+		cfg.BatchInboxAddress,
+		cfg,
+	)
+	log.Info("Espresso streamer initialized", "namespace", cfg.CaffNodeConfig.Namespace, "next hotshot block num", cfg.CaffNodeConfig.NextHotshotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotshotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
+	return espressoStreamer
+}
+
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
 	return &AttributesQueue{
-		log:     log,
-		config:  cfg,
-		builder: builder,
-		prev:    prev,
+		log:              log,
+		config:           cfg,
+		builder:          builder,
+		prev:             prev,
+		isCaffNode:       cfg.CaffNodeConfig.IsCaffNode,
+		espressoStreamer: initEspressoStreamer(log, cfg),
 	}
 }
 
@@ -82,16 +106,17 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
-		// Sishan TODO: for caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		var batch *SingularBatch
 		var concluding bool
-		if isCaffNode {
-			batch, concluding, err = aq.s.NextBatch(ctx, parent)
+		var err error
+		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
+		if aq.isCaffNode {
+			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			batch, concluding, err := aq.prev.NextBatch(ctx, parent)
+			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
 			}

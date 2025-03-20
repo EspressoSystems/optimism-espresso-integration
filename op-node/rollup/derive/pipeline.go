@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	// espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
 )
 
 var ErrEngineResetReq = errors.New("cannot continue derivation until Engine has been reset")
@@ -92,10 +91,6 @@ type DerivationPipeline struct {
 	resetSysConfig eth.SystemConfig
 	engineIsReset  bool
 
-	// // Espresso CaffNode
-	// isCaffNode       bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
-	// espressoStreamer *espressoStreamer.EspressoStreamer // Client to fetch messages from Espresso
-
 	metrics Metrics
 }
 
@@ -121,10 +116,6 @@ func NewDerivationPipeline(log log.Logger, rollupCfg *rollup.Config, l1Fetcher L
 	attrBuilder := NewFetchingAttributesBuilder(rollupCfg, l1Fetcher, l2Source)
 	attributesQueue := NewAttributesQueue(log, rollupCfg, attrBuilder, batchMux)
 
-	// Initialize the espresso streamer
-	// Sishan TODO: config this
-	// espressoStreamer := espressoStreamer.NewEspressoStreamerDefault(log, rollupCfg.BatchInboxAddress)
-
 	// Reset from ResetEngine then up from L1 Traversal. The stages do not talk to each other during
 	// the ResetEngine, but after the ResetEngine, this is the order in which the stages could talk to each other.
 	// Note: The ResetEngine is the only reset that can fail.
@@ -141,8 +132,6 @@ func NewDerivationPipeline(log log.Logger, rollupCfg *rollup.Config, l1Fetcher L
 		traversal: l1Traversal,
 		attrib:    attributesQueue,
 		l2:        l2Source,
-		// isCaffNode:       true,
-		// espressoStreamer: espressoStreamer,
 	}
 }
 
@@ -298,10 +287,6 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 	dp.engineIsReset = true
 }
 
-// func (dp *DerivationPipeline) IsCaffNode() bool {
-// 	return dp.isCaffNode
-// }
-
-// func (dp *DerivationPipeline) GetEspressoStreamer() *espressoStreamer.EspressoStreamer {
-// 	return dp.espressoStreamer
-// }
+func (dp *DerivationPipeline) EspressoStreamer() *EspressoStreamer {
+	return dp.attrib.espressoStreamer
+}

@@ -21,13 +21,13 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/node/safedb"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
@@ -61,8 +61,8 @@ type OpNode struct {
 	l1SafeSub      ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 	l1FinalizedSub ethereum.Subscription // Subscription to get L1 safe blocks, a.k.a. justified data (polling)
 
-	CaffNode         bool                               // Flag to check if the node is a caffeinated node that will derive from espresso
-	espressoStreamer *espressoStreamer.EspressoStreamer // Changed from interface to pointer type
+	CaffNode         bool                     // Flag to check if the node is a caffeinated node that will derive from espresso
+	espressoStreamer *derive.EspressoStreamer // Changed from interface to pointer type
 
 	eventSys   event.System
 	eventDrain event.Drainer
@@ -534,7 +534,7 @@ func (n *OpNode) initEspressoStreamer(cfg *Config) error {
 	if !n.cfg.CaffNodeConfig.IsCaffNode {
 		return nil
 	}
-	n.espressoStreamer = espressoStreamer.NewEspressoStreamer(
+	n.espressoStreamer = derive.NewEspressoStreamer(
 		cfg.CaffNodeConfig.Namespace,
 		cfg.CaffNodeConfig.NextHotshotBlockNum,
 		cfg.CaffNodeConfig.PollingHotshotPollingInterval,
@@ -589,7 +589,7 @@ func (n *OpNode) Start(ctx context.Context) error {
 	}
 	if n.cfg.CaffNodeConfig.IsCaffNode {
 		// Sishan TODO: deal with this in a better way and add error handling
-		go n.espressoStreamer.Start(ctx)
+		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
 	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine

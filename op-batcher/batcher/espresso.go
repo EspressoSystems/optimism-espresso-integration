@@ -12,7 +12,7 @@ import (
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 	"github.com/ethereum/go-ethereum/log"
 
-	espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 )
 
 const exampleNamespace = 42

@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	// espressoStreamer "github.com/ethereum-optimism/optimism/espressostreamer"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
@@ -78,8 +77,7 @@ type DerivationPipeline interface {
 	Origin() eth.L1BlockRef
 	DerivationReady() bool
 	ConfirmEngineReset()
-	// IsCaffNode() bool
-	// GetEspressoStreamer() *espressoStreamer.EspressoStreamer
+	EspressoStreamer() *derive.EspressoStreamer
 }
 
 type EngineController interface {

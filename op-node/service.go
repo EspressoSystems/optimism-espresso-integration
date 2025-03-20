@@ -82,8 +82,6 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 	}
 	conductorRPCEndpoint := ctx.String(flags.ConductorRpcFlag.Name)
 
-	caffNodeConfig := NewCaffNodeConfig(ctx)
-
 	cfg := &node.Config{
 		L1:            l1Endpoint,
 		L2:            l2Endpoint,
@@ -118,8 +116,6 @@ func NewConfig(ctx *cli.Context, log log.Logger) (*node.Config, error) {
 		ConductorRpcTimeout: ctx.Duration(flags.ConductorRpcTimeoutFlag.Name),
 
 		AltDA: altda.ReadCLIConfig(ctx),
-
-		CaffNodeConfig: *caffNodeConfig,
 	}
 
 	if err := cfg.LoadPersisted(log); err != nil {
@@ -214,6 +210,9 @@ func NewRollupConfigFromCLI(log log.Logger, ctx *cli.Context) (*rollup.Config, e
 		return nil, err
 	}
 	applyOverrides(ctx, rollupConfig)
+
+	rollupConfig.CaffNodeConfig = *NewCaffNodeConfig(ctx)
+
 	return rollupConfig, nil
 }
 
@@ -298,8 +297,8 @@ func NewSyncConfig(ctx *cli.Context, log log.Logger) (*sync.Config, error) {
 	return cfg, nil
 }
 
-func NewCaffNodeConfig(ctx *cli.Context) *node.CaffNodeConfig {
-	return &node.CaffNodeConfig{
+func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
+	return &rollup.CaffNodeConfig{
 		IsCaffNode:                    ctx.Bool(flags.CaffNodeFlag.Name),
 		Namespace:                     ctx.Uint64(flags.CaffNodeNamespace.Name),
 		NextHotshotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotshotBlockNum.Name),

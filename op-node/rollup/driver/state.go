@@ -89,11 +89,6 @@ func (s *Driver) Start() error {
 		}
 	}
 
-	// if s.SyncDeriver.Derivation.IsCaffNode() {
-	// 	// Sishan TODO: deal with this in a better way and add error handling
-	// 	go s.SyncDeriver.Derivation.GetEspressoStreamer().Start(s.driverCtx)
-	// }
-
 	s.wg.Add(1)
 	go s.eventLoop()
 
