@@ -264,7 +264,7 @@ var (
 		Name:     "sequencer.use-finalized",
 		Usage:    "Enable use of only finalized L1 blocks as L1 origin. Overwrites the value of 'sequencer.l1-confs'.",
 		EnvVars:  prefixEnvVars("SEQUENCER_USE_FINALIZED"),
-		Value:    false,
+		Value:    false, // Sishan TODO: So Celo set it to false by default? Do we want to change to true if deriving from caff node?
 		Category: SequencerCategory,
 	}
 	L1EpochPollIntervalFlag = &cli.DurationFlag{
