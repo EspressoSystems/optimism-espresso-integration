@@ -11,8 +11,6 @@ import (
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 	"github.com/ethereum/go-ethereum/log"
-
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 )
 
 const exampleNamespace = 42
