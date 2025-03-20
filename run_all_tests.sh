@@ -1,51 +1,45 @@
-#!/usr/bin/env bash
+# Configure the shell to trigger the exit trap on any non successful error code
 set -eu
 
+# Configure a trap handler to run at the end of any unsuccessful script.  This
+# will allow us to exist immediately following the failed test, so that it can
+# be inspected / debugged.
 trap "exit" INT TERM
 trap end EXIT
 end(){
     if [[ $? -ne 0 ]]; then
         echo "Tests failed :("
-        echo "If the failure looks unrelated to changes made consider running: make nuke"
-        echo "Then try again."
+        echo "Figure out why"
         exit 1
     fi
 }
 
-# Check if a makefile has a recipe: https://stackoverflow.com/a/58316463
-function has-recipe() {
-    make -C $1 -qp | awk -F':' '/^[a-zA-Z0-9][^$#\/\t=]*:([^=]|$)/ {split($1,A,/ /);for(i in A)print A[i]}' | grep -qx $2
-}
+# We run nuke before we run the tests, in order to make sure we're starting
+# from a clean slate.
+make nuke
 
-make
+# Some of the following tests depend on the existence of the forge-artifacts
+# folder under `packages/contracts-bedrock`.  This folder is created by running
+# the cannon tests, so we need to ensure that it is run first.
+make -C ./cannon test
+(cd packages/contracts-bedrock && just test)
 
-# Iterate through all directories and run `make lint/test` if there's a makefile.
-for dir in $(find . -mindepth 1 -maxdepth 1 -type d | sort); do
-    if [ -f "$dir/Makefile" ]; then
-        if has-recipe "$dir" "lint"; then
-            # Skip some directories because lint fails.
-            for exclude in "op-exporter" "op-ufm"; do
-                if [ "$dir" = "./$exclude" ]; then
-                    echo "Skipping lint: $dir"
-                    continue 2
-                fi
-            done
-            echo "Running lint in $dir"
-            make -C "$dir" lint
-        fi
+make -C ./op-alt-da test
+make -C ./op-batcher test
+make -C ./op-chain-ops test
+make -C ./op-challenger test
+make -C ./op-conductor test
+make -C ./op-dispute-mon test
+make -C ./op-dripper test
+make -C ./op-e2e test
+make -C ./op-node test
+make -C ./op-program test
+make -C ./op-proposer test
+make -C ./op-service test
+make -C ./op-supervisor test
 
-        if has-recipe "$dir" "test"; then
-            # Skip some directories because tests fail.
-            for exclude in "proxyd" "indexer" "op-bootnode" "op-ufm" "cannon" "op-batcher" "op-alt-da" "op-e2e" "op-program" "op-service"; do
-                if [ "$dir" = "./$exclude" ]; then
-                    echo "Skipping test: $dir"
-                    continue 2
-                fi
-            done
-            echo "Running tests in $dir"
-            make -C "$dir" test
-        fi
-    fi
-done
+# Just to be nice we run nuke again, so we don't have any residual state
+# left around.
+make nuke
 
 echo Ok!
