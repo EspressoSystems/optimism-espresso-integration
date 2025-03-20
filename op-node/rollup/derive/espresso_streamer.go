@@ -76,6 +76,8 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	// add details to the log
 	log = batch.LogContext(log)
 
+	// Sishan TODO: check the L1 origin is already finalized
+
 	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
 	if batch.Timestamp > nextTimestamp {
 		log.Trace("received out-of-order batch for future processing after next batch", "next_timestamp", nextTimestamp)
