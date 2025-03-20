@@ -21,15 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-type Transaction struct {
-	// Namespace of transaction to be published
-	Namespace uint64
-	// TODO: placeholder for sequencer's signature
-	BatcherSignature []byte
-	// Frames serialized as they would be for posting to L1 as calldata
-	CallData []byte
-}
-
 type EspressoClientInterface interface {
 	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
 	FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error)
