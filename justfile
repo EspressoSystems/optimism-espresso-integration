@@ -4,6 +4,14 @@ build-rust-release:
   cd op-rbuilder && cargo build --release -p op-rbuilder --bin op-rbuilder
   cd rollup-boost && cargo build --release -p rollup-boost --bin rollup-boost
 
+# Run the tests
+tests:
+  ./run_all_tests.sh
+
+# Clean up everything before running the tests
+nuke:
+  make nuke
+
 # Checks that TODO comments have corresponding issues.
 todo-checker:
   ./ops/scripts/todo-checker.sh
