@@ -7,6 +7,13 @@ build-rust-release:
 # Checks that locked NUT bundles have not been modified.
 check-nut-locks:
   go run ./ops/scripts/check-nut-locks
+# Run the tests
+tests:
+  ./run_all_tests.sh
+
+# Clean up everything before running the tests
+nuke:
+  make nuke
 
 # Checks that TODO comments have corresponding issues.
 todo-checker:
