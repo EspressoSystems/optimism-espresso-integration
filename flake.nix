@@ -24,7 +24,7 @@
             pkgs.python311
             pkgs.foundry-bin
             pkgs.just
-            pkgs.go
+            pkgs.go_1_22
             pkgs.gotools
           ];
         };
