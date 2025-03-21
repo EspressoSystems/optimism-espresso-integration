@@ -109,6 +109,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var batch *SingularBatch
 		var concluding bool
 		var err error
+		// aq.batch.Epoch() is the L1 origin of the batch
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
 			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent)
