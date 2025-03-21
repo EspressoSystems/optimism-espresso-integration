@@ -28,16 +28,16 @@ type EspressoClientInterface interface {
 
 type MessageWithHeight struct {
 	SequencerBatches *SingularBatch
-	HotshotHeight    uint64
+	HotShotHeight    uint64
 }
 
 type EspressoStreamer struct {
 	espressoClient                EspressoClientInterface
-	nextHotshotBlockNum           uint64
+	nextHotShotBlockNum           uint64
 	currentMessagePos             uint64
 	namespace                     uint64
-	pollingHotshotPollingInterval time.Duration
-	messageWithHeight             []*MessageWithHeight
+	pollingHotShotPollingInterval time.Duration
+	messagesWithHeights           []*MessageWithHeight
 	log                           log.Logger
 	batchInboxAddr                common.Address
 	rollupConfig                  *rollup.Config
@@ -45,8 +45,8 @@ type EspressoStreamer struct {
 }
 
 func NewEspressoStreamer(namespace uint64,
-	nextHotshotBlockNum uint64,
-	pollingHotshotPollingInterval time.Duration,
+	nextHotShotBlockNum uint64,
+	pollingHotShotPollingInterval time.Duration,
 	espressoClientInterface EspressoClientInterface,
 	log log.Logger,
 	batchInboxAddr common.Address,
@@ -55,8 +55,8 @@ func NewEspressoStreamer(namespace uint64,
 
 	return &EspressoStreamer{
 		espressoClient:                espressoClientInterface,
-		nextHotshotBlockNum:           nextHotshotBlockNum,
-		pollingHotshotPollingInterval: pollingHotshotPollingInterval,
+		nextHotShotBlockNum:           nextHotShotBlockNum,
+		pollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		namespace:                     namespace,
 		log:                           log,
 		batchInboxAddr:                batchInboxAddr,
@@ -68,8 +68,8 @@ func (s *EspressoStreamer) Reset(currentMessagePos uint64, currentHostshotBlock 
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 	s.currentMessagePos = currentMessagePos
-	s.nextHotshotBlockNum = currentHostshotBlock
-	s.messageWithHeight = []*MessageWithHeight{}
+	s.nextHotShotBlockNum = currentHostshotBlock
+	s.messagesWithHeights = []*MessageWithHeight{}
 }
 
 func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger, l2SafeHead eth.L2BlockRef, batch *SingularBatch) BatchValidity {
@@ -113,11 +113,11 @@ func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef)
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
-	// Sishan TODO: Find the batch that match the parent block,
+	// Sishan TODO: Find the batch that match the parent block, concluding is assignedto false for now
 	var returnBatch *SingularBatch
 	var remaining []*MessageWithHeight
 batchLoop:
-	for i, message := range s.messageWithHeight {
+	for i, message := range s.messagesWithHeights {
 		validity := CheckBatchEspresso(ctx, s.rollupConfig, s.log.New("batch_index", i), parent, message.SequencerBatches)
 		// sort out the next batch and drop batch in existing batches
 		switch validity {
@@ -134,17 +134,17 @@ batchLoop:
 			returnBatch = message.SequencerBatches
 			// don't keep the current batch in the remaining items since we are processing it now,
 			// but retain every batch we didn't get to yet.
-			remaining = append(remaining, s.messageWithHeight[i+1:]...)
+			remaining = append(remaining, s.messagesWithHeights[i+1:]...)
 			break batchLoop
 		case BatchUndecided:
-			remaining = append(remaining, s.messageWithHeight[i:]...)
-			s.messageWithHeight = remaining
+			remaining = append(remaining, s.messagesWithHeights[i:]...)
+			s.messagesWithHeights = remaining
 			return nil, false, io.EOF
 		default:
 			return nil, false, NewCriticalError(fmt.Errorf("unknown batch validity type: %d", validity))
 		}
 	}
-	s.messageWithHeight = remaining
+	s.messagesWithHeights = remaining
 	return returnBatch, false, nil
 }
 
@@ -186,7 +186,7 @@ func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*
 	sequencerBatches := RandomSingularBatch(rng, txCount, chainID)
 	result := &MessageWithHeight{
 		SequencerBatches: sequencerBatches,
-		HotshotHeight:    s.nextHotshotBlockNum,
+		HotShotHeight:    s.nextHotShotBlockNum,
 	}
 
 	return []*MessageWithHeight{result}, nil
@@ -200,16 +200,16 @@ func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*
 *
 * Expose the *parseHotShotPayloadFn* to the caller for testing purposes
  */
-func (s *EspressoStreamer) QueueMessagesFromHotshot(
+func (s *EspressoStreamer) QueueMessagesFromHotShot(
 	ctx context.Context,
 	parseHotShotPayloadFn func(tx espressoTypes.Bytes) ([]*MessageWithHeight, error),
 ) error {
 	// Note: Adding the lock on top level
-	// because s.nextHotshotBlockNum is updated if n.nextHotshotBlockNum == 0
+	// because s.nextHotShotBlockNum is updated if n.nextHotShotBlockNum == 0
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
-	if s.nextHotshotBlockNum == 0 {
+	if s.nextHotShotBlockNum == 0 {
 		// We dont need to check majority here  because when we eventually go
 		// to fetch a block at a certain height,
 		// we will check that a quorum of nodes agree on the block at that height,
@@ -221,18 +221,18 @@ func (s *EspressoStreamer) QueueMessagesFromHotshot(
 			return err
 		}
 		s.log.Info("Started node at the latest hotshot block", "block number", latestBlock)
-		s.nextHotshotBlockNum = latestBlock
+		s.nextHotShotBlockNum = latestBlock
 	}
 
-	txns, err := s.espressoClient.FetchTransactionsInBlock(ctx, s.nextHotshotBlockNum, s.namespace)
+	txns, err := s.espressoClient.FetchTransactionsInBlock(ctx, s.nextHotShotBlockNum, s.namespace)
 	if err != nil {
 		s.log.Warn("failed to fetch the transactions", "err", err)
 		return err
 	}
 
 	if len(txns.Transactions) == 0 {
-		s.log.Info("No transactions found in the hotshot block", "block number", s.nextHotshotBlockNum)
-		s.nextHotshotBlockNum += 1
+		s.log.Info("No transactions found in the hotshot block", "block number", s.nextHotShotBlockNum)
+		s.nextHotShotBlockNum += 1
 		return nil
 	}
 
@@ -244,10 +244,10 @@ func (s *EspressoStreamer) QueueMessagesFromHotshot(
 			continue
 		}
 		// Sishan TODO: Filter out the messages have already been seen
-		s.messageWithHeight = append(s.messageWithHeight, messages...)
+		s.messagesWithHeights = append(s.messagesWithHeights, messages...)
 	}
 
-	s.nextHotshotBlockNum += 1
+	s.nextHotShotBlockNum += 1
 
 	return nil
 }
@@ -260,17 +260,17 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 	defer timer.Stop()
 
 	// Sishan TODO: maybe use better handler with dynamic interval in the future
-	ticker := time.NewTicker(s.pollingHotshotPollingInterval)
+	ticker := time.NewTicker(s.pollingHotShotPollingInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			err := s.QueueMessagesFromHotshot(ctx, s.parseEspressoTransaction)
+			err := s.QueueMessagesFromHotShot(ctx, s.parseEspressoTransaction)
 			if err != nil {
 				s.log.Error("error while queueing messages", "err", err)
 			} else {
-				s.log.Info("Processing block", "block number", s.nextHotshotBlockNum)
+				s.log.Info("Processing block", "block number", s.nextHotShotBlockNum)
 				// Successful execution: reset the timer to start the timeout period over.
 				// Stop the timer and drain if needed.
 				if !timer.Stop() {
