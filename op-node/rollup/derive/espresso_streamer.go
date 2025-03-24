@@ -78,6 +78,7 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 
 	// Sishan TODO: check the L1 origin is already finalized
 
+	// Sishan TODO: these checks are copy-pasted from OP's checkSingularBatch(), we should check whether these apply to caff node
 	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
 	if batch.Timestamp > nextTimestamp {
 		log.Trace("received out-of-order batch for future processing after next batch", "next_timestamp", nextTimestamp)
@@ -136,7 +137,7 @@ batchLoop:
 			// but retain every batch we didn't get to yet.
 			remaining = append(remaining, s.messagesWithHeights[i+1:]...)
 			break batchLoop
-		case BatchUndecided:
+		case BatchUndecided: // Sishan TODO: remove if this is not needed
 			remaining = append(remaining, s.messagesWithHeights[i:]...)
 			s.messagesWithHeights = remaining
 			return nil, false, io.EOF
