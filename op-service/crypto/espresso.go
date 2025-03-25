@@ -51,6 +51,8 @@ func (c *clientSigner) Sign(ctx context.Context, address common.Address, data []
 // from eth_sign.
 func Verify(data []byte, signature []byte, expected common.Address) error {
 
+	// Sishan TODO: use ValidateSignatureValues instead?
+
 	// Recover the public key from the signature and the message hash.
 	sigPublicKey, err := crypto.Ecrecover(data, signature)
 	if err != nil {
@@ -62,6 +64,8 @@ func Verify(data []byte, signature []byte, expected common.Address) error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal public key: %w", err)
 	}
+
+	// change to ValidateSignatureValues
 
 	// Derive the Ethereum address from the public key.
 	recoveredAddr := crypto.PubkeyToAddress(*ecdsaPublicKey)
