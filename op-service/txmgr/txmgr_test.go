@@ -3,6 +3,7 @@ package txmgr
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
@@ -1632,4 +1634,40 @@ func TestSendAsyncUnbufferedChan(t *testing.T) {
 	require.Panics(t, func() {
 		h.mgr.SendAsync(context.Background(), TxCandidate{}, make(chan SendResponse))
 	})
+}
+
+func TestSign(t *testing.T) {
+	BatchInboxAddress := common.HexToAddress("0x00a4FE4C6AaA0729d7699c387E7f281DD64aFA2a")
+	sequencerBatchesByte, err := hex.DecodeString("1e7e580d65989969957450819e382bf27cd04eaf3d390f915b907091f5e50faa")
+	require.NoError(t, err)
+
+	cfg := NewCLIConfig(l1EthRpcValue, DefaultBatcherFlagValues)
+	require.NoError(t, cfg.Check())
+
+	// Allow backwards compatible ways of specifying the HD path
+	hdPath := cfg.HDPath
+	if hdPath == "" && cfg.SequencerHDPath != "" {
+		hdPath = cfg.SequencerHDPath
+	} else if hdPath == "" && cfg.L2OutputHDPath != "" {
+		hdPath = cfg.L2OutputHDPath
+	}
+
+	l := testlog.Logger(t, log.LevelDebug)
+	chainSignerFactory, _, err := opcrypto.ChainSignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
+	chainSigner := chainSignerFactory(big.NewInt(1337))
+	if err != nil {
+		t.Fatalf("failed to create chainSigner: %v", err)
+	}
+
+	// l := testlog.Logger(t, log.LevelDebug)
+	// conf, err := NewConfig(cfg, l)
+	// require.NoError(t, err)
+	// chainSigner := conf.ChainSigner
+
+	ctx := context.Background()
+
+	batcherSignature, err := chainSigner.Sign(ctx, BatchInboxAddress, sequencerBatchesByte)
+	require.NoError(t, err)
+
+	t.Logf("batcherSignature: %v", batcherSignature)
 }

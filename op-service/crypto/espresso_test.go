@@ -8,6 +8,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// func TestSign(t *testing.T) {
+// 	BatchInboxAddress := common.HexToAddress("0x00a4FE4C6AaA0729d7699c387E7f281DD64aFA2a")
+// 	sequencerBatchesByte, err := hex.DecodeString("1e7e580d65989969957450819e382bf27cd04eaf3d390f915b907091f5e50faa")
+// 	if err != nil {
+// 		t.Fatalf("failed to decode sequencerBatchesByte: %v", err)
+// 	}
+
+// 	chainSigner := ChainSignerFactory(big.NewInt(1337))
+// 	if err != nil {
+// 		t.Fatalf("failed to create chainSigner: %v", err)
+// 	}
+// 	ctx := context.Background()
+// 	batcherSignature, err := chainSigner.Sign(ctx, BatchInboxAddress, sequencerBatchesByte)
+// 	if err != nil {
+// 		t.Fatalf("failed to sign sequencerBatchesByte: %v", err)
+// 	}
+// 	t.Logf("batcherSignature: %v", batcherSignature)
+// }
+
 func TestVerify(t *testing.T) {
 	// logger := testlog.Logger(t, log.LevelDebug)
 
