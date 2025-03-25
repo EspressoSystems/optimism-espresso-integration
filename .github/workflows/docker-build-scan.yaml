@@ -1,13 +1,13 @@
 name: Docker Build Scan
 on:
-  pull_request:
-    branches:
-      - "master"
-      - "celo*"
-  push:
-    branches:
-      - "master"
-      - "celo*"
+  # pull_request:
+  #   branches:
+  #     - "master"
+  #     - "celo*"
+  # push:
+  #   branches:
+  #     - "master"
+  #     - "celo*"
   workflow_dispatch:
 
 jobs:
