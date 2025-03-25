@@ -1434,9 +1434,17 @@ jobs:
       - go-restore-cache:
           namespace: fuzz-<<parameters.package_name>>
       - run:
+          name: download espresso-network-go
+          command: |
+            ver=$(grep "github.com/EspressoSystems/espresso-network-go" go.mod | awk '{print $2}')
+            url="https://github.com/EspressoSystems/espresso-network-go/releases/download/${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a"
+            mkdir -p /home/circleci/local-lib
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+      - run:
           name: Fuzz
           no_output_timeout: 15m
           command: |
+            export CGO_LDFLAGS="-L/home/circleci/local-lib"
             make fuzz
           working_directory: "<<parameters.package_name>>"
       - go-save-cache:
@@ -1588,6 +1596,13 @@ jobs:
       - attach_workspace:
           at: .
       - run:
+          name: download espresso-network-go
+          command: |
+            ver=$(grep "github.com/EspressoSystems/espresso-network-go" go.mod | awk '{print $2}')
+            url="https://github.com/EspressoSystems/espresso-network-go/releases/download/${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a"
+            mkdir -p /home/circleci/local-lib
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+      - run:
           name: build op-program-client
           command: make op-program-client
           working_directory: op-program
@@ -1602,6 +1617,28 @@ jobs:
           name: run tests
           no_output_timeout: <<parameters.no_output_timeout>>
           command: |
+            mkdir -p ./tmp/test-results && mkdir -p ./tmp/testlogs
+            cd op-e2e && make pre-test && cd ..
+
+            packages=(
+              <<parameters.packages>>
+            )
+            formatted_packages=""
+            for package in "${packages[@]}"; do
+              formatted_packages="$formatted_packages ./$package/..."
+            done
+
+            export ENABLE_KURTOSIS=true
+            export OP_E2E_CANNON_ENABLED="false"
+            export OP_E2E_SKIP_SLOW_TEST=true
+            export OP_E2E_USE_HTTP=true
+            export ENABLE_ANVIL=true
+            export SEPOLIA_RPC_URL="$SEPOLIA_RPC_URL"
+            export MAINNET_RPC_URL="$MAINNET_RPC_URL"
+            export PARALLEL=$(nproc)
+            export OP_TESTLOG_FILE_LOGGER_OUTDIR=$(realpath ./tmp/testlogs)
+            export CGO_LDFLAGS="-L/home/circleci/local-lib"
+
             <<parameters.environment_overrides>>
             export TEST_TIMEOUT=<<parameters.test_timeout>>
             make go-tests-fraud-proofs-ci
@@ -2925,6 +2962,36 @@ workflows:
           parallelism: 12
           no_output_timeout: 19m
           test_timeout: 20m
+          environment_overrides: |
+            export PARALLEL=24
+          # op-deployer excluded as it needs sepolia keys
+          packages: |
+            op-alt-da
+            op-batcher
+            op-chain-ops
+            op-node
+            op-proposer
+            op-challenger
+            op-dispute-mon
+            op-conductor
+            op-program
+            op-service
+            op-supervisor
+            op-deployer
+            op-fetcher
+            op-validator
+            op-e2e/system
+            op-e2e/e2eutils
+            op-e2e/opgeth
+            op-e2e/interop
+            op-e2e/actions
+            op-e2e/faultproofs
+            packages/contracts-bedrock/scripts/checks
+            packages/contracts-bedrock/scripts/verify
+            op-dripper
+            devnet-sdk
+            op-acceptance-tests
+            kurtosis-devnet
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
