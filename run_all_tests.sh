@@ -1,3 +1,4 @@
+#!/bin/bash
 # Configure the shell to trigger the exit trap on any non successful error code
 set -eu
 
