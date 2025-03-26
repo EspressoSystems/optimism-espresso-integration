@@ -444,14 +444,7 @@ var (
 		Value:    true,
 		Category: OperationsCategory,
 	}
-	CaffNodeNamespace = &cli.Uint64Flag{
-		Name:     "caff.namespace",
-		Usage:    "Namespace for the caffeinated node",
-		EnvVars:  prefixEnvVars("CAFF_NODE_NAMESPACE"),
-		Value:    42,
-		Category: OperationsCategory,
-	}
-	CaffNodeNextHotShotBlockNum = &cli.Uint64Flag{
+	CaffNodeNextHotshotBlockNum = &cli.Uint64Flag{
 		Name:     "caff.next-hotshot-block-num",
 		Usage:    "Next hotshot block number for the caffeinated node",
 		EnvVars:  prefixEnvVars("CAFF_NODE_NEXT_HOTSHOT_BLOCK_NUM"),
@@ -526,8 +519,7 @@ var optionalFlags = []cli.Flag{
 	InteropRPCPort,
 	InteropJWTSecret,
 	CaffNodeFlag,
-	CaffNodeNamespace,
-	CaffNodeNextHotShotBlockNum,
+	CaffNodeNextHotshotBlockNum,
 	CaffNodePollingHotShotPollingInterval,
 	CaffNodeHotShotUrls,
 }
