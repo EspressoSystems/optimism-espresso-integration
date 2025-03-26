@@ -26,6 +26,15 @@ func TestVerify(t *testing.T) {
 	err := Verify(sequencerBatchesByte, batcherSignature, expected)
 	require.NoError(t, err)
 
+	// wrong length batcher signature
+	wrongLengthBatcherSignature := []byte{
+		1,
+	}
+	err = Verify(sequencerBatchesByte, wrongLengthBatcherSignature, expected)
+	// check it returns an correct error: address mismatch
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to recover public key: invalid signature length")
+
 	// wrong batcher signature
 	wrongBatcherSignature := []byte{
 		1, 1, 1, 1, 152, 110, 156, 111, 239, 153, 224, 182, 140, 49, 105, 120,
