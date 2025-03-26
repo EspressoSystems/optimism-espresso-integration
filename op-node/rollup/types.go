@@ -163,7 +163,6 @@ type Config struct {
 // CaffNodeConfig is the config for the Caff Node
 type CaffNodeConfig struct {
 	IsCaffNode                    bool
-	Namespace                     uint64
 	NextHotshotBlockNum           uint64
 	PollingHotshotPollingInterval time.Duration
 	HotShotUrls                   []string
