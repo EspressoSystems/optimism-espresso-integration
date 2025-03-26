@@ -9,12 +9,12 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/log"
 
 	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
@@ -52,24 +52,15 @@ func (c *clientSigner) Sign(ctx context.Context, address common.Address, data []
 // from eth_sign.
 func Verify(data []byte, signature []byte, expected common.Address) error {
 
-	// Sishan TODO: use ValidateSignatureValues instead?
-
 	// Recover the public key from the signature and the message hash.
-	sigPublicKey, err := secp256k1.RecoverPubkey(data, signature)
+	pubKeySlice, err := secp256k1.RecoverPubkey(data, signature)
 	if err != nil {
 		return fmt.Errorf("failed to recover public key: %w", err)
 	}
 
-	// Convert the recovered public key to an ecdsa.PublicKey
-	ecdsaPublicKey, err := crypto.UnmarshalPubkey(sigPublicKey)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal public key: %w", err)
-	}
+	var recoveredAddr common.Address
+	copy(recoveredAddr[:], pubKeySlice)
 
-	// change to ValidateSignatureValues
-
-	// Derive the Ethereum address from the public key.
-	recoveredAddr := crypto.PubkeyToAddress(*ecdsaPublicKey)
 	if !bytes.Equal(recoveredAddr.Bytes(), expected.Bytes()) {
 		return fmt.Errorf("address mismatch: got %s, expected %s", recoveredAddr.Hex(), expected.Hex())
 	}
