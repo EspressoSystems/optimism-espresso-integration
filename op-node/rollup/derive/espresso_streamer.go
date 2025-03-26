@@ -172,9 +172,6 @@ func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*
 	}
 	// if batcher'ssignature verification fails, we should skip this message
 	// assign some real data for now
-	// Sishan TODO: debug
-	batcherSignature, err = hex.DecodeString("39c969f723e8eefa9c367cd79e29a69dfc39084c9e46e929e3f6fc52e00fbb3b420e37e556434302dd971377d0a5d10b7da8062185eeb896352a952539133dc701")
-	sequencerBatchesByte, err = hex.DecodeString("1e7e580d65989969957450819e382bf27cd04eaf3d390f915b907091f5e50faa")
 	err = crypto.Verify(sequencerBatchesByte, batcherSignature, s.batchInboxAddr)
 	if err != nil {
 		s.log.Warn("failed to verify signature", "err", err)
