@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -74,10 +73,13 @@ func testChainSignerSign(t *testing.T, priv, mnemonic, hdPath string, cfg signer
 	signed, err := chainSigner.Sign(context.Background(), hash)
 	require.NoError(t, err)
 
-	pubKeySlice, err := secp256k1.RecoverPubkey(hash, signed)
+	// Recover the public key from the signature and hash
+	pubKey, err := crypto.SigToPub(hash, signed)
 	require.NoError(t, err)
 
-	var pubKey common.Address
-	copy(pubKey[:], pubKeySlice)
-	require.Equal(t, expectedAddr, addr)
+	// Convert the ecdsa.PublicKey to an Address
+	address := crypto.PubkeyToAddress(*pubKey)
+
+	// Ensure that the derived address matches the expected address.
+	require.Equal(t, expectedAddr, address)
 }
