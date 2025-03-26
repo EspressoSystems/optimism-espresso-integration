@@ -58,11 +58,18 @@ func Verify(data []byte, signature []byte, expected common.Address) error {
 		return fmt.Errorf("failed to recover public key: %w", err)
 	}
 
-	var recoveredAddr common.Address
-	copy(recoveredAddr[:], pubKeySlice)
+	// Decode the Public Key bytes to an ecdsa.PublicKey
+	pubKey, err := crypto.UnmarshalPubkey(pubKeySlice)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal public key: %w", err)
+	}
 
-	if !bytes.Equal(recoveredAddr.Bytes(), expected.Bytes()) {
-		return fmt.Errorf("address mismatch: got %s, expected %s", recoveredAddr.Hex(), expected.Hex())
+	// Convert the ecdsa.PublicKey to an Address
+	address := crypto.PubkeyToAddress(*pubKey)
+
+	// Ensure that the derived address matches the expected address.
+	if !bytes.Equal(address.Bytes(), expected.Bytes()) {
+		return fmt.Errorf("address mismatch: got %s, expected %s", address.Hex(), expected.Hex())
 	}
 
 	return nil
