@@ -77,14 +77,14 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer 
 	}
 	espressoStreamer := NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
-		cfg.CaffNodeConfig.NextHotshotBlockNum,
-		cfg.CaffNodeConfig.PollingHotshotPollingInterval,
+		cfg.CaffNodeConfig.NextHotShotBlockNum,
+		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
 		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
 		log,
 		cfg.BatchInboxAddress,
 		cfg,
 	)
-	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotshotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotshotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
+	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
 	return espressoStreamer
 }
 

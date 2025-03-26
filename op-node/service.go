@@ -299,8 +299,8 @@ func NewSyncConfig(ctx *cli.Context, log log.Logger) (*sync.Config, error) {
 func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
 	return &rollup.CaffNodeConfig{
 		IsCaffNode:                    ctx.Bool(flags.CaffNodeFlag.Name),
-		NextHotshotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotshotBlockNum.Name),
-		PollingHotshotPollingInterval: ctx.Duration(flags.CaffNodePollingHotshotPollingInterval.Name),
+		NextHotShotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotShotBlockNum.Name),
+		PollingHotShotPollingInterval: ctx.Duration(flags.CaffNodePollingHotShotPollingInterval.Name),
 		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
 	}
 }

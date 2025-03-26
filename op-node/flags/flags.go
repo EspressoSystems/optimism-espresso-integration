@@ -444,7 +444,7 @@ var (
 		Value:    true,
 		Category: OperationsCategory,
 	}
-	CaffNodeNextHotshotBlockNum = &cli.Uint64Flag{
+	CaffNodeNextHotShotBlockNum = &cli.Uint64Flag{
 		Name:     "caff.next-hotshot-block-num",
 		Usage:    "Next hotshot block number for the caffeinated node",
 		EnvVars:  prefixEnvVars("CAFF_NODE_NEXT_HOTSHOT_BLOCK_NUM"),
@@ -519,7 +519,7 @@ var optionalFlags = []cli.Flag{
 	InteropRPCPort,
 	InteropJWTSecret,
 	CaffNodeFlag,
-	CaffNodeNextHotshotBlockNum,
+	CaffNodeNextHotShotBlockNum,
 	CaffNodePollingHotShotPollingInterval,
 	CaffNodeHotShotUrls,
 }
