@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/log"
 
 	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
@@ -52,16 +51,9 @@ func (c *clientSigner) Sign(ctx context.Context, address common.Address, data []
 // from eth_sign.
 func Verify(data []byte, signature []byte, expected common.Address) error {
 
-	// Recover the public key from the signature and the message hash.
-	pubKeySlice, err := secp256k1.RecoverPubkey(data, signature)
+	pubKey, err := crypto.SigToPub(data, signature)
 	if err != nil {
 		return fmt.Errorf("failed to recover public key: %w", err)
-	}
-
-	// Decode the Public Key bytes to an ecdsa.PublicKey
-	pubKey, err := crypto.UnmarshalPubkey(pubKeySlice)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal public key: %w", err)
 	}
 
 	// Convert the ecdsa.PublicKey to an Address
