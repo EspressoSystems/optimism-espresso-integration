@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -54,7 +55,7 @@ func Verify(data []byte, signature []byte, expected common.Address) error {
 	// Sishan TODO: use ValidateSignatureValues instead?
 
 	// Recover the public key from the signature and the message hash.
-	sigPublicKey, err := crypto.Ecrecover(data, signature)
+	sigPublicKey, err := secp256k1.RecoverPubkey(data, signature)
 	if err != nil {
 		return fmt.Errorf("failed to recover public key: %w", err)
 	}
