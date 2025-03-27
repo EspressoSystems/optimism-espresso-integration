@@ -434,7 +434,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		}
 	}
 
-	chainSigner := chainSignerFactory(chainID)
+	chainSigner := chainSignerFactory(chainID, from)
 
 	res := Config{
 		Backend: l1,
