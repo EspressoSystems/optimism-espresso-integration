@@ -4,13 +4,10 @@ import (
 	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
 	"C"
 
-	"encoding/json"
 	"fmt"
 	"time"
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
-	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
-	"github.com/ethereum/go-ethereum/log"
 )
 import (
 	"context"
@@ -37,74 +34,6 @@ const (
 	finalityTimeout       = 2 * time.Minute
 	finalityCheckInterval = 100 * time.Millisecond
 )
-
-func (l *BatchSubmitter) waitForFinality(height uint64, rawHeader json.RawMessage, header *espressoCommon.HeaderImpl) error {
-	timer := time.NewTimer(finalityTimeout)
-	defer timer.Stop()
-
-	ticker := time.NewTicker(finalityCheckInterval)
-	defer ticker.Stop()
-
-	var snapshot espressoCommon.BlockMerkleSnapshot
-
-Loop:
-	for {
-		select {
-		case <-ticker.C:
-			res, err := l.EspressoLightClient.FetchMerkleRoot(height, nil)
-			if err == nil {
-				snapshot = res
-				break Loop
-			}
-		case <-timer.C:
-			return fmt.Errorf("failed to fetch merkle root")
-		}
-	}
-
-	if snapshot.Height <= height {
-		return fmt.Errorf("snapshot height is less than or equal to the requested height")
-	}
-
-	nextHeader, err := l.Espresso.FetchHeaderByHeight(l.shutdownCtx, snapshot.Height)
-	if err != nil {
-		return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
-	}
-
-	proof, err := l.Espresso.FetchBlockMerkleProof(l.shutdownCtx, snapshot.Height, height)
-	if err != nil {
-		return fmt.Errorf("error fetching merkle proof")
-	}
-
-	blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
-
-	log.Info("Verifying merkle proof", "height", height)
-	ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
-	if !ok {
-		return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", height, snapshot.Height)
-	}
-
-	// Verify the namespace proof
-	log.Info("Verifying namespace proof", "height", height)
-	resp, err := l.Espresso.FetchTransactionsInBlock(l.shutdownCtx, height, 42)
-	if err != nil {
-		return fmt.Errorf("failed to fetch the transactions in block")
-	}
-
-	namespaceOk := espressoVerification.VerifyNamespace(
-		l.RollupConfig.L2ChainID.Uint64(),
-		resp.Proof,
-		*header.Header.GetPayloadCommitment(),
-		*header.Header.GetNsTable(),
-		resp.Transactions,
-		resp.VidCommon,
-	)
-
-	if !namespaceOk {
-		return fmt.Errorf("error validating namespace proof (height: %d)", height)
-	}
-
-	return nil
-}
 
 func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transaction espressoCommon.Transaction) error {
 	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
@@ -139,7 +68,10 @@ Loop:
 	return nil
 }
 
-func (l *BatchSubmitter) queueBlockToEspreso(ctx context.Context, block *types.Block) error {
+// Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
+// Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
+// will retry publishing until successful.
+func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
 	batch, _, err := derive.BlockToSingularBatch(l.RollupConfig, block)
 	if err != nil {
 		return fmt.Errorf("failed to derive batch from block: %w", err)
@@ -157,6 +89,7 @@ func (l *BatchSubmitter) queueBlockToEspreso(ctx context.Context, block *types.B
 	}
 
 	go func() {
+		// We will retry publishing until successful
 		for {
 			err := l.tryPublishBatchToEspresso(ctx, *transaction)
 			if err == nil {
@@ -167,6 +100,26 @@ func (l *BatchSubmitter) queueBlockToEspreso(ctx context.Context, block *types.B
 	}()
 
 	return nil
+}
+
+func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus, streamer *espresso.EspressoStreamer) {
+	shouldClearState, err := streamer.Refresh(ctx, newSyncStatus)
+	shouldClearState = shouldClearState || err != nil
+
+	l.channelMgrMutex.Lock()
+	defer l.channelMgrMutex.Unlock()
+	syncActions, outOfSync := computeSyncActions(*newSyncStatus, l.prevCurrentL1, l.channelMgr.blocks, l.channelMgr.channelQueue, l.Log, l.Config.PreferLocalSafeL2)
+	if outOfSync {
+		l.Log.Warn("Sequencer is out of sync, retrying next tick.")
+		return
+	}
+	l.prevCurrentL1 = newSyncStatus.CurrentL1
+	if syncActions.clearState != nil || shouldClearState {
+		l.channelMgr.Clear(*syncActions.clearState)
+	} else {
+		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
+		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
+	}
 }
 
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
@@ -198,25 +151,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			func() {
-				shouldClearState, err := streamer.Refresh(ctx, newSyncStatus)
-				shouldClearState = shouldClearState || err != nil
-
-				l.channelMgrMutex.Lock()
-				defer l.channelMgrMutex.Unlock()
-				syncActions, outOfSync := computeSyncActions(*newSyncStatus, l.prevCurrentL1, l.channelMgr.blocks, l.channelMgr.channelQueue, l.Log, l.Config.PreferLocalSafeL2)
-				if outOfSync {
-					l.Log.Warn("Sequencer is out of sync, retrying next tick.")
-					return
-				}
-				l.prevCurrentL1 = newSyncStatus.CurrentL1
-				if syncActions.clearState != nil || shouldClearState {
-					l.channelMgr.Clear(*syncActions.clearState)
-				} else {
-					l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
-					l.channelMgr.PruneChannels(syncActions.channelsToPrune)
-				}
-			}()
+			l.espressoSyncAndRefresh(ctx, newSyncStatus, &streamer)
 
 			err = streamer.Update(ctx)
 			if err != nil {
@@ -287,7 +222,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 			continue
 		}
 
-		err = l.batcher.queueBlockToEspreso(ctx, block)
+		err = l.batcher.queueBlockToEspresso(ctx, block)
 		if err != nil {
 			continue
 		}
@@ -299,7 +234,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 // blockLoadingLoop
 // -  polls the sequencer,
 // -  queues unsafe blocks from the sequencer to Espresso
-func (l *BatchSubmitter) espressoBlockLoadingLoop(ctx context.Context, wg *sync.WaitGroup) {
+func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync.WaitGroup) {
 	ticker := time.NewTicker(l.Config.PollInterval)
 	defer ticker.Stop()
 	defer wg.Done()

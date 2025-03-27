@@ -183,7 +183,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	if l.Config.UseEspresso {
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
-		go l.espressoBlockLoadingLoop(l.shutdownCtx, l.wg)
+		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)
 		go l.espressoBatchLoadingLoop(l.shutdownCtx, l.wg, publishSignal)
 		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal) // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
 	} else {
