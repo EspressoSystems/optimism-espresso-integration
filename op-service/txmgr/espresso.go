@@ -14,8 +14,8 @@ func (c *Config) SignTransaction(ctx context.Context, address common.Address, tx
 }
 
 // Sign is a function that provides the ability to sign a hash
-func (c *Config) Sign(ctx context.Context, address common.Address, hash []byte) ([]byte, error) {
-	return c.ChainSigner.Sign(ctx, address, hash)
+func (c *Config) Sign(ctx context.Context, hash []byte) ([]byte, error) {
+	return c.ChainSigner.Sign(ctx, hash)
 }
 
 // Ensure adherence to the interface
@@ -27,8 +27,8 @@ func (m *SimpleTxManager) SignTransaction(ctx context.Context, address common.Ad
 }
 
 // Sign is a function that provides the ability to sign a hash
-func (m *SimpleTxManager) Sign(ctx context.Context, address common.Address, hash []byte) ([]byte, error) {
-	return m.cfg.Sign(ctx, address, hash)
+func (m *SimpleTxManager) Sign(ctx context.Context, hash []byte) ([]byte, error) {
+	return m.cfg.Sign(ctx, hash)
 }
 
 // Ensure adherence to the interface
