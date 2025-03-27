@@ -11,6 +11,7 @@ import (
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
+	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -19,6 +20,24 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
+
+// espresso-network-go's HeaderInterface currently lacks a function to get this info,
+// although it is present in all header versions
+func getFinalizedL1(header *espressoTypes.HeaderImpl) *espressoTypes.L1BlockInfo {
+	v0_1, ok := header.Header.(*espressoTypes.Header0_1)
+	if ok {
+		return v0_1.L1Finalized
+	}
+	v0_2, ok := header.Header.(*espressoTypes.Header0_2)
+	if ok {
+		return v0_2.L1Finalized
+	}
+	v0_3, ok := header.Header.(*espressoTypes.Header0_3)
+	if ok {
+		return v0_3.L1Finalized
+	}
+	return nil
+}
 
 type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
@@ -124,7 +143,13 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 				continue
 			}
 
-			if uint64(batch.Batch.EpochNum) > header.Header.GetL1Head() {
+			espressoFinalizedL1 := getFinalizedL1(&header)
+			if espressoFinalizedL1 == nil {
+				s.Log.Error("Unknown Espresso header version")
+				continue
+			}
+
+			if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
 				// Enforce that we only deal with finalized deposits
 				s.Log.Warn("batch with unfinalized L1 origin")
 				continue
