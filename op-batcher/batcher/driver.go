@@ -853,7 +853,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 		}
 
 		ctx := context.Background()
-		batcherSignature, err := l.ChainSigner.Sign(ctx, l.RollupConfig.BatchInboxAddress, crypto.Keccak256(txdata.CallData()))
+		batcherSignature, err := l.ChainSigner.Sign(ctx, crypto.Keccak256(txdata.CallData()))
 
 		if err != nil {
 			l.Log.Warn("Error signing txdata for Espresso", "err", err)
