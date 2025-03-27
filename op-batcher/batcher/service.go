@@ -74,6 +74,7 @@ type BatcherService struct {
 	AltDA               *altda.DAClient
 	Espresso            *espresso.Client
 	EspressoLightClient *espressoLightClient.LightClientReader
+
 	BatcherConfig
 	opcrypto.ChainSigner
 
