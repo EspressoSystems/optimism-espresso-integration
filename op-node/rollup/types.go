@@ -151,12 +151,6 @@ type Config struct {
 	// If missing, it is loaded by the op-node from the embedded superchain config at startup.
 	ChainOpConfig *params.OptimismConfig `json:"chain_op_config,omitempty"`
 
-	// OverrideMessageExpiryTimeInterop is only used for testing purposes.
-	// It is used to override the protocol-defined interop message time expiry.
-	// DO NOT this read value directly. Use GetMessageExpiryTimeInterop instead.
-	// Sishan TODO: not sure when this is added, remove it if not used
-	OverrideMessageExpiryTimeInterop uint64 `json:"override_message_expiry_time_interop,omitempty"`
-
 	// Caff Node config
 	CaffNodeConfig CaffNodeConfig
 }

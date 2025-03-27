@@ -447,28 +447,28 @@ var (
 	CaffNodeNamespace = &cli.Uint64Flag{
 		Name:     "caff.namespace",
 		Usage:    "Namespace for the caffeinated node",
-		EnvVars:  prefixEnvVars("CAFF_NODE_NAMESPACE"),
+		EnvVars:  prefixEnvVars("CAFF_NAMESPACE"),
 		Value:    42,
 		Category: OperationsCategory,
 	}
 	CaffNodeNextHotShotBlockNum = &cli.Uint64Flag{
 		Name:     "caff.next-hotshot-block-num",
 		Usage:    "Next hotshot block number for the caffeinated node",
-		EnvVars:  prefixEnvVars("CAFF_NODE_NEXT_HOTSHOT_BLOCK_NUM"),
+		EnvVars:  prefixEnvVars("CAFF_NEXT_HOTSHOT_BLOCK_NUM"),
 		Value:    1,
 		Category: OperationsCategory,
 	}
 	CaffNodePollingHotShotPollingInterval = &cli.DurationFlag{
 		Name:     "caff.polling-hotshot-polling-interval",
 		Usage:    "Polling interval for the hotshot block",
-		EnvVars:  prefixEnvVars("CAFF_NODE_POLLING_HOTSHOT_POLLING_INTERVAL"),
+		EnvVars:  prefixEnvVars("CAFF_POLLING_HOTSHOT_POLLING_INTERVAL"),
 		Value:    500 * time.Millisecond,
 		Category: OperationsCategory,
 	}
 	CaffNodeHotShotUrls = &cli.StringSliceFlag{
 		Name:     "caff.hotshot-urls",
 		Usage:    "HotShot urls for the caffeinated node",
-		EnvVars:  prefixEnvVars("CAFF_NODE_HOTSHOT_URLS"),
+		EnvVars:  prefixEnvVars("CAFF_HOTSHOT_URLS"),
 		Value:    cli.NewStringSlice("http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000"),
 		Category: OperationsCategory,
 	}
