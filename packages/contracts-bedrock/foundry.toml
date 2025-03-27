@@ -9,6 +9,7 @@ out = 'forge-artifacts'
 script = 'scripts'
 build_info_path = 'artifacts/build-info'
 snapshots = 'notarealpath' # workaround for foundry#9477
+allow_internal_expect_revert = true # workaround described in https://github.com/PaulRBerg/prb-math/issues/248
 
 optimizer = true
 optimizer_runs = 999999
@@ -78,6 +79,7 @@ gas_limit = 9223372036854775807
 
 [fuzz]
 runs = 64
+failure_persist_file="~/Desktop/failures.txt"
 
 [fmt]
 line_length=120
@@ -153,3 +155,6 @@ src = 'test/kontrol/proofs'
 out = 'kout-proofs'
 test = 'test/kontrol/proofs'
 script = 'test/kontrol/proofs'
+
+
+
