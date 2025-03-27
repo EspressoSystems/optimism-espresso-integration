@@ -36,7 +36,7 @@ make -C ./op-e2e test
 just -f ./op-node/justfile test
 make -C ./op-program test
 just -f ./op-proposer/justfile test
-just -f ./op-service/justifle test
+make -C ./op-service test
 just -f ./op-supervisor/justfile test
 
 # Just to be nice we run nuke again, so we don't have any residual state
