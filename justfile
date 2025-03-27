@@ -1,3 +1,12 @@
+# Run the tests
+tests:
+ ./run_all_tests.sh
+
+# Clean up everything before running the tests
+nuke:
+ make nuke
+
+
 # Checks that TODO comments have corresponding issues.
 todo-checker:
   ./ops/scripts/todo-checker.sh
