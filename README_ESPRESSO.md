@@ -107,6 +107,11 @@ This step is only needed if you use Mises as Nix automatically installs the Espr
 
 ### Run the tests
 
-To run the tests:
+To run all the tests (slow):
 
 > just tests
+
+
+To run a subset of the tests (fast):
+
+> just fast-tests

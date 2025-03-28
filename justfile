@@ -2,6 +2,9 @@
 tests:
  ./run_all_tests.sh
 
+fast-tests:
+ ./run_fast_tests.sh
+
 # Clean up everything before running the tests
 nuke:
  make nuke

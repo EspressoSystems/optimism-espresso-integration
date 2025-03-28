@@ -13,7 +13,7 @@
         inputs.foundry.overlay
       ];
       pkgs = import inputs.nixpkgs { inherit overlays system;};
-      espressoGoLibFile =  if system == "x86_64-linux"
+      espressoGoLibFile = if system == "x86_64-linux"
                 then pkgs.fetchurl {
                   url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.34/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a";
                   sha256 = "sha256:1c7ybrqjrp1709j08fk7zcr5q8hyfakvgv0m64zn2fywlqfdpszs";
