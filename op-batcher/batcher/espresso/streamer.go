@@ -5,6 +5,7 @@ import (
 	"C"
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"slices"
@@ -89,13 +90,15 @@ func (s *EspressoStreamer) Refresh(ctx context.Context, syncStatus *eth.SyncStat
 
 func (s *EspressoStreamer) Update(ctx context.Context) error {
 	// Fetch more batches from HotShot if available.
-	hotShotHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
+	hotshotState, err := s.EspressoLightClient.LightClient.FinalizedState(&bind.CallOpts{})
 
 	if err != nil {
 		return fmt.Errorf("failed to fetch HotShot block height: %w", err)
 	}
 
-	targetHeight := min(hotShotHeight, s.hotShotPos+100)
+	s.Log.Debug("Updated finalized hotshot state", "hotshotState", hotshotState)
+
+	targetHeight := min(hotshotState.BlockHeight, s.hotShotPos+100)
 
 	for ; s.hotShotPos < targetHeight; s.hotShotPos += 1 {
 		s.Log.Debug("fetching HotShot block", "blockNr", s.hotShotPos)
@@ -110,9 +113,42 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 			continue
 		}
 
-		header, err := s.EspressoClient.FetchHeaderByHeight(ctx, s.hotShotPos)
+		rawHeader, err := s.EspressoClient.FetchRawHeaderByHeight(ctx, s.hotShotPos)
 		if err != nil {
-			return fmt.Errorf("failed to fetch HotShot header: %w", err)
+			return fmt.Errorf("failed to fetch raw HotShot header: %w", err)
+		}
+
+		var header espressoTypes.HeaderImpl
+		err = json.Unmarshal(rawHeader, &header)
+		if err != nil {
+			return fmt.Errorf("could not unmarshal header from bytes")
+		}
+
+		snapshot, err := s.EspressoLightClient.FetchMerkleRoot(s.hotShotPos, nil)
+		if err != nil {
+			return fmt.Errorf("failed to fetch Merkle root: %w", err)
+		}
+
+		if snapshot.Height <= s.hotShotPos {
+			return fmt.Errorf("snapshot height is less than or equal to the requested height")
+		}
+
+		nextHeader, err := s.EspressoClient.FetchHeaderByHeight(ctx, snapshot.Height)
+		if err != nil {
+			return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
+		}
+
+		proof, err := s.EspressoClient.FetchBlockMerkleProof(ctx, snapshot.Height, s.hotShotPos)
+		if err != nil {
+			return fmt.Errorf("error fetching merkle proof")
+		}
+
+		blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
+
+		log.Info("Verifying merkle proof", "height", s.hotShotPos)
+		ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
+		if !ok {
+			return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", s.hotShotPos, snapshot.Height)
 		}
 
 		namespaceOk := espressoVerification.VerifyNamespace(
@@ -125,9 +161,8 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 		)
 
 		if !namespaceOk {
-			// TODO: Fails
 			s.Log.Error("namespace verification failed for HS block", "blockNr", s.hotShotPos)
-			// return fmt.Errorf("namespace verification failed")
+			return fmt.Errorf("namespace verification failed")
 		}
 
 		for _, transaction := range txns.Transactions {
@@ -151,7 +186,9 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 
 			if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
 				// Enforce that we only deal with finalized deposits
-				s.Log.Warn("batch with unfinalized L1 origin")
+				s.Log.Warn("batch with unfinalized L1 origin",
+					"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
+				)
 				continue
 			}
 
