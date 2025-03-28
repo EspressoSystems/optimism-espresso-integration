@@ -76,8 +76,6 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	// add details to the log
 	log = batch.LogContext(log)
 
-	// Sishan TODO: check the L1 origin is already finalized
-
 	// Sishan TODO: these checks are copy-pasted from OP's checkSingularBatch(), we should check whether these apply to caff node
 	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
 	if batch.Timestamp > nextTimestamp {
@@ -110,7 +108,7 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	return BatchAccept
 }
 
-func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef) (*SingularBatch, bool, error) {
+func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() eth.L1BlockRef, l1BlockRefByNumber func(uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
@@ -145,6 +143,29 @@ batchLoop:
 			return nil, false, NewCriticalError(fmt.Errorf("unknown batch validity type: %d", validity))
 		}
 	}
+
+	// check the L1 origin of returnBatch is already finalized
+	// if not, return NotEnoughData to wait longer
+	if returnBatch.Epoch().Number > l1Finalized().Number {
+		// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
+		s.log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", returnBatch.Epoch().Number)
+		return nil, false, NotEnoughData
+	} else {
+		// make sure it's a valid L1 origin state by check the hash
+		expectedL1BlockRef, err := l1BlockRefByNumber(returnBatch.Epoch().Number)
+		if err != nil {
+			s.log.Warn("failed to get the L1 block ref by number", "err", err)
+			s.messagesWithHeights = remaining
+			return nil, false, err
+		}
+		if returnBatch.Epoch().Hash != expectedL1BlockRef.Hash {
+			s.log.Warn("the L1 origin hash is not the same as the finalized hash", "l1_origin", returnBatch.Epoch().Hash, "finalized", l1Finalized().Hash)
+			// drop the batch and wait longer
+			s.messagesWithHeights = remaining
+			return nil, false, NotEnoughData
+		}
+	}
+
 	s.messagesWithHeights = remaining
 	return returnBatch, false, nil
 }

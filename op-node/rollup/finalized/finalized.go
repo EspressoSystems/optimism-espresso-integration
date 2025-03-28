@@ -27,3 +27,7 @@ func (f *finalized) L1BlockRefByNumber(ctx context.Context, num uint64) (eth.L1B
 }
 
 var _ derive.L1Fetcher = (*finalized)(nil)
+
+func (f *finalized) L1FinalizedBlock() eth.L1BlockRef {
+	return f.l1Finalized()
+}

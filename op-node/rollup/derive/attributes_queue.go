@@ -103,7 +103,7 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() eth.L1BlockRef, l1BlockRefByNumber func(uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
 		var batch *SingularBatch
@@ -112,7 +112,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		// aq.batch.Epoch() is the L1 origin of the batch
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
-			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent)
+			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 			if err != nil {
 				return nil, err
 			}
