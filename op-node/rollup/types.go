@@ -150,6 +150,18 @@ type Config struct {
 	// parameters to the protocol values, like the execution layer does.
 	// If missing, it is loaded by the op-node from the embedded superchain config at startup.
 	ChainOpConfig *params.OptimismConfig `json:"chain_op_config,omitempty"`
+
+	// Caff Node config
+	CaffNodeConfig CaffNodeConfig
+}
+
+// CaffNodeConfig is the config for the Caff Node
+type CaffNodeConfig struct {
+	IsCaffNode                    bool
+	Namespace                     uint64
+	NextHotShotBlockNum           uint64
+	PollingHotShotPollingInterval time.Duration
+	HotShotUrls                   []string
 }
 
 // ValidateL1Config checks L1 config variables for errors.
