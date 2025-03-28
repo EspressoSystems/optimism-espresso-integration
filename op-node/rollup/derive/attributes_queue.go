@@ -103,7 +103,7 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() eth.L1BlockRef, l1BlockRefByNumber func(uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
 		var batch *SingularBatch
