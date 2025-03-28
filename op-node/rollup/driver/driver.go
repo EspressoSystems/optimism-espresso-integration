@@ -76,6 +76,7 @@ type DerivationPipeline interface {
 	Origin() eth.L1BlockRef
 	DerivationReady() bool
 	ConfirmEngineReset()
+	EspressoStreamer() *derive.EspressoStreamer
 }
 
 type EngineController interface {
