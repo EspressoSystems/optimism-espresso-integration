@@ -98,6 +98,17 @@ type Config struct {
 	// When false (default), interop contracts deploy but cross-chain coordination is handled locally.
 	// When true, the node defers cross-unsafe/cross-safe/finality to the supervisor.
 	SupervisorEnabled bool
+	// Caff Node config
+	CaffNodeConfig CaffNodeConfig
+}
+
+// CaffNodeConfig is the config for the Caff Node
+type CaffNodeConfig struct {
+	IsCaffNode                    bool
+	Namespace                     uint64
+	NextHotShotBlockNum           uint64
+	PollingHotShotPollingInterval time.Duration
+	HotShotUrls                   []string
 }
 
 // ConductorRPCFunc retrieves the endpoint. The RPC may not immediately be available.
