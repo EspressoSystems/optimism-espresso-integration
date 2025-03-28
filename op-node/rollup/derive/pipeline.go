@@ -212,7 +212,6 @@ func (dp *DerivationPipeline) Step(ctx context.Context, pendingSafeHead eth.L2Bl
 		dp.origin = newOrigin
 	}
 
-	// Sishan TODO: pass in the function L1BlockRefByNumber
 	if attrib, err := dp.attrib.NextAttributes(ctx, pendingSafeHead, dp.l1Fetcher.L1FinalizedBlock, dp.l1Fetcher.L1BlockRefByNumber); err == nil {
 		return attrib, nil
 	} else if err == io.EOF {
