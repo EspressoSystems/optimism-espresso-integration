@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -89,21 +88,20 @@ type RollupClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log                         log.Logger
-	Metr                        metrics.Metricer
-	RollupConfig                *rollup.Config
-	Config                      BatcherConfig
-	Txmgr                       txmgr.TxManager
-	L1Client                    L1Client
-	EndpointProvider            dial.L2EndpointProvider
-	ChannelConfig               ChannelConfigProvider
-	AltDA                       *altda.DAClient
-	ChannelOutFactory           ChannelOutFactory
-	ActiveSeqChanged            chan struct{} // optional
-	Espresso                    *espressoClient.Client
-	EspressoLightClient         *espressoLightClient.LightClientReader
-	EspressoMultipleNodesClient *espressoClient.MultipleNodesClient
-	ChainSigner                 opcrypto.ChainSigner
+	Log                 log.Logger
+	Metr                metrics.Metricer
+	RollupConfig        *rollup.Config
+	Config              BatcherConfig
+	Txmgr               txmgr.TxManager
+	L1Client            L1Client
+	EndpointProvider    dial.L2EndpointProvider
+	ChannelConfig       ChannelConfigProvider
+	AltDA               *altda.DAClient
+	ChannelOutFactory   ChannelOutFactory
+	ActiveSeqChanged    chan struct{} // optional
+	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
+	ChainSigner         opcrypto.ChainSigner
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -855,11 +853,7 @@ func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey
 		}
 
 		ctx := context.Background()
-		batcherSignature, err := l.ChainSigner.Sign(ctx, l.RollupConfig.BatchInboxAddress, crypto.Keccak256(txdata.CallData()))
-		log.Info("batcherSignature", "signature", hex.EncodeToString(batcherSignature),
-			"txdata", hex.EncodeToString(txdata.CallData()),
-			"after keccak256", hex.EncodeToString(crypto.Keccak256(txdata.CallData())),
-			" expected address", l.RollupConfig.BatchInboxAddress.Hex())
+		batcherSignature, err := l.ChainSigner.Sign(ctx, crypto.Keccak256(txdata.CallData()))
 
 		if err != nil {
 			l.Log.Warn("Error signing txdata for Espresso", "err", err)

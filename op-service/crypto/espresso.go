@@ -21,7 +21,7 @@ import (
 )
 
 // ChainSignerFactory creates a SignerFn that is bound to a specific ChainID
-type ChainSignerFactory func(chainID *big.Int) ChainSigner
+type ChainSignerFactory func(chainID *big.Int, from common.Address) ChainSigner
 
 // ChainSigner is a generic interface for signing transactions or arbitrary data.
 type ChainSigner interface {
@@ -29,8 +29,8 @@ type ChainSigner interface {
 	// SignTransaction signs a transaction with the given address.
 	SignTransaction(ctx context.Context, addr common.Address, tx *types.Transaction) (*types.Transaction, error)
 
-	// Sign signs arbitrary data with the given address.
-	Sign(ctx context.Context, addr common.Address, hash []byte) ([]byte, error)
+	// Sign signs the hash of arbitrary data.
+	Sign(ctx context.Context, hash []byte) ([]byte, error)
 }
 
 // clientSigner is a ChainSigner that utilizes a remote signer to perform
@@ -42,8 +42,8 @@ type clientSigner struct {
 }
 
 // Sign implements Signer.
-func (c *clientSigner) Sign(ctx context.Context, address common.Address, data []byte) ([]byte, error) {
-	return c.signerClient.Sign(ctx, address, data)
+func (c *clientSigner) Sign(ctx context.Context, data []byte) ([]byte, error) {
+	return c.signerClient.Sign(ctx, c.fromAddress, data)
 }
 
 // VerifySignature verifies that the signature was produced by the expected address.
@@ -82,14 +82,15 @@ var _ ChainSigner = &clientSigner{}
 // functions are expected to have access to a private key that is not
 // explicitly stored within the structure itself.
 type privateKeySigner struct {
-	chainID *big.Int
-	st      bind.SignerFn
-	s       func(common.Address, []byte) ([]byte, error)
+	chainID     *big.Int
+	st          bind.SignerFn
+	fromAddress common.Address
+	s           func(common.Address, []byte) ([]byte, error)
 }
 
 // Sign implements Signer.
-func (p *privateKeySigner) Sign(ctx context.Context, addr common.Address, hash []byte) ([]byte, error) {
-	return p.s(addr, hash)
+func (p *privateKeySigner) Sign(ctx context.Context, hash []byte) ([]byte, error) {
+	return p.s(p.fromAddress, hash)
 }
 
 // SignTransaction implements Signer.
@@ -112,7 +113,7 @@ func ChainSignerFactoryFromConfig(l log.Logger, privateKey, mnemonic, hdPath str
 			return nil, common.Address{}, fmt.Errorf("failed to create the signer client: %w", err)
 		}
 		fromAddress = common.HexToAddress(signerConfig.Address)
-		signer = func(chainID *big.Int) ChainSigner {
+		signer = func(chainID *big.Int, _ common.Address) ChainSigner {
 			return &clientSigner{
 				signerClient: signerClient,
 				fromAddress:  fromAddress,
@@ -151,7 +152,7 @@ func ChainSignerFactoryFromConfig(l log.Logger, privateKey, mnemonic, hdPath str
 		// https://github.com/ethereum/go-ethereum/blob/723b1e36ad6a9e998f06f74cc8b11d51635c6402/crypto/signature_nocgo.go#L82
 		privKey.PublicKey.Curve = crypto.S256()
 		fromAddress = crypto.PubkeyToAddress(privKey.PublicKey)
-		signer = func(chainID *big.Int) ChainSigner {
+		signer = func(chainID *big.Int, from common.Address) ChainSigner {
 			s := PrivateKeySignerFn(privKey, chainID)
 			return &privateKeySigner{
 				chainID: chainID,

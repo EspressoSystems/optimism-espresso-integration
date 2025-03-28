@@ -346,7 +346,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		return nil, fmt.Errorf("invalid min tip cap: %w", err)
 	}
 
-	chainSigner := chainSignerFactory(chainID)
+	chainSigner := chainSignerFactory(chainID, from)
 
 	res := Config{
 		Backend: l1,

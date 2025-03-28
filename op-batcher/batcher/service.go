@@ -66,15 +66,15 @@ type BatcherConfig struct {
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	Log                         log.Logger
-	Metrics                     metrics.Metricer
-	L1Client                    *ethclient.Client
-	EndpointProvider            dial.L2EndpointProvider
-	TxManager                   txmgr.TxManager
-	AltDA                       *altda.DAClient
-	Espresso                    *espresso.Client
-	EspressoLightClient         *espressoLightClient.LightClientReader
-	EspressoMultipleNodesClient *espresso.MultipleNodesClient
+	Log                 log.Logger
+	Metrics             metrics.Metricer
+	L1Client            *ethclient.Client
+	EndpointProvider    dial.L2EndpointProvider
+	TxManager           txmgr.TxManager
+	AltDA               *altda.DAClient
+	Espresso            *espresso.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
+
 	BatcherConfig
 	opcrypto.ChainSigner
 
@@ -150,7 +150,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 
 	if cfg.EspressoUrl != "" {
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
-		bs.EspressoMultipleNodesClient = espresso.NewMultipleNodesClient([]string{cfg.EspressoUrl, cfg.EspressoUrl, cfg.EspressoUrl, cfg.EspressoUrl})
 		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")

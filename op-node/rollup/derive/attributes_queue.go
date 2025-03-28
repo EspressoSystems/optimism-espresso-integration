@@ -112,7 +112,9 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		// aq.batch.Epoch() is the L1 origin of the batch
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
-			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
+			// Sishan TODO: change to this once BatchValidity is ready
+			_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
+			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
 			}
@@ -124,7 +126,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		}
 		aq.batch = batch
 		aq.concluding = concluding
-		aq.log.Info("signular batch from op-node is ", "batch", aq.batch, "concluding", concluding)
+		aq.log.Info("singular batch from op-node is ", "batch", aq.batch, "concluding", concluding)
 	}
 
 	// Actually generate the next attributes
