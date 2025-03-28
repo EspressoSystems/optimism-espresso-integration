@@ -286,3 +286,7 @@ func (db *DerivationPipeline) transformStages(oldOrigin, newOrigin eth.L1BlockRe
 func (dp *DerivationPipeline) ConfirmEngineReset() {
 	dp.engineIsReset = true
 }
+
+func (dp *DerivationPipeline) EspressoStreamer() *EspressoStreamer {
+	return dp.attrib.espressoStreamer
+}
