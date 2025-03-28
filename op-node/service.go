@@ -250,6 +250,9 @@ func NewRollupConfigFromCLI(log log.Logger, ctx cliiface.Context) (*rollup.Confi
 	}
 	applyCeloHardforks(rollupConfig)
 	applyOverrides(ctx, rollupConfig)
+
+	rollupConfig.CaffNodeConfig = *NewCaffNodeConfig(ctx)
+
 	return rollupConfig, nil
 }
 
@@ -411,4 +414,14 @@ func NewSyncConfig(ctx cliiface.Context, log log.Logger) (*sync.Config, error) {
 		cfg.SyncMode = sync.ELSync
 	}
 	return cfg, nil
+}
+
+func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
+	return &rollup.CaffNodeConfig{
+		IsCaffNode:                    ctx.Bool(flags.CaffNodeFlag.Name),
+		Namespace:                     ctx.Uint64(flags.CaffNodeNamespace.Name),
+		NextHotShotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotShotBlockNum.Name),
+		PollingHotShotPollingInterval: ctx.Duration(flags.CaffNodePollingHotShotPollingInterval.Name),
+		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
+	}
 }
