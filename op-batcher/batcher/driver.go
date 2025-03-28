@@ -97,10 +97,10 @@ type DriverSetup struct {
 	EndpointProvider    dial.L2EndpointProvider
 	ChannelConfig       ChannelConfigProvider
 	AltDA               *altda.DAClient
-	Espresso            *espressoClient.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
+	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
 	ChainSigner         opcrypto.ChainSigner
 }
 

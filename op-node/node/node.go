@@ -567,6 +567,10 @@ func (n *OpNode) Start(ctx context.Context) error {
 			return err
 		}
 	}
+	if n.cfg.CaffNodeConfig.IsCaffNode {
+		// Sishan TODO: deal with this in a better way and add error handling
+		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
+	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
 	if err := n.l2Driver.Start(); err != nil {

@@ -163,6 +163,18 @@ type Config struct {
 	// This feature (de)activates by L1 origin timestamp, to keep a consistent L1 block info per L2
 	// epoch.
 	PectraBlobScheduleTime *uint64 `json:"pectra_blob_schedule_time,omitempty"`
+
+	// Caff Node config
+	CaffNodeConfig CaffNodeConfig
+}
+
+// CaffNodeConfig is the config for the Caff Node
+type CaffNodeConfig struct {
+	IsCaffNode                    bool
+	Namespace                     uint64
+	NextHotShotBlockNum           uint64
+	PollingHotShotPollingInterval time.Duration
+	HotShotUrls                   []string
 }
 
 // ValidateL1Config checks L1 config variables for errors.
