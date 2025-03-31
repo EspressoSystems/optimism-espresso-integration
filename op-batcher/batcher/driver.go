@@ -100,7 +100,7 @@ type DriverSetup struct {
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
 	ChainSigner         opcrypto.ChainSigner
-	BatcherAddress      common.Address
+	SequencerAddress    common.Address
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx

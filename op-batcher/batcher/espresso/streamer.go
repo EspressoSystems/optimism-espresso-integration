@@ -58,14 +58,23 @@ type EspressoStreamer struct {
 
 	// Batch number we're to give out next
 	BatchPos uint64
-	// Position of ???
-	confirmedBatchPos uint64
 	// HotShot block we're to fetch next
 	hotShotPos uint64
+	// Position of the last safe batch
+	confirmedBatchPos uint64
+	// Hotshot block corresponding to the last safe batch
+	confirmedHotShotPos uint64
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
 	batchBuffer []EspressoBatch
+}
+
+// Reset the state to the last safe batch
+func (s *EspressoStreamer) Reset() {
+	s.BatchPos = s.confirmedBatchPos + 1
+	s.hotShotPos = s.confirmedHotShotPos
+	s.batchBuffer = nil
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -82,9 +91,8 @@ func (s *EspressoStreamer) Refresh(ctx context.Context, syncStatus *eth.SyncStat
 	}
 
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
-	s.BatchPos = s.confirmedBatchPos + 1
-	s.hotShotPos = hotshotState.BlockHeight
-	s.batchBuffer = nil
+	s.confirmedHotShotPos = hotshotState.BlockHeight
+	s.Reset()
 	return true, nil
 }
 
@@ -172,16 +180,15 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 				continue
 			}
 
-			if batch.BlockNum < s.BatchPos {
+			if batch.Number() < s.BatchPos {
 				// Batch already buffered/finalized
-				s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.BlockNum, "batchPos", s.BatchPos)
+				s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
 				continue
 			}
 
 			espressoFinalizedL1 := getFinalizedL1(&header)
 			if espressoFinalizedL1 == nil {
-				s.Log.Error("Unknown Espresso header version")
-				continue
+				return fmt.Errorf("unknown Espresso header version")
 			}
 
 			if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
@@ -194,16 +201,16 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 
 			// Find a slot to insert the batch
 			i, batchRecorded := slices.BinarySearchFunc(s.batchBuffer, batch, func(x, y EspressoBatch) int {
-				return cmp.Compare(x.BlockNum, y.BlockNum)
+				return cmp.Compare(x.Number(), y.Number())
 			})
 
 			if batchRecorded {
 				// Duplicate batch found, skip it
-				s.Log.Debug("duplicate batch, skipping", "batchNr", batch.BlockNum)
+				s.Log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
 				continue
 			}
 
-			s.Log.Debug("recovered batch, buffering", "batchnr", batch.BlockNum)
+			s.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
 			s.batchBuffer = slices.Insert(s.batchBuffer, i, batch)
 		}
 	}
@@ -213,7 +220,7 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
 	// Is the next batch available?
-	if len(s.batchBuffer) > 0 && s.batchBuffer[0].BlockNum == s.BatchPos {
+	if len(s.batchBuffer) > 0 && s.batchBuffer[0].Header.Nonce.Uint64() == s.BatchPos {
 		var batch EspressoBatch
 		batch, s.batchBuffer = s.batchBuffer[0], s.batchBuffer[1:]
 		s.BatchPos += 1

@@ -22,9 +22,12 @@ import (
 // A SingularBatch with block number attached to restore ordering
 // when fetching from Espresso
 type EspressoBatch struct {
-	BlockNum uint64
-	Header   types.Header
-	Batch    derive.SingularBatch
+	Header types.Header
+	Batch  derive.SingularBatch
+}
+
+func (b *EspressoBatch) Number() uint64 {
+	return b.Header.Number.Uint64()
 }
 
 func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner, batcherAddress common.Address) (*espressoCommon.Transaction, error) {
@@ -53,9 +56,8 @@ func BlockToEspressoBatch(rollupCfg *rollup.Config, block *types.Block) (*Espres
 	}
 
 	return &EspressoBatch{
-		Batch:    *batch,
-		Header:   *block.Header(),
-		BlockNum: block.NumberU64(),
+		Batch:  *batch,
+		Header: *block.Header(),
 	}, nil
 }
 
@@ -83,6 +85,10 @@ func UnmarshalEspressoTransaction(data []byte, batcherAddress common.Address) (E
 // the original block, but we don't care for batcher purposes,as this incomplete block will be
 // converted back to batch later on anyway. This double-conversion is done to avoid extensive
 // modifications to channel manager that would be needed to allow it to accept batches directly
+//
+// NOTE: This function MUST guarantee no transient errors. It is allowed to fail only on
+// invalid batches or in case of misconfiguration of the batcher, in which case it should fail
+// for all batches.
 func BatchToIncompleteBlock(rollupCfg *rollup.Config, espressoBatch *EspressoBatch) (*types.Block, error) {
 	batch := espressoBatch.Batch
 

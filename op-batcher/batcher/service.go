@@ -433,7 +433,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		RollupConfig:        bs.RollupConfig,
 		Config:              bs.BatcherConfig,
 		ChainSigner:         bs.ChainSigner,
-		BatcherAddress:      bs.TxManager.From(),
+		SequencerAddress:      bs.TxManager.From(),
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,

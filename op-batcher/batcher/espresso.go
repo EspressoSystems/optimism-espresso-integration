@@ -78,12 +78,11 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	}
 
 	espressoBatch := espresso.EspressoBatch{
-		Header:   *block.Header(),
-		BlockNum: block.NumberU64(),
-		Batch:    *batch,
+		Header: *block.Header(),
+		Batch:  *batch,
 	}
 
-	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner, l.BatcherAddress)
+	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner, l.SequencerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
@@ -116,6 +115,7 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState != nil || shouldClearState {
 		l.channelMgr.Clear(*syncActions.clearState)
+		streamer.Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -131,7 +131,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer ticker.Stop()
 
 	streamer := espresso.EspressoStreamer{
-		BatcherAddress: l.BatcherAddress,
+		BatcherAddress: l.SequencerAddress,
 		Namespace:      l.RollupConfig.L2ChainID.Uint64(),
 
 		L1Client:            l.L1Client,
@@ -166,6 +166,8 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					break
 				}
 
+				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
+				// no transient errors.
 				block, err := espresso.BatchToIncompleteBlock(l.RollupConfig, batch)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
@@ -181,6 +183,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
+					streamer.Reset()
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
