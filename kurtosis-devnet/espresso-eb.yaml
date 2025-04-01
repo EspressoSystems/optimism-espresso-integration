@@ -1,4 +1,6 @@
 optimism_package:
+  observability:
+    enabled: false
   altda_deploy_config:
     use_altda: true
     da_challenge_window: 100
