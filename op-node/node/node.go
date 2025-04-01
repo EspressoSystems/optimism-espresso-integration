@@ -585,9 +585,22 @@ func (n *OpNode) Start(ctx context.Context) error {
 			return err
 		}
 	}
+
 	if n.cfg.CaffNodeConfig.IsCaffNode {
-		// Sishan TODO: deal with this in a better way and add error handling
-		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
+		errCh := make(chan error, 1) // buffered so the goroutine doesn’t block if not read immediately
+		go func() {
+			errCh <- n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
+		}()
+		select {
+		case err := <-errCh:
+			if err != nil {
+				// Handle the error, e.g., log it or trigger a recovery
+				n.log.Error("EspressoStreamer failed", "error", err)
+				return err
+			}
+		case <-ctx.Done():
+			return nil
+		}
 	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
