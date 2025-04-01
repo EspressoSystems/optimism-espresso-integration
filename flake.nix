@@ -25,7 +25,7 @@
                   };
       cgo_ld_flags = if system == "x86_64-linux"
                       then "-L/tmp -lespresso_crypto_helper-x86_64-unknown-linux-gnu"
-                      else "-L/tmp -lespresso_crypto_helper-x86_64-apple-darwin.a -framework Foundation -framework SystemConfiguration"
+                      else "-L/tmp -lespresso_crypto_helper-x86_64-apple-darwin -framework Foundation -framework SystemConfiguration"
       ;
 
       target_link =  if system == "x86_64-linux"
