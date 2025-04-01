@@ -55,6 +55,12 @@ var (
 	PollIntervalFlag = &cli.DurationFlag{
 		Name:    "poll-interval",
 		Usage:   "How frequently to poll L2 for new blocks",
+		Value:   100 * time.Millisecond,
+		EnvVars: prefixEnvVars("POLL_INTERVAL"),
+	}
+	EspressoPollIntervalFlag = &cli.DurationFlag{
+		Name:    "espresso-poll-interval",
+		Usage:   "How frequently to poll Espresso for new batches",
 		Value:   6 * time.Second,
 		EnvVars: prefixEnvVars("POLL_INTERVAL"),
 	}
