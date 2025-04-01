@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,21 +48,6 @@ var ESPRESSO_CONTRACT_ACCOUNT = common.HexToAddress("0x8943545177806ed17b9f23f0a
 const ESPRESSO_BUILDER_PORT = "31003"
 const ESPRESSO_SEQUENCER_API_PORT = "24000"
 const ESPRESSO_DEV_NODE_PORT = "24002"
-
-type EspressoDevNode interface {
-	// Get Information about interacting with the Espresso Dev Node
-	SequencerPort() string
-	BuilderPort() string
-
-	// Shut Down the Espresso Dev Node
-	Stop() error
-}
-
-// EspressoDevNodeLauncher is an interface that allows us to launch an optimism
-// dev environment with an Espresso dev node.
-type EspressoDevNodeLauncher interface {
-	StartDevNet(ctx context.Context) (*e2esys.System, EspressoDevNode, error)
-}
 
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
@@ -123,6 +110,8 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 // EspressoDevNodeLauncherDocker is an implementation of EspressoDevNodeLauncher
 // that uses Docker to launch the Espresso Dev Node
 type EspressoDevNodeLauncherDocker struct{}
+
+var _ EspressoDevNetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
 
 // FailedToDetermineL1RPCURL represents a class of errors that occur when we
 // are unable to correctly form our L1 RPC URL
@@ -217,209 +206,302 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
-func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T) (*e2esys.System, EspressoDevNode, error) {
+func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 	originalCtx := ctx
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
-	sysConfig := e2esys.DefaultSystemConfig(t)
+	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
+	sysConfig.DeployConfig.DeployCeloContracts = true
+	sysConfig.DeployConfig.UseAltDA = true
+	sysConfig.DeployConfig.DACommitmentType = "GenericCommitment"
+
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
 
-	// We append the host machine address to the list of virtual hosts, so
-	// that we do not get denied when attempting to access the host machine's
-	// RPC API.
-	//
-	// We also need to ensure that our Account is funded.
-	sysConfig.GethOptions[e2esys.RoleL1] = append(sysConfig.GethOptions[e2esys.RoleL1], func(thCfg *ethconfig.Config, nodeCfg *gethNode.Config) error {
-		nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "host.docker.internal")
+	initialOptions := []DevNetLauncherOption{
+		allowHostDockerInternalVirtualHost(),
+		fundEspressoAccount(),
+		launchEspressoDevNodeDocker(),
+	}
 
-		return nil
-	})
+	launchContext := DevNetLauncherContext{
+		Ctx: originalCtx,
+	}
+
+	allOptions := append(initialOptions, options...)
+
+	// getOptions := map[string][]geth.GethOption{}
+	startOptions := []e2esys.StartOption{}
+
+	for _, opt := range allOptions {
+		options := opt(&launchContext)
+
+		if gethOption := options.GethOptions; gethOption != nil {
+			for k, v := range gethOption {
+				sysConfig.GethOptions[k] = append(sysConfig.GethOptions[k], v...)
+			}
+		}
+
+		if startOption := options.StartOptions; startOption != nil {
+			startOptions = append(startOptions, startOption...)
+		}
+	}
 
 	// We want to run the espresso-dev-node.  But we need it to be able to
 	// access the L1 node.
 
-	var overallError error
-
-	var containerInfo DockerContainerInfo
-	var system *e2esys.System
-	system, overallError = sysConfig.Start(
+	system, err := sysConfig.Start(
 		t,
 
-		// This start up option ensures that we can start the espresso-dev-node
-		// with a funded account.  Otherwise we'll fail to launch the node
-		// due to not having any balance to cover the gas.
-		e2esys.StartOption{
-			Key:  "afterRollupNodeStart",
-			Role: e2esys.RoleSeq,
-			Action: func(sysConfig *e2esys.SystemConfig, sys *e2esys.System) {
-				if overallError != nil {
-					// Early Return if we already have an overallError set
-					return
-				}
+		startOptions...,
+	)
 
-				ctx, cancel := context.WithCancel(ctx)
-				defer cancel()
-
-				// Smuggle the system out before we start the batcher, so we have
-				// a live reference to it.
-				system = sys
-
-				// Fund the Espresso Account, so it is able to deploy contracts
-				l1Client := sys.NodeClient(e2esys.RoleL1)
-
-				tx, err := SignTransaction(&types.DynamicFeeTx{
-					ChainID:   sysConfig.L1ChainIDBig(),
-					To:        &ESPRESSO_CONTRACT_ACCOUNT,
-					Value:     big.NewInt(1_000_000_000_000_000_000),
-					GasTipCap: big.NewInt(1_000_000_000),
-					GasFeeCap: big.NewInt(1_000_000_000),
-					Gas:       25000,
-					Data:      nil,
-				}, sysConfig.Secrets.Alice, sysConfig.L1ChainIDBig())
-				if err != nil {
-					overallError = FailedToLoadEspressoAccount{Cause: err}
-					return
-				}
-
-				startingBalance, err := l1Client.BalanceAt(ctx, ESPRESSO_CONTRACT_ACCOUNT, nil)
-				if err != nil {
-					overallError = FailedToLoadEspressoAccount{Cause: err}
-					return
-				}
-
-				err = l1Client.SendTransaction(ctx, tx)
-				if err != nil {
-					overallError = FailedToLoadEspressoAccount{Cause: err}
-					return
-				}
-
-				{
-					ctx, cancel := context.WithTimeout(ctx, time.Second*30)
-					defer cancel()
-					if err := WaitForIncreasedBalance(ctx, l1Client, ESPRESSO_CONTRACT_ACCOUNT, startingBalance); err != nil {
-						overallError = FailedToLoadEspressoAccount{Cause: err}
-						return
-					}
-				}
-
-			},
-		},
-
-		// This start up option ensures that the espresso-dev-node is launched
-		// and ready before we launch the batcher, as the configuration of the
-		// batcher depends on the espresso-dev-node being ready.
-		e2esys.StartOption{
-			BatcherMod: func(c *batcher.CLIConfig) {
-				if overallError != nil {
-					// Early Return if we already have an overallError set
-					return
-				}
-
-				// Let's spin up the espresso-dev-node
-				{
-
-					l1EthRpcURL, err := url.Parse(c.L1EthRpc)
-					if err != nil {
-						overallError = FailedToDetermineL1RPCURL{Cause: err}
-						return
-					}
-
-					// We need to know the port, so we can configure docker to
-					// communicate with the L1 RPC node running on the host machine.
-					_, port, err := net.SplitHostPort(l1EthRpcURL.Host)
-					if err != nil {
-						overallError = FailedToDetermineL1RPCURL{Cause: err}
-						return
-					}
-
-					// We replace the host with host.docker.internal to inform
-					// docker to communicate with the host system.
-					l1EthRpcURL.Host = net.JoinHostPort("host.docker.internal", port)
-					l1EthRpcURL.Scheme = "http"
-
-					containerCli := new(DockerCli)
-
-					espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(originalCtx, DockerContainerConfig{
-						Image: ESPRESSO_DEV_NODE_DOCKER_IMAGE,
-						Environment: map[string]string{
-							"ESPRESSO_DEPLOYER_ACCOUNT_INDEX":             ESPRESSO_MNEMONIC_INDEX,
-							"ESPRESSO_SEQUENCER_ETH_MNEMONIC":             ESPRESSO_MNEMONIC,
-							"ESPRESSO_SEQUENCER_L1_PROVIDER":              l1EthRpcURL.String(),
-							"ESPRESSO_SEQUENCER_DATABASE_MAX_CONNECTIONS": "25",
-							"ESPRESSO_SEQUENCER_STORAGE_PATH":             "/data/espresso",
-							"RUST_LOG":                                    "info",
-
-							"ESPRESSO_BUILDER_PORT":       ESPRESSO_BUILDER_PORT,
-							"ESPRESSO_SEQUENCER_API_PORT": ESPRESSO_SEQUENCER_API_PORT,
-							"ESPRESSO_DEV_NODE_PORT":      ESPRESSO_DEV_NODE_PORT,
-						},
-						Ports: []string{
-							ESPRESSO_BUILDER_PORT,
-							ESPRESSO_SEQUENCER_API_PORT,
-							ESPRESSO_DEV_NODE_PORT,
-						},
-					})
-
-					if err != nil {
-						overallError = FailedToLaunchDockerContainer{Cause: err}
-						return
-					}
-
-					containerInfo = espressoDevNodeContainerInfo
-
-					// We have all of our ports.
-					// Let's return all of the relevant port mapping information
-					// for easy reference, and cancellation
-
-					hosts := espressoDevNodeContainerInfo.PortMap[ESPRESSO_SEQUENCER_API_PORT]
-
-					if len(hosts) == 0 {
-						overallError = ErrUnableToDetermineEspressoDevNodeSequencerHost
-						return
-					}
-
-					// We may have more than a single host, but we'll make do.
-
-					host, port, err := net.SplitHostPort(hosts[0])
-					if err != nil {
-						overallError = ErrUnableToDetermineEspressoDevNodeSequencerHost
-						return
-					}
-
-					var hostPort string
-					switch host {
-					case "0.0.0.0":
-						// IPv4
-						hostPort = net.JoinHostPort("localhost", port)
-					case "[::]":
-						// IPv6
-						hostPort = net.JoinHostPort("localhost", port)
-					default:
-						hostPort = net.JoinHostPort(host, port)
-					}
-
-					currentBlockHeightURLString := "http://" + hostPort + "/status/block-height"
-
-					// Wait for Espresso to be ready
-					timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute*10)
-					defer cancel()
-					if err := WaitForEspressoBlockHeightToBePositive(timeoutCtx, currentBlockHeightURLString); err != nil {
-						overallError = EspressoNodeFailedToBecomeReady{Cause: err}
-						return
-					}
-
-					c.EspressoUrl = "http://" + hostPort
-					c.EspressoLightClientAddr = ESPRESSO_LIGHT_CLIENT_ADDRESS
-				}
-
-			},
-		})
-
-	if overallError != nil {
-		return system, nil, overallError
+	if err != nil {
+		return system, nil, err
 	}
 
-	return system, EspressoDevNodeContainerInfo{ContainerInfo: containerInfo}, nil
+	return system, launchContext.EspressoDevNode, launchContext.Error
+}
+
+// EspressoDevNodeDockerContainerInfo is an implementation of
+// EspressoDevNode that uses a Docker container to run the Espresso Dev Node
+// and provides the relevant port information for the sequencer API and
+type EspressoDevNodeDockerContainerInfo DockerContainerInfo
+
+// EspressoDevNodeDockerContainerInfo is an implementation of
+// EspressoDevNode.
+var _ EspressoDevNode = (*EspressoDevNodeDockerContainerInfo)(nil)
+
+// SequencerPort implements EspressoDevNode
+func (e EspressoDevNodeDockerContainerInfo) SequencerPort() string {
+	ports := e.PortMap[ESPRESSO_SEQUENCER_API_PORT]
+	if len(ports) <= 0 {
+		return ""
+	}
+
+	return ports[0]
+}
+
+// BuilderPort implements EspressoDevNode
+func (e EspressoDevNodeDockerContainerInfo) BuilderPort() string {
+	ports := e.PortMap[ESPRESSO_BUILDER_PORT]
+	if len(ports) <= 0 {
+		return ""
+	}
+
+	return ports[0]
+}
+
+// ContainerID implements EspressoDevNode
+func (e EspressoDevNodeDockerContainerInfo) Stop() error {
+	cli := new(DockerCli)
+	return cli.StopContainer(context.Background(), e.ContainerID)
+}
+
+// allowHostDockerInternalVirtualHost is a convenience method that configures
+// Geth instance to allow communication from a virtual host of
+// "host.docker.internal".
+//
+// host.docker.internal is a special DNS name that allows docker containers
+// to speak to ports hosted on the host node.
+func allowHostDockerInternalVirtualHost() DevNetLauncherOption {
+	return func(c *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			GethOptions: map[string][]geth.GethOption{
+				e2esys.RoleL1: {
+					func(thCfg *ethconfig.Config, nodeCfg *gethNode.Config) error {
+						// We append the host machine address to the list of virtual hosts, so
+						// that we do not get denied when attempting to access the host machine's
+						// RPC API.
+						nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "host.docker.internal")
+
+						return nil
+					},
+				},
+			},
+		}
+	}
+}
+
+// fundEspressoAccount is a convenience method that funds the espresso
+// account with an initial amount of ETH, so that it can deploy contracts
+// on the L1.  This is necessary as the espresso-dev-node does not
+func fundEspressoAccount() DevNetLauncherOption {
+	return func(c *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "afterRollupNodeStart",
+					Role: e2esys.RoleVerif,
+					Action: func(sysConfig *e2esys.SystemConfig, sys *e2esys.System) {
+						if c.Error != nil {
+							// Early Return if we already have an Error set
+							return
+						}
+
+						c.System = sys
+
+						ctx, cancel := context.WithCancel(c.Ctx)
+						defer cancel()
+
+						// Fund the Espresso Account, so it is able to deploy contracts
+						l1Client := sys.NodeClient(e2esys.RoleL1)
+
+						tx, err := SignTransaction(&types.DynamicFeeTx{
+							ChainID:   sysConfig.L1ChainIDBig(),
+							To:        &ESPRESSO_CONTRACT_ACCOUNT,
+							Value:     big.NewInt(1_000_000_000_000_000_000),
+							GasTipCap: big.NewInt(1_000_000_000),
+							GasFeeCap: big.NewInt(1_000_000_000),
+							Gas:       25000,
+							Data:      nil,
+						}, sysConfig.Secrets.Alice, sysConfig.L1ChainIDBig())
+						if err != nil {
+							c.Error = FailedToLoadEspressoAccount{Cause: err}
+							return
+						}
+
+						startingBalance, err := l1Client.BalanceAt(ctx, ESPRESSO_CONTRACT_ACCOUNT, nil)
+						if err != nil {
+							c.Error = FailedToLoadEspressoAccount{Cause: err}
+							return
+						}
+
+						err = l1Client.SendTransaction(ctx, tx)
+						if err != nil {
+							c.Error = FailedToLoadEspressoAccount{Cause: err}
+							return
+						}
+
+						{
+							ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+							defer cancel()
+							if err := WaitForIncreasedBalance(ctx, l1Client, ESPRESSO_CONTRACT_ACCOUNT, startingBalance); err != nil {
+								c.Error = FailedToLoadEspressoAccount{Cause: err}
+								return
+							}
+						}
+					},
+				},
+			},
+		}
+	}
+}
+
+// launchEspressoDevNodeDocker is DevNetLauncherOption that launches th
+// Espresso Dev Node within a Docker container.  It also ensures that the
+// Espresso Dev Node is actively producing blocks before returning.
+func launchEspressoDevNodeDocker() DevNetLauncherOption {
+	return func(ct *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Role: "launch-espresso-dev-node",
+					BatcherMod: func(c *batcher.CLIConfig) {
+						if ct.Error != nil {
+							// Early Return if we already have an Error set
+							return
+						}
+
+						c.AltDA.Enabled = true
+						l1EthRpcURL, err := url.Parse(c.L1EthRpc)
+						if err != nil {
+							ct.Error = FailedToDetermineL1RPCURL{Cause: err}
+							return
+						}
+
+						// Let's spin up the espresso-dev-node
+						{
+
+							// We need to know the port, so we can configure docker to
+							// communicate with the L1 RPC node running on the host machine.
+							_, port, err := net.SplitHostPort(l1EthRpcURL.Host)
+							if err != nil {
+								ct.Error = FailedToDetermineL1RPCURL{Cause: err}
+								return
+							}
+
+							// We replace the host with host.docker.internal to inform
+							// docker to communicate with the host system.
+							l1EthRpcURL.Host = net.JoinHostPort("host.docker.internal", port)
+							l1EthRpcURL.Scheme = "http"
+
+							containerCli := new(DockerCli)
+
+							espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ct.Ctx, DockerContainerConfig{
+								Image: ESPRESSO_DEV_NODE_DOCKER_IMAGE,
+								Environment: map[string]string{
+									"ESPRESSO_DEPLOYER_ACCOUNT_INDEX":             ESPRESSO_MNEMONIC_INDEX,
+									"ESPRESSO_SEQUENCER_ETH_MNEMONIC":             ESPRESSO_MNEMONIC,
+									"ESPRESSO_SEQUENCER_L1_PROVIDER":              l1EthRpcURL.String(),
+									"ESPRESSO_SEQUENCER_DATABASE_MAX_CONNECTIONS": "25",
+									"ESPRESSO_SEQUENCER_STORAGE_PATH":             "/data/espresso",
+									"RUST_LOG":                                    "info",
+
+									"ESPRESSO_BUILDER_PORT":       ESPRESSO_BUILDER_PORT,
+									"ESPRESSO_SEQUENCER_API_PORT": ESPRESSO_SEQUENCER_API_PORT,
+									"ESPRESSO_DEV_NODE_PORT":      ESPRESSO_DEV_NODE_PORT,
+								},
+								Ports: []string{
+									ESPRESSO_BUILDER_PORT,
+									ESPRESSO_SEQUENCER_API_PORT,
+									ESPRESSO_DEV_NODE_PORT,
+								},
+							})
+
+							if err != nil {
+								ct.Error = FailedToLaunchDockerContainer{Cause: err}
+								return
+							}
+
+							ct.EspressoDevNode = EspressoDevNodeDockerContainerInfo(espressoDevNodeContainerInfo)
+
+							// We have all of our ports.
+							// Let's return all of the relevant port mapping information
+							// for easy reference, and cancellation
+
+							hosts := espressoDevNodeContainerInfo.PortMap[ESPRESSO_SEQUENCER_API_PORT]
+
+							if len(hosts) == 0 {
+								ct.Error = ErrUnableToDetermineEspressoDevNodeSequencerHost
+								return
+							}
+
+							// We may have more than a single host, but we'll make do.
+
+							host, port, err := net.SplitHostPort(hosts[0])
+							if err != nil {
+								ct.Error = ErrUnableToDetermineEspressoDevNodeSequencerHost
+								return
+							}
+
+							var hostPort string
+							switch host {
+							case "0.0.0.0":
+								// IPv4
+								hostPort = net.JoinHostPort("localhost", port)
+							case "[::]":
+								// IPv6
+								hostPort = net.JoinHostPort("localhost", port)
+							default:
+								hostPort = net.JoinHostPort(host, port)
+							}
+
+							currentBlockHeightURLString := "http://" + hostPort + "/status/block-height"
+
+							// Wait for Espresso to be ready
+							timeoutCtx, cancel := context.WithTimeout(ct.Ctx, time.Minute*10)
+							defer cancel()
+							if err := WaitForEspressoBlockHeightToBePositive(timeoutCtx, currentBlockHeightURLString); err != nil {
+								ct.Error = EspressoNodeFailedToBecomeReady{Cause: err}
+								return
+							}
+
+							c.EspressoUrl = "http://" + hostPort
+							c.EspressoLightClientAddr = ESPRESSO_LIGHT_CLIENT_ADDRESS
+						}
+					},
+				},
+			},
+		}
+	}
 }
