@@ -42,6 +42,7 @@ var ErrAlreadyStopped = errors.New("already stopped")
 type BatcherConfig struct {
 	NetworkTimeout         time.Duration
 	PollInterval           time.Duration
+	EspressoPollInterval   time.Duration
 	MaxPendingTransactions uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
@@ -132,6 +133,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 	bs.initMetrics(cfg)
 
 	bs.PollInterval = cfg.PollInterval
+	bs.EspressoPollInterval = cfg.EspressoPollInterval
 	bs.MaxPendingTransactions = cfg.MaxPendingTransactions
 	bs.MaxConcurrentDARequests = cfg.AltDA.MaxConcurrentRequests
 	bs.NetworkTimeout = cfg.TxMgrConfig.NetworkTimeout
@@ -202,7 +204,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 		}
 		bs.EspressoLightClient = espressoLightClient
 		bs.UseEspresso = true
-		bs.UseAltDA = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
@@ -465,6 +466,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		RollupConfig:        bs.RollupConfig,
 		Config:              bs.BatcherConfig,
 		ChainSigner:         bs.ChainSigner,
+		SequencerAddress:    bs.TxManager.From(),
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,
