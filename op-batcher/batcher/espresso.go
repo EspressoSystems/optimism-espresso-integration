@@ -26,6 +26,11 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
+import (
+	"context"
+	"errors"
+	"math/big"
+	"sync"
 
 // espressoSubmitTransactionJob is a struct that holds the state required to
 // submit a transaction to Espresso.

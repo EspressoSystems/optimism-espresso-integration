@@ -136,6 +136,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	bs.initMetrics(cfg)
 
 	bs.PollInterval = cfg.PollInterval
+	bs.EspressoPollInterval = cfg.EspressoPollInterval
 	bs.MaxPendingTransactions = cfg.MaxPendingTransactions
 	bs.MaxConcurrentDARequests = cfg.AltDA.MaxConcurrentRequests
 	bs.NetworkTimeout = cfg.TxMgrConfig.NetworkTimeout
