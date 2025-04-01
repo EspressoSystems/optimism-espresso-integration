@@ -37,3 +37,8 @@ func (m *MockL1Source) L1BlockRefByHash(ctx context.Context, hash common.Hash) (
 func (m *MockL1Source) ExpectL1BlockRefByHash(hash common.Hash, ref eth.L1BlockRef, err error) {
 	m.Mock.On("L1BlockRefByHash", hash).Once().Return(ref, err)
 }
+
+func (m *MockL1Source) L1FinalizedBlock() (eth.L1BlockRef, error) {
+	out := m.Mock.Called()
+	return out.Get(0).(eth.L1BlockRef), out.Error(1)
+}
