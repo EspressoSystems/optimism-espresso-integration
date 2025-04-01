@@ -38,6 +38,7 @@ make -C ./op-program test
 just -f ./op-proposer/justfile test
 make -C ./op-service test
 just -f ./op-supervisor/justfile test
+(cd espresso && go test ./...)
 
 # Just to be nice we run nuke again, so we don't have any residual state
 # left around.

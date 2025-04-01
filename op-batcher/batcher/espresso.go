@@ -3,6 +3,8 @@ package batcher
 import (
 	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
 	"C"
+	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 
 	"fmt"
 	"time"
@@ -12,13 +14,10 @@ import (
 import (
 	"context"
 	"errors"
-	"math/big"
-	"sync"
-
-	"github.com/ethereum-optimism/optimism/op-batcher/batcher/espresso"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
+	"math/big"
+	"sync"
 )
 
 // Parameters for transaction fetching loop, which waits for transactions
