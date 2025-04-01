@@ -93,6 +93,8 @@ type CLIConfig struct {
 	// and creating a new batch.
 	PollInterval time.Duration
 
+	EspressoPollInterval time.Duration
+
 	// MaxPendingTransactions is the maximum number of concurrent pending
 	// transactions sent to the transaction manager (0 == no limit).
 	MaxPendingTransactions uint64
@@ -224,11 +226,12 @@ func (c *CLIConfig) Check() error {
 func NewConfig(ctx *cli.Context) *CLIConfig {
 	return &CLIConfig{
 		/* Required Flags */
-		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),
-		L2EthRpc:        ctx.StringSlice(flags.L2EthRpcFlag.Name),
-		RollupRpc:       ctx.StringSlice(flags.RollupRpcFlag.Name),
-		SubSafetyMargin: ctx.Uint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
+		L1EthRpc:             ctx.String(flags.L1EthRpcFlag.Name),
+		L2EthRpc:             ctx.StringSlice(flags.L2EthRpcFlag.Name),
+		RollupRpc:            ctx.StringSlice(flags.RollupRpcFlag.Name),
+		SubSafetyMargin:      ctx.Uint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:         ctx.Duration(flags.PollIntervalFlag.Name),
+		EspressoPollInterval: ctx.Duration(flags.EspressoPollIntervalFlag.Name),
 
 		/* Optional Flags */
 <<<<<<< HEAD

@@ -2,7 +2,6 @@ package batcher
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -111,6 +109,7 @@ type DriverSetup struct {
 	Espresso            *espressoClient.Client
 	EspressoLightClient *espressoLightClient.LightClientReader
 	ChainSigner         opcrypto.ChainSigner
+	SequencerAddress    common.Address
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -201,10 +200,18 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.Log.Warn("Throttling loop is DISABLED due to 0 throttle-threshold. This should not be disabled in prod.")
 	}
 
-	l.wg.Add(3)
-	go l.receiptsLoop(l.wg, receiptsCh)                                           // ranges over receiptsCh channel
-	go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal)               // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
-	go l.blockLoadingLoop(l.shutdownCtx, l.wg, unsafeBytesUpdated, publishSignal) // sends on unsafeBytesUpdated (if throttling enabled), and publishSignal. Closes them both when done
+	if l.Config.UseEspresso {
+		l.wg.Add(4)
+		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
+		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)
+		go l.espressoBatchLoadingLoop(l.shutdownCtx, l.wg, publishSignal)
+		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal) // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
+	} else {
+		l.wg.Add(3)
+		go l.receiptsLoop(l.wg, receiptsCh)                                            // ranges over receiptsCh channel
+		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal)                // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
+		go l.blockLoadingLoop(l.shutdownCtx, l.wg, unsafeBytesUpdated, publishSignal) // sends on unsafeBytesUpdated (if throttling enabled), and publishSignal. Closes them both when done
+	}
 
 	l.Log.Info("Batch Submitter started")
 	return nil
@@ -948,66 +955,6 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 	l.sendTx(txData{}, true, candidate, queue, receiptsCh)
 }
 
-type EspressoCommitment struct {
-	Signature []byte
-	TxHash    []byte
-}
-
-func (c EspressoCommitment) toGeneric() altda.GenericCommitment {
-	return append(c.TxHash, c.Signature...)
-}
-
-func (l *BatchSubmitter) publishToEspressoAndL1(txdata txData, batcherPrivateKey *ecdsa.PrivateKey, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
-	// sanity checks
-	if nf := len(txdata.frames); nf != 1 {
-		l.Log.Crit("Unexpected number of frames in calldata tx", "num_frames", nf)
-	}
-	if txdata.daType == DaTypeBlob {
-		l.Log.Crit("Unexpected blob txdata with AltDA enabled")
-	}
-
-	// when posting txdata to an external DA Provider, we use a goroutine to avoid blocking the main loop
-	// since it may take a while for the request to return.
-	goroutineSpawned := daGroup.TryGo(func() error {
-
-		// add batcher's signature on txdata sent to L1
-		sig, err := txdata.signTx(batcherPrivateKey)
-		if err != nil {
-			l.Log.Warn("Error signning txdata when submitting to L1", "err", err)
-			l.recordFailedDARequest(txdata.ID(), err)
-			return err
-		}
-
-		ctx := context.Background()
-		batcherSignature, err := l.ChainSigner.Sign(ctx, crypto.Keccak256(txdata.CallData()))
-
-		if err != nil {
-			l.Log.Warn("Error signing txdata for Espresso", "err", err)
-			l.recordFailedDARequest(txdata.ID(), err)
-			return err
-		}
-
-		espComm, err := l.submitToEspresso(txdata, sig, batcherSignature)
-		if err != nil {
-			l.Log.Error("Failed to submit transaction", "error", err)
-			l.recordFailedDARequest(txdata.ID(), err)
-			return err
-		}
-		l.Log.Debug("Transaction finalized on Espresso", "txid", txdata.ID())
-
-		candidate := l.calldataTxCandidate(espComm.toGeneric().TxData())
-		l.sendTx(txdata, false, candidate, queue, receiptsCh)
-
-		return nil
-	})
-	if !goroutineSpawned {
-		// We couldn't start the goroutine because the errgroup.Group limit
-		// is already reached. Since we can't send the txdata, we have to
-		// return it for later processing. We use nil error to skip error logging.
-		l.recordFailedDARequest(txdata.ID(), nil)
-	}
-}
-
 // publishToAltDAAndStoreCommitment posts the txdata to the DA Provider and stores the returned commitment
 // in the channelMgr. The commitment will later be sent to the L1 while making sure to follow holocene's strict ordering rules.
 func (l *BatchSubmitter) publishToAltDAAndStoreCommitment(txdata txData, daGroup *errgroup.Group) {
@@ -1054,11 +1001,6 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 	case DaTypeAltDA:
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
-		}
-
-		if l.Config.UseEspresso {
-			l.publishToEspressoAndL1(txdata, l.Config.BatcherPrivateKey, queue, receiptsCh, daGroup)
-			return nil
 		}
 
 		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
