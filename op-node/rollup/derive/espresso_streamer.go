@@ -114,6 +114,7 @@ func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef,
 
 	// Sishan TODO: Find the batch that match the parent block, concluding is assignedto false for now
 	var returnBatch *SingularBatch
+	// remaining is the list of batches that are not processed yet
 	var remaining []*MessageWithHeight
 batchLoop:
 	for i, message := range s.messagesWithHeights {
