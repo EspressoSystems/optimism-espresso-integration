@@ -82,7 +82,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		Batch:  *batch,
 	}
 
-	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner, l.SequencerAddress)
+	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner)
 	if err != nil {
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}

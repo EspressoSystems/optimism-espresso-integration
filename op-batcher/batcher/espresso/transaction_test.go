@@ -45,13 +45,12 @@ func TestBatchRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	signer := signerFactory(rollupCfg.L2ChainID)
+	signer := signerFactory(rollupCfg.L2ChainID, batcherAddress)
 
 	transaction, err := batch.ToEspressoTransaction(
 		context.Background(),
 		rollupCfg.L2ChainID.Uint64(),
 		signer,
-		batcherAddress,
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -2,7 +2,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    foundry.url = "github:shazow/foundry.nix/monthly";
+    foundry.url = "github:shazow/foundry.nix/main";
   };
 
 
@@ -24,7 +24,7 @@
             pkgs.python311
             pkgs.foundry-bin
             pkgs.just
-            pkgs.go
+            pkgs.go_1_22
             pkgs.gotools
           ];
         };

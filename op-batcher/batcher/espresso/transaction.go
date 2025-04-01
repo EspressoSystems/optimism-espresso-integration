@@ -30,14 +30,14 @@ func (b *EspressoBatch) Number() uint64 {
 	return b.Header.Number.Uint64()
 }
 
-func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner, batcherAddress common.Address) (*espressoCommon.Transaction, error) {
+func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner) (*espressoCommon.Transaction, error) {
 	buf := new(bytes.Buffer)
 	err := rlp.Encode(buf, b)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode batch: %w", err)
 	}
 
-	batcherSignature, err := signer.Sign(ctx, batcherAddress, crypto.Keccak256(buf.Bytes()))
+	batcherSignature, err := signer.Sign(ctx, crypto.Keccak256(buf.Bytes()))
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batcher signature: %w", err)

@@ -25,19 +25,19 @@ make nuke
 make -C ./cannon test
 (cd packages/contracts-bedrock && just test)
 
-make -C ./op-alt-da test
-make -C ./op-batcher test
-make -C ./op-chain-ops test
-make -C ./op-challenger test
-make -C ./op-conductor test
-make -C ./op-dispute-mon test
-make -C ./op-dripper test
+just -f ./op-alt-da/justfile test
+just -f ./op-batcher/justfile test
+just -f ./op-chain-ops/justfile test
+just -f ./op-challenger/justfile test
+just -f ./op-conductor/justfile test
+just -f ./op-dispute-mon/justfile test
+just -f ./op-dripper/justfile test
 make -C ./op-e2e test
-make -C ./op-node test
+just -f ./op-node/justfile test
 make -C ./op-program test
-make -C ./op-proposer test
+just -f ./op-proposer/justfile test
 make -C ./op-service test
-make -C ./op-supervisor test
+just -f ./op-supervisor/justfile test
 
 # Just to be nice we run nuke again, so we don't have any residual state
 # left around.
