@@ -39,7 +39,7 @@ type EspressoStreamer struct {
 	pollingHotShotPollingInterval time.Duration
 	messagesWithHeights           []*MessageWithHeight
 	log                           log.Logger
-	batchInboxAddr                common.Address
+	batcherAddr                   common.Address
 	rollupConfig                  *rollup.Config
 	messageMutex                  sync.Mutex
 }
@@ -59,7 +59,7 @@ func NewEspressoStreamer(namespace uint64,
 		pollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		namespace:                     namespace,
 		log:                           log,
-		batchInboxAddr:                batchInboxAddr,
+		batcherAddr:                   batchInboxAddr,
 		rollupConfig:                  rollupConfig,
 	}
 }
@@ -172,10 +172,9 @@ func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*
 		s.log.Warn("failed to parse hotshot payload", "err", err)
 		return nil, err
 	}
-	// if batcher'ssignature verification fails, we should skip this message
-
+	// if batcher's signature verification fails, we should skip this message
 	batchHash := ethCrypto.Keccak256(batchByte)
-	err = crypto.Verify(batchHash, batcherSignature, s.batchInboxAddr)
+	err = crypto.Verify(batchHash, batcherSignature, s.batcherAddr)
 	if err != nil {
 		s.log.Warn("failed to verify signature", "err", err)
 		// Sishan TODO: return an error instead of continuing

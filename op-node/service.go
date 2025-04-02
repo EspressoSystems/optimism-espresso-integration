@@ -303,5 +303,6 @@ func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
 		NextHotShotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotShotBlockNum.Name),
 		PollingHotShotPollingInterval: ctx.Duration(flags.CaffNodePollingHotShotPollingInterval.Name),
 		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
+		BatcherAddress:                common.HexToAddress(ctx.String(flags.CaffNodeBatcherAddress.Name)),
 	}
 }

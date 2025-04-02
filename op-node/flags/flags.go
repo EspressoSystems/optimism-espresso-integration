@@ -472,6 +472,13 @@ var (
 		Value:    cli.NewStringSlice("http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000"),
 		Category: OperationsCategory,
 	}
+	CaffNodeBatcherAddress = &cli.StringFlag{
+		Name:     "caff.batcher-address",
+		Usage:    "Batcher address for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_BATCHER_ADDRESS"),
+		Value:    "0xD3F2c5AFb2D76f5579F326b0cD7DA5F5a4126c35",
+		Category: OperationsCategory,
+	}
 )
 
 var requiredFlags = []cli.Flag{
