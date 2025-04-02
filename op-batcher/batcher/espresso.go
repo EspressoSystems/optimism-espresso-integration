@@ -425,7 +425,14 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		TxData: verifyBatchCalldata,
 		To:     &l.RollupConfig.BatchInboxAddress,
 	}
-	setGasLimit(&verifyCandidate)
+	err = setGasLimit(&verifyCandidate)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to set gas limit: %w", err),
+		}
+		return
+	}
 
 	verifyReceiptCh := make(chan txmgr.TxReceipt[txRef])
 	queue.Send(transactionReference, *&verifyCandidate, verifyReceiptCh)
@@ -437,6 +444,14 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		return
 	}
 
-	setGasLimit(candidate)
+	err = setGasLimit(candidate)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to set gas limit: %w", err),
+		}
+		return
+	}
+
 	queue.Send(transactionReference, *candidate, receiptsCh)
 }
