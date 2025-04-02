@@ -92,12 +92,15 @@ contract DeployEspresso is Script {
         returns (IBatchVerifier)
     {
         bytes32 salt = input.salt();
+        address preApprovedBatcherKey = input.preApprovedBatcherKey();
         vm.broadcast(msg.sender);
         IBatchVerifier impl = IBatchVerifier(
             DeployUtils.create2({
                 _name: "BatchVerifier",
                 _salt: salt,
-                _args: DeployUtils.encodeConstructor(abi.encodeCall(IBatchVerifier.__constructor__, (address(teeVerifier))))
+                _args: DeployUtils.encodeConstructor(
+                    abi.encodeCall(IBatchVerifier.__constructor__, (address(teeVerifier), preApprovedBatcherKey))
+                )
             })
         );
         vm.label(address(impl), "BatchVerifierImpl");

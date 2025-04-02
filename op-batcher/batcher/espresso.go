@@ -12,7 +12,7 @@ import (
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -130,11 +130,17 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer ticker.Stop()
 	defer close(publishSignal)
 
+	err := l.registerBatcher(ctx)
+	if err != nil {
+		l.Log.Error("could not register with batch inbox contract", "err", err)
+		return
+	}
+
 	streamer := espresso.NewEspressoStreamer(
 		l.RollupConfig.L2ChainID.Uint64(),
 		l.L1Client,
 		l.Espresso,
-		l.EspressoLightClient, // TODO (Keyao) BatchSubmitter doesn't have field EspressoLightClient.
+		l.EspressoLightClient,
 		l.Log,
 		func(data []byte) (*derive.EspressoBatch, error) {
 			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
@@ -367,22 +373,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to send transaction: %w", err)
 	}
 
-	return nil
-}
-
-func setGasLimit(candidate *txmgr.TxCandidate) error {
-	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, nil, false, true, true, false, nil, nil)
-	if err != nil {
-		return err
-	} else {
-		candidate.GasLimit = intrinsicGas
-	}
-	floorDataGas, err := floorDataGas(candidate.TxData)
-	if err != nil {
-		return err
-	} else if floorDataGas > candidate.GasLimit {
-		candidate.GasLimit = floorDataGas
-	}
+	l.Log.Info("Registered batcher with the batch inbox contract")
 
 	return nil
 }
@@ -391,8 +382,30 @@ func setGasLimit(candidate *txmgr.TxCandidate) error {
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
+	l.Log.Debug("Sending Espresso-enabled L1 transaction", "txRef", transactionReference)
 
-	commitment := crypto.Keccak256Hash(candidate.TxData)
+	// VerifyBatch expects bytes32
+	var commitment [32]byte
+	if len(candidate.Blobs) == 0 {
+		commitment = crypto.Keccak256Hash(candidate.TxData)
+		l.Log.Debug("Hashing calldata transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
+	} else {
+		contactenatedBlobHashes := make([]byte, 0)
+		for _, blob := range candidate.Blobs {
+			blobCommitment, err := blob.ComputeKZGCommitment()
+			if err != nil {
+				receiptsCh <- txmgr.TxReceipt[txRef]{
+					ID:  transactionReference,
+					Err: fmt.Errorf("failed to compute KZG commitment for blob: %w", err),
+				}
+				return
+			}
+			blobHash := eth.KZGToVersionedHash(blobCommitment)
+			contactenatedBlobHashes = append(contactenatedBlobHashes, blobHash.Bytes()...)
+		}
+		commitment = crypto.Keccak256Hash(contactenatedBlobHashes)
+		l.Log.Debug("Hashing blob transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
+	}
 
 	signature, err := crypto.Sign(commitment[:], l.Config.BatcherPrivateKey)
 	if err != nil {
@@ -402,6 +415,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		}
 		return
 	}
+	l.Log.Debug("Signed transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
 
 	batchVerifierAbi, err := bindings.BatchVerifierMetaData.GetAbi()
 	if err != nil {
@@ -423,35 +437,25 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 
 	verifyCandidate := txmgr.TxCandidate{
 		TxData: verifyBatchCalldata,
-		To:     &l.RollupConfig.BatchInboxAddress,
+		To:     &l.RollupConfig.CaffNodeConfig.BatchVerifierAddress,
 	}
-	err = setGasLimit(&verifyCandidate)
+
+	l.Log.Debug(
+		"Sending verifyBatch transaction",
+		"txRef", transactionReference,
+		"commitment", hexutil.Encode(commitment[:]),
+		"sig", hexutil.Encode(signature),
+		"address", l.RollupConfig.CaffNodeConfig.BatchVerifierAddress.String(),
+	)
+	_, err = l.Txmgr.Send(l.killCtx, verifyCandidate)
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
-			Err: fmt.Errorf("failed to set gas limit: %w", err),
+			Err: fmt.Errorf("failed to send verifyBatch transaction: %w", err),
 		}
 		return
 	}
 
-	verifyReceiptCh := make(chan txmgr.TxReceipt[txRef])
-	queue.Send(transactionReference, *&verifyCandidate, verifyReceiptCh)
-
-	verifyReceipt := <-verifyReceiptCh
-	if verifyReceipt.Err != nil {
-		// forward error to receiptsCh
-		receiptsCh <- verifyReceipt
-		return
-	}
-
-	err = setGasLimit(candidate)
-	if err != nil {
-		receiptsCh <- txmgr.TxReceipt[txRef]{
-			ID:  transactionReference,
-			Err: fmt.Errorf("failed to set gas limit: %w", err),
-		}
-		return
-	}
-
+	l.Log.Debug("Queueing transaction", "txRef", transactionReference)
 	queue.Send(transactionReference, *candidate, receiptsCh)
 }

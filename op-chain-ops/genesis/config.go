@@ -581,7 +581,8 @@ type L2CoreDeployConfig struct {
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
 
-	EspressoEnabled bool `json:"espressoEnabled"`
+	EspressoEnabled      bool           `json:"espressoEnabled"`
+	BatchVerifierAddress common.Address `json:"batchVerifierAddress"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)
@@ -1023,13 +1024,16 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 			L2Time:       l2GenesisTimestamp,
 			SystemConfig: d.GenesisSystemConfig(),
 		},
-		BlockTime:               d.L2BlockTime,
-		MaxSequencerDrift:       d.MaxSequencerDrift,
-		SeqWindowSize:           d.SequencerWindowSize,
-		ChannelTimeoutBedrock:   d.ChannelTimeoutBedrock,
-		L1ChainID:               new(big.Int).SetUint64(d.L1ChainID),
-		L2ChainID:               new(big.Int).SetUint64(d.L2ChainID),
-		BatchInboxAddress:       d.BatchInboxAddress,
+		BlockTime:             d.L2BlockTime,
+		MaxSequencerDrift:     d.MaxSequencerDrift,
+		SeqWindowSize:         d.SequencerWindowSize,
+		ChannelTimeoutBedrock: d.ChannelTimeoutBedrock,
+		L1ChainID:             new(big.Int).SetUint64(d.L1ChainID),
+		L2ChainID:             new(big.Int).SetUint64(d.L2ChainID),
+		BatchInboxAddress:     d.BatchInboxAddress,
+		CaffNodeConfig: rollup.CaffNodeConfig{
+			BatchVerifierAddress: d.BatchVerifierAddress,
+		},
 		DepositContractAddress:  d.OptimismPortalProxy,
 		L1SystemConfigAddress:   d.SystemConfigProxy,
 		RegolithTime:            d.RegolithTime(l1StartTime),

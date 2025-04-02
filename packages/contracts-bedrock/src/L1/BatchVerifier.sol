@@ -23,11 +23,14 @@ contract BatchVerifier is ISemver, OwnableUpgradeable {
     /// @notice Mapping of batches verified by this contract
     mapping(bytes32 => bool) public validBatches;
 
+    address public immutable preApprovedBatcher;
+
     EspressoTEEVerifier public immutable espressoTEEVerifier;
     INitroValidator public immutable nitroValidator;
 
-    constructor(EspressoTEEVerifier _espressoTEEVerifier) OwnableUpgradeable() {
+    constructor(EspressoTEEVerifier _espressoTEEVerifier, address _preApprovedBatcher) OwnableUpgradeable() {
         espressoTEEVerifier = _espressoTEEVerifier;
+        preApprovedBatcher = _preApprovedBatcher;
         nitroValidator = INitroValidator(address(espressoTEEVerifier.espressoNitroTEEVerifier()));
     }
 
@@ -35,11 +38,22 @@ contract BatchVerifier is ISemver, OwnableUpgradeable {
         return nitroValidator.decodeAttestationTbs(attestation);
     }
 
-    function verifyBatch(bytes32 commitment, bytes calldata signature) external {
+    function verifyBatch(bytes32 commitment, bytes calldata _signature) external {
+        // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
+        bytes memory signature = _signature;
+        uint8 v = uint8(signature[64]);
+        if (v == 0 || v == 1) {
+            v += 27;
+            signature[64] = bytes1(v);
+        }
         address signer = ECDSA.recover(commitment, signature);
 
-        if (!espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer) || signer == address(0)) {
+        if (signer == address(0)) {
             revert("Invalid signature");
+        }
+
+        if (!espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer) && signer != preApprovedBatcher) {
+            revert("Invalid signer");
         }
 
         validBatches[commitment] = true;

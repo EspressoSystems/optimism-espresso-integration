@@ -40,7 +40,7 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		Salt:                  st.Create2Salt,
 		PreApprovedBatcherKey: chainIntent.PreApprovedBatcherKey,
-		NitroTeeVerifier:      nvo.NitroTEEVerifierAddress,
+		NitroTEEVerifier:      nvo.NitroTEEVerifierAddress,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)

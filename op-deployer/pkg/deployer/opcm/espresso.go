@@ -18,7 +18,7 @@ type DeployNitroVerifierOutput struct {
 type DeployEspressoInput struct {
 	Salt                  common.Hash
 	PreApprovedBatcherKey common.Address
-	NitroTeeVerifier      common.Address
+	NitroTEEVerifier      common.Address
 }
 
 type DeployEspressoOutput struct {
@@ -56,7 +56,7 @@ func DeployNitroVerifier(
 	defer cleanupOutput()
 
 	implContract := "DeployNitroVerifier"
-	deployScript, cleanupDeploy, err := script.WithScript[DeployNitroVerifierScript](host, "DeployEspresso.s.sol", implContract)
+	deployScript, cleanupDeploy, err := script.WithScript[DeployNitroVerifierScript](host, "DeployNitroVerifier.s.sol", implContract)
 	if err != nil {
 		return output, fmt.Errorf("failed to load %s script: %w", implContract, err)
 	}

@@ -914,7 +914,7 @@ type TxSender[T any] interface {
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	if l.Config.UseEspresso {
-		l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
+		go l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
 		return
 	}
 	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, nil, false, true, true, false, nil, nil)
