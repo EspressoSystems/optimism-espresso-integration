@@ -555,6 +555,7 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) (err error) {
 }
 
 func (n *OpNode) Start(ctx context.Context) error {
+
 	// If n.cfg.Driver.SequencerUseFinalized is true, sequencer does not use non-finalized L1 blocks as L1 origin
 	// The OpNode periodically fetches the latest safe and finalized L1 block heights (1 epoch ≒ 6.4 minutes by default),
 	// but these values are not available immediately after startup until the first polling occurs.
@@ -586,21 +587,23 @@ func (n *OpNode) Start(ctx context.Context) error {
 		}
 	}
 
-	if n.cfg.CaffNodeConfig.IsCaffNode {
-		errCh := make(chan error, 1) // buffered so the goroutine doesn’t block if not read immediately
-		go func() {
-			errCh <- n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
-		}()
-		select {
-		case err := <-errCh:
-			if err != nil {
-				// Handle the error, e.g., log it or trigger a recovery
-				n.log.Error("EspressoStreamer failed", "error", err)
-				return err
-			}
-		case <-ctx.Done():
-			return nil
-		}
+	if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
+		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
+
+		// errCh := make(chan error, 1) // buffered so the goroutine doesn’t block if not read immediately
+		// go func() {
+		// 	errCh <- n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
+		// }()
+		// select {
+		// case err := <-errCh:
+		// 	if err != nil {
+		// 		// Handle the error, e.g., log it or trigger a recovery
+		// 		n.log.Error("EspressoStreamer failed", "error", err)
+		// 		return err
+		// 	}
+		// case <-ctx.Done():
+		// 	return nil
+		// }
 	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine

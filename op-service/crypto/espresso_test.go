@@ -27,7 +27,7 @@ func TestVerify(t *testing.T) {
 		124, 77, 236, 159, 70, 167, 95, 51, 92, 127, 236, 253, 4, 211, 222, 117,
 		54, 27, 214, 232, 135, 87, 33, 77, 16, 155, 164, 116, 220, 116, 31, 208, 1,
 	}
-	sequencerBatchesByte := []byte{
+	batchByte := []byte{
 		166, 136, 91, 55, 49, 112, 45, 166,
 		46, 142, 74, 143, 88, 74, 196, 106,
 		127, 104, 34, 244, 226, 186, 80, 251,
@@ -35,14 +35,14 @@ func TestVerify(t *testing.T) {
 	}
 
 	expected := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
-	err := Verify(sequencerBatchesByte, batcherSignature, expected)
+	err := Verify(batchByte, batcherSignature, expected)
 	require.NoError(t, err)
 
 	// wrong length batcher signature
 	wrongLengthBatcherSignature := []byte{
 		1,
 	}
-	err = Verify(sequencerBatchesByte, wrongLengthBatcherSignature, expected)
+	err = Verify(batchByte, wrongLengthBatcherSignature, expected)
 	// check it returns an correct error: address mismatch
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to recover public key: invalid signature length")
@@ -54,14 +54,14 @@ func TestVerify(t *testing.T) {
 		124, 77, 236, 159, 70, 167, 95, 51, 92, 127, 236, 253, 4, 211, 222, 117,
 		54, 27, 214, 232, 135, 87, 33, 77, 16, 155, 164, 116, 220, 116, 31, 208, 1,
 	}
-	err = Verify(sequencerBatchesByte, wrongBatcherSignature, expected)
+	err = Verify(batchByte, wrongBatcherSignature, expected)
 	// check it returns an correct error: address mismatch
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "address mismatch")
 
 	// wrong expected address
 	wrongExpected := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C9")
-	err = Verify(sequencerBatchesByte, batcherSignature, wrongExpected)
+	err = Verify(batchByte, batcherSignature, wrongExpected)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "address mismatch")
 

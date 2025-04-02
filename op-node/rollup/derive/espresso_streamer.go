@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math/big"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -18,7 +16,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	ethCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type EspressoClientInterface interface {
@@ -27,8 +27,8 @@ type EspressoClientInterface interface {
 }
 
 type MessageWithHeight struct {
-	SequencerBatches *SingularBatch
-	HotShotHeight    uint64
+	batch         *SingularBatch
+	HotShotHeight uint64
 }
 
 type EspressoStreamer struct {
@@ -119,20 +119,20 @@ func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef)
 	var remaining []*MessageWithHeight
 batchLoop:
 	for i, message := range s.messagesWithHeights {
-		validity := CheckBatchEspresso(ctx, s.rollupConfig, s.log.New("batch_index", i), parent, message.SequencerBatches)
+		validity := CheckBatchEspresso(ctx, s.rollupConfig, s.log.New("batch_index", i), parent, message.batch)
 		// sort out the next batch and drop batch in existing batches
 		switch validity {
 		case BatchFuture:
 			remaining = append(remaining, message)
 			continue
 		case BatchDrop:
-			message.SequencerBatches.LogContext(s.log).Warn("Dropping batch",
+			message.batch.LogContext(s.log).Warn("Dropping batch",
 				"parent", parent.ID(),
 				"parent_time", parent.Time,
 			)
 			continue
 		case BatchAccept:
-			returnBatch = message.SequencerBatches
+			returnBatch = message.batch
 			// don't keep the current batch in the remaining items since we are processing it now,
 			// but retain every batch we didn't get to yet.
 			remaining = append(remaining, s.messagesWithHeights[i+1:]...)
@@ -146,45 +146,50 @@ batchLoop:
 		}
 	}
 	s.messagesWithHeights = remaining
+	s.log.Info("NextBatch", "returnBatch", returnBatch)
 	return returnBatch, false, nil
 }
 
-func ParseHotShotPayload(payload []byte) (batcherSignature []byte, sequencerBatchesByte []byte, err error) {
+func ParseHotShotPayload(log log.Logger, payload []byte) (batcherSignature []byte, batchByte []byte, err error) {
 
-	// Sishan TODO: do real parse, blocked by batcher submitter changes.
-	// (not sure whether we'll also parse namespace here, maybe there is no namespace in the input payload
-	// now the payload is append(batcherSignature, txdata.CallData()...),
-	// what we need will be append(batcherSignature,sequencerBatches...)
+	log.Info("Parsing hotshot payload", "payload", hex.EncodeToString(payload))
 
-	// placeholder
-	batcherSignature = []byte{1, 2, 3, 4}
-	sequencerBatchesByte = []byte{5, 6, 7, 8}
+	batcherSignature, batchByte = payload[:ethCrypto.SignatureLength], payload[ethCrypto.SignatureLength:]
 
-	return batcherSignature, sequencerBatchesByte, nil
+	log.Info("Parsed Batcher signature", "signature", hex.EncodeToString(batcherSignature), "espressoBatch byte", hex.EncodeToString(batchByte))
+	return batcherSignature, batchByte, nil
+}
+
+type EspressoBatch struct {
+	Header types.Header
+	Batch  SingularBatch
 }
 
 func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*MessageWithHeight, error) {
 	s.log.Info("Parsing espresso transaction", "tx", hex.EncodeToString(tx))
-	batcherSignature, sequencerBatchesByte, err := ParseHotShotPayload(tx)
+	batcherSignature, batchByte, err := ParseHotShotPayload(s.log, tx)
 	if err != nil {
 		s.log.Warn("failed to parse hotshot payload", "err", err)
 		return nil, err
 	}
 	// if batcher'ssignature verification fails, we should skip this message
-	// assign some real data for now
-	err = crypto.Verify(sequencerBatchesByte, batcherSignature, s.batchInboxAddr)
+
+	batchHash := ethCrypto.Keccak256(batchByte)
+	err = crypto.Verify(batchHash, batcherSignature, s.batchInboxAddr)
 	if err != nil {
 		s.log.Warn("failed to verify signature", "err", err)
+		// Sishan TODO: return an error instead of continuing
 	}
 
-	// placeholder for sequencer batches, it should be derived from sequencerBatchesByte
-	rng := rand.New(rand.NewSource(0x543331))
-	chainID := big.NewInt(rng.Int63n(1000))
-	txCount := 1 + rng.Intn(8)
-	sequencerBatches := RandomSingularBatch(rng, txCount, chainID)
+	var batch EspressoBatch
+	if err := rlp.DecodeBytes(batchByte, &batch); err != nil {
+		return nil, err
+	}
+
+	s.log.Info("Parsed espresso batch", "batch", batch)
 	result := &MessageWithHeight{
-		SequencerBatches: sequencerBatches,
-		HotShotHeight:    s.nextHotShotBlockNum,
+		batch:         &batch.Batch,
+		HotShotHeight: s.nextHotShotBlockNum,
 	}
 
 	return []*MessageWithHeight{result}, nil
