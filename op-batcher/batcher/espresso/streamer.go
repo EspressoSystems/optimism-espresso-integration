@@ -220,7 +220,7 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
 	// Is the next batch available?
-	if len(s.batchBuffer) > 0 && s.batchBuffer[0].Header.Nonce.Uint64() == s.BatchPos {
+	if len(s.batchBuffer) > 0 && s.batchBuffer[0].Number() == s.BatchPos {
 		var batch EspressoBatch
 		batch, s.batchBuffer = s.batchBuffer[0], s.batchBuffer[1:]
 		s.BatchPos += 1
