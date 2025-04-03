@@ -4,11 +4,19 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 )
 
+// DockerContainerInfo is a struct that contains information about a Docker
+// Container that was launched by the DockerCli struct.
+// This is an informational snapshot only, and is not guaranteed to represent
+// the current state of the container.
 type DockerContainerInfo struct {
 	// The container ID of the Docker container that is running the
 	// Espresso Dev Node.
@@ -152,10 +160,136 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 	return containerInfo, nil
 }
 
+// DockerInspectContainerStateHealth is a struct that contains information
+// about the health of a Docker Container.
+// This struct is created based on the observed output of the `docker inspect`
+// command.  It is not complete, and is not guaranteed to be correct.
+
+type DockerInspectContainerStateHealth struct {
+	Status        string
+	FailingStreak uint
+	// Log
+
+}
+
+// DockerInspectContainerState is a struct that contains information
+// about the state of a Docker Container.
+// This struct is created based on the observed output of the `docker inspect`
+// command.  It is not complete, and is not guaranteed to be correct.
+type DockerInspectContainerState struct {
+	Status     string
+	Running    bool
+	Paused     bool
+	Restarting bool
+	OOMKilled  bool
+	Dead       bool
+	Pid        uint
+	ExitCode   uint
+	Error      string
+	StartedAt  time.Time
+	FinishedAt time.Time
+	Health     DockerInspectContainerStateHealth
+}
+
+// DockerInspectContainerInfo is a struct that contains information
+// about a Docker Container.
+// This is an informational snapshot only, and is not guaranteed to represent
+// the current state of the container.
+type DockerInspectContainerInfo struct {
+	Id              string
+	Created         time.Time
+	Path            string
+	Args            []string
+	State           DockerInspectContainerState
+	Image           string
+	ResolveConfPath string
+	HostnamePath    string
+	HostsPath       string
+	LogPath         string
+	Name            string
+	RestartCount    uint
+	Driver          string
+	Platform        string
+	MountLabel      string
+	ProcessLabel    string
+	AppArmorProfile string
+	// ExecIds []string
+}
+
+// ErrDockerInspectRequiresAtLeastOneContainerID is an error that indicates
+// that in order to run cocker inspect, we need to specify container IDs
+// to inspect.  We can specify multiple, but at least one is required.
+var ErrDockerInspectRequiresAtLeastOneContainerID = errors.New("docker inspect requires at least one container ID")
+
+// Inspect runs the `docker inspect` command with the given containerIDs, and
+// returns the given parsed output from the json representation of the command
+func (d *DockerCli) Inspect(ctx context.Context, containerIDs ...string) ([]DockerInspectContainerInfo, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if len(containerIDs) < 1 {
+		return nil, ErrDockerInspectRequiresAtLeastOneContainerID
+	}
+
+	outputBuffer := new(bytes.Buffer)
+
+	args := make([]string, 0, len(containerIDs)+3)
+	args = append(args, "inspect", "--format", "json")
+	args = append(args, containerIDs...)
+
+	inspectCmd := exec.CommandContext(
+		ctx,
+		"docker",
+		args...,
+	)
+
+	inspectCmd.Stdout = outputBuffer
+
+	if err := inspectCmd.Run(); err != nil {
+		return nil, err
+	}
+
+	var result []DockerInspectContainerInfo
+	err := json.NewDecoder(outputBuffer).Decode(&result)
+	return result, err
+}
+
+// InspectOne is a specialized case of DockerCli.Inspect that only runs on a
+// single containerID
+func (d *DockerCli) InspectOne(ctx context.Context, containerID string) (DockerInspectContainerInfo, error) {
+	containerInfos, err := d.Inspect(ctx, containerID)
+
+	if len(containerInfos) <= 0 {
+		return DockerInspectContainerInfo{}, errors.New("no results")
+	}
+
+	return containerInfos[0], err
+}
+
+// DockerContainerNotRunningError is an error that indicates that a Docker
+// Container is not running.
+type DockerContainerNotRunningError struct {
+	ContainerID string
+}
+
+// Error implements error
+func (e DockerContainerNotRunningError) Error() string {
+	return fmt.Sprintf("unable to stop container %s, it is not running", e.ContainerID)
+}
+
 // StopContainer stops a Docker Container with the given container ID
 func (d *DockerCli) StopContainer(ctx context.Context, containerID string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	result, err := d.InspectOne(ctx, containerID)
+	if err != nil {
+		return err
+	}
+
+	if !result.State.Running {
+		return DockerContainerNotRunningError{containerID}
+	}
 
 	stopCmd := exec.CommandContext(
 		ctx,

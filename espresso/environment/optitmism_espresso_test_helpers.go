@@ -213,6 +213,12 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	sysConfig.DeployConfig.DeployCeloContracts = true
 	sysConfig.DeployConfig.UseAltDA = true
 	sysConfig.DeployConfig.DACommitmentType = "GenericCommitment"
+	// sysConfig.DeployConfig.DAChallengeWindow = 16
+	// sysConfig.DeployConfig.DAResolveWindow = 16
+	// sysConfig.DeployConfig.DABondSize = 1000000
+	// sysConfig.DeployConfig.DAResolverRefundPercentage = 0
+	// sysConfig.DeployConfig.RollupConfig()
+	// sysConfig.DeployConfig.L2ChainID = params.CeloBaklavaChainID
 
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
@@ -256,7 +262,27 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	)
 
 	if err != nil {
+		if system != nil {
+			// We don't want the system running in a partial / incomplete
+			// state. So we'll tell it to stop here, just in case.
+			system.Close()
+		}
+
 		return system, nil, err
+	}
+
+	// Auto System Cleanup tied to the passed in context.
+	{
+		// We want to ensure that the lifecycle of the system node is tied to
+		// the context we were given, just like the espresso-dev-node.  So if
+		// the context is canceled, or otherwise closed, it will automatically
+		// clean up the system.
+		go (func(ctx context.Context) {
+			<-ctx.Done()
+
+			// The system is guaranteed to not be null here.
+			system.Close()
+		})(originalCtx)
 	}
 
 	return system, launchContext.EspressoDevNode, launchContext.Error
