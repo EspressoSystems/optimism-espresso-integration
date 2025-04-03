@@ -160,8 +160,7 @@ batchLoop:
 		// make sure it's a valid L1 origin state by check the hash
 		expectedL1BlockRef, err := l1BlockRefByNumber(ctx, returnBatch.Epoch().Number)
 		if err != nil {
-			s.log.Warn("failed to get the L1 block ref by number", "err", err)
-			s.messagesWithHeights = remaining
+			s.log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", returnBatch.Epoch().Number)
 			return nil, false, err
 		}
 		if returnBatch.Epoch().Hash != expectedL1BlockRef.Hash {
