@@ -76,7 +76,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer 
 		return nil
 	}
 	espressoStreamer := NewEspressoStreamer(
-		cfg.CaffNodeConfig.Namespace,
+		cfg.L2ChainID.Uint64(),
 		cfg.CaffNodeConfig.NextHotShotBlockNum,
 		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
 		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
@@ -84,7 +84,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer 
 		cfg.BatchInboxAddress,
 		cfg,
 	)
-	log.Info("Espresso streamer initialized", "namespace", cfg.CaffNodeConfig.Namespace, "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
+	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
 	return espressoStreamer
 }
 
@@ -103,16 +103,17 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
 		var batch *SingularBatch
 		var concluding bool
 		var err error
+		// aq.batch.Epoch() is the L1 origin of the batch
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
 			// Sishan TODO: change to this once BatchValidity is ready
-			// batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent)
+			_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
