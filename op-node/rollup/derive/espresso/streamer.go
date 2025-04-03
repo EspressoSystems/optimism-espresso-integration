@@ -98,6 +98,25 @@ func (s *EspressoStreamer) Refresh(ctx context.Context, syncStatus *eth.SyncStat
 }
 
 func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *espressoTypes.L1BlockInfo) (derive.BatchValidity, int) {
+
+	// TODO Philippe copying here verification in Sishan's Espresso streamer. As mentioned in the comment below, not sure this applies to the Caff node either. Let us discuss.
+	// Sishan TODO: these checks are copy-pasted from OP's checkSingularBatch(), we should check whether these apply to caff node
+	//nextTimestamp := l2SafeHead.Time + cfg.BlockTime
+	//if batch.Timestamp > nextTimestamp {
+	//	log.Trace("received out-of-order batch for future processing after next batch", "next_timestamp", nextTimestamp)
+	//	return BatchFuture
+	//}
+	//if batch.Timestamp < nextTimestamp {
+	//	log.Warn("dropping past batch with old timestamp", "min_timestamp", nextTimestamp)
+	//	return BatchDrop
+	//}
+	//
+	//// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+	//if batch.ParentHash != l2SafeHead.Hash {
+	//	log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", l2SafeHead.Hash)
+	//	return BatchDrop
+	//}
+
 	if batch.Number() < s.BatchPos {
 		// Batch already buffered/finalized
 		s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
@@ -110,6 +129,20 @@ func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *
 			"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
 		)
 		return derive.BatchFuture, 0
+	}
+
+	// TODO Philippe. Why do we want to ignore batches with these malformed transactions. Can't the EVM deal with these txs?
+	// We can do this check earlier, but it's a more intensive one, so we do this last.
+	for i, txBytes := range batch.Batch.Transactions {
+		if len(txBytes) == 0 {
+			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+			return derive.BatchDrop, 0
+		}
+		if txBytes[0] == types.DepositTxType {
+			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			return derive.BatchDrop, 0
+
+		}
 	}
 
 	// Find a slot to insert the batch
