@@ -80,6 +80,7 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 
 	// Sishan TODO: these checks are copy-pasted from OP's checkSingularBatch(), we should check whether these apply to caff node
 	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
+	log.Info("Checking batch", "nextTimestamp", nextTimestamp)
 	if batch.Timestamp > nextTimestamp {
 		log.Trace("received out-of-order batch for future processing after next batch", "next_timestamp", nextTimestamp)
 		return BatchFuture
@@ -90,6 +91,7 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	}
 
 	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+	log.Info("Checking batch", "batch.ParentHash", batch.ParentHash, "l2SafeHead.Hash", l2SafeHead.Hash)
 	if batch.ParentHash != l2SafeHead.Hash {
 		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", l2SafeHead.Hash)
 		return BatchDrop
@@ -106,7 +108,7 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 			return BatchDrop
 		}
 	}
-
+	log.Info("Batch accepted")
 	return BatchAccept
 }
 
@@ -114,6 +116,7 @@ func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef)
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
+	s.log.Info("NextBatch", "parent", parent, "s.messagesWithHeights", s.messagesWithHeights)
 	// Sishan TODO: Find the batch that match the parent block, concluding is assignedto false for now
 	var returnBatch *SingularBatch
 	var remaining []*MessageWithHeight
@@ -247,6 +250,7 @@ func (s *EspressoStreamer) QueueMessagesFromHotShot(
 		}
 		// Sishan TODO: Filter out the messages have already been seen
 		s.messagesWithHeights = append(s.messagesWithHeights, messages...)
+		s.log.Info("QueueMessagesFromHotShot", "messagesWithHeights", s.messagesWithHeights)
 	}
 
 	s.nextHotShotBlockNum += 1
