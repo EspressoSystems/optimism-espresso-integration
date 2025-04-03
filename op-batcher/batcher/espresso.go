@@ -128,6 +128,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer wg.Done()
 	ticker := time.NewTicker(l.Config.PollInterval)
 	defer ticker.Stop()
+	defer close(publishSignal)
 
 	streamer := espresso.EspressoStreamer{
 		BatcherAddress: l.SequencerAddress,
