@@ -300,3 +300,37 @@ func (d *DockerCli) StopContainer(ctx context.Context, containerID string) error
 
 	return stopCmd.Run()
 }
+
+// Logs retrieves the logs from a Docker Container with the given
+// container ID
+//
+// This command will keep running until the passed context is cancelled.
+func (d *DockerCli) Logs(ctx context.Context, containerID string) (io.Reader, error) {
+	logsCmd := exec.CommandContext(
+		ctx,
+		"docker",
+		"logs",
+		"-f",
+		containerID,
+	)
+	reader, err := logsCmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := logsCmd.Start(); err != nil {
+		return nil, err
+	}
+
+	// This needs to be launched in the background
+	go func(cmd *exec.Cmd) {
+		// Wait for the context to be cancelled
+		<-ctx.Done()
+
+		// We don't really have a great opportunity to inspect any error
+		// returned by this command
+		cmd.Wait()
+	}(logsCmd)
+
+	return reader, nil
+}
