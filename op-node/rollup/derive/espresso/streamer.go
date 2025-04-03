@@ -15,12 +15,29 @@ import (
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+)
+
+// TODO Philippe Copied from batches.go to avoid circular dependencies
+
+type BatchValidity uint8
+
+const (
+	// BatchDrop indicates that the batch is invalid, and will always be in the future, unless we reorg
+	BatchDrop = iota
+	// BatchAccept indicates that the batch is valid and should be processed
+	BatchAccept
+	// BatchUndecided indicates we are lacking L1 information until we can proceed batch filtering
+	BatchUndecided
+	// BatchFuture indicates that the batch may be valid, but cannot be processed yet and should be checked again later
+	BatchFuture
+	// BatchPast indicates that the batch is from the past, i.e. its timestamp is smaller or equal
+	// to the safe head's timestamp.
+	BatchPast
 )
 
 // espresso-network-go's HeaderInterface currently lacks a function to get this info,
@@ -97,7 +114,7 @@ func (s *EspressoStreamer) Refresh(ctx context.Context, syncStatus *eth.SyncStat
 	return true, nil
 }
 
-func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *espressoTypes.L1BlockInfo) (derive.BatchValidity, int) {
+func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *espressoTypes.L1BlockInfo) (BatchValidity, int) {
 
 	// TODO Philippe copying here verification in Sishan's Espresso streamer. As mentioned in the comment below, not sure this applies to the Caff node either. Let us discuss.
 	// Sishan TODO: these checks are copy-pasted from OP's checkSingularBatch(), we should check whether these apply to caff node
@@ -120,7 +137,7 @@ func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *
 	if batch.Number() < s.BatchPos {
 		// Batch already buffered/finalized
 		s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
-		return derive.BatchDrop, 0
+		return BatchDrop, 0
 	}
 
 	if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
@@ -128,7 +145,7 @@ func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *
 		s.Log.Warn("batch with unfinalized L1 origin",
 			"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
 		)
-		return derive.BatchFuture, 0
+		return BatchFuture, 0
 	}
 
 	// TODO Philippe. Why do we want to ignore batches with these malformed transactions. Can't the EVM deal with these txs?
@@ -136,11 +153,11 @@ func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *
 	for i, txBytes := range batch.Batch.Transactions {
 		if len(txBytes) == 0 {
 			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
-			return derive.BatchDrop, 0
+			return BatchDrop, 0
 		}
 		if txBytes[0] == types.DepositTxType {
 			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
-			return derive.BatchDrop, 0
+			return BatchDrop, 0
 
 		}
 	}
@@ -153,10 +170,10 @@ func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *
 	if batchRecorded {
 		// Duplicate batch found, skip it
 		s.Log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
-		return derive.BatchDrop, 0
+		return BatchDrop, 0
 	}
 
-	return derive.BatchAccept, i
+	return BatchAccept, i
 
 }
 
@@ -253,13 +270,13 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 
 			switch action {
 
-			case derive.BatchDrop:
+			case BatchDrop:
 				continue
 
-			case derive.BatchFuture:
+			case BatchFuture:
 				continue // TODO Philippe update Sishan's remaining list
 
-			case derive.BatchAccept:
+			case BatchAccept:
 				s.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
 				s.batchBuffer = slices.Insert(s.batchBuffer, i, batch)
 
