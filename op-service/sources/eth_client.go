@@ -603,3 +603,13 @@ func (s *EthClient) NewMultiCaller(batchSize int) *batching.MultiCaller {
 func (s *EthClient) RPC() client.RPC {
 	return s.client
 }
+func (s *EthClient) FinalizedBlock() (eth.L1BlockRef, error) {
+	var block *RPCBlock
+	err := s.client.CallContext(context.Background(), &block, "eth_getBlockByNumber", "finalized", false)
+	if err != nil {
+		return eth.L1BlockRef{}, fmt.Errorf("failed to fetch finalized block: %w", err)
+	}
+
+	num := uint64(block.Number)
+	return s.BlockRefByNumber(context.Background(), num)
+}
