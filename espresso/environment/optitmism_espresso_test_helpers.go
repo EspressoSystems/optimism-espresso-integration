@@ -211,8 +211,6 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
 	sysConfig.DeployConfig.DeployCeloContracts = true
-	sysConfig.DeployConfig.UseAltDA = true
-	sysConfig.DeployConfig.DACommitmentType = "GenericCommitment"
 	// sysConfig.DeployConfig.DAChallengeWindow = 16
 	// sysConfig.DeployConfig.DAResolveWindow = 16
 	// sysConfig.DeployConfig.DABondSize = 1000000
@@ -428,7 +426,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							return
 						}
 
-						c.AltDA.Enabled = true
 						l1EthRpcURL, err := url.Parse(c.L1EthRpc)
 						if err != nil {
 							ct.Error = FailedToDetermineL1RPCURL{Cause: err}
