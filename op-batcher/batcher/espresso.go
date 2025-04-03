@@ -36,7 +36,7 @@ const (
 )
 
 func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transaction espressoCommon.Transaction) error {
-	txHash, err := l.Espresso.SubmitTransaction(l.shutdownCtx, transaction)
+	txHash, err := l.Espresso.SubmitTransaction(ctx, transaction)
 	if err != nil {
 		l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
 		return fmt.Errorf("failed to submit transaction: %w", err)
@@ -52,7 +52,7 @@ Loop:
 	for {
 		select {
 		case <-ticker.C:
-			_, err = l.Espresso.FetchTransactionByHash(l.shutdownCtx, txHash)
+			_, err = l.Espresso.FetchTransactionByHash(ctx, txHash)
 			if err == nil {
 				break Loop
 			}
