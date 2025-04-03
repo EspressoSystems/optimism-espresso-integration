@@ -15,6 +15,7 @@ import (
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -94,6 +95,36 @@ func (s *EspressoStreamer) Refresh(ctx context.Context, syncStatus *eth.SyncStat
 	s.confirmedHotShotPos = hotshotState.BlockHeight
 	s.Reset()
 	return true, nil
+}
+
+func (s *EspressoStreamer) CheckBatch(batch EspressoBatch, espressoFinalizedL1 *espressoTypes.L1BlockInfo) (derive.BatchValidity, int) {
+	if batch.Number() < s.BatchPos {
+		// Batch already buffered/finalized
+		s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
+		return derive.BatchDrop, 0
+	}
+
+	if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
+		// Enforce that we only deal with finalized deposits
+		s.Log.Warn("batch with unfinalized L1 origin",
+			"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
+		)
+		return derive.BatchFuture, 0
+	}
+
+	// Find a slot to insert the batch
+	i, batchRecorded := slices.BinarySearchFunc(s.batchBuffer, batch, func(x, y EspressoBatch) int {
+		return cmp.Compare(x.Number(), y.Number())
+	})
+
+	if batchRecorded {
+		// Duplicate batch found, skip it
+		s.Log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
+		return derive.BatchDrop, 0
+	}
+
+	return derive.BatchAccept, i
+
 }
 
 func (s *EspressoStreamer) Update(ctx context.Context) error {
@@ -180,38 +211,27 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 				continue
 			}
 
-			if batch.Number() < s.BatchPos {
-				// Batch already buffered/finalized
-				s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
-				continue
-			}
-
 			espressoFinalizedL1 := getFinalizedL1(&header)
 			if espressoFinalizedL1 == nil {
 				return fmt.Errorf("unknown Espresso header version")
 			}
 
-			if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
-				// Enforce that we only deal with finalized deposits
-				s.Log.Warn("batch with unfinalized L1 origin",
-					"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
-				)
+			var action, i = s.CheckBatch(batch, espressoFinalizedL1)
+
+			switch action {
+
+			case derive.BatchDrop:
 				continue
+
+			case derive.BatchFuture:
+				continue // TODO Philippe update Sishan's remaining list
+
+			case derive.BatchAccept:
+				s.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
+				s.batchBuffer = slices.Insert(s.batchBuffer, i, batch)
+
 			}
 
-			// Find a slot to insert the batch
-			i, batchRecorded := slices.BinarySearchFunc(s.batchBuffer, batch, func(x, y EspressoBatch) int {
-				return cmp.Compare(x.Number(), y.Number())
-			})
-
-			if batchRecorded {
-				// Duplicate batch found, skip it
-				s.Log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
-				continue
-			}
-
-			s.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
-			s.batchBuffer = slices.Insert(s.batchBuffer, i, batch)
 		}
 	}
 

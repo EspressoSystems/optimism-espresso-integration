@@ -3,8 +3,9 @@ package batcher
 import (
 	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
 	"C"
-	"github.com/ethereum-optimism/optimism/espresso"
+
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/espresso"
 
 	"fmt"
 	"time"
