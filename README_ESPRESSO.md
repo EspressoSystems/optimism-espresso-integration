@@ -115,3 +115,8 @@ To run all the tests (slow):
 To run a subset of the tests (fast):
 
 > just fast-tests
+
+
+Run the Espresso integration tests:
+
+> just espresso-tests
