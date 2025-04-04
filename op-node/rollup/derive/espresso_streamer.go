@@ -114,7 +114,6 @@ func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef,
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
-	s.log.Info("NextBatch", "parent", parent, "s.messagesWithHeights", s.messagesWithHeights)
 	// Sishan TODO: Find the batch that match the parent block, concluding is assignedto false for now
 	var returnBatch *SingularBatch
 	// remaining is the list of batches that are not processed yet
@@ -181,11 +180,7 @@ batchLoop:
 
 func ParseHotShotPayload(log log.Logger, payload []byte) (batcherSignature []byte, batchByte []byte, err error) {
 
-	log.Info("Parsing hotshot payload", "payload", hex.EncodeToString(payload))
-
 	batcherSignature, batchByte = payload[:ethCrypto.SignatureLength], payload[ethCrypto.SignatureLength:]
-
-	log.Info("Parsed Batcher signature", "signature", hex.EncodeToString(batcherSignature), "espressoBatch byte", hex.EncodeToString(batchByte))
 	return batcherSignature, batchByte, nil
 }
 

@@ -3,7 +3,6 @@ package espresso
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -47,14 +45,7 @@ func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uin
 
 	payload := append(batcherSignature, buf.Bytes()...)
 
-	ret := &espressoCommon.Transaction{Namespace: namespace, Payload: payload}
-	log.Info("EspressoBatch: ToEspressoTransaction",
-		"payload", hex.EncodeToString(payload),
-		"namespace", namespace,
-		"batcherSignature", hex.EncodeToString(batcherSignature),
-		"espressoBatch byte", hex.EncodeToString(buf.Bytes()),
-		"ret", ret)
-	return ret, nil
+	return &espressoCommon.Transaction{Namespace: namespace, Payload: payload}, nil
 
 }
 

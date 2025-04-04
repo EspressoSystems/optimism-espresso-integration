@@ -111,7 +111,6 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var err error
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
-			log.Info("NextBatch start", "parent", parent)
 			// Sishan TODO: use this once integration is ready
 			// batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
