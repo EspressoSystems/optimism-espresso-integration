@@ -111,11 +111,11 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var err error
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
-			// Sishan TODO: use batchCaff, concludingCaff once BatchValidity is ready
 			log.Info("NextBatch start", "parent", parent)
-			batchCaff, concludingCaff, err := aq.espressoStreamer.NextBatch(ctx, parent)
+			// Sishan TODO: use this once integration is ready
+			// batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent)
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
-			log.Info("NextBatch", "batch", batch, "concluding", concluding, "batchCaff", batchCaff, "concludingCaff", concludingCaff)
+			log.Info("NextBatch", "batch", batch, "concluding", concluding)
 			if err != nil {
 				return nil, err
 			}
