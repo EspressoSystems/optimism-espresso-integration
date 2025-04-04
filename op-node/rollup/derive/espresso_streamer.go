@@ -76,8 +76,6 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	// add details to the log
 	log = batch.LogContext(log)
 
-	// Sishan TODO: check the L1 origin is already finalized
-
 	// Sishan TODO: these checks are copy-pasted from OP's checkSingularBatch(), we should check whether these apply to caff node
 	nextTimestamp := l2SafeHead.Time + cfg.BlockTime
 	log.Info("Checking batch", "nextTimestamp", nextTimestamp)
@@ -112,13 +110,14 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	return BatchAccept
 }
 
-func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef) (*SingularBatch, bool, error) {
+func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
 	s.log.Info("NextBatch", "parent", parent, "s.messagesWithHeights", s.messagesWithHeights)
 	// Sishan TODO: Find the batch that match the parent block, concluding is assignedto false for now
 	var returnBatch *SingularBatch
+	// remaining is the list of batches that are not processed yet
 	var remaining []*MessageWithHeight
 batchLoop:
 	for i, message := range s.messagesWithHeights {
@@ -148,6 +147,33 @@ batchLoop:
 			return nil, false, NewCriticalError(fmt.Errorf("unknown batch validity type: %d", validity))
 		}
 	}
+
+	// check the L1 origin of returnBatch is already finalized
+	// if not, return NotEnoughData to wait longer
+	l1FinalizedBlock, err := l1Finalized()
+	if err != nil {
+		s.log.Error("failed to get the L1 finalized block", "err", err)
+		return nil, false, NotEnoughData
+	}
+	if returnBatch.Epoch().Number > l1FinalizedBlock.Number {
+		// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
+		s.log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", returnBatch.Epoch().Number)
+		return nil, false, NotEnoughData
+	} else {
+		// make sure it's a valid L1 origin state by check the hash
+		expectedL1BlockRef, err := l1BlockRefByNumber(ctx, returnBatch.Epoch().Number)
+		if err != nil {
+			s.log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", returnBatch.Epoch().Number)
+			return nil, false, err
+		}
+		if returnBatch.Epoch().Hash != expectedL1BlockRef.Hash {
+			s.log.Warn("the L1 origin hash is not valid anymore", "l1_origin", returnBatch.Epoch().Hash, "expected", expectedL1BlockRef.Hash)
+			// drop the batch and wait longer
+			s.messagesWithHeights = remaining
+			return nil, false, NotEnoughData
+		}
+	}
+
 	s.messagesWithHeights = remaining
 	s.log.Info("NextBatch", "returnBatch", returnBatch)
 	return returnBatch, false, nil

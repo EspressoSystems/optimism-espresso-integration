@@ -103,7 +103,7 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
 		var batch *SingularBatch
@@ -113,7 +113,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		if aq.isCaffNode {
 			log.Info("NextBatch start", "parent", parent)
 			// Sishan TODO: use this once integration is ready
-			// batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent)
+			// batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			log.Info("NextBatch", "batch", batch, "concluding", concluding)
 			if err != nil {
