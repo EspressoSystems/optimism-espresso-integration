@@ -18,7 +18,7 @@ optimism_package:
           el_min_mem: 0
           el_max_mem: 0
           cl_type: op-node
-          cl_image: '{{ localDockerImage "op-node" }}'
+          cl_image: {{ localDockerImage "op-node" }}
           cl_log_level: ""
           cl_extra_env_vars: {}
           cl_extra_labels: {}
@@ -43,17 +43,17 @@ optimism_package:
         holocene_time_offset: 0
         fund_dev_accounts: true
       batcher_params:
-        image: '{{ localDockerImage "op-batcher" }}'
+        image: {{ localDockerImage "op-batcher" }}
         extra_params:
           - "--espresso-url=http://op-espresso-devnode:24000"
           - "--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
       challenger_params:
-        image: '{{ localDockerImage "op-challenger" }}'
+        image: {{ localDockerImage "op-challenger" }}
         cannon_prestate_path: ""
         cannon_prestates_url: "http://fileserver/proofs/op-program/cannon"
         extra_params: []
       proposer_params:
-        image: '{{ localDockerImage "op-proposer" }}'
+        image: {{ localDockerImage "op-proposer" }}
         extra_params: []
         game_type: 1
         proposal_interval: 10m
@@ -65,15 +65,17 @@ optimism_package:
       da_server_params:
         image: '{{ localDockerImage "da-server" }}'
   op_contract_deployer_params:
-    image: '{{ localDockerImage "op-deployer" }}'
-    l1_artifacts_locator: '{{ localContractArtifacts "l1" }}'
-    l2_artifacts_locator: '{{ localContractArtifacts "l2" }}'
+    image: {{ localDockerImage "op-deployer" }}
+    l1_artifacts_locator: {{ localContractArtifacts "l1" }}
+    l2_artifacts_locator: {{ localContractArtifacts "l2" }}
     global_deploy_overrides:
-      faultGameAbsolutePrestate: "{{ localPrestate.Hashes.prestate }}"
+      faultGameAbsolutePrestate: {{ localPrestate.Hashes.prestate }}
   global_log_level: "info"
   global_node_selectors: {}
   global_tolerations: []
   persistent: false
+  observability:
+    enabled: false
 ethereum_package:
   participants:
     - el_type: geth
@@ -91,4 +93,4 @@ ethereum_package:
         }
       }
 espresso:
-  das_image: '{{ localDockerImage "da-server" }}'
+  das_image: {{ localDockerImage "da-server" }}
