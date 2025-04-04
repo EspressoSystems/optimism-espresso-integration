@@ -79,18 +79,6 @@ type Config struct {
 
 	IgnoreMissingPectraBlobSchedule bool
 	FetchWithdrawalRootFromState    bool
-
-	// Caff Node config
-	CaffNodeConfig CaffNodeConfig
-}
-
-// CaffNodeConfig is the config for the Caff Node
-type CaffNodeConfig struct {
-	IsCaffNode                    bool
-	Namespace                     uint64
-	NextHotShotBlockNum           uint64
-	PollingHotShotPollingInterval time.Duration
-	HotShotUrls                   []string
 }
 
 // ConductorRPCFunc retrieves the endpoint. The RPC may not immediately be available.
