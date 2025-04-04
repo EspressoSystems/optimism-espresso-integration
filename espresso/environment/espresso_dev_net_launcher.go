@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // EspressoDevNetLauncher is an interface for launching a Dev Net with Espresso,
@@ -61,6 +62,9 @@ type EspressoDevNode interface {
 
 	// BuilderPort returns the port that the builder is running on.
 	BuilderPort() string
+
+	// Contract Addresses
+	LightClientAddress() common.Address
 
 	// Shut Down the Espresso Dev Node
 	Stop() error

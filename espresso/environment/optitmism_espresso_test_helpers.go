@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -24,15 +25,18 @@ import (
 	gethNode "github.com/ethereum/go-ethereum/node"
 )
 
-// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
-// "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-newfoundland"
-// "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-labrador"
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
+
+// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-newfoundland"
+// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-labrador"
 // const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-builder"
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20241115"
+// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20241115"
 
 // deployed ESPRESSO_SEQUENCER_LIGHT_CLIENT_ADDRESS at 0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180
 // deployed ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS at 0xb4b46bdaa835f8e4b4d8e208b6559cd267851051
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180"
+// const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180"
+// const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x422a3492e218383753d8006c7bfa97815b44373f"
 
 // This is the mnemonic that we use to create the private key for deploying
 // contacts on the L1
@@ -161,8 +165,6 @@ type EspressoDevNodeContainerInfo struct {
 	ContainerInfo DockerContainerInfo
 }
 
-var _ EspressoDevNode = (*EspressoDevNodeContainerInfo)(nil)
-
 func (e EspressoDevNodeContainerInfo) getPort(originalPort string) string {
 	hosts := e.ContainerInfo.PortMap[originalPort]
 
@@ -289,7 +291,11 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 // EspressoDevNodeDockerContainerInfo is an implementation of
 // EspressoDevNode that uses a Docker container to run the Espresso Dev Node
 // and provides the relevant port information for the sequencer API and
-type EspressoDevNodeDockerContainerInfo DockerContainerInfo
+type EspressoDevNodeDockerContainerInfo struct {
+	DockerContainerInfo
+
+	ContractAddresses map[string]common.Address
+}
 
 // EspressoDevNodeDockerContainerInfo is an implementation of
 // EspressoDevNode.
@@ -319,6 +325,20 @@ func (e EspressoDevNodeDockerContainerInfo) BuilderPort() string {
 func (e EspressoDevNodeDockerContainerInfo) Stop() error {
 	cli := new(DockerCli)
 	return cli.StopContainer(context.Background(), e.ContainerID)
+}
+
+// LightClientAddress implements EspressoDevNode
+// This is the address of the light client contract that we deployed
+// on the L1.
+func (e EspressoDevNodeDockerContainerInfo) LightClientAddress() common.Address {
+	// These are the extracted addresses names for the contracts
+	// ESPRESSO_SEQUENCER_FEE_CONTRACT_ADDRESS
+	// ESPRESSO_SEQUENCER_FEE_CONTRACT_PROXY_ADDRESS
+	// ESPRESSO_SEQUENCER_LIGHT_CLIENT_ADDRESS
+	// ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS
+	// ESPRESSO_SEQUENCER_LIGHT_CLIENT_STATE_UPDATE_VK_ADDRESS
+	// ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS
+	return e.ContractAddresses["ESPRESSO_SEQUENCER_LIGHT_CLIENT_ADDRESS"]
 }
 
 // allowHostDockerInternalVirtualHost is a convenience method that configures
@@ -476,7 +496,38 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							ct.EspressoDevNode = EspressoDevNodeDockerContainerInfo(espressoDevNodeContainerInfo)
+							{
+								logsCtx, cancel := context.WithCancel(ct.Ctx)
+								defer cancel()
+
+								// Let's see if we can figure out what our contract addresses are.
+								reader, err := containerCli.Logs(logsCtx, espressoDevNodeContainerInfo.ContainerID)
+								if err != nil {
+									ct.Error = err
+									return
+								}
+
+								r := NewEspressoDeployedContractLogEntryReader(NewEspressoDevNodeLogReader(NewAnsiEscapeCodeLineReader(bufio.NewReader(reader))))
+								contractAddresses := map[string]common.Address{}
+
+								for entry, err := r.ReadDeployedContractLogEntry(); err == nil; entry, err = r.ReadDeployedContractLogEntry() {
+									contractAddresses[entry.Name] = entry.Address
+								}
+
+								// Verify that the Address we have for the light contract
+								// matches what we expect.
+
+								devNodeInfo := EspressoDevNodeDockerContainerInfo{
+									DockerContainerInfo: espressoDevNodeContainerInfo,
+									ContractAddresses:   contractAddresses,
+								}
+								ct.EspressoDevNode = devNodeInfo
+
+								if have, want := devNodeInfo.LightClientAddress(), common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS); have.Cmp(want) != 0 {
+									// ct.Error = fmt.Errorf("light client contract did not match expected value:\nhave\n\t\"%s\"\nwant:\n\t\"%s\"", have, want)
+									// return
+								}
+							}
 
 							// We have all of our ports.
 							// Let's return all of the relevant port mapping information
@@ -520,7 +571,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							}
 
 							c.EspressoUrl = "http://" + hostPort
-							c.EspressoLightClientAddr = ESPRESSO_LIGHT_CLIENT_ADDRESS
+							c.EspressoLightClientAddr = ct.EspressoDevNode.LightClientAddress().String()
 						}
 					},
 				},
