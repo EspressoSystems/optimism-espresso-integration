@@ -5,6 +5,11 @@ tests:
 fast-tests:
  ./run_fast_tests.sh
 
+
+espresso-tests:
+ (cd packages/contracts-bedrock && just build-dev)
+ go test ./espresso/environment
+
 # Clean up everything before running the tests
 nuke:
  make nuke
