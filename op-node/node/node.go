@@ -555,7 +555,6 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) (err error) {
 }
 
 func (n *OpNode) Start(ctx context.Context) error {
-
 	// If n.cfg.Driver.SequencerUseFinalized is true, sequencer does not use non-finalized L1 blocks as L1 origin
 	// The OpNode periodically fetches the latest safe and finalized L1 block heights (1 epoch ≒ 6.4 minutes by default),
 	// but these values are not available immediately after startup until the first polling occurs.

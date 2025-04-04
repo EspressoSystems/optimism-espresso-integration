@@ -89,7 +89,6 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	}
 
 	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
-	log.Info("Checking batch", "batch.ParentHash", batch.ParentHash, "l2SafeHead.Hash", l2SafeHead.Hash)
 	if batch.ParentHash != l2SafeHead.Hash {
 		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", l2SafeHead.Hash)
 		return BatchDrop
