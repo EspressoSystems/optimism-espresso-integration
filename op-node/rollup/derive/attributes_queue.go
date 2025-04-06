@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"time"
 
@@ -60,7 +61,7 @@ type AttributesQueue struct {
 	lastAttribs *AttributesWithParent
 
 	isCaffNode       bool
-	espressoStreamer *EspressoStreamer
+	espressoStreamer *EspressoStreamer2
 }
 
 type SingularBatchProvider interface {
@@ -70,7 +71,7 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer2 {
 
 	if !cfg.CaffNodeConfig.IsCaffNode {
 		return nil
@@ -84,6 +85,20 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer 
 		cfg.BatchInboxAddress,
 		cfg,
 	)
+
+	streamer := espresso.EspressoStreamer{
+		BatcherAddress: cfg.BatchInboxAddress, // TODO Philippe put batcher address
+		Namespace:      cfg.L2ChainID.Uint64(),
+
+		L1Client:            nil, // TODO Philippe
+		EspressoClient:      nil, // TODO Philippe
+		EspressoLightClient: nil, // TODO Philippe
+		Log:                 log,
+
+		BatchPos: 1,
+	}
+	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
+
 	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
 	return espressoStreamer
 }
@@ -109,7 +124,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var batch *SingularBatch
 		var concluding bool
 		var err error
-		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
+		// For caff node, call NextBatch() on EspressoStreamer2 instead, assign concluding to false for now
 		if aq.isCaffNode {
 			// Sishan TODO: change to this once BatchValidity is ready
 			_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)

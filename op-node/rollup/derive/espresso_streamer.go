@@ -31,7 +31,7 @@ type MessageWithHeight struct {
 	HotShotHeight    uint64
 }
 
-type EspressoStreamer struct {
+type EspressoStreamer2 struct {
 	espressoClient                EspressoClientInterface
 	nextHotShotBlockNum           uint64
 	currentMessagePos             uint64
@@ -51,9 +51,9 @@ func NewEspressoStreamer(namespace uint64,
 	log log.Logger,
 	batchInboxAddr common.Address,
 	rollupConfig *rollup.Config,
-) *EspressoStreamer {
+) *EspressoStreamer2 {
 
-	return &EspressoStreamer{
+	return &EspressoStreamer2{
 		espressoClient:                espressoClientInterface,
 		nextHotShotBlockNum:           nextHotShotBlockNum,
 		pollingHotShotPollingInterval: pollingHotShotPollingInterval,
@@ -64,7 +64,7 @@ func NewEspressoStreamer(namespace uint64,
 	}
 }
 
-func (s *EspressoStreamer) Reset(currentMessagePos uint64, currentHostshotBlock uint64) {
+func (s *EspressoStreamer2) Reset(currentMessagePos uint64, currentHostshotBlock uint64) {
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 	s.currentMessagePos = currentMessagePos
@@ -108,7 +108,7 @@ func CheckBatchEspresso(ctx context.Context, cfg *rollup.Config, log log.Logger,
 	return BatchAccept
 }
 
-func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
+func (s *EspressoStreamer2) NextBatch(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
@@ -189,7 +189,7 @@ func ParseHotShotPayload(payload []byte) (batcherSignature []byte, sequencerBatc
 	return batcherSignature, sequencerBatchesByte, nil
 }
 
-func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*MessageWithHeight, error) {
+func (s *EspressoStreamer2) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*MessageWithHeight, error) {
 	s.log.Info("Parsing espresso transaction", "tx", hex.EncodeToString(tx))
 	batcherSignature, sequencerBatchesByte, err := ParseHotShotPayload(tx)
 	if err != nil {
@@ -224,7 +224,7 @@ func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*
 *
 * Expose the *parseHotShotPayloadFn* to the caller for testing purposes
  */
-func (s *EspressoStreamer) QueueMessagesFromHotShot(
+func (s *EspressoStreamer2) QueueMessagesFromHotShot(
 	ctx context.Context,
 	parseHotShotPayloadFn func(tx espressoTypes.Bytes) ([]*MessageWithHeight, error),
 ) error {
@@ -276,7 +276,7 @@ func (s *EspressoStreamer) QueueMessagesFromHotShot(
 	return nil
 }
 
-func (s *EspressoStreamer) Start(ctx context.Context) error {
+func (s *EspressoStreamer2) Start(ctx context.Context) error {
 
 	s.log.Info("In the function, Starting espresso streamer")
 	bigTimeout := 2 * time.Minute

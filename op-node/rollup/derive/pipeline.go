@@ -288,6 +288,6 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 	dp.engineIsReset = true
 }
 
-func (dp *DerivationPipeline) EspressoStreamer() *EspressoStreamer {
+func (dp *DerivationPipeline) EspressoStreamer() *EspressoStreamer2 {
 	return dp.attrib.espressoStreamer
 }
