@@ -3,12 +3,10 @@ package espresso
 import (
 	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
 	"C"
-	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"slices"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
@@ -44,6 +42,18 @@ type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 }
 
+type BatchBuffer interface {
+	empty()
+	setHeader(header espressoTypes.HeaderImpl)
+	setBatchPos(pos uint64)
+	setBatcherAddress(address common.Address)
+	parseAndInsert(data []byte)
+	referenceL1BlockNumber() uint64
+	removeFirst()
+	get(post int) EspressoBatch
+	len() int
+}
+
 type EspressoStreamer struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
@@ -67,14 +77,14 @@ type EspressoStreamer struct {
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
-	batchBuffer []EspressoBatch
+	batchBuffer BatchBuffer
 }
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer) Reset() {
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.hotShotPos = s.confirmedHotShotPos
-	s.batchBuffer = nil
+	s.batchBuffer.empty()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -173,45 +183,14 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 			return fmt.Errorf("namespace verification failed")
 		}
 
+		// TODO Philippe initialize when creating the streamer
+		s.batchBuffer.setBatcherAddress(s.BatcherAddress)
 		for _, transaction := range txns.Transactions {
-			batch, err := UnmarshalEspressoTransaction(transaction, s.BatcherAddress)
-			if err != nil {
-				s.Log.Info("Failed to unmarshal espresso transaction", "error", err)
-				continue
-			}
 
-			if batch.Number() < s.BatchPos {
-				// Batch already buffered/finalized
-				s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
-				continue
-			}
+			s.batchBuffer.setBatchPos(s.BatchPos)
+			s.batchBuffer.setHeader(header)
 
-			espressoFinalizedL1 := getFinalizedL1(&header)
-			if espressoFinalizedL1 == nil {
-				return fmt.Errorf("unknown Espresso header version")
-			}
-
-			if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
-				// Enforce that we only deal with finalized deposits
-				s.Log.Warn("batch with unfinalized L1 origin",
-					"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
-				)
-				continue
-			}
-
-			// Find a slot to insert the batch
-			i, batchRecorded := slices.BinarySearchFunc(s.batchBuffer, batch, func(x, y EspressoBatch) int {
-				return cmp.Compare(x.Number(), y.Number())
-			})
-
-			if batchRecorded {
-				// Duplicate batch found, skip it
-				s.Log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
-				continue
-			}
-
-			s.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
-			s.batchBuffer = slices.Insert(s.batchBuffer, i, batch)
+			s.batchBuffer.parseAndInsert(transaction)
 		}
 	}
 
@@ -220,9 +199,10 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
 	// Is the next batch available?
-	if len(s.batchBuffer) > 0 && s.batchBuffer[0].Number() == s.BatchPos {
+	if s.batchBuffer.len() > 0 && s.batchBuffer.referenceL1BlockNumber() == s.BatchPos {
 		var batch EspressoBatch
-		batch, s.batchBuffer = s.batchBuffer[0], s.batchBuffer[1:]
+		batch = s.batchBuffer.get(0)
+		s.batchBuffer.removeFirst()
 		s.BatchPos += 1
 		return &batch
 	}

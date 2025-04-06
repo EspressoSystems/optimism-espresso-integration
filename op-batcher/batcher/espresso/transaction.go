@@ -2,10 +2,12 @@ package espresso
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -16,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -24,6 +27,89 @@ import (
 type EspressoBatch struct {
 	Header types.Header
 	Batch  derive.SingularBatch
+}
+
+// TODO Philippe find better name
+type EspressoBatchBuffer struct {
+	batches        []EspressoBatch
+	batchPos       uint64
+	batcherAddress common.Address
+	header         espressoCommon.HeaderImpl
+	Log            log.Logger
+}
+
+func (b *EspressoBatchBuffer) empty() {
+	b.batches = nil
+}
+
+func (b *EspressoBatchBuffer) setHeader(header espressoCommon.HeaderImpl) {
+	b.header = header
+}
+
+func (b *EspressoBatchBuffer) setBatchPos(pos uint64) {
+	b.batchPos = pos
+}
+
+func (b *EspressoBatchBuffer) setBatcherAddress(batcherAddress common.Address) {
+	batcherAddress = batcherAddress
+}
+
+func (b *EspressoBatchBuffer) len() int {
+	return len(b.batches)
+}
+
+func (b *EspressoBatchBuffer) referenceL1BlockNumber() uint64 {
+	return b.batches[0].Number()
+}
+
+func (b *EspressoBatchBuffer) removeFirst() {
+	b.batches = b.batches[1:]
+}
+
+func (b *EspressoBatchBuffer) get(pos int) EspressoBatch {
+	return b.batches[pos]
+}
+
+func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
+	batch, err := UnmarshalEspressoTransaction(data, b.batcherAddress)
+	if err != nil {
+		b.Log.Info("Failed to unmarshal espresso transaction", "error", err)
+		return
+	}
+
+	if batch.Number() < b.batchPos {
+		// Batch already buffered/finalized
+		log.Error("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", b.batchPos)
+		return
+	}
+
+	espressoFinalizedL1 := getFinalizedL1(&b.header)
+	if espressoFinalizedL1 == nil {
+		log.Error("unknown Espresso header version")
+		return
+	}
+
+	if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
+		// Enforce that we only deal with finalized deposits
+		log.Warn("batch with unfinalized L1 origin",
+			"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
+		)
+		return
+	}
+
+	// Find a slot to insert the batch
+	i, batchRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y EspressoBatch) int {
+		return cmp.Compare(x.Number(), y.Number())
+	})
+
+	if batchRecorded {
+		// Duplicate batch found, skip it
+		log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
+		return
+	}
+
+	log.Debug("recovered batch, buffering", "batchnr", batch.Number())
+	b.batches = slices.Insert(b.batches, i, batch)
 }
 
 func (b *EspressoBatch) Number() uint64 {
