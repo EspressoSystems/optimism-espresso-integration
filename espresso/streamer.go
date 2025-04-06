@@ -199,6 +199,11 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 	return nil
 }
 
+func (s *EspressoStreamer) Start(ctx context.Context) error {
+	// TODO Philippe
+	// What to do here. Check Sishan's implementation
+	return nil
+}
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
 	// Is the next batch available?
 	if s.batchBuffer.len() > 0 && s.batchBuffer.referenceL1BlockNumber() == s.BatchPos {
