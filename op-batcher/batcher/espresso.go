@@ -162,8 +162,16 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			}
 
 			var batch *espresso_batch.EspressoBatch
+			var batch_streamer *espresso.EspressoBatch
+
 			for {
-				batch = streamer.Next(ctx)
+
+				// TODO Philippe ugly conversion. Can we do better?
+				batch_streamer = streamer.Next(ctx)
+				batch = &espresso_batch.EspressoBatch{
+					Header: batch_streamer.Header,
+					Batch:  derive.SingularBatch(batch_streamer.Batch),
+				}
 				if batch == nil {
 					break
 				}

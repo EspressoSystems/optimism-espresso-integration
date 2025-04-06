@@ -6,13 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
-	espresso_batch "github.com/ethereum-optimism/optimism/op-batcher/batcher/espresso"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -25,6 +26,24 @@ type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 }
 
+/// Struct definitions copied here to avoid import cycles. TODO Philippe is this the right way?
+
+// A SingularBatch with block number attached to restore ordering
+// when fetching from Espresso
+type EspressoBatch struct {
+	Header types.Header
+	Batch  SingularBatch
+}
+
+// SingularBatch is an implementation of Batch interface, containing the input to build one L2 block.
+type SingularBatch struct {
+	ParentHash   common.Hash  // parent L2 block hash
+	EpochNum     rollup.Epoch // aka l1 num
+	EpochHash    common.Hash  // l1 block hash
+	Timestamp    uint64       // l2 block timestamp
+	Transactions []hexutil.Bytes
+}
+
 type BatchBuffer interface {
 	empty()
 	setHeader(header espressoTypes.HeaderImpl)
@@ -33,7 +52,7 @@ type BatchBuffer interface {
 	parseAndInsert(data []byte)
 	referenceL1BlockNumber() uint64
 	removeFirst()
-	get(post int) espresso_batch.EspressoBatch
+	get(post int) EspressoBatch
 	len() int
 }
 
@@ -180,10 +199,10 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 	return nil
 }
 
-func (s *EspressoStreamer) Next(ctx context.Context) *espresso_batch.EspressoBatch {
+func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
 	// Is the next batch available?
 	if s.batchBuffer.len() > 0 && s.batchBuffer.referenceL1BlockNumber() == s.BatchPos {
-		var batch espresso_batch.EspressoBatch
+		var batch EspressoBatch
 		batch = s.batchBuffer.get(0)
 		s.batchBuffer.removeFirst()
 		s.BatchPos += 1
