@@ -1,4 +1,4 @@
-package espresso
+package espresso_batch
 
 import (
 	"context"

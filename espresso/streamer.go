@@ -12,6 +12,7 @@ import (
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
+	espresso_batch "github.com/ethereum-optimism/optimism/op-batcher/batcher/espresso"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -19,24 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
-
-// espresso-network-go's HeaderInterface currently lacks a function to get this info,
-// although it is present in all header versions
-func getFinalizedL1(header *espressoTypes.HeaderImpl) *espressoTypes.L1BlockInfo {
-	v0_1, ok := header.Header.(*espressoTypes.Header0_1)
-	if ok {
-		return v0_1.L1Finalized
-	}
-	v0_2, ok := header.Header.(*espressoTypes.Header0_2)
-	if ok {
-		return v0_2.L1Finalized
-	}
-	v0_3, ok := header.Header.(*espressoTypes.Header0_3)
-	if ok {
-		return v0_3.L1Finalized
-	}
-	return nil
-}
 
 type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
@@ -50,7 +33,7 @@ type BatchBuffer interface {
 	parseAndInsert(data []byte)
 	referenceL1BlockNumber() uint64
 	removeFirst()
-	get(post int) EspressoBatch
+	get(post int) espresso_batch.EspressoBatch
 	len() int
 }
 
@@ -197,10 +180,10 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 	return nil
 }
 
-func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
+func (s *EspressoStreamer) Next(ctx context.Context) *espresso_batch.EspressoBatch {
 	// Is the next batch available?
 	if s.batchBuffer.len() > 0 && s.batchBuffer.referenceL1BlockNumber() == s.BatchPos {
-		var batch EspressoBatch
+		var batch espresso_batch.EspressoBatch
 		batch = s.batchBuffer.get(0)
 		s.batchBuffer.removeFirst()
 		s.BatchPos += 1

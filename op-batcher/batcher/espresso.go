@@ -15,7 +15,8 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/batcher/espresso"
+	"github.com/ethereum-optimism/optimism/espresso"
+	espresso_batch "github.com/ethereum-optimism/optimism/op-batcher/batcher/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -77,7 +78,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
-	espressoBatch := espresso.EspressoBatch{
+	espressoBatch := espresso_batch.EspressoBatch{
 		Header: *block.Header(),
 		Batch:  *batch,
 	}
@@ -160,7 +161,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			var batch *espresso.EspressoBatch
+			var batch *espresso_batch.EspressoBatch
 			for {
 				batch = streamer.Next(ctx)
 				if batch == nil {
@@ -169,7 +170,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
 				// no transient errors.
-				block, err := espresso.BatchToIncompleteBlock(l.RollupConfig, batch)
+				block, err := espresso_batch.BatchToIncompleteBlock(l.RollupConfig, batch)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
 					continue
