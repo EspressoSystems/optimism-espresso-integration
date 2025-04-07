@@ -73,35 +73,46 @@ type EspressoBatchBuffer struct {
 	Log            log.Logger
 }
 
-func (b *EspressoBatchBuffer) empty() {
+func NewEspressoBatchBuffer(batcherAddress common.Address, log log.Logger) *EspressoBatchBuffer {
+
+	bb := new(EspressoBatchBuffer)
+	bb.Log = log
+	bb.batcherAddress = batcherAddress
+	bb.batchPos = 0 // TODO Philippe is this correct?
+
+	return bb
+
+}
+
+func (b *EspressoBatchBuffer) Empty() {
 	b.batches = nil
 }
 
-func (b *EspressoBatchBuffer) setHeader(header espressoCommon.HeaderImpl) {
+func (b *EspressoBatchBuffer) SetHeader(header espressoCommon.HeaderImpl) {
 	b.header = header
 }
 
-func (b *EspressoBatchBuffer) setBatchPos(pos uint64) {
+func (b *EspressoBatchBuffer) SetBatchPos(pos uint64) {
 	b.batchPos = pos
 }
 
-func (b *EspressoBatchBuffer) setBatcherAddress(batcherAddress common.Address) {
+func (b *EspressoBatchBuffer) SetBatcherAddress(batcherAddress common.Address) {
 	batcherAddress = batcherAddress
 }
 
-func (b *EspressoBatchBuffer) len() int {
+func (b *EspressoBatchBuffer) Len() int {
 	return len(b.batches)
 }
 
-func (b *EspressoBatchBuffer) referenceL1BlockNumber() uint64 {
+func (b *EspressoBatchBuffer) ReferenceL1BlockNumber() uint64 {
 	return b.batches[0].Number()
 }
 
-func (b *EspressoBatchBuffer) removeFirst() {
+func (b *EspressoBatchBuffer) RemoveFirst() {
 	b.batches = b.batches[1:]
 }
 
-func (b *EspressoBatchBuffer) get(pos int) EspressoBatch {
+func (b *EspressoBatchBuffer) Get(pos int) EspressoBatch {
 	return b.batches[pos]
 }
 
@@ -158,7 +169,7 @@ func (b *EspressoBatchBuffer) checkBatch(batch EspressoBatch) (EspressoBatchVali
 	return BatchAccept, i
 }
 
-func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
+func (b *EspressoBatchBuffer) ParseAndInsert(data []byte) {
 	batch, err := UnmarshalEspressoTransaction(data, b.batcherAddress)
 	if err != nil {
 		b.Log.Info("Failed to unmarshal espresso transaction", "error", err)
@@ -169,25 +180,28 @@ func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
 
 	switch validity {
 
-	case BatchFuture:
-		b.Log.Info("Inserting batch for future processing")
-
 	case BatchDrop:
 		b.Log.Info("Dropping batch", batch)
+		return
 
 	case BatchPast:
 		b.Log.Info("Batch already processed. Skipping", batch)
-
-	case BatchAccept:
-		b.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
-		b.batches = slices.Insert(b.batches, i, batch)
+		return
 
 	case BatchUndecided: // Sishan TODO: remove if this is not needed
 		// TODO Philippe logic of remaining list
 		return
-	default:
-		return
+
+	case BatchAccept:
+		b.Log.Debug("Recovered batch, inserting", "batchnr", batch.Number())
+		b.batches = slices.Insert(b.batches, i, batch)
+
+	case BatchFuture:
+		b.Log.Info("Inserting batch for future processing")
 	}
+
+	// For both BatchAccept and BatchFuture we insert.
+	b.batches = slices.Insert(b.batches, i, batch)
 
 }
 

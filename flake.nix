@@ -13,7 +13,7 @@
         inputs.foundry.overlay
       ];
       pkgs = import inputs.nixpkgs { inherit overlays system;};
-      
+
       in
       {
         devShell = pkgs.mkShell {

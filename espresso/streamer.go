@@ -42,15 +42,15 @@ type SingularBatch struct {
 }
 
 type BatchBuffer interface {
-	empty()
-	setHeader(header espressoTypes.HeaderImpl)
-	setBatchPos(pos uint64)
-	setBatcherAddress(address common.Address)
-	parseAndInsert(data []byte)
-	referenceL1BlockNumber() uint64
-	removeFirst()
-	get(post int) EspressoBatch
-	len() int
+	Empty()
+	SetHeader(header espressoTypes.HeaderImpl)
+	SetBatchPos(pos uint64)
+	SetBatcherAddress(address common.Address)
+	ParseAndInsert(data []byte)
+	ReferenceL1BlockNumber() uint64
+	RemoveFirst()
+	Get(pos int) EspressoBatch
+	Len() int
 }
 
 type EspressoStreamer struct {
@@ -76,14 +76,14 @@ type EspressoStreamer struct {
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
-	batchBuffer BatchBuffer
+	BatchBuffer BatchBuffer
 }
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer) Reset() {
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.hotShotPos = s.confirmedHotShotPos
-	s.batchBuffer.empty()
+	s.BatchBuffer.Empty()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -151,12 +151,12 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 		}
 
 		// TODO Philippe initialize when creating the streamer
-		s.batchBuffer.setBatcherAddress(s.BatcherAddress)
+		s.BatchBuffer.SetBatcherAddress(s.BatcherAddress)
 		for _, transaction := range txns.Transactions {
 
-			s.batchBuffer.setBatchPos(s.BatchPos)
-			s.batchBuffer.setHeader(header)
-			s.batchBuffer.parseAndInsert(transaction)
+			s.BatchBuffer.SetBatchPos(s.BatchPos)
+			s.BatchBuffer.SetHeader(header)
+			s.BatchBuffer.ParseAndInsert(transaction)
 		}
 	}
 
@@ -206,10 +206,10 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 }
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
 	// Is the next batch available?
-	if s.batchBuffer.len() > 0 && s.batchBuffer.referenceL1BlockNumber() == s.BatchPos {
+	if s.BatchBuffer.Len() > 0 && s.BatchBuffer.ReferenceL1BlockNumber() == s.BatchPos {
 		var batch EspressoBatch
-		batch = s.batchBuffer.get(0)
-		s.batchBuffer.removeFirst()
+		batch = s.BatchBuffer.Get(0)
+		s.BatchBuffer.RemoveFirst()
 		s.BatchPos += 1
 		return &batch
 	}
