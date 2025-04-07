@@ -22,6 +22,23 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+// Adapted from BatchValidity in op-node/rollup/derive/batches.go because it is convenient
+type EspressoBatchValidity uint8
+
+const (
+	// BatchDrop indicates that the batch is invalid, and will always be in the future, unless we reorg
+	BatchDrop = iota
+	// BatchAccept indicates that the batch is valid and should be processed
+	BatchAccept
+	// BatchUndecided indicates we are lacking L1 information until we can proceed batch filtering
+	BatchUndecided
+	// BatchFuture indicates that the batch may be valid, but cannot be processed yet and should be checked again later
+	BatchFuture
+	// BatchPast indicates that the batch is from the past, i.e. its timestamp is smaller or equal
+	// to the safe head's timestamp.
+	BatchPast
+)
+
 // espresso-network-go's HeaderInterface currently lacks a function to get this info,
 // although it is present in all header versions
 func getFinalizedL1(header *espressoCommon.HeaderImpl) *espressoCommon.L1BlockInfo {
@@ -88,23 +105,12 @@ func (b *EspressoBatchBuffer) get(pos int) EspressoBatch {
 	return b.batches[pos]
 }
 
-func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
-	batch, err := UnmarshalEspressoTransaction(data, b.batcherAddress)
-	if err != nil {
-		b.Log.Info("Failed to unmarshal espresso transaction", "error", err)
-		return
-	}
-
-	if batch.Number() < b.batchPos {
-		// Batch already buffered/finalized
-		log.Error("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", b.batchPos)
-		return
-	}
+func (b *EspressoBatchBuffer) checkBatch(batch EspressoBatch) (EspressoBatchValidity, int) {
 
 	espressoFinalizedL1 := getFinalizedL1(&b.header)
 	if espressoFinalizedL1 == nil {
-		log.Error("unknown Espresso header version")
-		return
+		log.Error("Invalid batch: Unknown Espresso header version")
+		return BatchDrop, 0
 	}
 
 	if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
@@ -112,7 +118,11 @@ func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
 		log.Warn("batch with unfinalized L1 origin",
 			"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
 		)
-		return
+		return BatchUndecided, 0
+	} else {
+		// make sure it's a valid L1 origin state by check the hash
+		// TODO Adapt Sishan's logic described in
+		// https: //github.com/EspressoSystems/optimism-espresso-integration/blob/40a52d5b334f5dca169dfc1b41d8d06a2a72470d/op-node/rollup/derive/espresso_streamer.go#L148
 	}
 
 	// Find a slot to insert the batch
@@ -120,14 +130,65 @@ func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
 		return cmp.Compare(x.Number(), y.Number())
 	})
 
+	// Batch already buffered/finalized
+	if batch.Number() < b.batchPos {
+
+		b.Log.Error("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", b.batchPos)
+		return BatchPast, 0
+	}
+
 	if batchRecorded {
 		// Duplicate batch found, skip it
-		log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
+		return BatchPast, i
+	}
+
+	// We can do this check earlier, but it's a more intensive one, so we do this last.
+	// TODO as the batcher is considered honest does is this check needed?
+	for i, txBytes := range batch.Batch.Transactions {
+		if len(txBytes) == 0 {
+			b.Log.Error("Transaction data must not be empty, but found empty tx", "tx_index", i)
+			return BatchDrop, 0
+		}
+		if txBytes[0] == types.DepositTxType {
+			log.Error("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			return BatchDrop, 0
+		}
+	}
+
+	return BatchAccept, i
+}
+
+func (b *EspressoBatchBuffer) parseAndInsert(data []byte) {
+	batch, err := UnmarshalEspressoTransaction(data, b.batcherAddress)
+	if err != nil {
+		b.Log.Info("Failed to unmarshal espresso transaction", "error", err)
 		return
 	}
 
-	log.Debug("recovered batch, buffering", "batchnr", batch.Number())
-	b.batches = slices.Insert(b.batches, i, batch)
+	var validity, i = b.checkBatch(batch)
+
+	switch validity {
+
+	case BatchFuture:
+		b.Log.Info("Inserting batch for future processing")
+
+	case BatchDrop:
+		b.Log.Info("Dropping batch", batch)
+
+	case BatchPast:
+		b.Log.Info("Batch already processed. Skipping", batch)
+
+	case BatchAccept:
+		b.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
+		b.batches = slices.Insert(b.batches, i, batch)
+
+	case BatchUndecided: // Sishan TODO: remove if this is not needed
+		// TODO Philippe logic of remaining list
+		return
+	default:
+		return
+	}
+
 }
 
 func (b *EspressoBatch) Number() uint64 {
