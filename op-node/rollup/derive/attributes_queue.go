@@ -95,7 +95,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 		EspressoClient:      nil, // TODO Philippe
 		EspressoLightClient: nil, // TODO Philippe
 		Log:                 log,
-
+		// TODO Instantiate batch buffer
 		BatchPos: 1,
 	}
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
