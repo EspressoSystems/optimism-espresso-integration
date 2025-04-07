@@ -112,8 +112,8 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		// For caff node, call NextBatch() on EspressoStreamer instead, assign concluding to false for now
 		if aq.isCaffNode {
 			// Sishan TODO: change to this once BatchValidity is ready
-			_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
-			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
+			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
+			// batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
 			}
