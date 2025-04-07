@@ -32,9 +32,9 @@ just -f ./op-challenger/justfile test
 just -f ./op-conductor/justfile test
 just -f ./op-dispute-mon/justfile test
 just -f ./op-dripper/justfile test
+make -C ./op-program test # TODO Philippe why did we need to put this test before the op-e2e one?
 make -C ./op-e2e test
 just -f ./op-node/justfile test
-make -C ./op-program test
 just -f ./op-proposer/justfile test
 just -f ./op-service/justfile test
 just -f ./op-supervisor/justfile test
