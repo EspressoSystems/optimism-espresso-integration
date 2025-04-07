@@ -20,37 +20,32 @@ op-program: \
 	op-program-client \
 	op-program-client-mips
 
-
-# TODO Philippe why do we need to set CGO_ENABLED=1? https://github.com/golang/go/issues/39398#issuecomment-638898309
 op-program-host:
-	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) CGO_ENABLED=1 go build -v -ldflags "$(LDFLAGSSTRING)" -o ./bin/op-program ./host/cmd/main.go
+	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) CGO_ENABLED=0 go build -v -ldflags "$(LDFLAGSSTRING)" -o ./bin/op-program ./host/cmd/main.go
 
 op-program-client:
-	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) CGO_ENABLED=1 go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client ./client/cmd/main.go
-	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) CGO_ENABLED=1 go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client-interop ./client/interopcmd/main.go
+	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client ./client/cmd/main.go
+	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client-interop ./client/interopcmd/main.go
 
 op-program-client-mips: op-program-client-mips32 op-program-client-mips64 op-program-client-mips64-interop
 
-
-# TODO Philippe Why do we need to the lines below?
-
 op-program-client-mips32:
-	#env GO111MODULE=on GOOS=linux GOARCH=mips GOMIPS=softfloat CGO_ENABLED=1 go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client.elf ./client/cmd/main.go
+	env GO111MODULE=on GOOS=linux GOARCH=mips GOMIPS=softfloat go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client.elf ./client/cmd/main.go
 	# verify output with: readelf -h bin/op-program-client.elf
 	# result is mips32, big endian, R3000
 
 op-program-client-mips64:
-	#env GO111MODULE=on GOOS=linux GOARCH=mips64 GOMIPS64=softfloat CGO_ENABLED=1 go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client64.elf ./client/cmd/main.go
+	env GO111MODULE=on GOOS=linux GOARCH=mips64 GOMIPS64=softfloat go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client64.elf ./client/cmd/main.go
 	# verify output with: readelf -h bin/op-program-client64.elf
 	# result is mips64, big endian, R3000
 
 op-program-client-mips64-interop:
-	#env GO111MODULE=on GOOS=linux GOARCH=mips64 GOMIPS64=softfloat go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client-interop.elf ./client/interopcmd/main.go
+	env GO111MODULE=on GOOS=linux GOARCH=mips64 GOMIPS64=softfloat go build -v -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client-interop.elf ./client/interopcmd/main.go
 	# verify output with: readelf -h bin/op-program-client-interop.elf
 	# result is mips64, big endian, R3000
 
 op-program-client-riscv:
-	env GO111MODULE=on GOOS=linux GOARCH=riscv64 CGO_ENABLED=1 go build -v -gcflags="all=-d=softfloat" -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client-riscv.elf ./client/cmd/main.go
+	env GO111MODULE=on GOOS=linux GOARCH=riscv64 go build -v -gcflags="all=-d=softfloat" -ldflags "$(PC_LDFLAGSSTRING)" -o ./bin/op-program-client-riscv.elf ./client/cmd/main.go
 
 reproducible-prestate:
 	@docker build --output ./bin/ --progress plain -f Dockerfile.repro ../
