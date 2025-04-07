@@ -106,9 +106,11 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 	hotshotState, err := s.EspressoLightClient.LightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)})
 	if err != nil {
+		s.Log.Warn("Failed to fetch HotShot finalized state", err)
 		return false, err
 	}
 
+	s.Log.Info("SafeL2 advanced", "old", s.confirmedBatchPos, "new", syncStatus.SafeL2.Number)
 	s.finalizedL1 = syncStatus.FinalizedL1
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
 	s.confirmedHotShotPos = hotshotState.BlockHeight
