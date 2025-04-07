@@ -173,6 +173,7 @@ batchLoop:
 		}
 	} else {
 		s.log.Warn("No next batch")
+		return nil, false, NotEnoughData
 	}
 
 	s.messagesWithHeights = remaining
