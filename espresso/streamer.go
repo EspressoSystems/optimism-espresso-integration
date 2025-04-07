@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
+	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
@@ -149,45 +150,12 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 			return fmt.Errorf("snapshot height is less than or equal to the requested height")
 		}
 
-		//nextHeader, err := s.EspressoClient.FetchHeaderByHeight(ctx, snapshot.Height)
-		//if err != nil {
-		//	return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
-		//}
-
-		//proof, err := s.EspressoClient.FetchBlockMerkleProof(ctx, snapshot.Height, s.hotShotPos)
-		//if err != nil {
-		//	return fmt.Errorf("error fetching merkle proof")
-		//}
-
-		//blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
-
-		//log.Info("Verifying merkle proof", "height", s.hotShotPos)
-		//ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
-		//if !ok {
-		//	return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", s.hotShotPos, snapshot.Height)
-		//}
-		//
-		//namespaceOk := espressoVerification.VerifyNamespace(
-		//	s.Namespace,
-		//	txns.Proof,
-		//	*header.Header.GetPayloadCommitment(),
-		//	*header.Header.GetNsTable(),
-		//	txns.Transactions,
-		//	txns.VidCommon,
-		//)
-		//
-		//if !namespaceOk {
-		//	s.Log.Error("namespace verification failed for HS block", "blockNr", s.hotShotPos)
-		//	return fmt.Errorf("namespace verification failed")
-		//}
-
 		// TODO Philippe initialize when creating the streamer
 		s.batchBuffer.setBatcherAddress(s.BatcherAddress)
 		for _, transaction := range txns.Transactions {
 
 			s.batchBuffer.setBatchPos(s.BatchPos)
 			s.batchBuffer.setHeader(header)
-
 			s.batchBuffer.parseAndInsert(transaction)
 		}
 	}
@@ -196,8 +164,44 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 }
 
 func (s *EspressoStreamer) Start(ctx context.Context) error {
-	// TODO Philippe
-	// What to do here. Check Sishan's implementation
+
+	s.Log.Info("In the function, Starting espresso streamer")
+	bigTimeout := 2 * time.Minute
+	timer := time.NewTimer(bigTimeout)
+	defer timer.Stop()
+
+	// Sishan TODO: maybe use better handler with dynamic interval in the future
+	ticker := time.NewTicker(2) // TODO make it configurable
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			err := s.Update(ctx)
+			if err != nil {
+				s.Log.Error("Error while updating the batches: ", err)
+			} else {
+				s.Log.Info("Processing block", "block number", s.hotShotPos)
+				// Successful execution: reset the timer to start the timeout period over.
+				// Stop the timer and drain if needed.
+				// TODO Here we need to build a L2 block from the new batch
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(bigTimeout)
+			}
+			timer.Reset(bigTimeout)
+
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return fmt.Errorf("timeout while queueing messages from hotshot")
+		}
+	}
+
 	return nil
 }
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
