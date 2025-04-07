@@ -1,8 +1,6 @@
 package espresso
 
 import (
-	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
-	"C"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,8 +11,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
-	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
-
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -153,37 +149,37 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 			return fmt.Errorf("snapshot height is less than or equal to the requested height")
 		}
 
-		nextHeader, err := s.EspressoClient.FetchHeaderByHeight(ctx, snapshot.Height)
-		if err != nil {
-			return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
-		}
+		//nextHeader, err := s.EspressoClient.FetchHeaderByHeight(ctx, snapshot.Height)
+		//if err != nil {
+		//	return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
+		//}
 
-		proof, err := s.EspressoClient.FetchBlockMerkleProof(ctx, snapshot.Height, s.hotShotPos)
-		if err != nil {
-			return fmt.Errorf("error fetching merkle proof")
-		}
+		//proof, err := s.EspressoClient.FetchBlockMerkleProof(ctx, snapshot.Height, s.hotShotPos)
+		//if err != nil {
+		//	return fmt.Errorf("error fetching merkle proof")
+		//}
 
-		blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
+		//blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
 
-		log.Info("Verifying merkle proof", "height", s.hotShotPos)
-		ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
-		if !ok {
-			return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", s.hotShotPos, snapshot.Height)
-		}
-
-		namespaceOk := espressoVerification.VerifyNamespace(
-			s.Namespace,
-			txns.Proof,
-			*header.Header.GetPayloadCommitment(),
-			*header.Header.GetNsTable(),
-			txns.Transactions,
-			txns.VidCommon,
-		)
-
-		if !namespaceOk {
-			s.Log.Error("namespace verification failed for HS block", "blockNr", s.hotShotPos)
-			return fmt.Errorf("namespace verification failed")
-		}
+		//log.Info("Verifying merkle proof", "height", s.hotShotPos)
+		//ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
+		//if !ok {
+		//	return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", s.hotShotPos, snapshot.Height)
+		//}
+		//
+		//namespaceOk := espressoVerification.VerifyNamespace(
+		//	s.Namespace,
+		//	txns.Proof,
+		//	*header.Header.GetPayloadCommitment(),
+		//	*header.Header.GetNsTable(),
+		//	txns.Transactions,
+		//	txns.VidCommon,
+		//)
+		//
+		//if !namespaceOk {
+		//	s.Log.Error("namespace verification failed for HS block", "blockNr", s.hotShotPos)
+		//	return fmt.Errorf("namespace verification failed")
+		//}
 
 		// TODO Philippe initialize when creating the streamer
 		s.batchBuffer.setBatcherAddress(s.BatcherAddress)
