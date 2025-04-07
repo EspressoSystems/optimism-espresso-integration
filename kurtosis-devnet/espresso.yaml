@@ -74,6 +74,8 @@ optimism_package:
   global_node_selectors: {}
   global_tolerations: []
   persistent: false
+  observability:
+    enabled: false
 ethereum_package:
   participants:
     - el_type: geth
