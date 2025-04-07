@@ -161,6 +161,7 @@ type CaffNodeConfig struct {
 	NextHotShotBlockNum           uint64
 	PollingHotShotPollingInterval time.Duration
 	HotShotUrls                   []string
+	BatcherAddress                common.Address
 }
 
 // ValidateL1Config checks L1 config variables for errors.

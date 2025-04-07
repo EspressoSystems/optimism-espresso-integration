@@ -81,7 +81,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *EspressoStreamer 
 		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
 		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
 		log,
-		cfg.BatchInboxAddress,
+		cfg.CaffNodeConfig.BatcherAddress,
 		cfg,
 	)
 	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
@@ -114,6 +114,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 			// Sishan TODO: change to this once BatchValidity is ready
 			batch, concluding, err = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 			// batch, concluding, err = aq.prev.NextBatch(ctx, parent)
+			log.Info("NextBatch", "batch", batch, "concluding", concluding)
 			if err != nil {
 				return nil, err
 			}
