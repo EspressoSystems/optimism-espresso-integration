@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -113,7 +112,7 @@ func (s *EspressoStreamer) NextBatch(ctx context.Context, parent eth.L2BlockRef,
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
-	// Sishan TODO: Find the batch that match the parent block, concluding is assignedto false for now
+	// Find the batch that match the parent block, concluding is assignedto false for now
 	var returnBatch *SingularBatch
 	// remaining is the list of batches that are not processed yet
 	var remaining []*MessageWithHeight
@@ -137,10 +136,6 @@ batchLoop:
 			// but retain every batch we didn't get to yet.
 			remaining = append(remaining, s.messagesWithHeights[i+1:]...)
 			break batchLoop
-		case BatchUndecided: // Sishan TODO: remove if this is not needed
-			remaining = append(remaining, s.messagesWithHeights[i:]...)
-			s.messagesWithHeights = remaining
-			return nil, false, io.EOF
 		default:
 			return nil, false, NewCriticalError(fmt.Errorf("unknown batch validity type: %d", validity))
 		}
@@ -200,7 +195,7 @@ func (s *EspressoStreamer) parseEspressoTransaction(tx espressoTypes.Bytes) ([]*
 	err = crypto.Verify(batchHash, batcherSignature, s.batcherAddr)
 	if err != nil {
 		s.log.Warn("failed to verify signature", "err", err)
-		// Sishan TODO: return an error instead of continuing
+		return nil, err
 	}
 
 	var batch EspressoBatch
@@ -268,7 +263,6 @@ func (s *EspressoStreamer) QueueMessagesFromHotShot(
 			s.log.Warn("failed to verify espresso transaction", "err", err)
 			continue
 		}
-		// Sishan TODO: Filter out the messages have already been seen
 		s.messagesWithHeights = append(s.messagesWithHeights, messages...)
 		s.log.Info("QueueMessagesFromHotShot", "messagesWithHeights", s.messagesWithHeights)
 	}
