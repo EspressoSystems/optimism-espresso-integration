@@ -23,13 +23,9 @@ type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 }
 
-/// Struct definitions copied here to avoid import cycles. TODO Philippe is this the right way?
-
-// A SingularBatch with block number attached to restore ordering
-// when fetching from Espresso
-type EspressoBatch struct {
-	Header types.Header
-	Batch  SingularBatch
+// TODO Philippe  fill in
+type EspressoBatchI interface {
+	ToIncompleteBlock(rollupCfg *rollup.Config) (*types.Block, error)
 }
 
 // SingularBatch is an implementation of Batch interface, containing the input to build one L2 block.
@@ -49,7 +45,7 @@ type BatchBuffer interface {
 	ParseAndInsert(data []byte)
 	ReferenceL1BlockNumber() uint64
 	RemoveFirst()
-	Get(pos int) EspressoBatch
+	Get(pos int) EspressoBatchI
 	Len() int
 }
 
@@ -204,10 +200,10 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 
 	return nil
 }
-func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
+func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatchI {
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && s.BatchBuffer.ReferenceL1BlockNumber() == s.BatchPos {
-		var batch EspressoBatch
+		var batch EspressoBatchI
 		batch = s.BatchBuffer.Get(0)
 		s.BatchBuffer.RemoveFirst()
 		s.BatchPos += 1

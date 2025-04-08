@@ -162,24 +162,19 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			var batch *espresso_batch.EspressoBatch
-			var batch_streamer *espresso.EspressoBatch
+			var batch_ptr *espresso.EspressoBatchI
 
 			for {
 
-				// TODO Philippe ugly conversion. Can we do better?
-				batch_streamer = streamer.Next(ctx)
-				batch = &espresso_batch.EspressoBatch{
-					Header: batch_streamer.Header,
-					Batch:  derive.SingularBatch(batch_streamer.Batch),
-				}
+				batch_ptr = streamer.Next(ctx)
+				var batch = *batch_ptr
 				if batch == nil {
 					break
 				}
 
 				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
 				// no transient errors.
-				block, err := espresso_batch.BatchToIncompleteBlock(l.RollupConfig, batch)
+				block, err := batch.ToIncompleteBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
 					continue

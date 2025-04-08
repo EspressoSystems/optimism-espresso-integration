@@ -268,25 +268,24 @@ func UnmarshalEspressoTransaction(data []byte, batcherAddress common.Address) (E
 // NOTE: This function MUST guarantee no transient errors. It is allowed to fail only on
 // invalid batches or in case of misconfiguration of the batcher, in which case it should fail
 // for all batches.
-func BatchToIncompleteBlock(rollupCfg *rollup.Config, espressoBatch *EspressoBatch) (*types.Block, error) {
-	batch := espressoBatch.Batch
+func (b *EspressoBatch) ToIncompleteBlock(rollupCfg *rollup.Config) (*types.Block, error) {
 
 	FakeL1info, err := derive.L1InfoDeposit(
 		rollupCfg,
 		eth.SystemConfig{},
-		espressoBatch.Batch.Epoch().Number,
+		b.Batch.Epoch().Number,
 		&testutils.MockBlockInfo{
-			InfoHash:    batch.ParentHash,
+			InfoHash:    b.Batch.ParentHash,
 			InfoBaseFee: big.NewInt(0),
 		},
-		espressoBatch.Header.Time,
+		b.Header.Time,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not create fake L1 info: %w", err)
 	}
 	// Insert a fake deposit transaction so that channel doesn't complain about empty blocks
 	txs := []*types.Transaction{types.NewTx(FakeL1info)}
-	for i, opaqueTx := range batch.Transactions {
+	for i, opaqueTx := range b.Batch.Transactions {
 		var tx types.Transaction
 		err := tx.UnmarshalBinary(opaqueTx)
 		if err != nil {
@@ -294,7 +293,7 @@ func BatchToIncompleteBlock(rollupCfg *rollup.Config, espressoBatch *EspressoBat
 		}
 		txs = append(txs, &tx)
 	}
-	return types.NewBlockWithHeader(&espressoBatch.Header).WithBody(types.Body{
+	return types.NewBlockWithHeader(&b.Header).WithBody(types.Body{
 		Transactions: txs,
 	}), nil
 }
