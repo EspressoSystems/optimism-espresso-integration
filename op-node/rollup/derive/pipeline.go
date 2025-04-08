@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -288,6 +289,6 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 	dp.engineIsReset = true
 }
 
-func (dp *DerivationPipeline) EspressoStreamer() *EspressoStreamer {
+func (dp *DerivationPipeline) EspressoStreamer() *espresso.EspressoStreamer {
 	return dp.attrib.espressoStreamer
 }
