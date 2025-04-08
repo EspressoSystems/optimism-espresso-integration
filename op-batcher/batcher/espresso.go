@@ -141,8 +141,8 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		EspressoLightClient: l.EspressoLightClient,
 		Log:                 l.Log,
 
-		BatchPos: 1,
-		// TODO Philippe instantiate the BatchBuffer or create a constructor?
+		BatchPos:    1,
+		BatchBuffer: espresso_batch.NewEspressoBatchBuffer(l.SequencerAddress, l.Log),
 	}
 
 	for {

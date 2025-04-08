@@ -87,8 +87,6 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 	)
 	log.Info("Old streamer chain ID", espressoStreamer.rollupConfig.L2ChainID)
 
-	//var batchBuffer = espresso_batch.NewEspressoBatchBuffer(cfg.CaffNodeConfig.BatcherAddress, log)
-
 	streamer := espresso.EspressoStreamer{
 		BatcherAddress:      cfg.CaffNodeConfig.BatcherAddress,
 		Namespace:           cfg.L2ChainID.Uint64(),
@@ -97,6 +95,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 		EspressoLightClient: nil, // TODO Philippe remove
 		Log:                 log,
 		BatchPos:            1,
+		//BatchBuffer:         espresso_batch.NewEspressoBatchBuffer(cfg.CaffNodeConfig.BatcherAddress, log),
 	}
 	//streamer.BatchBuffer = batchBuffer
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)

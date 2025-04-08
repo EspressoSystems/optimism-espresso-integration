@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	espresso "github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
@@ -112,8 +113,8 @@ func (b *EspressoBatchBuffer) RemoveFirst() {
 	b.batches = b.batches[1:]
 }
 
-func (b *EspressoBatchBuffer) Get(pos int) EspressoBatch {
-	return b.batches[pos]
+func (b *EspressoBatchBuffer) Get(pos int) espresso.EspressoBatchI {
+	return &b.batches[pos]
 }
 
 func (b *EspressoBatchBuffer) checkBatch(batch EspressoBatch) (EspressoBatchValidity, int) {

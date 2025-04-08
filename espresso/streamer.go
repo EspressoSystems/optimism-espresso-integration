@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	"time"
 
@@ -23,18 +22,8 @@ type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 }
 
-// TODO Philippe  fill in
 type EspressoBatchI interface {
 	ToIncompleteBlock(rollupCfg *rollup.Config) (*types.Block, error)
-}
-
-// SingularBatch is an implementation of Batch interface, containing the input to build one L2 block.
-type SingularBatch struct {
-	ParentHash   common.Hash  // parent L2 block hash
-	EpochNum     rollup.Epoch // aka l1 num
-	EpochHash    common.Hash  // l1 block hash
-	Timestamp    uint64       // l2 block timestamp
-	Transactions []hexutil.Bytes
 }
 
 type BatchBuffer interface {
