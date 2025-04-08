@@ -1,20 +1,16 @@
 package espresso
 
 import (
-	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
-	"C"
-	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"math/big"
-	"slices"
+	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
-	espressoVerification "github.com/EspressoSystems/espresso-network-go/verification"
-
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,26 +18,24 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// espresso-network-go's HeaderInterface currently lacks a function to get this info,
-// although it is present in all header versions
-func getFinalizedL1(header *espressoTypes.HeaderImpl) *espressoTypes.L1BlockInfo {
-	v0_1, ok := header.Header.(*espressoTypes.Header0_1)
-	if ok {
-		return v0_1.L1Finalized
-	}
-	v0_2, ok := header.Header.(*espressoTypes.Header0_2)
-	if ok {
-		return v0_2.L1Finalized
-	}
-	v0_3, ok := header.Header.(*espressoTypes.Header0_3)
-	if ok {
-		return v0_3.L1Finalized
-	}
-	return nil
-}
-
 type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+}
+
+type EspressoBatchI interface {
+	ToIncompleteBlock(rollupCfg *rollup.Config) (*types.Block, error)
+}
+
+type BatchBuffer interface {
+	Empty()
+	SetHeader(header espressoTypes.HeaderImpl)
+	SetBatchPos(pos uint64)
+	SetBatcherAddress(address common.Address)
+	ParseAndInsert(data []byte)
+	ReferenceL1BlockNumber() uint64
+	RemoveFirst()
+	Get(pos int) EspressoBatchI
+	Len() int
 }
 
 type EspressoStreamer struct {
@@ -51,7 +45,7 @@ type EspressoStreamer struct {
 	// be signed by the corresponding private key
 	BatcherAddress common.Address
 
-	L1Client            L1Client
+	L1Client            L1Client // TODO Philippe apparently not used yet
 	EspressoClient      *espressoClient.Client
 	EspressoLightClient *espressoLightClient.LightClientReader
 	Log                 log.Logger
@@ -67,14 +61,14 @@ type EspressoStreamer struct {
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
-	batchBuffer []EspressoBatch
+	BatchBuffer BatchBuffer
 }
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer) Reset() {
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.hotShotPos = s.confirmedHotShotPos
-	s.batchBuffer = nil
+	s.BatchBuffer.Empty()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -141,88 +135,70 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 			return fmt.Errorf("snapshot height is less than or equal to the requested height")
 		}
 
-		nextHeader, err := s.EspressoClient.FetchHeaderByHeight(ctx, snapshot.Height)
-		if err != nil {
-			return fmt.Errorf("error fetching the snapshot header (height: %d): %w", snapshot.Height, err)
-		}
-
-		proof, err := s.EspressoClient.FetchBlockMerkleProof(ctx, snapshot.Height, s.hotShotPos)
-		if err != nil {
-			return fmt.Errorf("error fetching merkle proof")
-		}
-
-		blockMerkleTreeRoot := nextHeader.Header.GetBlockMerkleTreeRoot()
-
-		log.Info("Verifying merkle proof", "height", s.hotShotPos)
-		ok := espressoVerification.VerifyMerkleProof(proof.Proof, rawHeader, *blockMerkleTreeRoot, snapshot.Root)
-		if !ok {
-			return fmt.Errorf("error validating merkle proof (height: %d, snapshot height: %d)", s.hotShotPos, snapshot.Height)
-		}
-
-		namespaceOk := espressoVerification.VerifyNamespace(
-			s.Namespace,
-			txns.Proof,
-			*header.Header.GetPayloadCommitment(),
-			*header.Header.GetNsTable(),
-			txns.Transactions,
-			txns.VidCommon,
-		)
-
-		if !namespaceOk {
-			s.Log.Error("namespace verification failed for HS block", "blockNr", s.hotShotPos)
-			return fmt.Errorf("namespace verification failed")
-		}
-
+		// TODO Philippe initialize when creating the streamer
+		s.BatchBuffer.SetBatcherAddress(s.BatcherAddress)
 		for _, transaction := range txns.Transactions {
-			batch, err := UnmarshalEspressoTransaction(transaction, s.BatcherAddress)
+
+			s.BatchBuffer.SetBatchPos(s.BatchPos)
+			s.BatchBuffer.SetHeader(header)
+			s.BatchBuffer.ParseAndInsert(transaction)
+		}
+	}
+
+	// TODO iterate over the remaining list and possibly update the buffer
+
+	return nil
+}
+
+func (s *EspressoStreamer) Start(ctx context.Context) error {
+
+	s.Log.Info("In the function, Starting espresso streamer")
+	bigTimeout := 2 * time.Minute
+	timer := time.NewTimer(bigTimeout)
+	defer timer.Stop()
+
+	// Sishan TODO: maybe use better handler with dynamic interval in the future
+	ticker := time.NewTicker(2) // TODO make it configurable
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			err := s.Update(ctx)
 			if err != nil {
-				s.Log.Info("Failed to unmarshal espresso transaction", "error", err)
-				continue
+				s.Log.Error("Error while updating the batches: ", err)
+			} else {
+				s.Log.Info("Processing block", "block number", s.hotShotPos)
+				// Successful execution: reset the timer to start the timeout period over.
+				// Stop the timer and drain if needed.
+				// TODO Here we need to build a L2 block from the new batch
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(bigTimeout)
 			}
+			timer.Reset(bigTimeout)
 
-			if batch.Number() < s.BatchPos {
-				// Batch already buffered/finalized
-				s.Log.Debug("batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
-				continue
-			}
-
-			espressoFinalizedL1 := getFinalizedL1(&header)
-			if espressoFinalizedL1 == nil {
-				return fmt.Errorf("unknown Espresso header version")
-			}
-
-			if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
-				// Enforce that we only deal with finalized deposits
-				s.Log.Warn("batch with unfinalized L1 origin",
-					"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
-				)
-				continue
-			}
-
-			// Find a slot to insert the batch
-			i, batchRecorded := slices.BinarySearchFunc(s.batchBuffer, batch, func(x, y EspressoBatch) int {
-				return cmp.Compare(x.Number(), y.Number())
-			})
-
-			if batchRecorded {
-				// Duplicate batch found, skip it
-				s.Log.Debug("duplicate batch, skipping", "batchNr", batch.Number())
-				continue
-			}
-
-			s.Log.Debug("recovered batch, buffering", "batchnr", batch.Number())
-			s.batchBuffer = slices.Insert(s.batchBuffer, i, batch)
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return fmt.Errorf("timeout while queueing messages from hotshot")
 		}
 	}
 
 	return nil
 }
 
-func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatch {
+// TODO this logic might be slightly different between batcher and derivation
+func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatchI {
 	// Is the next batch available?
-	if len(s.batchBuffer) > 0 && s.batchBuffer[0].Number() == s.BatchPos {
-		var batch EspressoBatch
-		batch, s.batchBuffer = s.batchBuffer[0], s.batchBuffer[1:]
+	if s.BatchBuffer.Len() > 0 && s.BatchBuffer.ReferenceL1BlockNumber() == s.BatchPos {
+		var batch EspressoBatchI
+		batch = s.BatchBuffer.Get(0)
+		s.BatchBuffer.RemoveFirst()
 		s.BatchPos += 1
 		return &batch
 	}
