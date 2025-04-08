@@ -1,4 +1,4 @@
-package espresso_batch
+package derive
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	espresso "github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
@@ -21,23 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-)
-
-// Adapted from BatchValidity in op-node/rollup/derive/batches.go because it is convenient
-type EspressoBatchValidity uint8
-
-const (
-	// BatchDrop indicates that the batch is invalid, and will always be in the future, unless we reorg
-	BatchDrop = iota
-	// BatchAccept indicates that the batch is valid and should be processed
-	BatchAccept
-	// BatchUndecided indicates we are lacking L1 information until we can proceed batch filtering
-	BatchUndecided
-	// BatchFuture indicates that the batch may be valid, but cannot be processed yet and should be checked again later
-	BatchFuture
-	// BatchPast indicates that the batch is from the past, i.e. its timestamp is smaller or equal
-	// to the safe head's timestamp.
-	BatchPast
 )
 
 // espresso-network-go's HeaderInterface currently lacks a function to get this info,
@@ -62,7 +44,7 @@ func getFinalizedL1(header *espressoCommon.HeaderImpl) *espressoCommon.L1BlockIn
 // when fetching from Espresso
 type EspressoBatch struct {
 	Header types.Header
-	Batch  derive.SingularBatch
+	Batch  SingularBatch
 }
 
 // TODO Philippe find better name
@@ -117,7 +99,7 @@ func (b *EspressoBatchBuffer) Get(pos int) espresso.EspressoBatchI {
 	return &b.batches[pos]
 }
 
-func (b *EspressoBatchBuffer) checkBatch(batch EspressoBatch) (EspressoBatchValidity, int) {
+func (b *EspressoBatchBuffer) checkBatch(batch EspressoBatch) (BatchValidity, int) {
 
 	espressoFinalizedL1 := getFinalizedL1(&b.header)
 	if espressoFinalizedL1 == nil {
@@ -230,7 +212,7 @@ func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uin
 }
 
 func BlockToEspressoBatch(rollupCfg *rollup.Config, block *types.Block) (*EspressoBatch, error) {
-	batch, _, err := derive.BlockToSingularBatch(rollupCfg, block)
+	batch, _, err := BlockToSingularBatch(rollupCfg, block)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +253,7 @@ func UnmarshalEspressoTransaction(data []byte, batcherAddress common.Address) (E
 // for all batches.
 func (b *EspressoBatch) ToIncompleteBlock(rollupCfg *rollup.Config) (*types.Block, error) {
 
-	FakeL1info, err := derive.L1InfoDeposit(
+	FakeL1info, err := L1InfoDeposit(
 		rollupCfg,
 		eth.SystemConfig{},
 		b.Batch.Epoch().Number,
