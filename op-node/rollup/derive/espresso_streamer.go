@@ -143,7 +143,6 @@ batchLoop:
 
 	// check if there is any valid batch to return
 	if returnBatch == nil {
-		s.log.Warn("no valid batch to return")
 		return nil, false, NotEnoughData
 	}
 
