@@ -55,10 +55,11 @@
             pkgs.gotools
           ];
           shellHook = ''
-                    export DOWNLOADED_FILE_PATH=${espressoGoLibFile}
-                    echo "Espresso go library stored at $DOWNLOADED_FILE_PATH"
-                    ln -sf ${espressoGoLibFile} ${target_link}
-                    export CGO_LDFLAGS="${cgo_ld_flags}"
+          export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+          export DOWNLOADED_FILE_PATH=${espressoGoLibFile}
+          echo "Espresso go library stored at $DOWNLOADED_FILE_PATH"
+          ln -sf ${espressoGoLibFile} ${target_link}
+          export CGO_LDFLAGS="${cgo_ld_flags}"
                   '';
         };
       }
