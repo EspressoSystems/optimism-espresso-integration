@@ -1,9 +1,6 @@
 package batcher
 
 import (
-	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
-	"C"
-
 	"fmt"
 	"time"
 
@@ -15,7 +12,7 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/batcher/espresso"
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -77,7 +74,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
-	espressoBatch := espresso.EspressoBatch{
+	espressoBatch := EspressoBatch{
 		Header: *block.Header(),
 		Batch:  *batch,
 	}
@@ -140,7 +137,8 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		EspressoLightClient: l.EspressoLightClient,
 		Log:                 l.Log,
 
-		BatchPos: 1,
+		BatchPos:    1,
+		BatchBuffer: NewEspressoBatchBuffer(l.SequencerAddress, l.Log),
 	}
 
 	for {
@@ -160,16 +158,19 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			var batch *espresso.EspressoBatch
+			var batch_ptr *espresso.EspressoBatchI
+
 			for {
-				batch = streamer.Next(ctx)
+
+				batch_ptr = streamer.Next(ctx)
+				var batch = *batch_ptr
 				if batch == nil {
 					break
 				}
 
 				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
 				// no transient errors.
-				block, err := espresso.BatchToIncompleteBlock(l.RollupConfig, batch)
+				block, err := batch.ToIncompleteBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
 					continue
