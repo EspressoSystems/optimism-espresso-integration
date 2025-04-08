@@ -152,23 +152,28 @@ batchLoop:
 		s.log.Error("failed to get the L1 finalized block", "err", err)
 		return nil, false, NotEnoughData
 	}
-	if returnBatch.Epoch().Number > l1FinalizedBlock.Number {
-		// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
-		s.log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", returnBatch.Epoch().Number)
-		return nil, false, NotEnoughData
-	} else {
-		// make sure it's a valid L1 origin state by check the hash
-		expectedL1BlockRef, err := l1BlockRefByNumber(ctx, returnBatch.Epoch().Number)
-		if err != nil {
-			s.log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", returnBatch.Epoch().Number)
-			return nil, false, err
-		}
-		if returnBatch.Epoch().Hash != expectedL1BlockRef.Hash {
-			s.log.Warn("the L1 origin hash is not valid anymore", "l1_origin", returnBatch.Epoch().Hash, "expected", expectedL1BlockRef.Hash)
-			// drop the batch and wait longer
-			s.messagesWithHeights = remaining
+	if returnBatch != nil {
+		if returnBatch.Epoch().Number > l1FinalizedBlock.Number {
+			// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
+			s.log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", returnBatch.Epoch().Number)
 			return nil, false, NotEnoughData
+		} else {
+			// make sure it's a valid L1 origin state by check the hash
+			expectedL1BlockRef, err := l1BlockRefByNumber(ctx, returnBatch.Epoch().Number)
+			if err != nil {
+				s.log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", returnBatch.Epoch().Number)
+				return nil, false, err
+			}
+			if returnBatch.Epoch().Hash != expectedL1BlockRef.Hash {
+				s.log.Warn("the L1 origin hash is not valid anymore", "l1_origin", returnBatch.Epoch().Hash, "expected", expectedL1BlockRef.Hash)
+				// drop the batch and wait longer
+				s.messagesWithHeights = remaining
+				return nil, false, NotEnoughData
+			}
 		}
+	} else {
+		s.log.Warn("No next batch")
+		return nil, false, NotEnoughData
 	}
 
 	s.messagesWithHeights = remaining
