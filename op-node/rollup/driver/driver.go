@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
