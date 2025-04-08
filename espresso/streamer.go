@@ -45,7 +45,7 @@ type EspressoStreamer struct {
 	// be signed by the corresponding private key
 	BatcherAddress common.Address
 
-	L1Client            L1Client
+	L1Client            L1Client // TODO Philippe apparently not used yet
 	EspressoClient      *espressoClient.Client
 	EspressoLightClient *espressoLightClient.LightClientReader
 	Log                 log.Logger

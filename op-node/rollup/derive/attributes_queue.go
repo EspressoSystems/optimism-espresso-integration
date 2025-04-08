@@ -91,7 +91,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 		BatcherAddress:      cfg.CaffNodeConfig.BatcherAddress,
 		Namespace:           cfg.L2ChainID.Uint64(),
 		L1Client:            nil, // TODO Philippe
-		EspressoClient:      nil, // TODO Philippe
+		EspressoClient:      espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
 		EspressoLightClient: nil, // TODO Philippe remove
 		Log:                 log,
 		BatchPos:            1,
