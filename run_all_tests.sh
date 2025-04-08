@@ -32,11 +32,11 @@ just -f ./op-challenger/justfile test
 just -f ./op-conductor/justfile test
 just -f ./op-dispute-mon/justfile test
 just -f ./op-dripper/justfile test
+make -C ./op-program test 
 make -C ./op-e2e test
 just -f ./op-node/justfile test
-make -C ./op-program test
 just -f ./op-proposer/justfile test
-make -C ./op-service test
+just -f ./op-service/justfile test
 just -f ./op-supervisor/justfile test
 
 # Just to be nice we run nuke again, so we don't have any residual state
