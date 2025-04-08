@@ -4,6 +4,7 @@ import (
 	"context"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/espresso"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/metrics/metered"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -59,7 +60,7 @@ type DerivationPipeline interface {
 	Origin() eth.L1BlockRef
 	DerivationReady() bool
 	ConfirmEngineReset()
-	EspressoStreamer() *derive.EspressoStreamer
+	EspressoStreamer() *espresso.EspressoStreamer
 }
 
 type AttributesHandler interface {
