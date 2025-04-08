@@ -1,10 +1,6 @@
 package batcher
 
 import (
-	// #cgo darwin,arm64 LDFLAGS: -framework CoreFoundation -framework SystemConfiguration
-	"C"
-	espresso_batch "github.com/ethereum-optimism/optimism/op-node/rollup/derive/espresso"
-
 	"fmt"
 	"time"
 
@@ -78,7 +74,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
-	espressoBatch := espresso_batch.EspressoBatch{
+	espressoBatch := EspressoBatch{
 		Header: *block.Header(),
 		Batch:  *batch,
 	}
@@ -142,7 +138,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		Log:                 l.Log,
 
 		BatchPos:    1,
-		BatchBuffer: espresso_batch.NewEspressoBatchBuffer(l.SequencerAddress, l.Log),
+		BatchBuffer: NewEspressoBatchBuffer(l.SequencerAddress, l.Log),
 	}
 
 	for {
