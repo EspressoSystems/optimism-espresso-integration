@@ -29,7 +29,8 @@
             pkgs.gotools
           ];
           shellHook = ''
-                  '';
+          export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+          '';
         };
       }
     );
