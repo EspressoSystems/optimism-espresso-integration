@@ -145,6 +145,8 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 		}
 	}
 
+	// TODO iterate over the remaining list and possibly update the buffer
+
 	return nil
 }
 
@@ -189,6 +191,8 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 
 	return nil
 }
+
+// TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatchI {
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && s.BatchBuffer.ReferenceL1BlockNumber() == s.BatchPos {
