@@ -441,7 +441,7 @@ var (
 		Name:     "caff.node",
 		Usage:    "Enable the caffeinated node",
 		EnvVars:  prefixEnvVars("CAFF_NODE"),
-		Value:    false,
+		Value:    true,
 		Category: OperationsCategory,
 	}
 	CaffNodeNextHotShotBlockNum = &cli.Uint64Flag{

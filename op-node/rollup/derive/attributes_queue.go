@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"time"
+
+	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum/go-ethereum/log"
 
