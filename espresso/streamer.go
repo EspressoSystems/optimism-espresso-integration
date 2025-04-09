@@ -9,7 +9,6 @@ import (
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -47,7 +46,6 @@ type EspressoStreamer struct {
 
 	L1Client            L1Client // TODO Philippe apparently not used yet
 	EspressoClient      *espressoClient.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
 	Log                 log.Logger
 
 	// Batch number we're to give out next
