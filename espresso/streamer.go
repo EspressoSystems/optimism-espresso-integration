@@ -193,14 +193,14 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 }
 
 // TODO this logic might be slightly different between batcher and derivation
-func (s *EspressoStreamer) Next(ctx context.Context) *EspressoBatchI {
+func (s *EspressoStreamer) Next(ctx context.Context) EspressoBatchI {
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && s.BatchBuffer.ReferenceL1BlockNumber() == s.BatchPos {
 		var batch EspressoBatchI
 		batch = s.BatchBuffer.Get(0)
 		s.BatchBuffer.RemoveFirst()
 		s.BatchPos += 1
-		return &batch
+		return batch
 	}
 
 	return nil
