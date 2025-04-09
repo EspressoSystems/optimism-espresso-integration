@@ -465,13 +465,6 @@ var (
 		Value:    cli.NewStringSlice("http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000"),
 		Category: OperationsCategory,
 	}
-	CaffNodeSequencerAddress = &cli.StringFlag{
-		Name:     "caff.sequencer-address",
-		Usage:    "Sequencer address for the caffeinated node",
-		EnvVars:  prefixEnvVars("CAFF_SEQUENCER_ADDRESS"),
-		Value:    "0xD3F2c5AFb2D76f5579F326b0cD7DA5F5a4126c35",
-		Category: OperationsCategory,
-	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -529,7 +522,6 @@ var optionalFlags = []cli.Flag{
 	CaffNodeNextHotShotBlockNum,
 	CaffNodePollingHotShotPollingInterval,
 	CaffNodeHotShotUrls,
-	CaffNodeSequencerAddress,
 }
 
 var DeprecatedFlags = []cli.Flag{
