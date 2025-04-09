@@ -76,16 +76,6 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 	if !cfg.CaffNodeConfig.IsCaffNode {
 		return nil
 	}
-	espressoStreamer := NewEspressoStreamer(
-		cfg.L2ChainID.Uint64(),
-		cfg.CaffNodeConfig.NextHotShotBlockNum,
-		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
-		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
-		log,
-		cfg.BatchInboxAddress,
-		cfg,
-	)
-	log.Info("Old streamer chain ID", espressoStreamer.rollupConfig.L2ChainID)
 
 	streamer := espresso.EspressoStreamer{
 		BatcherAddress:      cfg.Genesis.SystemConfig.BatcherAddr,
