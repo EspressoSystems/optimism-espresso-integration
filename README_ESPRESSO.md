@@ -122,8 +122,6 @@ Run the Espresso integration tests:
 > just espresso-tests
 
 
-If any `just` command fails with a tool version mismatch error such as
-`version "go1.22.7" does not match go tool version "go1.22.12"`, use `which go` to get the expected
-Go version, which looks like `h3152254ziz6ag01wnccj0dlp8990w1q-go-1.22.12`, then set the version
-using `export GOROOT='/nix/store/{version}/share/go'` with `version` replaced with the fetched
-version.
+If in the Nix environment, any `just` command fails with a tool version mismatch error such as
+`version "go1.22.7" does not match go tool version "go1.22.12"`, use
+`export GOROOT="$(dirname $(dirname $(which go)))/share/go"` to set the expected Go version.
