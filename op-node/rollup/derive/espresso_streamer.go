@@ -39,7 +39,7 @@ type EspressoStreamer2 struct {
 	pollingHotShotPollingInterval time.Duration
 	messagesWithHeights           []*MessageWithHeight
 	log                           log.Logger
-	batchInboxAddr                common.Address
+	batcherAddr                   common.Address
 	rollupConfig                  *rollup.Config
 	messageMutex                  sync.Mutex
 }
@@ -49,7 +49,7 @@ func NewEspressoStreamer(namespace uint64,
 	pollingHotShotPollingInterval time.Duration,
 	espressoClientInterface EspressoClientInterface,
 	log log.Logger,
-	batchInboxAddr common.Address,
+	batcherAddr common.Address,
 	rollupConfig *rollup.Config,
 ) *EspressoStreamer2 {
 
@@ -59,7 +59,7 @@ func NewEspressoStreamer(namespace uint64,
 		pollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		namespace:                     namespace,
 		log:                           log,
-		batchInboxAddr:                batchInboxAddr,
+		batcherAddr:                   batcherAddr,
 		rollupConfig:                  rollupConfig,
 	}
 }
@@ -203,7 +203,7 @@ func (s *EspressoStreamer2) parseEspressoTransaction(tx espressoTypes.Bytes) ([]
 	}
 	// if batcher'ssignature verification fails, we should skip this message
 	// assign some real data for now
-	err = crypto.Verify(sequencerBatchesByte, batcherSignature, s.batchInboxAddr)
+	err = crypto.Verify(sequencerBatchesByte, batcherSignature, s.batcherAddr)
 	if err != nil {
 		s.log.Warn("failed to verify signature", "err", err)
 	}
