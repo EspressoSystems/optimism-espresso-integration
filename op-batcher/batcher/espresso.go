@@ -148,12 +148,8 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			var batch_ptr *espresso.EspressoBatchI
-
 			for {
-
-				batch_ptr = streamer.Next(ctx)
-				var batch = *batch_ptr
+				var batch espresso.EspressoBatchI = streamer.Next(ctx)
 				if batch == nil {
 					break
 				}
