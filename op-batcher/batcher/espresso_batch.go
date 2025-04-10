@@ -98,7 +98,7 @@ func (b *EspressoBatchBuffer) SetBatchPos(pos uint64) {
 }
 
 func (b *EspressoBatchBuffer) SetBatcherAddress(batcherAddress common.Address) {
-	batcherAddress = batcherAddress
+	b.batcherAddress = batcherAddress
 }
 
 func (b *EspressoBatchBuffer) Len() int {
