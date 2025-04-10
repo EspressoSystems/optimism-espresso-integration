@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"math/big"
 	"time"
+
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
@@ -44,6 +45,8 @@ type EspressoStreamer struct {
 	// Address of the batcher, we expect transactions to
 	// be signed by the corresponding private key
 	BatcherAddress common.Address
+	// Polling interval for the HotShot
+	PollingHotShotPollingInterval time.Duration
 
 	L1Client            L1Client // TODO Philippe apparently not used yet
 	EspressoClient      *espressoClient.Client
@@ -158,7 +161,7 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 	defer timer.Stop()
 
 	// Sishan TODO: maybe use better handler with dynamic interval in the future
-	ticker := time.NewTicker(2) // TODO make it configurable
+	ticker := time.NewTicker(s.PollingHotShotPollingInterval)
 	defer ticker.Stop()
 
 	for {
@@ -189,7 +192,6 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 		}
 	}
 
-	return nil
 }
 
 // TODO this logic might be slightly different between batcher and derivation

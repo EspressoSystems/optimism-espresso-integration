@@ -11,3 +11,4 @@
 op-program/bin/
 !op-service/
 !op-supervisor/
+!/espresso

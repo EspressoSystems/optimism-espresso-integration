@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
-)
-import (
 	"context"
 	"errors"
 	"math/big"
 	"sync"
 
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -129,8 +127,9 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer close(publishSignal)
 
 	streamer := espresso.EspressoStreamer{
-		BatcherAddress: l.SequencerAddress,
-		Namespace:      l.RollupConfig.L2ChainID.Uint64(),
+		PollingHotShotPollingInterval: l.Config.PollInterval,
+		BatcherAddress:                l.SequencerAddress,
+		Namespace:                     l.RollupConfig.L2ChainID.Uint64(),
 
 		L1Client:            l.L1Client,
 		EspressoClient:      l.Espresso,
