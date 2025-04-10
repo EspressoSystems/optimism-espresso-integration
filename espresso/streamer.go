@@ -144,7 +144,7 @@ func (s *EspressoStreamer) Start(ctx context.Context) error {
 	defer timer.Stop()
 
 	// Sishan TODO: maybe use better handler with dynamic interval in the future
-	ticker := time.NewTicker(2) // TODO make it configurable
+	ticker := time.NewTicker(2 * time.Nanosecond) // TODO make it configurable
 	defer ticker.Stop()
 
 	for {
