@@ -11,7 +11,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -76,29 +75,28 @@ func (s *EspressoStreamer) Refresh(ctx context.Context, syncStatus *eth.SyncStat
 		return false, nil
 	}
 
-	hotshotState, err := s.EspressoLightClient.LightClient.
-		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)})
+	hotshotLatestBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
 		return false, err
 	}
 
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
-	s.confirmedHotShotPos = hotshotState.BlockHeight
+	s.confirmedHotShotPos = hotshotLatestBlockHeight
 	s.Reset()
 	return true, nil
 }
 
 func (s *EspressoStreamer) Update(ctx context.Context) error {
 	// Fetch more batches from HotShot if available.
-	hotshotState, err := s.EspressoLightClient.LightClient.FinalizedState(&bind.CallOpts{})
+	hotshotLatestBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 
 	if err != nil {
 		return fmt.Errorf("failed to fetch HotShot block height: %w", err)
 	}
 
-	s.Log.Debug("Updated finalized hotshot state", "hotshotState", hotshotState)
+	s.Log.Debug("Updated finalized hotshot state", "hotshotLatestBlockHeight", hotshotLatestBlockHeight)
 
-	targetHeight := min(hotshotState.BlockHeight, s.hotShotPos+100)
+	targetHeight := min(hotshotLatestBlockHeight, s.hotShotPos+100)
 
 	for ; s.hotShotPos < targetHeight; s.hotShotPos += 1 {
 		s.Log.Debug("fetching HotShot block", "blockNr", s.hotShotPos)
@@ -122,15 +120,6 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 		err = json.Unmarshal(rawHeader, &header)
 		if err != nil {
 			return fmt.Errorf("could not unmarshal header from bytes")
-		}
-
-		snapshot, err := s.EspressoLightClient.FetchMerkleRoot(s.hotShotPos, nil)
-		if err != nil {
-			return fmt.Errorf("failed to fetch Merkle root: %w", err)
-		}
-
-		if snapshot.Height <= s.hotShotPos {
-			return fmt.Errorf("snapshot height is less than or equal to the requested height")
 		}
 
 		// TODO Philippe initialize when creating the streamer
