@@ -30,6 +30,19 @@ func TestEspressoDockerDevNodeSmokeTest(t *testing.T) {
 	}
 
 	{
+		// Ensure that the L2 is making Progress
+		_, err := geth.WaitForBlockToBeSafe(
+			big.NewInt(5),
+			system.NodeClient(e2esys.RoleSeq),
+			15*time.Duration(system.Cfg.DeployConfig.L2BlockTime)*time.Second,
+		)
+
+		if have, want := err, error(nil); have != want {
+			t.Fatalf("failed to get block 5 to be finalized:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
+	}
+
+	{
 		// Stop the Docker Container
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
