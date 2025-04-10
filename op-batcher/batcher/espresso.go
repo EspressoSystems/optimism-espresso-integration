@@ -101,8 +101,8 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 		return
 	}
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
-	if syncActions.clearState != nil || shouldClearState {
-		l.channelMgr.Clear(*syncActions.clearState)
+	if clearState := syncActions.clearState; clearState != nil && shouldClearState {
+		l.channelMgr.Clear(*clearState)
 		streamer.Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
