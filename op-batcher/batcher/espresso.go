@@ -115,7 +115,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	l.Log.Info("Starting EspressoBatchLoadingLoop")
 
 	defer wg.Done()
-	ticker := time.NewTicker(l.Config.PollInterval)
+	ticker := time.NewTicker(l.Config.EspressoPollInterval)
 	defer ticker.Stop()
 	defer close(publishSignal)
 
