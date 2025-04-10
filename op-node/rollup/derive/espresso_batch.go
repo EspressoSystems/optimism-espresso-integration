@@ -177,7 +177,6 @@ func (b *EspressoBatchBuffer) ParseAndInsert(data []byte) {
 
 	case BatchAccept:
 		b.Log.Debug("Recovered batch, inserting", "batchnr", batch.Number())
-		b.batches = slices.Insert(b.batches, i, batch)
 
 	case BatchFuture:
 		b.Log.Info("Inserting batch for future processing")
