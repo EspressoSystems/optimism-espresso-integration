@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
-)
-import (
 	"context"
 	"errors"
 	"math/big"
 	"sync"
 
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -23,13 +21,6 @@ import (
 const (
 	transactionFetchTimeout  = 2 * time.Minute
 	transactionFetchInterval = 100 * time.Millisecond
-)
-
-// Parameters for finality checking loop, which waits for merkle proof for
-// Espresso transaction to be available from Light Client contract
-const (
-	finalityTimeout       = 2 * time.Minute
-	finalityCheckInterval = 100 * time.Millisecond
 )
 
 func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transaction espressoCommon.Transaction) error {
@@ -132,10 +123,9 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		BatcherAddress: l.SequencerAddress,
 		Namespace:      l.RollupConfig.L2ChainID.Uint64(),
 
-		L1Client:            l.L1Client,
-		EspressoClient:      l.Espresso,
-		EspressoLightClient: l.EspressoLightClient,
-		Log:                 l.Log,
+		L1Client:       l.L1Client,
+		EspressoClient: l.Espresso,
+		Log:            l.Log,
 
 		BatchPos:    1,
 		BatchBuffer: NewEspressoBatchBuffer(l.SequencerAddress, l.Log),

@@ -30,10 +30,6 @@ import (
 // const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-builder"
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20241115"
 
-// deployed ESPRESSO_SEQUENCER_LIGHT_CLIENT_ADDRESS at 0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180
-// deployed ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS at 0xb4b46bdaa835f8e4b4d8e208b6559cd267851051
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180"
-
 // This is the mnemonic that we use to create the private key for deploying
 // contacts on the L1
 const ESPRESSO_MNEMONIC = "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
@@ -520,7 +516,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							}
 
 							c.EspressoUrl = "http://" + hostPort
-							c.EspressoLightClientAddr = ESPRESSO_LIGHT_CLIENT_ADDRESS
 						}
 					},
 				},

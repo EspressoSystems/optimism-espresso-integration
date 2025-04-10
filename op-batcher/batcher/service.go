@@ -11,9 +11,7 @@ import (
 	"time"
 
 	espresso "github.com/EspressoSystems/espresso-network-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -67,14 +65,13 @@ type BatcherConfig struct {
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	Log                 log.Logger
-	Metrics             metrics.Metricer
-	L1Client            *ethclient.Client
-	EndpointProvider    dial.L2EndpointProvider
-	TxManager           txmgr.TxManager
-	AltDA               *altda.DAClient
-	Espresso            *espresso.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
+	Log              log.Logger
+	Metrics          metrics.Metricer
+	L1Client         *ethclient.Client
+	EndpointProvider dial.L2EndpointProvider
+	TxManager        txmgr.TxManager
+	AltDA            *altda.DAClient
+	Espresso         *espresso.Client
 
 	BatcherConfig
 	opcrypto.ChainSigner
@@ -152,11 +149,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 
 	if cfg.EspressoUrl != "" {
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
-		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
-		if err != nil {
-			return fmt.Errorf("failed to create Espresso light client")
-		}
-		bs.EspressoLightClient = espressoLightClient
 		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
@@ -428,19 +420,18 @@ func (bs *BatcherService) initMetricsServer(cfg *CLIConfig) error {
 
 func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 	ds := DriverSetup{
-		Log:                 bs.Log,
-		Metr:                bs.Metrics,
-		RollupConfig:        bs.RollupConfig,
-		Config:              bs.BatcherConfig,
-		ChainSigner:         bs.ChainSigner,
-		SequencerAddress:    bs.TxManager.From(),
-		Txmgr:               bs.TxManager,
-		L1Client:            bs.L1Client,
-		EndpointProvider:    bs.EndpointProvider,
-		ChannelConfig:       bs.ChannelConfig,
-		AltDA:               bs.AltDA,
-		Espresso:            bs.Espresso,
-		EspressoLightClient: bs.EspressoLightClient,
+		Log:              bs.Log,
+		Metr:             bs.Metrics,
+		RollupConfig:     bs.RollupConfig,
+		Config:           bs.BatcherConfig,
+		ChainSigner:      bs.ChainSigner,
+		SequencerAddress: bs.TxManager.From(),
+		Txmgr:            bs.TxManager,
+		L1Client:         bs.L1Client,
+		EndpointProvider: bs.EndpointProvider,
+		ChannelConfig:    bs.ChannelConfig,
+		AltDA:            bs.AltDA,
+		Espresso:         bs.Espresso,
 	}
 	for _, opt := range opts {
 		opt(&ds)

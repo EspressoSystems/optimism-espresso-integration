@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -88,14 +88,13 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 	log.Info("Old streamer chain ID", espressoStreamer.rollupConfig.L2ChainID)
 
 	streamer := espresso.EspressoStreamer{
-		BatcherAddress:      cfg.CaffNodeConfig.BatcherAddress,
-		Namespace:           cfg.L2ChainID.Uint64(),
-		L1Client:            nil, // TODO Philippe
-		EspressoClient:      espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
-		EspressoLightClient: nil, // TODO Philippe remove
-		Log:                 log,
-		BatchPos:            1,
-		BatchBuffer:         NewEspressoBatchBuffer(cfg.CaffNodeConfig.BatcherAddress, log),
+		BatcherAddress: cfg.CaffNodeConfig.BatcherAddress,
+		Namespace:      cfg.L2ChainID.Uint64(),
+		L1Client:       nil, // TODO Philippe
+		EspressoClient: espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
+		Log:            log,
+		BatchPos:       1,
+		BatchBuffer:    NewEspressoBatchBuffer(cfg.CaffNodeConfig.BatcherAddress, log),
 	}
 
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
