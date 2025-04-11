@@ -13,7 +13,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -76,7 +75,6 @@ type BatcherService struct {
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
 	Espresso            *espresso.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
 
 	BatcherConfig
 	opcrypto.ChainSigner
