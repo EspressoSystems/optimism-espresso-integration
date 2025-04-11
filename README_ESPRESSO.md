@@ -46,7 +46,7 @@ Finally, install all the dependencies:
 > mise install
 ```
 
-### Install Espresso go cryptographic library
+### Install Espresso go library
 
 This step is only needed if you use Mises as Nix automatically installs the Espresso go cryptographic library.
 
@@ -104,6 +104,17 @@ This step is only needed if you use Mises as Nix automatically installs the Espr
       ```bash
       export CGO_LDFLAGS="-L$HOME/local-lib -lespresso_crypto_helper-x86_64-apple-darwin -framework Foundation -framework SystemConfiguration"
       ```
+
+## Docker
+
+In order to download the docker images required by this project you may need to authenticate using a PAT.
+
+Create a [Github Personal Access Token (PAT)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic) following Creating a personal access token (classic).
+
+Provide Docker with the PAT.
+
+> export CR_PAT=<your PAT>
+> echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 
 ### Run the tests
 
