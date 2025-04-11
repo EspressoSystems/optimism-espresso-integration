@@ -126,15 +126,6 @@ func (s *EspressoStreamer) Update(ctx context.Context) error {
 			return fmt.Errorf("could not unmarshal header from bytes")
 		}
 
-		snapshot, err := s.EspressoLightClient.FetchMerkleRoot(s.hotShotPos, nil)
-		if err != nil {
-			return fmt.Errorf("failed to fetch Merkle root: %w", err)
-		}
-
-		if snapshot.Height <= s.hotShotPos {
-			return fmt.Errorf("snapshot height is less than or equal to the requested height")
-		}
-
 		// TODO Philippe initialize when creating the streamer
 		s.BatchBuffer.SetBatcherAddress(s.BatcherAddress)
 		for _, transaction := range txns.Transactions {
