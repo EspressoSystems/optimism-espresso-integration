@@ -124,6 +124,9 @@ type BatchSubmitter struct {
 	channelMgrMutex sync.Mutex // guards channelMgr and prevCurrentL1
 	channelMgr      *channelManager
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
+
+	blocks     map[common.Hash]*types.Block
+	blockMutex sync.Mutex
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -136,6 +139,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	return &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
+		blocks:      make(map[common.Hash]*types.Block),
 	}
 }
 
@@ -900,6 +904,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		l.Log.Crit("Unknown DA type", "da_type", txdata.daType)
 	}
 
+	l.Log.Warn("Sending tx to L1")
 	l.sendTx(txdata, false, candidate, queue, receiptsCh)
 	return nil
 }

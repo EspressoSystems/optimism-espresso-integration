@@ -74,6 +74,7 @@ ADD https://github.com/EspressoSystems/espresso-network-go/archive/refs/tags/v$E
 RUN tar -oxzf /source.tgz
 WORKDIR /espresso-network-go-$ESPRESSO_NETWORK_GO_VER
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
+  --mount=type=cache,target=/usr/local/cargo/git/db \
   --mount=type=cache,target=/espresso-network-go/verification/rust/target \
   cargo build --release  --locked  --manifest-path ./verification/rust/Cargo.toml
 RUN mkdir -p /libespresso

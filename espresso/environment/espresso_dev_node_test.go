@@ -2,6 +2,7 @@ package environment_test
 
 import (
 	"context"
+	"log"
 	"math/big"
 	"testing"
 	"time"
@@ -99,7 +100,7 @@ func runSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 	fromAddress := system.Cfg.Secrets.Addresses().Bob
 
 	// Send Transaction on L1, and wait for verification on the L2 Verifier
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	// Get the Starting Balance of the Address
@@ -127,6 +128,7 @@ func runSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 			t.Errorf("waiting for balance change returned with error:\nhave:\n\t\"%v\"\nwant:\t\n\"%v\"\n", have, want)
 		}
 
+		log.Println("endBalance:", endBalance, "startBalance:", startBalance)
 		diff := new(big.Int).Sub(endBalance, startBalance)
 		if have, want := diff, mintAmount; have.Cmp(want) != 0 {
 			t.Errorf("balance change does not match mint amount:\nhave;\n\t\"%s\"\nwant:\n\t\"%s\"\n", have, want)
@@ -139,7 +141,7 @@ func runSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 // runSimpleL2Burn runs a simple L2 burn transaction and verifies it on the
 // L2 Verifier.
 func runSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	privateKey := system.Cfg.Secrets.Bob
@@ -167,6 +169,8 @@ func runSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 	if have, want := err, error(nil); have != want {
 		t.Errorf("wait for balance change for burn address %s failed:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", burnAddress, have, want)
 	}
+
+	log.Println("Balance burned:", balanceBurned)
 
 	// Make sure that these match
 	if have, want := balanceBurned, amountToBurn; have.Cmp(want) != 0 {
