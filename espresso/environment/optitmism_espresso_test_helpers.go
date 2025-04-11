@@ -520,7 +520,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							}
 
 							c.EspressoUrl = "http://" + hostPort
-							c.EspressoLightClientAddr = ESPRESSO_LIGHT_CLIENT_ADDRESS
 						}
 					},
 				},
