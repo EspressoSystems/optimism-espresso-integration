@@ -134,7 +134,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 		L1Client:            l.L1Client,
 		EspressoClient:      l.Espresso,
-		EspressoLightClient: l.EspressoLightClient,
 		Log:                 l.Log,
 
 		BatchPos:    1,
