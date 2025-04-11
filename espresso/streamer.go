@@ -235,10 +235,6 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context) error {
 
 // TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
-	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() != s.BatchPos {
-		log.Warn("Batch buffer is being weird", "batchPos", s.BatchPos, "batchBuffer", s.BatchBuffer)
-	}
-
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1

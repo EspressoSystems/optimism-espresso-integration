@@ -66,9 +66,6 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
-	l.blockMutex.Lock()
-	l.blocks[block.Hash()] = block
-	l.blockMutex.Unlock()
 
 	l.Log.Warn("Publishing block", "blockNr", block.Number())
 
@@ -164,18 +161,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			for {
 
 				batch = streamer.Next(ctx)
-
-				if batch == nil {
-					break
-				}
-
-				l.blockMutex.Lock()
-				block := l.blocks[batch.Hash()]
-				l.blockMutex.Unlock()
-
-				if block == nil {
-					panic("Not our block")
-				}
 
 				// // This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
 				// // no transient errors.

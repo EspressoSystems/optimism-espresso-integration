@@ -125,7 +125,6 @@ type BatchSubmitter struct {
 	channelMgr      *channelManager
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 
-	blocks     map[common.Hash]*types.Block
 	blockMutex sync.Mutex
 }
 
@@ -139,7 +138,6 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	return &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
-		blocks:      make(map[common.Hash]*types.Block),
 	}
 }
 
