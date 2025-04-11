@@ -166,8 +166,8 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					break
 				}
 
-				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
-				// no transient errors.
+				// This should happen ONLY if the batch is malformed. ToBlock has to guarantee no
+				// transient errors.
 				block, err := batch.ToBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
