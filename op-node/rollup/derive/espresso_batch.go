@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -38,24 +37,21 @@ func getFinalizedL1(header *espressoCommon.HeaderImpl) *espressoCommon.L1BlockIn
 // A SingularBatch with block number attached to restore ordering
 // when fetching from Espresso
 type EspressoBatch struct {
-	Hash_   common.Hash
-	Number_ uint64
-	Epoch_  eth.BlockID
-	// header        types.Header
-	// batch         SingularBatch
-	// l1InfoDeposit *types.Transaction
+	Header        *types.Header
+	Batch         SingularBatch
+	L1InfoDeposit *types.Transaction
 }
 
 func (b EspressoBatch) Hash() common.Hash {
-	return b.Hash_
+	return b.Header.Hash()
 }
 
 func (b EspressoBatch) Number() uint64 {
-	return b.Number_
+	return b.Header.Number.Uint64()
 }
 
 func (b EspressoBatch) L1Origin() eth.BlockID {
-	return b.Epoch_
+	return b.Batch.Epoch()
 }
 
 func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner) (*espressoCommon.Transaction, error) {
@@ -64,7 +60,6 @@ func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uin
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode batch: %w", err)
 	}
-	log.Warn("Buffferrr", "buffer", buf)
 
 	batcherSignature, err := signer.Sign(ctx, crypto.Keccak256(buf.Bytes()))
 
@@ -94,9 +89,9 @@ func BlockToEspressoBatch(rollupCfg *rollup.Config, block *types.Block) (*Espres
 	}
 
 	return &EspressoBatch{
-		Hash_:   block.Header().Hash(),
-		Number_: block.Number().Uint64(),
-		Epoch_:  batch.Epoch(),
+		Header:        block.Header(),
+		Batch:         *batch,
+		L1InfoDeposit: l1InfoDeposit,
 	}, nil
 }
 
@@ -125,17 +120,16 @@ func UnmarshalEspressoTransaction(data []byte, batcherAddress common.Address) (*
 // for all batches.
 func (b *EspressoBatch) ToBlock(rollupCfg *rollup.Config) (*types.Block, error) {
 	// Re-insert the deposit transaction
-	// txs := []*types.Transaction{b.l1InfoDeposit}
-	// for i, opaqueTx := range b.batch.Transactions {
-	// 	var tx types.Transaction
-	// 	err := tx.UnmarshalBinary(opaqueTx)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("could not decode tx %d: %w", i, err)
-	// 	}
-	// 	txs = append(txs, &tx)
-	// }
-	// return types.NewBlockWithHeader(&b.header).WithBody(types.Body{
-	// 	Transactions: txs,
-	// }), nil
-	return nil, nil
+	txs := []*types.Transaction{b.L1InfoDeposit}
+	for i, opaqueTx := range b.Batch.Transactions {
+		var tx types.Transaction
+		err := tx.UnmarshalBinary(opaqueTx)
+		if err != nil {
+			return nil, fmt.Errorf("could not decode tx %d: %w", i, err)
+		}
+		txs = append(txs, &tx)
+	}
+	return types.NewBlockWithHeader(b.Header).WithBody(types.Body{
+		Transactions: txs,
+	}), nil
 }
