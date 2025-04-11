@@ -74,26 +74,26 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
+		l.Log.Warn("Failed to derive batch from block", "err", err)
 		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
 	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner)
 	if err != nil {
+		l.Log.Warn("Failed to create Espresso transaction from a batch", "err", err)
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
 
-	l.Log.Info("TXBYTES", "tx", transaction, "block", block, "espresso", espressoBatch)
-
-	//go func() {
-	// We will retry publishing until successful
-	for {
-		err := l.tryPublishBatchToEspresso(ctx, *transaction)
-		if err == nil {
-			l.Log.Info(fmt.Sprintf("Published block %s to Espresso", eth.ToBlockID(block)))
-			break
+	go func() {
+		// We will retry publishing until successful
+		for {
+			err := l.tryPublishBatchToEspresso(ctx, *transaction)
+			if err == nil {
+				l.Log.Info(fmt.Sprintf("Published block %s to Espresso", eth.ToBlockID(block)))
+				break
+			}
 		}
-	}
-	//}()
+	}()
 
 	return nil
 }
@@ -169,21 +169,21 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					break
 				}
 
-				l.blockMutex.Lock()
-				block := l.blocks[batch.Hash()]
-				l.blockMutex.Unlock()
+				// l.blockMutex.Lock()
+				// block := l.blocks[batch.Hash()]
+				// l.blockMutex.Unlock()
 
-				if block == nil {
-					panic("Not our block")
-				}
-
-				// // This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
-				// // no transient errors.
-				// block, err := batch.ToBlock(l.RollupConfig)
-				// if err != nil {
-				// 	l.Log.Error("failed to convert singular batch to block", "err", err)
-				// 	continue
+				// if block == nil {
+				// 	panic("Not our block")
 				// }
+
+				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
+				// no transient errors.
+				block, err := batch.ToBlock(l.RollupConfig)
+				if err != nil {
+					l.Log.Error("failed to convert singular batch to block", "err", err)
+					continue
+				}
 
 				l.Log.Error("Received block from Espresso", "blockNr", block.NumberU64(), "blockHash", block.Hash(), "parentHash", block.ParentHash())
 
