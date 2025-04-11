@@ -155,8 +155,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoUrl             string
-	EspressoLightClientAddr string
+	EspressoUrl string
 }
 
 func (c *CLIConfig) Check() error {
@@ -234,7 +233,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		EspressoPollInterval: ctx.Duration(flags.EspressoPollIntervalFlag.Name),
 
 		/* Optional Flags */
-<<<<<<< HEAD
 		MaxPendingTransactions:       ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
 		MaxChannelDuration:           ctx.Uint64(flags.MaxChannelDurationFlag.Name),
 		MaxL1TxSize:                  ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
