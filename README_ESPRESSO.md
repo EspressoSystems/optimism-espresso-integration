@@ -128,6 +128,11 @@ To run a subset of the tests (fast):
 > just fast-tests
 
 
+Run the Espresso smoke tests:
+
+> just smoke-tests
+
+
 Run the Espresso integration tests:
 
 > just espresso-tests

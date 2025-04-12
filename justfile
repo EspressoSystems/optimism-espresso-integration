@@ -6,9 +6,15 @@ fast-tests:
  ./run_fast_tests.sh
 
 
-espresso-tests:
+compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
+
+espresso-tests: compile-contracts
  go test ./espresso/environment
+
+
+smoke-tests: compile-contracts
+ go test -run ^TestEspressoDockerDevNodeSmokeTest ./espresso/environment
 
 # Clean up everything before running the tests
 nuke:
