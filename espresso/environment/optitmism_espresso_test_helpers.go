@@ -332,7 +332,7 @@ func allowHostDockerInternalVirtualHost() DevNetLauncherOption {
 						// We append the host machine address to the list of virtual hosts, so
 						// that we do not get denied when attempting to access the host machine's
 						// RPC API.
-						nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "host.docker.internal")
+						nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "host.docker.internal", "localhost")
 
 						return nil
 					},
