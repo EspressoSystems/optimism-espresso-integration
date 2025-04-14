@@ -85,7 +85,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 		nil, // TODO(AG)
 		log,
 		func(data []byte) (*EspressoBatch, error) {
-			return UnmarshalEspressoTransaction(data, cfg.CaffNodeConfig.BatcherAddress)
+			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
 		},
 	)
 
