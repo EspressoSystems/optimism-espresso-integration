@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type BatchValidity uint8
@@ -27,7 +26,6 @@ const (
 type Batch interface {
 	Number() uint64
 	L1Origin() eth.BlockID
-	Hash() common.Hash
 }
 
 type BatchBuffer[B Batch] struct {

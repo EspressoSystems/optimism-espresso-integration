@@ -42,10 +42,6 @@ type EspressoBatch struct {
 	L1InfoDeposit *types.Transaction
 }
 
-func (b EspressoBatch) Hash() common.Hash {
-	return b.Header.Hash()
-}
-
 func (b EspressoBatch) Number() uint64 {
 	return b.Header.Number.Uint64()
 }

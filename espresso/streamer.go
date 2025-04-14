@@ -119,22 +119,21 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	}
 
 	targetHeight := min(blockHeight, s.hotShotPos+100)
-	s.Log.Info("Fetching", "from", s.hotShotPos, "upTo", targetHeight)
+	s.Log.Debug("Fetching hotshot blocks", "from", s.hotShotPos, "upTo", targetHeight)
 
 	for ; s.hotShotPos < targetHeight; s.hotShotPos += 1 {
-		s.Log.Debug("fetching HotShot block", "blockNr", s.hotShotPos)
+		s.Log.Trace("Fetching HotShot block", "block", s.hotShotPos)
 
 		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, s.hotShotPos, s.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to fetch transactions in block: %w", err)
 		}
 
-		s.Log.Info(fmt.Sprint("Fetched HS block %w", rune(s.hotShotPos)))
+		s.Log.Trace("Fetched HotShot block", "block", s.hotShotPos, "txns", len(txns.Transactions))
+
 		if len(txns.Transactions) == 0 {
-			s.Log.Info("no transactions in hotshot block", "blockNr", s.hotShotPos)
+			s.Log.Trace("No transactions in hotshot block", "block", s.hotShotPos)
 			continue
-		} else {
-			s.Log.Warn("yes transactions in hotshot block", "blockNr", s.hotShotPos)
 		}
 
 		// rawHeader, err := s.EspressoClient.FetchRawHeaderByHeight(ctx, s.hotShotPos)
@@ -157,8 +156,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		// 	return fmt.Errorf("snapshot height is less than or equal to the requested height")
 		// }
 
-		// TODO Philippe initialize when creating the streamer
-		//s.BatchBuffer.SetBatcherAddress(s.BatcherAddress)
 		for _, transaction := range txns.Transactions {
 
 			batch, err := s.UnmarshalBatch(transaction)
@@ -169,6 +166,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			}
 
 			if (*batch).Number() < s.BatchPos {
+				s.Log.Warn("Skipping older batch", "batch", (*batch).Number(), "batchPos", s.BatchPos)
 				continue
 			}
 
@@ -186,7 +184,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			// 	continue
 			// }
 
-			s.Log.Warn("Inserting batch into buffer", "batch", batch)
+			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch)
 		}
 	}
