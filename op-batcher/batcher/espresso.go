@@ -31,13 +31,10 @@ const (
 )
 
 func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transaction espressoCommon.Transaction) error {
-	l.Log.Warn("Submitting transaction", "tx", transaction)
 	txHash, err := l.Espresso.SubmitTransaction(ctx, transaction)
 	if err != nil {
 		l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
 		return fmt.Errorf("failed to submit transaction: %w", err)
-	} else {
-		l.Log.Info("Transaction submitted successfully", "transaction", transaction)
 	}
 
 	timer := time.NewTimer(transactionFetchTimeout)
@@ -49,9 +46,8 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 	for {
 		select {
 		case <-ticker.C:
-			txinfo, err := l.Espresso.FetchTransactionByHash(ctx, txHash)
+			_, err := l.Espresso.FetchTransactionByHash(ctx, txHash)
 			if err == nil {
-				l.Log.Warn("Tx included in block ", "txhash", txHash, "blockNr", txinfo.BlockHeight)
 				return nil
 			}
 		case <-timer.C:
@@ -68,8 +64,6 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
-
-	l.Log.Warn("Publishing block", "blockNr", block.Number())
 
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
@@ -176,7 +170,12 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					continue
 				}
 
-				l.Log.Error("Received block from Espresso", "blockNr", block.NumberU64(), "blockHash", block.Hash(), "parentHash", block.ParentHash())
+				l.Log.Trace(
+					"Received block from Espresso",
+					"blockNr", block.NumberU64(),
+					"blockHash", block.Hash(),
+					"parentHash", block.ParentHash(),
+				)
 
 				l.channelMgrMutex.Lock()
 				err = l.channelMgr.AddL2Block(block)

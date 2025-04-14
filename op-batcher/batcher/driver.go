@@ -87,20 +87,20 @@ type RollupClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log                 log.Logger
-	Metr                metrics.Metricer
-	RollupConfig        *rollup.Config
-	Config              BatcherConfig
-	Txmgr               txmgr.TxManager
-	L1Client            L1Client
-	EndpointProvider    dial.L2EndpointProvider
-	ChannelConfig       ChannelConfigProvider
-	AltDA               *altda.DAClient
-	ChannelOutFactory   ChannelOutFactory
-	ActiveSeqChanged    chan struct{} // optional
-	Espresso            *espressoClient.Client
-	ChainSigner         opcrypto.ChainSigner
-	SequencerAddress    common.Address
+	Log               log.Logger
+	Metr              metrics.Metricer
+	RollupConfig      *rollup.Config
+	Config            BatcherConfig
+	Txmgr             txmgr.TxManager
+	L1Client          L1Client
+	EndpointProvider  dial.L2EndpointProvider
+	ChannelConfig     ChannelConfigProvider
+	AltDA             *altda.DAClient
+	ChannelOutFactory ChannelOutFactory
+	ActiveSeqChanged  chan struct{} // optional
+	Espresso          *espressoClient.Client
+	ChainSigner       opcrypto.ChainSigner
+	SequencerAddress  common.Address
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -122,8 +122,6 @@ type BatchSubmitter struct {
 	channelMgrMutex sync.Mutex // guards channelMgr and prevCurrentL1
 	channelMgr      *channelManager
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
-
-	blockMutex sync.Mutex
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -900,7 +898,6 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		l.Log.Crit("Unknown DA type", "da_type", txdata.daType)
 	}
 
-	l.Log.Warn("Sending tx to L1")
 	l.sendTx(txdata, false, candidate, queue, receiptsCh)
 	return nil
 }
