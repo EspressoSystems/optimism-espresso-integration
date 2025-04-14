@@ -113,8 +113,10 @@ Create a [Github Personal Access Token (PAT)](https://docs.github.com/en/authent
 
 Provide Docker with the PAT.
 
+```
 > export CR_PAT=<your PAT>
 > echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+```
 
 ### Run the tests
 

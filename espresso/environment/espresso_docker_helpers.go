@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -44,6 +45,10 @@ type DockerContainerConfig struct {
 // launch Docker Containers
 type DockerCli struct{}
 
+func isLinux() bool {
+	return runtime.GOOS == "linux"
+}
+
 // LaunchContainer launches a Docker Container with the given configuration
 // and returns the resulting Docker Container Info
 //
@@ -67,8 +72,14 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 			args = append(args, "--rm")
 		}
 
-		for _, port := range config.Ports {
-			args = append(args, "-p", port)
+		if isLinux() {
+			args = append(args, "--network", "host")
+		}
+
+		if !isLinux() {
+			for _, port := range config.Ports {
+				args = append(args, "-p", port)
+			}
 		}
 
 		for key, value := range config.Environment {
@@ -77,6 +88,10 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 
 		args = append(args, config.Image)
 	}
+
+	// TODO For debugging purposes
+	var dockerCmd = strings.Join(args, " ")
+	_ = dockerCmd
 
 	var containerID string
 	{
@@ -90,8 +105,12 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 		// Container ID.
 		launchContainerCmd.Stdout = outputBuffer
 
+		stderrBuffer := new(bytes.Buffer)
+		launchContainerCmd.Stderr = stderrBuffer
+		launchContainerCmd.Stdout = outputBuffer
+
 		if err := launchContainerCmd.Run(); err != nil {
-			return DockerContainerInfo{}, err
+			return DockerContainerInfo{}, fmt.Errorf("Failed to launch docker container: %w\nstderr: %s", err, stderrBuffer.String())
 		}
 
 		containerID = strings.TrimSpace(outputBuffer.String())

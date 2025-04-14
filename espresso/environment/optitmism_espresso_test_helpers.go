@@ -28,7 +28,9 @@ import (
 // "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-newfoundland"
 // "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-labrador"
 // const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-builder"
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle"
+//const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle"
+
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250409-dev-node-pos-preview"
 
 const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
 
@@ -334,7 +336,8 @@ func allowHostDockerInternalVirtualHost() DevNetLauncherOption {
 						// We append the host machine address to the list of virtual hosts, so
 						// that we do not get denied when attempting to access the host machine's
 						// RPC API.
-						nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "host.docker.internal")
+						//nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "host.docker.internal")
+						nodeCfg.HTTPVirtualHosts = append(nodeCfg.HTTPVirtualHosts, "localhost")
 
 						return nil
 					},
@@ -443,7 +446,13 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							// We replace the host with host.docker.internal to inform
 							// docker to communicate with the host system.
-							l1EthRpcURL.Host = net.JoinHostPort("host.docker.internal", port)
+
+							if isLinux() {
+								l1EthRpcURL.Host = net.JoinHostPort("127.0.0.1", port)
+							} else {
+								l1EthRpcURL.Host = net.JoinHostPort("host.docker.internal", port)
+							}
+
 							l1EthRpcURL.Scheme = "http"
 
 							containerCli := new(DockerCli)
@@ -510,7 +519,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							currentBlockHeightURLString := "http://" + hostPort + "/status/block-height"
 
 							// Wait for Espresso to be ready
-							timeoutCtx, cancel := context.WithTimeout(ct.Ctx, time.Minute*10)
+							timeoutCtx, cancel := context.WithTimeout(ct.Ctx, time.Second*60)
 							defer cancel()
 							if err := WaitForEspressoBlockHeightToBePositive(timeoutCtx, currentBlockHeightURLString); err != nil {
 								ct.Error = EspressoNodeFailedToBecomeReady{Cause: err}

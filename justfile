@@ -11,14 +11,14 @@ compile-contracts:
 
 espresso-tests: compile-contracts
  #go test ./espresso/environment
- go test -run ^TestE2eDevNetWithEspressoSimpleTransactions$ ./espresso/environment
+ go test -run ^TestE2eDevNetWithEspressoSimpleTransactions$ ./espresso/environment -v
 
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle"
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250409-dev-node-pos-preview"
 remove-espresso-containers:
-  docker stop $(docker ps -q --filter ancestor={{IMAGE_NAME}} )
+  docker stop $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 
 smoke-tests: compile-contracts
- go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment
+ go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
 # Clean up everything before running the tests
 nuke:

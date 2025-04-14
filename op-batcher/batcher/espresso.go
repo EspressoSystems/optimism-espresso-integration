@@ -36,6 +36,8 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 	if err != nil {
 		l.Log.Error("Failed to submit transaction", "transaction", transaction, "error", err)
 		return fmt.Errorf("failed to submit transaction: %w", err)
+	} else {
+		l.Log.Info("Transaction submitted successfully", "transaction", transaction)
 	}
 
 	timer := time.NewTimer(transactionFetchTimeout)

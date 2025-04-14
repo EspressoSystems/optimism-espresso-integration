@@ -15,18 +15,18 @@
       pkgs = import inputs.nixpkgs { inherit overlays system;};
       espressoGoLibFile = if system == "x86_64-linux"
                 then pkgs.fetchurl {
-                  url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.34/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a";
-                  sha256 = "sha256:1c7ybrqjrp1709j08fk7zcr5q8hyfakvgv0m64zn2fywlqfdpszs";
+                  url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.35/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a";
+                  sha256 = "sha256:07yfsrphfpq7w40x2rnldswzzbd4j0p5jdmm74132cqbf02pn8y8";
                 }
                 else if system == "x86_64-darwin" then
                   pkgs.fetchurl {
-                    url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.34/libespresso_crypto_helper-x86_64-apple-darwin.a";
-                    sha256 = "sha256:1fbijfam49c2i2l0d56i0zgczcbh2gljc6fh63g7qq3h7b7z5wc6";
+                    url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.35/libespresso_crypto_helper-x86_64-apple-darwin.a";
+                    sha256 = "sha256:1va49y81p3yrf9z61srw6rfysmbbk2vix0r7l8i2mz8b3ln0gsgy";
                   }
                 else # aarch64-darwin
                   pkgs.fetchurl {
-                        url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.34/libespresso_crypto_helper-aarch64-apple-darwin.a";
-                        sha256 = "sha256:18iqpqm3jmvj20vdd8zz05891lw5sxqy6vhfc8ghmg55czabip2q";
+                        url = "https://github.com/EspressoSystems/espresso-network-go/releases/download/v0.0.35/libespresso_crypto_helper-aarch64-apple-darwin.a";
+                        sha256 = "sha256:1fp0v9d3b41lkfpva6rz35xi832xq4355pw5785ym2jm69pcsnnn";
                   }
                   ;
       cgo_ld_flags = if system == "x86_64-linux"
