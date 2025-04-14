@@ -139,6 +139,12 @@ Run the Espresso integration tests:
 
 > just espresso-tests
 
+
 If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
 
 > just remove-containers
+
+
+If in the Nix environment, any `just` command fails with a tool version mismatch error such as
+`version "go1.22.7" does not match go tool version "go1.22.12"`, use
+`export GOROOT="$(dirname $(dirname $(which go)))/share/go"` to set the expected Go version.
