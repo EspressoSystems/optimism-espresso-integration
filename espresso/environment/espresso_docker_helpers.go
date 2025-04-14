@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+// This is a reliable way to determine if we are running on Linux as a runtime
+// check.
+var isRunningOnLinux = runtime.GOOS == "linux"
+
 // DockerContainerInfo is a struct that contains information about a Docker
 // Container that was launched by the DockerCli struct.
 // This is an informational snapshot only, and is not guaranteed to represent
@@ -38,16 +42,13 @@ type DockerContainerConfig struct {
 
 	Ports []string
 
-	AutoRM bool
+	Network string
+	AutoRM  bool
 }
 
 // DockerCli is a simple implementation of a Docker Client that is used to
 // launch Docker Containers
 type DockerCli struct{}
-
-func isLinux() bool {
-	return runtime.GOOS == "linux"
-}
 
 // LaunchContainer launches a Docker Container with the given configuration
 // and returns the resulting Docker Container Info
@@ -72,11 +73,11 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 			args = append(args, "--rm")
 		}
 
-		if isLinux() {
-			args = append(args, "--network", "host")
+		if config.Network != "" {
+			args = append(args, "--network", config.Network)
 		}
 
-		if !isLinux() {
+		if config.Network != "host" {
 			for _, port := range config.Ports {
 				args = append(args, "-p", port)
 			}
@@ -110,7 +111,7 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 		launchContainerCmd.Stdout = outputBuffer
 
 		if err := launchContainerCmd.Run(); err != nil {
-			return DockerContainerInfo{}, fmt.Errorf("Failed to launch docker container: %w\nstderr: %s", err, stderrBuffer.String())
+			return DockerContainerInfo{}, fmt.Errorf("failed to launch docker container: %w\nstderr: %s", err, stderrBuffer.String())
 		}
 
 		containerID = strings.TrimSpace(outputBuffer.String())
@@ -136,7 +137,17 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 
 	portMap := map[string][]string{}
 	containerInfo := DockerContainerInfo{ContainerID: containerID, PortMap: portMap}
-	{
+	if config.Network == "host" {
+		// If we're running on the host network, we don't need to do anything
+		// special to get the ports.  They are the same as the ones we specified
+		// in the config.
+
+		for _, port := range config.Ports {
+			portMap[port] = []string{
+				fmt.Sprintf("0.0.0.0:%s", port),
+			}
+		}
+	} else {
 		for _, portToFind := range config.Ports {
 			outputBuffer.Reset()
 			// Let's find out what our assigned ports ended up being

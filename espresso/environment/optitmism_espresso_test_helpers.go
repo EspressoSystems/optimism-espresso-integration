@@ -447,8 +447,8 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							// We replace the host with host.docker.internal to inform
 							// docker to communicate with the host system.
 
-							if isLinux() {
-								l1EthRpcURL.Host = net.JoinHostPort("127.0.0.1", port)
+							if isRunningOnLinux {
+								l1EthRpcURL.Host = net.JoinHostPort("localhost", port)
 							} else {
 								l1EthRpcURL.Host = net.JoinHostPort("host.docker.internal", port)
 							}
@@ -457,7 +457,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							containerCli := new(DockerCli)
 
-							espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ct.Ctx, DockerContainerConfig{
+							dockerConfig := DockerContainerConfig{
 								Image: ESPRESSO_DEV_NODE_DOCKER_IMAGE,
 								Environment: map[string]string{
 									"ESPRESSO_DEPLOYER_ACCOUNT_INDEX":             ESPRESSO_MNEMONIC_INDEX,
@@ -476,7 +476,20 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 									ESPRESSO_SEQUENCER_API_PORT,
 									ESPRESSO_DEV_NODE_PORT,
 								},
-							})
+							}
+
+							if isRunningOnLinux {
+								// We launch in network mode host on linux,
+								// otherwise the container is not able to
+								// communicate with the host system.
+								// We use host.docker.internal to do this on
+								// platforms that are not running natively on
+								// linux, as this special address achieves the
+								// same result.  But on linux, this does not
+								// work, and we need to run on the host instead.
+								dockerConfig.Network = "host"
+							}
+							espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
 
 							if err != nil {
 								ct.Error = FailedToLaunchDockerContainer{Cause: err}
