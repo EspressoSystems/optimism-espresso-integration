@@ -28,7 +28,7 @@ import (
 // "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-newfoundland"
 // "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-labrador"
 // const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-builder"
-//const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle"
+// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle"
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
 
 const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
@@ -463,7 +463,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							currentBlockHeightURLString := "http://" + hostPort + "/status/block-height"
 
 							// Wait for Espresso to be ready
-							timeoutCtx, cancel := context.WithTimeout(ct.Ctx, time.Second*60)
+							timeoutCtx, cancel := context.WithTimeout(ct.Ctx, time.Minute*3)
 							defer cancel()
 							if err := WaitForEspressoBlockHeightToBePositive(timeoutCtx, currentBlockHeightURLString); err != nil {
 								ct.Error = EspressoNodeFailedToBecomeReady{Cause: err}
