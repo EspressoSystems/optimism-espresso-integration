@@ -124,8 +124,8 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
 			// TODO Philippe do something with the Espresso Batch: probably assign /convert to the L2 batch
-			var espressoBatch = aq.espressoStreamer.Next(ctx)
-			log.Info("espressoBatch", espressoBatch)
+			// var espressoBatch = aq.espressoStreamer.Next(ctx)
+			// log.Info("espressoBatch", espressoBatch)
 
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
