@@ -138,3 +138,7 @@ Run the Espresso smoke tests:
 Run the Espresso integration tests:
 
 > just espresso-tests
+
+If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
+
+> just remove-containers
