@@ -20,6 +20,7 @@
 !/op-supervisor
 !/op-wheel
 !/op-alt-da
+!/espresso
 !/go.mod
 !/go.sum
 !/justfiles
