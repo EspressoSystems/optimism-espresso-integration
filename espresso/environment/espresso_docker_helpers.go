@@ -9,9 +9,14 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
+
+// This is a reliable way to determine if we are running on Linux as a runtime
+// check.
+var isRunningOnLinux = runtime.GOOS == "linux"
 
 // DockerContainerInfo is a struct that contains information about a Docker
 // Container that was launched by the DockerCli struct.
@@ -37,7 +42,8 @@ type DockerContainerConfig struct {
 
 	Ports []string
 
-	AutoRM bool
+	Network string
+	AutoRM  bool
 }
 
 // DockerCli is a simple implementation of a Docker Client that is used to
@@ -67,8 +73,14 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 			args = append(args, "--rm")
 		}
 
-		for _, port := range config.Ports {
-			args = append(args, "-p", port)
+		if config.Network != "" {
+			args = append(args, "--network", config.Network)
+		}
+
+		if config.Network != "host" {
+			for _, port := range config.Ports {
+				args = append(args, "-p", port)
+			}
 		}
 
 		for key, value := range config.Environment {
@@ -117,7 +129,17 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 
 	portMap := map[string][]string{}
 	containerInfo := DockerContainerInfo{ContainerID: containerID, PortMap: portMap}
-	{
+	if config.Network == "host" {
+		// If we're running on the host network, we don't need to do anything
+		// special to get the ports.  They are the same as the ones we specified
+		// in the config.
+
+		for _, port := range config.Ports {
+			portMap[port] = []string{
+				fmt.Sprintf("0.0.0.0:%s", port),
+			}
+		}
+	} else {
 		for _, portToFind := range config.Ports {
 			outputBuffer.Reset()
 			// Let's find out what our assigned ports ended up being
