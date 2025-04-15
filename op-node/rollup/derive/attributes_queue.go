@@ -119,13 +119,17 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var err error
 		// For caff node, call NextBatch() on EspressoStreamer2 instead, assign concluding to false for now
 		if aq.isCaffNode {
-			// Sishan TODO: change to this once BatchValidity is ready
+			// Sishan TODO: refactor this to use the new espresso streamer
 			// TODO Philippe check this makes sense
 			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
 			// TODO Philippe do something with the Espresso Batch: probably assign /convert to the L2 batch
-			// var espressoBatch = aq.espressoStreamer.Next(ctx)
-			// log.Info("espressoBatch", espressoBatch)
+			var espressoBatch = aq.espressoStreamer.Next(ctx)
+			if espressoBatch == nil {
+				log.Info("No espressoBatch found")
+			} else {
+				log.Info("espressoBatch", "batch", espressoBatch)
+			}
 
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {

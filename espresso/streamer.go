@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -195,13 +196,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	return nil
 }
 
-func (s *EspressoStreamer[B]) Start(ctx context.Context) error {
-	s.Log.Info("In the function, Starting espresso streamer")
-	bigTimeout := 2 * time.Minute
-	timer := time.NewTimer(bigTimeout)
-	defer timer.Stop()
+func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
 
-	// Sishan TODO: maybe use better handler with dynamic interval in the future
+	s.Log.Info("Starting espresso streamer")
+	defer wg.Done()
 	ticker := time.NewTicker(s.PollingHotShotPollingInterval)
 	defer ticker.Stop()
 
@@ -210,30 +208,16 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context) error {
 		case <-ticker.C:
 			err := s.Update(ctx)
 			if err != nil {
-				s.Log.Error("Error while updating the batches: ", err)
-			} else {
-				s.Log.Info("Processing block", "block number", s.hotShotPos)
-				// Successful execution: reset the timer to start the timeout period over.
-				// Stop the timer and drain if needed.
-				// TODO Here we need to build a L2 block from the new batch
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(bigTimeout)
+				s.Log.Error("failed to update Espresso streamer", "err", err)
+				continue
 			}
-			timer.Reset(bigTimeout)
 
 		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			return fmt.Errorf("timeout while queueing messages from hotshot")
+			s.Log.Info("espressoBatchLoadingLoop returning")
+			return
 		}
 	}
 
-	return nil
 }
 
 // TODO this logic might be slightly different between batcher and derivation

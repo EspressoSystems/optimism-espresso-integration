@@ -587,81 +587,14 @@ func (n *OpNode) Start(ctx context.Context) error {
 	}
 
 	if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
-		// log.Info("Starting espresso streamer")
+		log.Info("Starting espresso streamer")
 
-		// defer wg.Done()
-		// ticker := time.NewTicker(n.cfg.Rollup.CaffNodeConfig.PollingHotShotPollingInterval)
-		// defer ticker.Stop()
-		// defer close(publishSignal)
+		wg := &gosync.WaitGroup{}
 
-		// espressoStreamer := n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
-		// for {
-		// 	select {
-		// 	case <-ticker.C:
-		// 		newSyncStatus, err := l.getSyncStatus(ctx)
-		// 		if err != nil {
-		// 			l.Log.Error("failed to refresh sync status", "err", err)
-		// 			continue
-		// 		}
+		wg.Add(1)
 
-		// 		l.espressoSyncAndRefresh(ctx, newSyncStatus, &streamer)
+		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx, wg)
 
-		// 		err = streamer.Update(ctx)
-		// 		if err != nil {
-		// 			l.Log.Error("failed to update Espresso streamer", "err", err)
-		// 			continue
-		// 		}
-
-		// 		var batch *derive.EspressoBatch
-
-		// 		for {
-
-		// 			batch = streamer.Next(ctx)
-
-		// 			if batch == nil {
-		// 				break
-		// 			}
-
-		// 			// This should happen ONLY if the batch is malformed. ToBlock has to guarantee no
-		// 			// transient errors.
-		// 			block, err := batch.ToBlock(l.RollupConfig)
-		// 			if err != nil {
-		// 				l.Log.Error("failed to convert singular batch to block", "err", err)
-		// 				continue
-		// 			}
-
-		// 			l.Log.Trace(
-		// 				"Received block from Espresso",
-		// 				"blockNr", block.NumberU64(),
-		// 				"blockHash", block.Hash(),
-		// 				"parentHash", block.ParentHash(),
-		// 			)
-
-		// 			l.channelMgrMutex.Lock()
-		// 			err = l.channelMgr.AddL2Block(block)
-		// 			l.channelMgrMutex.Unlock()
-
-		// 			if err != nil {
-		// 				l.Log.Error("failed to add L2 block to channel manager", "err", err)
-		// 				l.clearState(ctx)
-		// 				streamer.Reset()
-		// 			}
-
-		// 			l.Log.Info("Added L2 block to channel manager")
-		// 		}
-		// 		trySignal(publishSignal)
-
-		// 	case <-ctx.Done():
-		// 		l.Log.Info("espressoBatchLoadingLoop returning")
-		// 		return
-		// 	}
-		// }
-
-		// go func() {
-		// 	if err := n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx); err != nil {
-		// 		n.log.Error("EspressoStreamer failed", "error", err)
-		// 	}
-		// }()
 	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
