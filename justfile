@@ -6,9 +6,19 @@ fast-tests:
  ./run_fast_tests.sh
 
 
-espresso-tests:
+compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
+
+espresso-tests: compile-contracts
  go test ./espresso/environment
+
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
+remove-espresso-containers:
+  docker stop $(docker ps -q --filter ancestor={{IMAGE_NAME}})
+  docker remove $(docker ps -q --filter ancestor={{IMAGE_NAME}})
+
+smoke-tests: compile-contracts
+ go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
 # Clean up everything before running the tests
 nuke:
