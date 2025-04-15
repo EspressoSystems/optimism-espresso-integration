@@ -24,6 +24,7 @@
 !/go.sum
 !/justfiles
 !/mise.toml
+!/espresso
 
 **/bin
 **/testdata
