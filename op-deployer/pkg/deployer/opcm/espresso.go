@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type DeployNitroVerifierInput struct {
+type DeployAWSNitroVerifierInput struct {
 	EnclaveHash [32]byte
 }
 
-type DeployNitroVerifierOutput struct {
+type DeployAWSNitroVerifierOutput struct {
 	NitroTEEVerifierAddress common.Address
 }
 
@@ -30,33 +30,33 @@ type DeployEspressoScript struct {
 	Run func(input, output common.Address) error
 }
 
-type DeployNitroVerifierScript struct {
+type DeployAWSNitroVerifierScript struct {
 	Run func(input, output common.Address) error
 }
 
-func DeployNitroVerifier(
+func DeployAWSNitroVerifier(
 	host *script.Host,
-	input DeployNitroVerifierInput,
-) (DeployNitroVerifierOutput, error) {
-	var output DeployNitroVerifierOutput
+	input DeployAWSNitroVerifierInput,
+) (DeployAWSNitroVerifierOutput, error) {
+	var output DeployAWSNitroVerifierOutput
 	inputAddr := host.NewScriptAddress()
 	outputAddr := host.NewScriptAddress()
 
-	cleanupInput, err := script.WithPrecompileAtAddress[*DeployNitroVerifierInput](host, inputAddr, &input)
+	cleanupInput, err := script.WithPrecompileAtAddress[*DeployAWSNitroVerifierInput](host, inputAddr, &input)
 	if err != nil {
-		return output, fmt.Errorf("failed to insert DeployNitroVerifierInput precompile: %w", err)
+		return output, fmt.Errorf("failed to insert DeployAWSNitroVerifierInput precompile: %w", err)
 	}
 	defer cleanupInput()
 
-	cleanupOutput, err := script.WithPrecompileAtAddress[*DeployNitroVerifierOutput](host, outputAddr, &output,
-		script.WithFieldSetter[*DeployNitroVerifierOutput])
+	cleanupOutput, err := script.WithPrecompileAtAddress[*DeployAWSNitroVerifierOutput](host, outputAddr, &output,
+		script.WithFieldSetter[*DeployAWSNitroVerifierOutput])
 	if err != nil {
-		return output, fmt.Errorf("failed to insert DeployNitroVerifierOutput precompile: %w", err)
+		return output, fmt.Errorf("failed to insert DeployAWSNitroVerifierOutput precompile: %w", err)
 	}
 	defer cleanupOutput()
 
-	implContract := "DeployNitroVerifier"
-	deployScript, cleanupDeploy, err := script.WithScript[DeployNitroVerifierScript](host, "DeployNitroVerifier.s.sol", implContract)
+	implContract := "DeployAWSNitroVerifier"
+	deployScript, cleanupDeploy, err := script.WithScript[DeployAWSNitroVerifierScript](host, "DeployAWSNitroVerifier.s.sol", implContract)
 	if err != nil {
 		return output, fmt.Errorf("failed to load %s script: %w", implContract, err)
 	}

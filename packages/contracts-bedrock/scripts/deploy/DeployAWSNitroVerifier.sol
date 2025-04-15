@@ -9,29 +9,29 @@ import { Script } from "forge-std/Script.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 
-contract DeployNitroVerifierInput is BaseDeployIO {
+contract DeployAWSNitroVerifierInput is BaseDeployIO {
     bytes32 internal _enclaveHash;
 
     function set(bytes4 _sel, bytes32 _val) public {
         if (_sel == this.enclaveHash.selector) _enclaveHash = _val;
-        else revert("DeployNitroVerifierInput: unknown selector");
+        else revert("DeployAWSNitroVerifierInput: unknown selector");
     }
 
     function enclaveHash() public view returns (bytes32) {
-        require(_enclaveHash != 0, "DeployNitroVerifierInput: enclaveHash not set");
+        require(_enclaveHash != 0, "DeployAWSNitroVerifierInput: enclaveHash not set");
         return _enclaveHash;
     }
 }
 
-contract DeployNitroVerifierOutput is BaseDeployIO {
+contract DeployAWSNitroVerifierOutput is BaseDeployIO {
     address internal _nitroTEEVerifierAddress;
 
     function set(bytes4 _sel, address _addr) public {
-        require(_addr != address(0), "DeployNitroVerifierOutput: cannot set zero address");
+        require(_addr != address(0), "DeployAWSNitroVerifierOutput: cannot set zero address");
         if (_sel == this.nitroTEEVerifierAddress.selector) {
             _nitroTEEVerifierAddress = _addr;
         } else {
-            revert("DeployNitroVerifierOutput: unknown selector");
+            revert("DeployAWSNitroVerifierOutput: unknown selector");
         }
     }
 
@@ -41,16 +41,16 @@ contract DeployNitroVerifierOutput is BaseDeployIO {
     }
 }
 
-contract DeployNitroVerifier is Script {
-    function run(DeployNitroVerifierInput input, DeployNitroVerifierOutput output) public {
+contract DeployAWSNitroVerifier is Script {
+    function run(DeployAWSNitroVerifierInput input, DeployAWSNitroVerifierOutput output) public {
         CertManager manager = deployCertManager();
         deployNitroTEEVerifier(input, output, manager);
         checkOutput(output);
     }
 
     function deployNitroTEEVerifier(
-        DeployNitroVerifierInput input,
-        DeployNitroVerifierOutput output,
+        DeployAWSNitroVerifierInput input,
+        DeployAWSNitroVerifierOutput output,
         CertManager certManager
     )
         public
@@ -71,7 +71,7 @@ contract DeployNitroVerifier is Script {
         return impl;
     }
 
-    function checkOutput(DeployNitroVerifierOutput output) public view {
+    function checkOutput(DeployAWSNitroVerifierOutput output) public view {
         address[] memory addresses = Solarray.addresses(address(output.nitroTEEVerifierAddress()));
         DeployUtils.assertValidContractAddresses(addresses);
     }
