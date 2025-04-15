@@ -99,6 +99,10 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 		args = append(args, config.Image)
 	}
 
+	// TODO For debugging purposes
+	var dockerCmd = strings.Join(args, " ")
+	_ = dockerCmd
+
 	var containerID string
 	{
 		launchContainerCmd := exec.CommandContext(

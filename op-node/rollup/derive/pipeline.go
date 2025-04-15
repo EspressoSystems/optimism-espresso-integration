@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 
 	"github.com/ethereum-optimism/optimism/espresso"
