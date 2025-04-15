@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -394,6 +395,7 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(*batch, pos)
 	}
+
 }
 
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
