@@ -26,6 +26,7 @@
 !/op-alt-da
 !/op-faucet
 !/op-interop-mon
+!/espresso
 !/go.mod
 !/go.sum
 !/justfiles

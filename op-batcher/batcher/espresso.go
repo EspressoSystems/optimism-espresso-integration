@@ -133,6 +133,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		func(data []byte) (*derive.EspressoBatch, error) {
 			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
 		},
+		2*time.Second,
 	)
 
 	for {
