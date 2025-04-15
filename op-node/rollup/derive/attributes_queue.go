@@ -124,25 +124,20 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
 			var espressoBatch = aq.espressoStreamer.Next(ctx)
-			var espressoerr error
+			// var espressoerr error
 			if espressoBatch == nil {
 				log.Info("No espressoBatch found")
-				espressoerr = NotEnoughData
+				batch = nil
+				concluding = false
+				err = NotEnoughData
 			} else {
 				log.Info("espressoBatch", "batch", espressoBatch.Batch)
-				espressoerr = nil
+				batch = &espressoBatch.Batch
+				concluding = false
+				err = nil
 			}
-			log.Info("espressoerr", "espressoerr", espressoerr)
 
-			// Create a pointer to the batch value
-			// batchValue := espressoBatch.Batch
-			// batch = &batchValue
-			// concluding = false
-
-			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
-			log.Info("batch", "batch", batch)
-			log.Info("concluding", "concluding", concluding)
-			log.Info("err", "err", err)
+			// batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
 			}
