@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -87,20 +88,21 @@ type RollupClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log               log.Logger
-	Metr              metrics.Metricer
-	RollupConfig      *rollup.Config
-	Config            BatcherConfig
-	Txmgr             txmgr.TxManager
-	L1Client          L1Client
-	EndpointProvider  dial.L2EndpointProvider
-	ChannelConfig     ChannelConfigProvider
-	AltDA             *altda.DAClient
-	ChannelOutFactory ChannelOutFactory
-	ActiveSeqChanged  chan struct{} // optional
-	Espresso          *espressoClient.Client
-	ChainSigner       opcrypto.ChainSigner
-	SequencerAddress  common.Address
+	Log                 log.Logger
+	Metr                metrics.Metricer
+	RollupConfig        *rollup.Config
+	Config              BatcherConfig
+	Txmgr               txmgr.TxManager
+	L1Client            L1Client
+	EndpointProvider    dial.L2EndpointProvider
+	ChannelConfig       ChannelConfigProvider
+	AltDA               *altda.DAClient
+	ChannelOutFactory   ChannelOutFactory
+	ActiveSeqChanged    chan struct{} // optional
+	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
+	ChainSigner         opcrypto.ChainSigner
+	SequencerAddress    common.Address
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx

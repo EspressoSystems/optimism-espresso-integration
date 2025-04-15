@@ -11,7 +11,9 @@ import (
 	"time"
 
 	espresso "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -72,6 +74,7 @@ type BatcherService struct {
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
 	Espresso            *espresso.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
 
 	BatcherConfig
 	opcrypto.ChainSigner
@@ -149,6 +152,11 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 
 	if cfg.EspressoUrl != "" {
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
+		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
+		if err != nil {
+			return fmt.Errorf("failed to create Espresso light client")
+		}
+		bs.EspressoLightClient = espressoLightClient
 		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
@@ -432,6 +440,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		ChannelConfig:       bs.ChannelConfig,
 		AltDA:               bs.AltDA,
 		Espresso:            bs.Espresso,
+		EspressoLightClient: bs.EspressoLightClient,
 	}
 	for _, opt := range opts {
 		opt(&ds)

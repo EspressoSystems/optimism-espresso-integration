@@ -10,6 +10,7 @@ import (
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -98,15 +99,15 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 		return false, nil
 	}
 
-	//	hotshotState, err := s.EspressoLightClient.LightClient.
-	//		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)})
-	//	if err != nil {
-	//		return false, err
-	//	}
+	hotshotState, err := s.EspressoLightClient.LightClient.
+		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)})
+	if err != nil {
+		return false, err
+	}
 
 	s.finalizedL1 = syncStatus.FinalizedL1
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
-	s.confirmedHotShotPos = 0
+	s.confirmedHotShotPos = hotshotState.BlockHeight
 	s.Reset()
 	return true, nil
 }
