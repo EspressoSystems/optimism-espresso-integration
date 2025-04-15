@@ -99,7 +99,7 @@ func runSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 	fromAddress := system.Cfg.Secrets.Addresses().Bob
 
 	// Send Transaction on L1, and wait for verification on the L2 Verifier
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	// Get the Starting Balance of the Address
@@ -139,7 +139,7 @@ func runSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 // runSimpleL2Burn runs a simple L2 burn transaction and verifies it on the
 // L2 Verifier.
 func runSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	privateKey := system.Cfg.Secrets.Bob

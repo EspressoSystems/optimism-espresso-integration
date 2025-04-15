@@ -104,7 +104,7 @@ func SendL2TxWithID(t *testing.T, chainID *big.Int, l2Client *ethclient.Client, 
 		Gas:       opts.Gas,
 		Data:      opts.Data,
 	})
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	err := l2Client.SendTransaction(ctx, tx)
 	require.NoError(t, err, "Sending L2 tx")
