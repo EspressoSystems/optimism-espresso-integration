@@ -62,7 +62,7 @@ type AttributesQueue struct {
 	lastAttribs *AttributesWithParent
 
 	isCaffNode       bool
-	espressoStreamer *espresso.EspressoStreamer
+	espressoStreamer *espresso.EspressoStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {
@@ -72,23 +72,23 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.EspressoStreamer {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.EspressoStreamer[EspressoBatch] {
 
 	if !cfg.CaffNodeConfig.IsCaffNode {
 		return nil
 	}
 
-	streamer := espresso.EspressoStreamer{
-		PollingHotShotPollingInterval: cfg.CaffNodeConfig.PollingHotShotPollingInterval,
-		BatcherAddress:                cfg.Genesis.SystemConfig.BatcherAddr,
-		Namespace:                     cfg.L2ChainID.Uint64(),
-		L1Client:                      nil, // TODO Philippe
-		EspressoClient:                espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
-		EspressoLightClient:           nil, // TODO Philippe remove
-		Log:                           log,
-		BatchPos:                      1,
-		BatchBuffer:                   NewEspressoBatchBuffer(cfg.Genesis.SystemConfig.BatcherAddr, log),
-	}
+	streamer := espresso.NewEspressoStreamer(
+		cfg.L2ChainID.Uint64(),
+		nil, // TODO(AG)
+		espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
+		nil, // TODO(AG)
+		log,
+		func(data []byte) (*EspressoBatch, error) {
+			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
+		},
+		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
+	)
 
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
 

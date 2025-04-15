@@ -19,7 +19,7 @@ import (
 // Parameters for transaction fetching loop, which waits for transactions
 // to be sequenced on Espresso
 const (
-	transactionFetchTimeout  = 2 * time.Minute
+	transactionFetchTimeout  = 4 * time.Second
 	transactionFetchInterval = 100 * time.Millisecond
 )
 
@@ -43,42 +43,37 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 	ticker := time.NewTicker(transactionFetchInterval)
 	defer ticker.Stop()
 
-Loop:
 	for {
 		select {
 		case <-ticker.C:
-			_, err = l.Espresso.FetchTransactionByHash(ctx, txHash)
+			_, err := l.Espresso.FetchTransactionByHash(ctx, txHash)
 			if err == nil {
-				break Loop
+				return nil
 			}
 		case <-timer.C:
 			l.Log.Error("Failed to fetch transaction by hash after multiple attempts", "txHash", txHash)
 			return fmt.Errorf("failed to fetch transaction by hash: %w", err)
 		case <-ctx.Done():
 			l.Log.Info("Cancelling transaction publishing", "txHash", txHash)
-			break Loop
+			return nil
 		}
 	}
-
-	return nil
 }
 
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
-	batch, _, err := derive.BlockToSingularBatch(l.RollupConfig, block)
-	if err != nil {
-		return fmt.Errorf("failed to derive batch from block: %w", err)
-	}
 
-	espressoBatch := EspressoBatch{
-		Header: *block.Header(),
-		Batch:  *batch,
+	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
+	if err != nil {
+		l.Log.Warn("Failed to derive batch from block", "err", err)
+		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
 	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner)
 	if err != nil {
+		l.Log.Warn("Failed to create Espresso transaction from a batch", "err", err)
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
 
@@ -96,7 +91,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	return nil
 }
 
-func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus, streamer *espresso.EspressoStreamer) {
+func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) {
 	shouldClearState, err := streamer.Refresh(ctx, newSyncStatus)
 	shouldClearState = shouldClearState || err != nil
 
@@ -108,7 +103,10 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 		return
 	}
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
-	if syncActions.clearState != nil || shouldClearState {
+	if syncActions.clearState == nil && shouldClearState {
+		l.channelMgr.Clear(newSyncStatus.SafeL2.L1Origin)
+		streamer.Reset()
+	} else if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
 		streamer.Reset()
 	} else {
@@ -126,19 +124,17 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer ticker.Stop()
 	defer close(publishSignal)
 
-	streamer := espresso.EspressoStreamer{
-		PollingHotShotPollingInterval: l.Config.PollInterval,
-		BatcherAddress:                l.SequencerAddress,
-		Namespace:                     l.RollupConfig.L2ChainID.Uint64(),
-
-		L1Client:            l.L1Client,
-		EspressoClient:      l.Espresso,
-		EspressoLightClient: l.EspressoLightClient,
-		Log:                 l.Log,
-
-		BatchPos:    1,
-		BatchBuffer: NewEspressoBatchBuffer(l.SequencerAddress, l.Log),
-	}
+	streamer := espresso.NewEspressoStreamer(
+		l.RollupConfig.L2ChainID.Uint64(),
+		l.L1Client,
+		l.Espresso,
+		nil, // TODO (Keyao) BatchSubmitter doesn't have field EspressoLightClient.
+		l.Log,
+		func(data []byte) (*derive.EspressoBatch, error) {
+			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
+		},
+		2*time.Second,
+	)
 
 	for {
 		select {
@@ -157,22 +153,30 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
+			var batch *derive.EspressoBatch
+
 			for {
 
-				var batch = streamer.Next(ctx)
+				batch = streamer.Next(ctx)
+
 				if batch == nil {
 					break
 				}
 
-				// This should happen ONLY if the batch is malformed. BatchToIncompleteBlock has to guarantee
-				// no transient errors.
-				block, err := batch.ToIncompleteBlock(l.RollupConfig)
+				// This should happen ONLY if the batch is malformed. ToBlock has to guarantee no
+				// transient errors.
+				block, err := batch.ToBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
 					continue
 				}
 
-				l.Log.Debug("Received block from Espresso", "blockNr", block.NumberU64(), "blockHash", block.Hash(), "parentHash", block.ParentHash())
+				l.Log.Trace(
+					"Received block from Espresso",
+					"blockNr", block.NumberU64(),
+					"blockHash", block.Hash(),
+					"parentHash", block.ParentHash(),
+				)
 
 				l.channelMgrMutex.Lock()
 				err = l.channelMgr.AddL2Block(block)
