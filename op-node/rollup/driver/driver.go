@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+
 	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -78,7 +79,7 @@ type DerivationPipeline interface {
 	Origin() eth.L1BlockRef
 	DerivationReady() bool
 	ConfirmEngineReset()
-	EspressoStreamer() *espresso.EspressoStreamer
+	EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
 type EngineController interface {
