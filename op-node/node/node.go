@@ -587,11 +587,11 @@ func (n *OpNode) Start(ctx context.Context) error {
 	}
 
 	if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
-		go func() {
-			if err := n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx); err != nil {
-				n.log.Error("EspressoStreamer failed", "error", err)
-			}
-		}()
+		// go func() {
+		// 	if err := n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx); err != nil {
+		// 		n.log.Error("EspressoStreamer failed", "error", err)
+		// 	}
+		// }()
 	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine

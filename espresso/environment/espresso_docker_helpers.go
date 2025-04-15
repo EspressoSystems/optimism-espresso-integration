@@ -90,6 +90,10 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 		args = append(args, config.Image)
 	}
 
+	// TODO For debugging purposes
+	var dockerCmd = strings.Join(args, " ")
+	_ = dockerCmd
+
 	var containerID string
 	{
 		launchContainerCmd := exec.CommandContext(
@@ -102,8 +106,12 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 		// Container ID.
 		launchContainerCmd.Stdout = outputBuffer
 
+		stderrBuffer := new(bytes.Buffer)
+		launchContainerCmd.Stderr = stderrBuffer
+		launchContainerCmd.Stdout = outputBuffer
+
 		if err := launchContainerCmd.Run(); err != nil {
-			return DockerContainerInfo{}, err
+			return DockerContainerInfo{}, fmt.Errorf("failed to launch docker container: %w\nstderr: %s", err, stderrBuffer.String())
 		}
 
 		containerID = strings.TrimSpace(outputBuffer.String())
