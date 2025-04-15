@@ -789,6 +789,9 @@ func (n *OpNode) Stop(ctx context.Context) error {
 
 	// close L2 driver
 	if n.l2Driver != nil {
+		if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
+			//Sishan TODO: stop the espresso streamer
+		}
 		if err := n.l2Driver.Close(); err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to close L2 engine driver cleanly: %w", err))
 		}
