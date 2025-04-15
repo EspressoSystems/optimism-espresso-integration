@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-
 function generate_go_bindings() {
   local json_file="$1"
+  local contract_name_full
   local contract_name
   local base_name
   local abi_data
@@ -19,22 +19,20 @@ function generate_go_bindings() {
 
   base_name=$(basename "$json_file")
   contract_name_full="${base_name%.json}"
-  contract_name="${contract_name_full#I}" # Remove leading 'I' if present
-  IFS='.' read -r contract_name _ <<< "$contract_name" # Remove everything after '.'
+  contract_name="${contract_name_full#I}"   # Remove leading 'I' if present
+  IFS='.' read -r contract_name _ <<< "$contract_name"
 
-  cd "$(dirname "$json_file")" || {
+  if ! cd "$(dirname "$json_file")"; then
     echo "Error: Could not change directory to $(dirname "$json_file")" >&2
     return 1
-  }
+  fi
 
-  abi_data=$(cat "$base_name" | jq -r '.abi')
-  if [[ $? -ne 0 ]]; then
+  if ! abi_data=$(cat "$base_name" | jq -r '.abi'); then
     echo "Error extracting ABI from $base_name" >&2
     return 1
   fi
 
-  bin_data=$(cat "$base_name" | jq -r '.bytecode.object')
-  if [[ $? -ne 0 ]]; then
+  if ! bin_data=$(cat "$base_name" | jq -r '.bytecode.object'); then
     echo "Error extracting bytecode from $base_name" >&2
     return 1
   fi
@@ -55,8 +53,8 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-bindings=$(generate_go_bindings "$1")
-if [[ $? -eq 0 ]]; then
+
+if bindings=$(generate_go_bindings "$1"); then
   echo "$bindings"
 else
   exit 1 # Propagate the error exit code from the function
