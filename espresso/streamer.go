@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -41,10 +42,11 @@ type EspressoStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
-	L1Client            L1Client // TODO Philippe apparently not used yet
-	EspressoClient      *espressoClient.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
-	Log                 log.Logger
+	L1Client                      L1Client // TODO Philippe apparently not used yet
+	EspressoClient                *espressoClient.Client
+	EspressoLightClient           *espressoLightClient.LightClientReader
+	Log                           log.Logger
+	PollingHotShotPollingInterval time.Duration
 
 	// Batch number we're to give out next
 	BatchPos uint64
@@ -70,6 +72,7 @@ func NewEspressoStreamer[B Batch](
 	lightClient *espressoLightClient.LightClientReader,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
+	pollingHotShotPollingInterval time.Duration,
 ) EspressoStreamer[B] {
 	return EspressoStreamer[B]{
 		L1Client:            l1Client,
@@ -77,9 +80,10 @@ func NewEspressoStreamer[B Batch](
 		EspressoLightClient: lightClient,
 		Log:                 log,
 
-		Namespace:   namespace,
-		BatchPos:    1,
-		BatchBuffer: NewBatchBuffer[B](),
+		Namespace:                     namespace,
+		BatchPos:                      1,
+		BatchBuffer:                   NewBatchBuffer[B](),
+		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 
 		UnmarshalBatch: unmarshalBatch,
 	}
@@ -193,14 +197,11 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	return nil
 }
 
-func (s *EspressoStreamer[B]) Start(ctx context.Context) error {
-	s.Log.Info("In the function, Starting espresso streamer")
-	bigTimeout := 2 * time.Minute
-	timer := time.NewTimer(bigTimeout)
-	defer timer.Stop()
+func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
 
-	// Sishan TODO: maybe use better handler with dynamic interval in the future
-	ticker := time.NewTicker(2) // TODO make it configurable
+	s.Log.Info("Starting espresso streamer")
+	defer wg.Done()
+	ticker := time.NewTicker(s.PollingHotShotPollingInterval)
 	defer ticker.Stop()
 
 	for {
@@ -208,28 +209,16 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context) error {
 		case <-ticker.C:
 			err := s.Update(ctx)
 			if err != nil {
-				s.Log.Error("Error while updating the batches: ", err)
-			} else {
-				s.Log.Info("Processing block", "block number", s.hotShotPos)
-				// Successful execution: reset the timer to start the timeout period over.
-				// Stop the timer and drain if needed.
-				// TODO Here we need to build a L2 block from the new batch
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(bigTimeout)
+				s.Log.Error("failed to update Espresso streamer", "err", err)
+				continue
 			}
-			timer.Reset(bigTimeout)
 
 		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			return fmt.Errorf("timeout while queueing messages from hotshot")
+			s.Log.Info("espressoBatchLoadingLoop returning")
+			return
 		}
 	}
+
 }
 
 // TODO this logic might be slightly different between batcher and derivation
