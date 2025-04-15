@@ -20,21 +20,15 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	gethNode "github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 )
 
-// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
-// "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-newfoundland"
-// "const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-labrador"
-// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-builder"
-// const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20241115"
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle"
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
 
-// deployed ESPRESSO_SEQUENCER_LIGHT_CLIENT_ADDRESS at 0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180
-// deployed ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS at 0xb4b46bdaa835f8e4b4d8e208b6559cd267851051
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x17435cce3d1b4fa2e5f8a08ed921d57c6762a180"
+
+const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
 
 // This is the mnemonic that we use to create the private key for deploying
 // contacts on the L1
@@ -213,19 +207,16 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
 	sysConfig.DeployConfig.DeployCeloContracts = true
-	// sysConfig.DeployConfig.DAChallengeWindow = 16
-	// sysConfig.DeployConfig.DAResolveWindow = 16
-	// sysConfig.DeployConfig.DABondSize = 1000000
-	// sysConfig.DeployConfig.DAResolverRefundPercentage = 0
-	// sysConfig.DeployConfig.RollupConfig()
-	// sysConfig.DeployConfig.L2ChainID = params.CeloBaklavaChainID
 
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
 
+	// Pre-fund Espresso acount with 1M Ether
+	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
+	sysConfig.Premine[ESPRESSO_CONTRACT_ACCOUNT] = espressoPremine
+
 	initialOptions := []DevNetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
-		fundEspressoAccount(),
 		launchEspressoDevNodeDocker(),
 	}
 
@@ -348,70 +339,6 @@ func allowHostDockerInternalVirtualHost() DevNetLauncherOption {
 	}
 }
 
-// fundEspressoAccount is a convenience method that funds the espresso
-// account with an initial amount of ETH, so that it can deploy contracts
-// on the L1.  This is necessary as the espresso-dev-node does not
-func fundEspressoAccount() DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
-		return E2eSystemOption{
-			StartOptions: []e2esys.StartOption{
-				{
-					Key:  "afterRollupNodeStart",
-					Role: e2esys.RoleVerif,
-					Action: func(sysConfig *e2esys.SystemConfig, sys *e2esys.System) {
-						if c.Error != nil {
-							// Early Return if we already have an Error set
-							return
-						}
-
-						c.System = sys
-
-						ctx, cancel := context.WithCancel(c.Ctx)
-						defer cancel()
-
-						// Fund the Espresso Account, so it is able to deploy contracts
-						l1Client := sys.NodeClient(e2esys.RoleL1)
-
-						tx, err := SignTransaction(&types.DynamicFeeTx{
-							ChainID:   sysConfig.L1ChainIDBig(),
-							To:        &ESPRESSO_CONTRACT_ACCOUNT,
-							Value:     big.NewInt(1_000_000_000_000_000_000),
-							GasTipCap: big.NewInt(1_000_000_000),
-							GasFeeCap: big.NewInt(1_000_000_000),
-							Gas:       25000,
-							Data:      nil,
-						}, sysConfig.Secrets.Alice, sysConfig.L1ChainIDBig())
-						if err != nil {
-							c.Error = FailedToLoadEspressoAccount{Cause: err}
-							return
-						}
-
-						startingBalance, err := l1Client.BalanceAt(ctx, ESPRESSO_CONTRACT_ACCOUNT, nil)
-						if err != nil {
-							c.Error = FailedToLoadEspressoAccount{Cause: err}
-							return
-						}
-
-						err = l1Client.SendTransaction(ctx, tx)
-						if err != nil {
-							c.Error = FailedToLoadEspressoAccount{Cause: err}
-							return
-						}
-
-						{
-							ctx, cancel := context.WithTimeout(ctx, time.Second*30)
-							defer cancel()
-							if err := WaitForIncreasedBalance(ctx, l1Client, ESPRESSO_CONTRACT_ACCOUNT, startingBalance); err != nil {
-								c.Error = FailedToLoadEspressoAccount{Cause: err}
-								return
-							}
-						}
-					},
-				},
-			},
-		}
-	}
-}
 
 // This code is adapted from a gist file:
 // https://gist.github.com/sevkin/96bdae9274465b2d09191384f86ef39d
@@ -462,7 +389,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							// We replace the host with host.docker.internal to inform
 							// docker to communicate with the host system.
-
 							if isRunningOnLinux {
 								l1EthRpcURL.Host = net.JoinHostPort("localhost", port)
 							} else {
@@ -497,6 +423,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 									"ESPRESSO_DEPLOYER_ACCOUNT_INDEX":             ESPRESSO_MNEMONIC_INDEX,
 									"ESPRESSO_SEQUENCER_ETH_MNEMONIC":             ESPRESSO_MNEMONIC,
 									"ESPRESSO_SEQUENCER_L1_PROVIDER":              l1EthRpcURL.String(),
+									"ESPRESSO_SEQUENCER_L1_POLLING_INTERVAL":      "30ms",
 									"ESPRESSO_SEQUENCER_DATABASE_MAX_CONNECTIONS": "25",
 									"ESPRESSO_SEQUENCER_STORAGE_PATH":             "/data/espresso",
 									"RUST_LOG":                                    "info",
