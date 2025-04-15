@@ -11,6 +11,7 @@
 !op-service/
 !op-supervisor/
 !op-test-sequencer
+!espresso/
 
 **/bin
 **/testdata
