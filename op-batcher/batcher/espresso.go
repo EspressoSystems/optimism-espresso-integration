@@ -341,13 +341,13 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	batchVerifier, err := bindings.NewBatchVerifier(l.RollupConfig.CaffNodeConfig.BatchVerifierAddress, l.L1Client)
+	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create batch verifier contract bindings: %w", err)
 	}
 
 	// Decode the attestation off-chain to conserve gas
-	attestationTbs, signature, err := batchVerifier.DecodeAttestationTbs(&bind.CallOpts{}, l.Attestation)
+	attestationTbs, signature, err := batchAuthenticator.DecodeAttestationTbs(&bind.CallOpts{}, l.Attestation)
 	if err != nil {
 		return fmt.Errorf("failed to decode attestation: %w", err)
 	}
@@ -358,7 +358,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	}
 
 	// Submit decoded attestation to batch inbox contract
-	tx, err := batchVerifier.RegisterSigner(txOpts, attestationTbs, signature)
+	tx, err := batchAuthenticator.RegisterSigner(txOpts, attestationTbs, signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
@@ -384,7 +384,6 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
 	l.Log.Debug("Sending Espresso-enabled L1 transaction", "txRef", transactionReference)
 
-	// VerifyBatch expects bytes32
 	var commitment [32]byte
 	if len(candidate.Blobs) == 0 {
 		commitment = crypto.Keccak256Hash(candidate.TxData)
@@ -417,7 +416,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 	}
 	l.Log.Debug("Signed transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
 
-	batchVerifierAbi, err := bindings.BatchVerifierMetaData.GetAbi()
+	batchAuthenticatorAbi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
@@ -426,32 +425,32 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		return
 	}
 
-	verifyBatchCalldata, err := batchVerifierAbi.Pack("verifyBatch", commitment, signature)
+	authenticateBatchCalldata, err := batchAuthenticatorAbi.Pack("authenticateBatch", commitment, signature)
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
-			Err: fmt.Errorf("failed to pack verifyBatch calldata: %w", err),
+			Err: fmt.Errorf("failed to pack authenticateBatch calldata: %w", err),
 		}
 		return
 	}
 
 	verifyCandidate := txmgr.TxCandidate{
-		TxData: verifyBatchCalldata,
-		To:     &l.RollupConfig.CaffNodeConfig.BatchVerifierAddress,
+		TxData: authenticateBatchCalldata,
+		To:     &l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress,
 	}
 
 	l.Log.Debug(
-		"Sending verifyBatch transaction",
+		"Sending authenticateBatch transaction",
 		"txRef", transactionReference,
 		"commitment", hexutil.Encode(commitment[:]),
 		"sig", hexutil.Encode(signature),
-		"address", l.RollupConfig.CaffNodeConfig.BatchVerifierAddress.String(),
+		"address", l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress.String(),
 	)
 	_, err = l.Txmgr.Send(l.killCtx, verifyCandidate)
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
-			Err: fmt.Errorf("failed to send verifyBatch transaction: %w", err),
+			Err: fmt.Errorf("failed to send authenticateBatch transaction: %w", err),
 		}
 		return
 	}

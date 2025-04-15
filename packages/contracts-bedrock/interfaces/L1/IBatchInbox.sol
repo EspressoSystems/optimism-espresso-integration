@@ -6,5 +6,5 @@ interface IBatchInbox {
 
     function version() external view returns (string memory);
 
-    function __constructor__(address _batchVerifier) external;
+    function __constructor__(address _batchAuthenticator) external;
 }

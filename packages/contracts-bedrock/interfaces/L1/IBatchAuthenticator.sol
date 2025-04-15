@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-interface IBatchVerifier {
+interface IBatchAuthenticator {
     event Initialized(uint8 version);
     event OwnershipTransferred(
         address indexed previousOwner,
@@ -27,7 +27,10 @@ interface IBatchVerifier {
 
     function validBatches(bytes32) external view returns (bool);
 
-    function verifyBatch(bytes32 commitment, bytes memory signature) external;
+    function authenticateBatch(
+        bytes32 commitment,
+        bytes memory signature
+    ) external;
 
     function version() external view returns (string memory);
 

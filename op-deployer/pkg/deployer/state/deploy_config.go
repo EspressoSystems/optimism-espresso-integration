@@ -91,7 +91,7 @@ func CombineDeployConfig(intent *Intent, chainIntent *ChainIntent, state *State,
 				ChannelTimeoutBedrock:     300,
 				SystemConfigStartBlock:    0,
 				BatchInboxAddress:         calculateBatchInboxAddr(chainState),
-				BatchVerifierAddress:      chainState.BatchVerifierAddress,
+				BatchAuthenticatorAddress: chainState.BatchAuthenticatorAddress,
 			},
 			OperatorDeployConfig: genesis.OperatorDeployConfig{
 				BatchSenderAddress:  chainIntent.Roles.Batcher,

@@ -112,7 +112,7 @@ type ChainState struct {
 	DataAvailabilityChallengeProxyAddress     common.Address               `json:"dataAvailabilityChallengeProxyAddress"`
 	DataAvailabilityChallengeImplAddress      common.Address               `json:"dataAvailabilityChallengeImplAddress"`
 	BatchInboxAddress                         common.Address               `json:"batchInboxAddress"`
-	BatchVerifierAddress                      common.Address               `json:"batchVerifierAddress"`
+	BatchAuthenticatorAddress                 common.Address               `json:"batchAuthenticatorAddress"`
 	AdditionalDisputeGames                    []AdditionalDisputeGameState `json:"additionalDisputeGames"`
 
 	Allocs *GzipData[foundry.ForgeAllocs] `json:"allocs"`

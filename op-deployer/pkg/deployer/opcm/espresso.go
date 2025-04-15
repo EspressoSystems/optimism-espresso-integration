@@ -22,8 +22,8 @@ type DeployEspressoInput struct {
 }
 
 type DeployEspressoOutput struct {
-	BatchVerifierAddress common.Address
-	BatchInboxAddress    common.Address
+	BatchAuthenticatorAddress common.Address
+	BatchInboxAddress         common.Address
 }
 
 type DeployEspressoScript struct {

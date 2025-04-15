@@ -161,7 +161,7 @@ type CaffNodeConfig struct {
 	NextHotShotBlockNum           uint64
 	PollingHotShotPollingInterval time.Duration
 	HotShotUrls                   []string
-	BatchVerifierAddress          common.Address `json:"batch_verifier_address"`
+	BatchAuthenticatorAddress     common.Address `json:"batch_authenticator_address"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

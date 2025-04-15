@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { IBatchVerifier } from "interfaces/L1/IBatchVerifier.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
 contract BatchInbox {
-    IBatchVerifier immutable batchVerifier;
+    IBatchAuthenticator immutable batchAuthenticator;
 
-    constructor(IBatchVerifier _batchVerifier) {
-        batchVerifier = _batchVerifier;
+    constructor(IBatchAuthenticator _batchAuthenticator) {
+        batchAuthenticator = _batchAuthenticator;
     }
 
     fallback() external {
@@ -19,12 +19,12 @@ contract BatchInbox {
                 currentBlob++;
             }
             bytes32 hash = keccak256(concatenatedHashes);
-            if (!batchVerifier.validBatches(hash)) {
+            if (!batchAuthenticator.validBatches(hash)) {
                 revert("Invalid blob batch");
             }
         } else {
             bytes32 hash = keccak256(msg.data);
-            if (!batchVerifier.validBatches(hash)) {
+            if (!batchAuthenticator.validBatches(hash)) {
                 revert("Invalid calldata batch");
             }
         }

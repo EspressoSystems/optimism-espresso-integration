@@ -47,7 +47,7 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	chainState.BatchInboxAddress = eo.BatchInboxAddress
-	chainState.BatchVerifierAddress = eo.BatchVerifierAddress
+	chainState.BatchAuthenticatorAddress = eo.BatchAuthenticatorAddress
 	lgr.Info("Espresso batch inbox contract deployed at", "address", eo.BatchInboxAddress)
 	return nil
 }

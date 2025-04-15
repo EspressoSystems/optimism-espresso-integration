@@ -15,7 +15,7 @@ interface INitroValidator {
         returns (bytes memory attestationTbs, bytes memory signature);
 }
 
-contract BatchVerifier is ISemver, OwnableUpgradeable {
+contract BatchAuthenticator is ISemver, OwnableUpgradeable {
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -38,7 +38,7 @@ contract BatchVerifier is ISemver, OwnableUpgradeable {
         return nitroValidator.decodeAttestationTbs(attestation);
     }
 
-    function verifyBatch(bytes32 commitment, bytes calldata _signature) external {
+    function authenticateBatch(bytes32 commitment, bytes calldata _signature) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
         uint8 v = uint8(signature[64]);

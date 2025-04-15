@@ -31,7 +31,7 @@ var (
 
 // BatchInboxMetaData contains all meta data concerning the BatchInbox contract.
 var BatchInboxMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"fallback\",\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"__constructor__\",\"inputs\":[{\"name\":\"_batchVerifier\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"version\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"}]",
+	ABI: "[{\"type\":\"fallback\",\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"__constructor__\",\"inputs\":[{\"name\":\"_batchAuthenticator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"version\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"}]",
 }
 
 // BatchInboxABI is the input ABI used to generate the binding from.
@@ -213,23 +213,23 @@ func (_BatchInbox *BatchInboxCallerSession) Version() (string, error) {
 
 // Constructor is a paid mutator transaction binding the contract method 0x038a609c.
 //
-// Solidity: function __constructor__(address _batchVerifier) returns()
-func (_BatchInbox *BatchInboxTransactor) Constructor(opts *bind.TransactOpts, _batchVerifier common.Address) (*types.Transaction, error) {
-	return _BatchInbox.contract.Transact(opts, "__constructor__", _batchVerifier)
+// Solidity: function __constructor__(address _batchAuthenticator) returns()
+func (_BatchInbox *BatchInboxTransactor) Constructor(opts *bind.TransactOpts, _batchAuthenticator common.Address) (*types.Transaction, error) {
+	return _BatchInbox.contract.Transact(opts, "__constructor__", _batchAuthenticator)
 }
 
 // Constructor is a paid mutator transaction binding the contract method 0x038a609c.
 //
-// Solidity: function __constructor__(address _batchVerifier) returns()
-func (_BatchInbox *BatchInboxSession) Constructor(_batchVerifier common.Address) (*types.Transaction, error) {
-	return _BatchInbox.Contract.Constructor(&_BatchInbox.TransactOpts, _batchVerifier)
+// Solidity: function __constructor__(address _batchAuthenticator) returns()
+func (_BatchInbox *BatchInboxSession) Constructor(_batchAuthenticator common.Address) (*types.Transaction, error) {
+	return _BatchInbox.Contract.Constructor(&_BatchInbox.TransactOpts, _batchAuthenticator)
 }
 
 // Constructor is a paid mutator transaction binding the contract method 0x038a609c.
 //
-// Solidity: function __constructor__(address _batchVerifier) returns()
-func (_BatchInbox *BatchInboxTransactorSession) Constructor(_batchVerifier common.Address) (*types.Transaction, error) {
-	return _BatchInbox.Contract.Constructor(&_BatchInbox.TransactOpts, _batchVerifier)
+// Solidity: function __constructor__(address _batchAuthenticator) returns()
+func (_BatchInbox *BatchInboxTransactorSession) Constructor(_batchAuthenticator common.Address) (*types.Transaction, error) {
+	return _BatchInbox.Contract.Constructor(&_BatchInbox.TransactOpts, _batchAuthenticator)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.

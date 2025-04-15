@@ -581,8 +581,8 @@ type L2CoreDeployConfig struct {
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
 
-	EspressoEnabled      bool           `json:"espressoEnabled"`
-	BatchVerifierAddress common.Address `json:"batchVerifierAddress"`
+	EspressoEnabled           bool           `json:"espressoEnabled"`
+	BatchAuthenticatorAddress common.Address `json:"batchAuthenticatorAddress"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)
@@ -1032,7 +1032,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 		L2ChainID:             new(big.Int).SetUint64(d.L2ChainID),
 		BatchInboxAddress:     d.BatchInboxAddress,
 		CaffNodeConfig: rollup.CaffNodeConfig{
-			BatchVerifierAddress: d.BatchVerifierAddress,
+			BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
 		},
 		DepositContractAddress:  d.OptimismPortalProxy,
 		L1SystemConfigAddress:   d.SystemConfigProxy,
