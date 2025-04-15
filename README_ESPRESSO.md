@@ -125,3 +125,60 @@ Run the Espresso integration tests:
 If in the Nix environment, any `just` command fails with a tool version mismatch error such as
 `version "go1.22.7" does not match go tool version "go1.22.12"`, use
 `export GOROOT="$(dirname $(dirname $(which go)))/share/go"` to set the expected Go version.
+
+### Run the Kurtosis devnet
+
+- Install tools.
+  - Install Docker Desktop via https://www.docker.com/products/docker-desktop/.
+    - Or podman, colima, etc.
+    - Verify Docker is installed:
+      ```bash
+      docker version
+      ```
+
+  - Install Kurtosis via https://docs.kurtosis.com/install/.
+
+- Run the devnet.
+  - In the Nix environment:
+    ```bash
+    cd kurtosis-devnet
+    just espresso-devnet
+    ```
+
+  - If you get the `command not found` or the `"kurtosis": executable file not found in $PATH`
+  error, add the Docker's binary directory to `PATH`. E.g., if the Docker CLI lives at
+  `/Applications/Docker.app/Contents/Resources/bin/`, run:
+    ```bash
+    echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.bash_profile
+    source ~/.bash_profile
+    ```
+    or:
+    ```bash
+    echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+    if you are using Zsh. Then restart the devnet test.
+
+
+  - Kurtosis devnet can be quite slow to start, especially on the first run. Verify everything is
+  running with:
+    ```bash
+    kurtosis enclave inspect espresso-devnet
+    ```
+
+  - Read logs:
+    ```bash
+    kurtosis service logs espresso-devnet <service-name>
+
+    # show all the logs
+    kurtosis service logs -a espresso-devnet <service-name>
+
+    # frequently used commands
+    kurtosis service logs -a espresso-devnet op-batcher-op-kurtosis
+    kurtosis service logs -a espresso-devnet op-cl-1-op-node-op-geth-op-kurtosis
+    ```
+
+  - Clean up:
+    ```bash
+    kurtosis clean -a
+    ```
