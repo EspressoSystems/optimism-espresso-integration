@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -99,6 +100,7 @@ type DriverSetup struct {
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
 	Espresso            *espressoClient.Client
+	EspressoLightClient *espressoLightClient.LightClientReader
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
 }

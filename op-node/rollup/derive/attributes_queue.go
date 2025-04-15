@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"time"
+
+	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum/go-ethereum/log"
 
@@ -61,7 +62,7 @@ type AttributesQueue struct {
 	lastAttribs *AttributesWithParent
 
 	isCaffNode       bool
-	espressoStreamer *espresso.EspressoStreamer
+	espressoStreamer *espresso.EspressoStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {
@@ -71,21 +72,23 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.EspressoStreamer {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.EspressoStreamer[EspressoBatch] {
 
 	if !cfg.CaffNodeConfig.IsCaffNode {
 		return nil
 	}
 
-	streamer := espresso.EspressoStreamer{
-		BatcherAddress:      cfg.Genesis.SystemConfig.BatcherAddr,
-		Namespace:           cfg.L2ChainID.Uint64(),
-		L1Client:            nil, // TODO Philippe
-		EspressoClient:      espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
-		Log:                 log,
-		BatchPos:            1,
-		BatchBuffer:         NewEspressoBatchBuffer(cfg.Genesis.SystemConfig.BatcherAddr, log),
-	}
+	streamer := espresso.NewEspressoStreamer(
+		cfg.L2ChainID.Uint64(),
+		nil, // TODO(AG)
+		espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
+		nil, // TODO(AG)
+		log,
+		func(data []byte) (*EspressoBatch, error) {
+			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
+		},
+		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
+	)
 
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
 
@@ -114,16 +117,22 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var batch *SingularBatch
 		var concluding bool
 		var err error
-		// For caff node, call NextBatch() on EspressoStreamer2 instead, assign concluding to false for now
 		if aq.isCaffNode {
-			// Sishan TODO: change to this once BatchValidity is ready
-			// TODO Philippe check this makes sense
+			// Sishan TODO: add remaining espresso streamer logic here
 			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
-			// TODO Philippe do something with the Espresso Batch: probably assign /convert to the L2 batch
 			var espressoBatch = aq.espressoStreamer.Next(ctx)
-			log.Info("espressoBatch", espressoBatch)
-
+			if espressoBatch == nil {
+				// batch = nil
+				// concluding = false
+				// err = NotEnoughData
+			} else {
+				log.Info("espressoBatch", "batch", espressoBatch.Batch)
+				// batch = &espressoBatch.Batch
+				// For caff node, assign concluding to false for now
+				// concluding = false
+				// err = nil
+			}
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
