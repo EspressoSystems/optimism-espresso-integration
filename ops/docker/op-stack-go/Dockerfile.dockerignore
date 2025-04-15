@@ -32,6 +32,7 @@
 !/mise.toml
 !/op-e2e/e2eutils
 !./ops/scripts/install_mise.sh
+!/espresso
 
 **/bin
 **/testdata
