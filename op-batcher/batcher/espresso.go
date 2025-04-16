@@ -128,7 +128,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		l.RollupConfig.L2ChainID.Uint64(),
 		l.L1Client,
 		l.Espresso,
-		l.EspressoLightClient, // TODO (Keyao) BatchSubmitter doesn't have field EspressoLightClient.
+		l.EspressoLightClient,
 		l.Log,
 		func(data []byte) (*derive.EspressoBatch, error) {
 			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
