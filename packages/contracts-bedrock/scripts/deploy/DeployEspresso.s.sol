@@ -2,12 +2,9 @@
 pragma solidity 0.8.22;
 
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
-import { IDataAvailabilityChallenge } from "interfaces/L1/IDataAvailabilityChallenge.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
 import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";
 import { Script } from "forge-std/Script.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";

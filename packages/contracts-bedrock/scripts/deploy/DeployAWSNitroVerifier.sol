@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import { CertManager, ICertManager } from "@nitro-validator/CertManager.sol";
+import { CertManager } from "@nitro-validator/CertManager.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { EspressoNitroTEEVerifier } from "@espresso-tee-contracts/EspressoNitroTEEVerifier.sol";
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";

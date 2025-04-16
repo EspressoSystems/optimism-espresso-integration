@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.0;
 
 interface IBatchAuthenticator {
     event Initialized(uint8 version);
@@ -8,13 +8,22 @@ interface IBatchAuthenticator {
         address indexed newOwner
     );
 
+    function authenticateBatch(
+        bytes32 commitment,
+        bytes memory _signature
+    ) external;
+
     function decodeAttestationTbs(
         bytes memory attestation
     ) external view returns (bytes memory, bytes memory);
 
     function espressoTEEVerifier() external view returns (address);
 
+    function nitroValidator() external view returns (INitroValidator);
+
     function owner() external view returns (address);
+
+    function preApprovedBatcher() external view returns (address);
 
     function registerSigner(
         bytes memory attestationTbs,
@@ -26,13 +35,6 @@ interface IBatchAuthenticator {
     function transferOwnership(address newOwner) external;
 
     function validBatches(bytes32) external view returns (bool);
-
-    function authenticateBatch(
-        bytes32 commitment,
-        bytes memory signature
-    ) external;
-
-    function version() external view returns (string memory);
 
     function __constructor__(
         address _espressoTEEVerifier,
