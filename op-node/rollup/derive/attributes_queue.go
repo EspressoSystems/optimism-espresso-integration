@@ -123,17 +123,16 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 
 			var espressoBatch = aq.espressoStreamer.Next(ctx)
 			if espressoBatch == nil {
-				// batch = nil
-				// concluding = false
-				// err = NotEnoughData
+				batch = nil
+				concluding = true
+				err = NotEnoughData
 			} else {
 				log.Info("espressoBatch", "batch", espressoBatch.Batch)
-				// batch = &espressoBatch.Batch
-				// For caff node, assign concluding to false for now
-				// concluding = false
-				// err = nil
+				batch = &espressoBatch.Batch
+				// For caff node, assign concluding to true for now
+				concluding = true
+				err = nil
 			}
-			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 			if err != nil {
 				return nil, err
 			}
