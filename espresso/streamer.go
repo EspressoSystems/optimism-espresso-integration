@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -177,33 +176,23 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	return nil
 }
 
-func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
-
-	s.Log.Info("Starting espresso streamer")
-	defer wg.Done()
-	ticker := time.NewTicker(s.PollingHotShotPollingInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			err := s.Update(ctx)
-			if err != nil {
-				s.Log.Error("failed to update Espresso streamer", "err", err)
-				continue
-			}
-
-		case <-ctx.Done():
-			s.Log.Info("espressoBatchLoadingLoop returning")
-			return
-		}
-	}
-
-}
-
-// TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
+	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
+		s.BatchPos += 1
+		return s.BatchBuffer.Pop()
+	}
+
+	return nil
+}
+
+func (s *EspressoStreamer[B]) CaffNextBatch(ctx context.Context) *B {
+
+	err := s.Update(ctx)
+	if err != nil {
+		s.Log.Error("failed to update Espresso streamer", "err", err)
+	}
+
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
 		return s.BatchBuffer.Pop()
