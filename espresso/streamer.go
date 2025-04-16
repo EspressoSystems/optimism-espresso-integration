@@ -193,10 +193,5 @@ func (s *EspressoStreamer[B]) CaffNextBatch(ctx context.Context) *B {
 		s.Log.Error("failed to update Espresso streamer", "err", err)
 	}
 
-	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
-		s.BatchPos += 1
-		return s.BatchBuffer.Pop()
-	}
-
-	return nil
+	return s.Next(ctx)
 }
