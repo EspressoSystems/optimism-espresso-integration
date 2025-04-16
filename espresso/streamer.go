@@ -186,6 +186,8 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	return nil
 }
 
+// CaffNextBatch is a function that returns the next batch from the espresso streamer for caff node.
+// It is called when there is a PipelineStepEvent want to progress the buffer.
 func (s *EspressoStreamer[B]) CaffNextBatch(ctx context.Context) *B {
 
 	err := s.Update(ctx)
