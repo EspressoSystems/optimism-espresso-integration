@@ -141,26 +141,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			continue
 		}
 
-		// rawHeader, err := s.EspressoClient.FetchRawHeaderByHeight(ctx, s.hotShotPos)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to fetch raw HotShot header: %w", err)
-		// }
-
-		// var header espressoTypes.HeaderImpl
-		// err = json.Unmarshal(rawHeader, &header)
-		// if err != nil {
-		// 	return fmt.Errorf("could not unmarshal header from bytes")
-		// }
-
-		// snapshot, err := s.EspressoLightClient.FetchMerkleRoot(s.hotShotPos, nil)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to fetch Merkle root: %w", err)
-		// }
-
-		// if snapshot.Height <= s.hotShotPos {
-		// 	return fmt.Errorf("snapshot height is less than or equal to the requested height")
-		// }
-
 		for _, transaction := range txns.Transactions {
 
 			batch, err := s.UnmarshalBatch(transaction)
