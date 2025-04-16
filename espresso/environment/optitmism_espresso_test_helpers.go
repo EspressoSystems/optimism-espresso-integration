@@ -85,8 +85,11 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 		// Alright, presumably, we have a block height
 
 		buf := new(bytes.Buffer)
-		io.Copy(buf, response.Body)
+		_, err = io.Copy(buf, response.Body)
 		response.Body.Close()
+		if err != nil {
+			return err
+		}
 
 		blockHeight, ok := new(big.Int).SetString(buf.String(), 10)
 		if !ok {

@@ -29,13 +29,6 @@ const (
 	transactionFetchInterval = 100 * time.Millisecond
 )
 
-// Parameters for finality checking loop, which waits for merkle proof for
-// Espresso transaction to be available from Light Client contract
-const (
-	finalityTimeout       = 2 * time.Minute
-	finalityCheckInterval = 100 * time.Millisecond
-)
-
 func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transaction espressoCommon.Transaction) error {
 	txHash, err := l.Espresso.SubmitTransaction(ctx, transaction)
 	if err != nil {

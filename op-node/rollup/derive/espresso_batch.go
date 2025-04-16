@@ -16,24 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-// espresso-network-go's HeaderInterface currently lacks a function to get this info,
-// although it is present in all header versions
-func getFinalizedL1(header *espressoCommon.HeaderImpl) *espressoCommon.L1BlockInfo {
-	v0_1, ok := header.Header.(*espressoCommon.Header0_1)
-	if ok {
-		return v0_1.L1Finalized
-	}
-	v0_2, ok := header.Header.(*espressoCommon.Header0_2)
-	if ok {
-		return v0_2.L1Finalized
-	}
-	v0_3, ok := header.Header.(*espressoCommon.Header0_3)
-	if ok {
-		return v0_3.L1Finalized
-	}
-	return nil
-}
-
 // A SingularBatch with block number attached to restore ordering
 // when fetching from Espresso
 type EspressoBatch struct {
