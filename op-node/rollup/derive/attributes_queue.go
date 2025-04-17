@@ -121,7 +121,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 			// Sishan TODO: add remaining espresso streamer logic here
 			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
-			var espressoBatch = aq.espressoStreamer.CaffNextBatch(ctx)
+			var espressoBatch = aq.espressoStreamer.CaffNextBatch(ctx, parent)
 			if espressoBatch == nil {
 				batch = nil
 				concluding = true

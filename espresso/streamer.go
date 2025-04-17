@@ -188,7 +188,45 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 
 // CaffNextBatch is a function that returns the next batch from the espresso streamer for caff node.
 // It is called when there is a PipelineStepEvent want to progress the buffer.
-func (s *EspressoStreamer[B]) CaffNextBatch(ctx context.Context) *B {
+func (s *EspressoStreamer[B]) CaffNextBatch(ctx context.Context, parent eth.L2BlockRef) *B {
+
+	// 	s.messageMutex.Lock()
+	// 	defer s.messageMutex.Unlock()
+
+	// 	// Check the batch match the parent block
+	// 	var returnBatch *SingularBatch
+	// 	// remaining is the list of batches that are not processed yet
+	// 	var remaining []*MessageWithHeight
+	// batchLoop:
+	// 	for i, message := range s.messagesWithHeights {
+	// 		validity := CheckBatchEspresso(ctx, s.rollupConfig, s.log.New("batch_index", i), parent, message.SequencerBatches)
+	// 		// sort out the next batch and drop batch in existing batches
+	// 		switch validity {
+	// 		case BatchFuture:
+	// 			remaining = append(remaining, message)
+	// 			continue
+	// 		case BatchDrop:
+	// 			message.SequencerBatches.LogContext(s.log).Warn("Dropping batch",
+	// 				"parent", parent.ID(),
+	// 				"parent_time", parent.Time,
+	// 			)
+	// 			continue
+	// 		case BatchAccept:
+	// 			returnBatch = message.SequencerBatches
+	// 			// don't keep the current batch in the remaining items since we are processing it now,
+	// 			// but retain every batch we didn't get to yet.
+	// 			remaining = append(remaining, s.messagesWithHeights[i+1:]...)
+	// 			break batchLoop
+	// 		case BatchUndecided: // Sishan TODO: remove if this is not needed
+	// 			remaining = append(remaining, s.messagesWithHeights[i:]...)
+	// 			s.messagesWithHeights = remaining
+	// 			return nil, false, io.EOF
+	// 		default:
+	// 			return nil, false, NewCriticalError(fmt.Errorf("unknown batch validity type: %d", validity))
+	// 		}
+	// 	}
+
+	// 	s.messagesWithHeights = remaining
 
 	err := s.Update(ctx)
 	if err != nil {

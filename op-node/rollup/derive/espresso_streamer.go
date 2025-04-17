@@ -112,7 +112,7 @@ func (s *EspressoStreamer2) NextBatch(ctx context.Context, parent eth.L2BlockRef
 	s.messageMutex.Lock()
 	defer s.messageMutex.Unlock()
 
-	// Sishan TODO: move the logic to new streamer: Find the batch that match the parent block, concluding have to be assigned to true for now.
+	// Sishan TODO: delete the following logic after moving the logic to new streamer
 	var returnBatch *SingularBatch
 	// remaining is the list of batches that are not processed yet
 	var remaining []*MessageWithHeight
