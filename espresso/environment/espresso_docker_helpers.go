@@ -363,11 +363,8 @@ func (d *DockerCli) Logs(ctx context.Context, containerID string) (io.Reader, er
 
 		// We don't really have a great opportunity to inspect any error
 		// returned by this command
-		err := cmd.Wait()
-		if err != nil {
-			log.Printf("failed to wait for docker logs command: %v", err)
-		}
+		err = cmd.Wait()
 	}(logsCmd)
 
-	return reader, nil
+	return reader, err
 }
