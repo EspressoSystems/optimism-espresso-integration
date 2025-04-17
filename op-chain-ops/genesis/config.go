@@ -581,8 +581,8 @@ type L2CoreDeployConfig struct {
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
 
-	EspressoEnabled           bool           `json:"espressoEnabled,omitzero"`
-	BatchAuthenticatorAddress common.Address `json:"batchAuthenticatorAddress,omitzero"`
+	EspressoEnabled           bool           `json:"espressoEnabled,omitzero,omitempty"`
+	BatchAuthenticatorAddress common.Address `json:"batchAuthenticatorAddress,omitzero,omitempty"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)

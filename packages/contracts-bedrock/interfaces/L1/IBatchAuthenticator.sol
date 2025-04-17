@@ -19,7 +19,7 @@ interface IBatchAuthenticator {
 
     function espressoTEEVerifier() external view returns (address);
 
-    function nitroValidator() external view returns (INitroValidator);
+    function nitroValidator() external view returns (address);
 
     function owner() external view returns (address);
 
