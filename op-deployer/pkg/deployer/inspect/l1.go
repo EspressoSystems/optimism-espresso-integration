@@ -74,7 +74,7 @@ type OpChainDeployment struct {
 	DataAvailabilityChallengeProxyAddress common.Address `json:"dataAvailabilityChallengeProxyAddress"`
 	DataAvailabilityChallengeImplAddress  common.Address `json:"dataAvailabilityChallengeImplAddress"`
 	BatchInboxAddress                     common.Address `json:"batchInboxAddress"`
-	BatchAuthenticatorAddress             common.Address `json:"batchAuthenticatorAddress"`
+	BatchAuthenticatorAddress             common.Address `json:"batchAuthenticatorAddress,omitzero,omitempty"`
 }
 
 type ImplementationsDeployment struct {
