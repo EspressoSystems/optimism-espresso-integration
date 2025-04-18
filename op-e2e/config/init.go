@@ -34,6 +34,8 @@ import (
 	_ "embed"
 )
 
+const ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+
 // legacy geth log levels - the geth command line --verbosity flag wasn't
 // migrated to use slog's numerical levels.
 const (
@@ -52,6 +54,7 @@ const (
 	AllocTypeAltDA    AllocType = "alt-da"
 	AllocTypeL2OO     AllocType = "l2oo"
 	AllocTypeMTCannon AllocType = "mt-cannon"
+	AllocTypeEspresso AllocType = "espresso"
 
 	DefaultAllocType = AllocTypeStandard
 )
@@ -65,14 +68,14 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeAltDA:
+	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeAltDA, AllocTypeEspresso:
 		return true
 	default:
 		return false
 	}
 }
 
-var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeL2OO, AllocTypeMTCannon}
+var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspresso}
 
 var (
 	// All of the following variables are set in the init function
@@ -279,6 +282,15 @@ func initAllocType(root string, allocType AllocType) {
 					DABondSize:                 1000000,
 					DAResolverRefundPercentage: 0,
 				}
+			}
+
+			if allocType == AllocTypeEspresso {
+				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
+				if err != nil {
+					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
+				}
+				intent.Chains[0].EspressoEnabled = true
+				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
 			}
 
 			baseUpgradeSchedule := map[string]any{

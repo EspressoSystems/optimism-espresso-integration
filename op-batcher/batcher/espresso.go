@@ -123,12 +123,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer ticker.Stop()
 	defer close(publishSignal)
 
-	err := l.registerBatcher(ctx)
-	if err != nil {
-		l.Log.Error("could not register with batch inbox contract", "err", err)
-		return
-	}
-
 	streamer := espresso.NewEspressoStreamer(
 		l.RollupConfig.L2ChainID.Uint64(),
 		l.L1Client,
@@ -334,7 +328,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress, l.L1Client)
+	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create batch authenticator contract bindings: %w", err)
 	}
@@ -429,7 +423,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 
 	verifyCandidate := txmgr.TxCandidate{
 		TxData: authenticateBatchCalldata,
-		To:     &l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress,
+		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
 	l.Log.Debug(
@@ -437,10 +431,11 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		"txRef", transactionReference,
 		"commitment", hexutil.Encode(commitment[:]),
 		"sig", hexutil.Encode(signature),
-		"address", l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress.String(),
+		"address", l.RollupConfig.BatchAuthenticatorAddress.String(),
 	)
 	_, err = l.Txmgr.Send(l.killCtx, verifyCandidate)
 	if err != nil {
+		l.Log.Error("Failed to send authenticateBatch transaction", "txRef", transactionReference, "err", err)
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
 			Err: fmt.Errorf("failed to send authenticateBatch transaction: %w", err),

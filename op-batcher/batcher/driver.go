@@ -185,6 +185,11 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
+		err := l.registerBatcher(l.killCtx)
+		if err != nil {
+			return fmt.Errorf("could not register with batch inbox contract: %w", err)
+		}
+
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
 		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)
@@ -914,6 +919,7 @@ type TxSender[T any] interface {
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	if l.Config.UseEspresso {
+		l.Log.Warn("Sending transaction to Espresso")
 		go l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
 		return
 	}

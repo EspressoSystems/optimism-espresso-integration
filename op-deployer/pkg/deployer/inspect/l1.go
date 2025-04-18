@@ -44,6 +44,8 @@ func (l L1Contracts) AsL1Deployments() *genesis.L1Deployments {
 		ProtocolVersionsProxy:             l.SuperchainDeployment.ProtocolVersionsProxyAddress,
 		DataAvailabilityChallenge:         l.OpChainDeployment.DataAvailabilityChallengeImplAddress,
 		DataAvailabilityChallengeProxy:    l.OpChainDeployment.DataAvailabilityChallengeProxyAddress,
+		BatchInbox:                        l.OpChainDeployment.BatchInboxAddress,
+		BatchAuthenticator:                l.OpChainDeployment.BatchAuthenticatorAddress,
 	}
 }
 

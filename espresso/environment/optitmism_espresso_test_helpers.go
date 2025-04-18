@@ -3,9 +3,11 @@ package environment
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -20,6 +22,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	gethNode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
@@ -36,6 +40,8 @@ const ESPRESSO_MNEMONIC = "giant issue aisle success illegal bike spike question
 // This is the Mnemonic Index that we use to create the private key for deploying
 // contracts on the L1
 const ESPRESSO_MNEMONIC_INDEX = "0"
+
+const ESPRESSO_TESTING_BATCHER_KEY = "0xfad9c8855b740a0b7ed4c221dbad0f33a83a49cad6b3fe8d5817ac83d38b6a19"
 
 // This is address that corresponds to the menmonic we pass to the espresso-dev-node
 var ESPRESSO_CONTRACT_ACCOUNT = common.HexToAddress("0x8943545177806ed17b9f23f0a21ee5948ecaa776")
@@ -207,7 +213,7 @@ var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to det
 func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 	originalCtx := ctx
 
-	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
+	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeEspresso))
 	sysConfig.DeployConfig.DeployCeloContracts = true
 
 	// Ensure that we fund the dev accounts
@@ -223,7 +229,8 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	}
 
 	launchContext := DevNetLauncherContext{
-		Ctx: originalCtx,
+		Ctx:       originalCtx,
+		SystemCfg: &sysConfig,
 	}
 
 	allOptions := append(initialOptions, options...)
@@ -242,6 +249,10 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 		if startOption := options.StartOptions; startOption != nil {
 			startOptions = append(startOptions, startOption...)
+		}
+
+		if sysConfigOption := options.SysConfigOption; sysConfigOption != nil {
+			sysConfigOption(&sysConfig)
 		}
 	}
 
@@ -354,6 +365,29 @@ func determineFreePort() (port int, err error) {
 
 	addr := listener.Addr().(*net.TCPAddr)
 	return addr.Port, nil
+}
+
+func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
+	return func(ct *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Role: "set-batcher-key",
+					BatcherMod: func(c *batcher.CLIConfig) {
+						c.TestingEspressoBatcherPrivateKey = hexutil.Encode(crypto.FromECDSA(&privateKey))
+					},
+				},
+			},
+		}
+	}
+}
+
+func Config(fn func(*e2esys.SystemConfig)) DevNetLauncherOption {
+	return func(ct *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SysConfigOption: fn,
+		}
+	}
 }
 
 // launchEspressoDevNodeDocker is DevNetLauncherOption that launches th
@@ -515,6 +549,8 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 							}
 
 							c.EspressoUrl = "http://" + hostPort
+							c.LogConfig.Level = slog.LevelDebug
+							c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
 						}
 					},
 				},
