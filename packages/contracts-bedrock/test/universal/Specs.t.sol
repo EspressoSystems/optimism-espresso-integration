@@ -873,7 +873,7 @@ contract Specification_Test is CommonTest {
         _addSpec({ _name: "LivenessModule", _sel: _getSel("safe()") });
         _addSpec({ _name: "LivenessModule", _sel: _getSel("thresholdPercentage()") });
         _addSpec({ _name: "LivenessModule", _sel: _getSel("version()") });
-        
+
         // BatchAuthenticator
         _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("authenticateBatch(bytes32,bytes)") });
         _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("decodeAttestationTbs(bytes)") });
