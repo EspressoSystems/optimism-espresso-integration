@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -91,7 +92,7 @@ type DriverSetup struct {
 	RollupConfig        *rollup.Config
 	Config              BatcherConfig
 	Txmgr               txmgr.TxManager
-	L1Client            L1Client
+	L1Client            *ethclient.Client
 	EndpointProvider    dial.L2EndpointProvider
 	ChannelConfig       ChannelConfigProvider
 	AltDA               *altda.DAClient
@@ -101,6 +102,7 @@ type DriverSetup struct {
 	EspressoLightClient *espressoLightClient.LightClientReader
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
+	Attestation         []byte
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -910,6 +912,10 @@ type TxSender[T any] interface {
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	floorDataGas, err := core.FloorDataGas(candidate.TxData)
+	if l.Config.UseEspresso {
+		go l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
+		return
+	}
 	if err != nil {
 		// We log instead of return an error here because the txmgr will do its own gas estimation.
 		l.Log.Warn("Failed to calculate floor data gas", "err", err)
