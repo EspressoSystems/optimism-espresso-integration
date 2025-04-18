@@ -141,12 +141,17 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			continue
 		}
 
+		// Whether to exit the loop early for a resync.
+		var needResync bool;
+
+		// Batches to be inserted into `BatchBuffer`.
+		var batchesToInsert BatchBuffer[B];
+
 		for _, transaction := range txns.Transactions {
 
 			batch, err := s.UnmarshalBatch(transaction)
 			if err != nil {
-				// Invalid Batch
-				s.Log.Warn("Invalid batch", "error", err)
+				s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
 				continue
 			}
 
@@ -155,23 +160,39 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 			}
 
-			// origin := (*batch).L1Origin()
-			// if origin.Number > s.finalizedL1.Number {
-			// 	break
-			// }
+			origin := (*batch).L1Origin()
+			if origin.Number > s.finalizedL1.Number {
+				// Signal to resync to wait for the L1 finality.
+				s.Log.Warn("L1 origin not finalized, pending resync")
+				needResync = true;
+				break
+			}
 
-			// l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-			// if err != nil {
-			// 	break
-			// }
+			l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+			if err != nil {
+				// Signal to resync to be able to fetch the L1 header.
+				s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+				needResync = true;
+				break
+			}
 
-			// if l1header.Hash() != origin.Hash {
-			// 	continue
-			// }
+			if l1header.Hash() != origin.Hash {
+				s.Log.Warn("Dropping batch with invalid hash", "error", err)
+				continue
+			}
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
-			s.BatchBuffer.Insert(*batch)
+			batchesToInsert.Insert(*batch)
 		}
+
+		if needResync {
+			// Exit early so `hotShotPos` won't increment.
+			break;
+		}
+
+		// Insert batches with the same HotShot position at the end together, in case a resync is
+		// needed which may cause looping the same set of batches again.
+		s.BatchBuffer.append(batchesToInsert)
 	}
 
 	return nil
