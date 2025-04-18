@@ -61,6 +61,10 @@ type ChainIntent struct {
 
 	// Optional. For development purposes only. Only enabled if the operation mode targets a genesis-file output.
 	L2DevGenesisParams *L2DevGenesisParams `json:"l2DevGenesisParams,omitempty" toml:"l2DevGenesisParams,omitempty"`
+
+	// Espresso-specific fields
+	EspressoEnabled       bool           `json:"espressoEnabled,omitzero" toml:"espressoEnabled,omitzero"`
+	PreApprovedBatcherKey common.Address `json:"preApprovedBatcherKey,omitzero" toml:"preApprovedBatcherKey,omitzero"`
 }
 
 type ChainRoles struct {
