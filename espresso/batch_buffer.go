@@ -58,6 +58,12 @@ func (b *BatchBuffer[B]) Insert(batch B) {
 	b.batches = slices.Insert(b.batches, i, batch)
 }
 
+func (b *BatchBuffer[B]) InsertMultiple(batches []B) {
+	for _, batch := range batches {
+		b.Insert(batch)
+	}
+}
+
 func (b *BatchBuffer[B]) Peek() *B {
 	if len(b.batches) == 0 {
 		return nil

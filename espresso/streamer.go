@@ -145,7 +145,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		var needResync bool;
 
 		// Batches to be inserted into `BatchBuffer`.
-		var batchesToInsert BatchBuffer[B];
+		var batchesToInsert []B;
 
 		for _, transaction := range txns.Transactions {
 
@@ -182,7 +182,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			}
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
-			batchesToInsert.Insert(*batch)
+			batchesToInsert = append(batchesToInsert, *batch)
 		}
 
 		if needResync {
@@ -192,7 +192,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 		// Insert batches with the same HotShot position at the end together, in case a resync is
 		// needed which may cause looping the same set of batches again.
-		s.BatchBuffer.append(batchesToInsert)
+		s.BatchBuffer.InsertMultiple(batchesToInsert)
 	}
 
 	return nil
