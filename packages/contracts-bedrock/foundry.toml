@@ -8,22 +8,22 @@ src = 'src'
 out = 'forge-artifacts'
 script = 'scripts'
 build_info_path = 'artifacts/build-info'
-snapshots = 'notarealpath' # workaround for foundry#9477
-allow_internal_expect_revert = true # workaround described in https://github.com/PaulRBerg/prb-math/issues/248
+snapshots = 'notarealpath'               # workaround for foundry#9477
+allow_internal_expect_revert = true      # workaround described in https://github.com/PaulRBerg/prb-math/issues/248
 
 optimizer = true
 optimizer_runs = 999999
 
 additional_compiler_profiles = [
   { name = "dispute", optimizer_runs = 5000 },
-  { name = "via-ir", via_ir = true }
+  { name = "via-ir", via_ir = true },
 ]
 compilation_restrictions = [
   { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 5000 },
   { paths = "src/dispute/PermissionedDisputeGame.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 5000 },
   { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
-  { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true }
+  { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
 ]
 
 extra_output = ['devdoc', 'userdoc', 'metadata', 'storageLayout']
@@ -47,22 +47,22 @@ remappings = [
   'ds-test/=lib/forge-std/lib/ds-test/src',
   'safe-contracts/=lib/safe-contracts/contracts',
   'kontrol-cheatcodes/=lib/kontrol-cheatcodes/src',
-  'interfaces/=interfaces'
+  'interfaces/=interfaces',
 ]
 
 fs_permissions = [
-  { access='read-write', path='./.resource-metering.csv' },
-  { access='read-write', path='./snapshots/' },
-  { access='read-write', path='./deployments/' },
-  { access='read', path='./deploy-config/' },
-  { access='read', path='./deploy-config-periphery/' },
-  { access='read', path='./broadcast/' },
-  { access='read', path = './forge-artifacts/' },
-  { access='read-write', path='./.testdata/' },
-  { access='read', path='./kout-deployment' },
-  { access='read', path='./test/fixtures' },
-  { access='read', path='./lib/superchain-registry/superchain/configs/' },
-  { access='read-write', path='../../op-chain-ops/cmd/celo-migrate/testdata/' },
+  { access = 'read-write', path = './.resource-metering.csv' },
+  { access = 'read-write', path = './snapshots/' },
+  { access = 'read-write', path = './deployments/' },
+  { access = 'read', path = './deploy-config/' },
+  { access = 'read', path = './deploy-config-periphery/' },
+  { access = 'read', path = './broadcast/' },
+  { access = 'read', path = './forge-artifacts/' },
+  { access = 'read-write', path = './.testdata/' },
+  { access = 'read', path = './kout-deployment' },
+  { access = 'read', path = './test/fixtures' },
+  { access = 'read', path = './lib/superchain-registry/superchain/configs/' },
+  { access = 'read-write', path = '../../op-chain-ops/cmd/celo-migrate/testdata/' },
 ]
 
 # 5159 error code is selfdestruct error code
@@ -78,13 +78,13 @@ gas_limit = 9223372036854775807
 
 [fuzz]
 runs = 64
-failure_persist_file="~/Desktop/failures.txt"
+failure_persist_file = "~/Desktop/failures.txt"
 
 [fmt]
-line_length=120
-multiline_func_header='all'
-bracket_spacing=true
-wrap_comments=true
+line_length = 120
+multiline_func_header = 'all'
+bracket_spacing = true
+wrap_comments = true
 
 ################################################################
 #                         PROFILE: CI                          #
@@ -131,7 +131,10 @@ timeout = 300
 
 [profile.lite]
 optimizer = false
-compilation_restrictions = []
+compilation_restrictions = [
+  { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
+  { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
+]
 
 
 ################################################################
@@ -143,6 +146,3 @@ src = 'test/kontrol/proofs'
 out = 'kout-proofs'
 test = 'test/kontrol/proofs'
 script = 'test/kontrol/proofs'
-
-
-
