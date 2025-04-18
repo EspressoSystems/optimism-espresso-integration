@@ -205,7 +205,7 @@ func TestE2eDevNetWithoutEspressoSimpleTransaction(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
+	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.DefaultAllocType))
 
 	system, err := sysConfig.Start(t)
 	if have, want := err, error(nil); have != want {
