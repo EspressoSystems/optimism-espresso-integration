@@ -336,7 +336,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
-		return fmt.Errorf("failed to create batch verifier contract bindings: %w", err)
+		return fmt.Errorf("failed to create batch authenticator contract bindings: %w", err)
 	}
 
 	// Decode the attestation off-chain to conserve gas
@@ -413,7 +413,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
-			Err: fmt.Errorf("failed to get batch verifier ABI: %w", err),
+			Err: fmt.Errorf("failed to get batch authenticator ABI: %w", err),
 		}
 		return
 	}

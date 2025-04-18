@@ -62,7 +62,7 @@ contract DeployEspressoOutput is BaseDeployIO {
     }
 
     function batchAuthenticatorAddress() public view returns (address) {
-        require(_batchAuthenticatorAddress != address(0), "DeployEspressoOutput: batch verifier address not set");
+        require(_batchAuthenticatorAddress != address(0), "DeployEspressoOutput: batch authenticator address not set");
         return _batchAuthenticatorAddress;
     }
 
