@@ -138,15 +138,15 @@ func (s *Sys) Register(name string, deriver Deriver, opts *RegisterOpts) Emitter
 	}
 	s.regs[name] = r
 	var em Emitter = r
-	if opts.Emitter.Limiting {
-		limitedCallback := opts.Emitter.OnLimited
-		em = NewLimiter(ctx, r, opts.Emitter.Rate, opts.Emitter.Burst, func() {
-			r.sys.recordRateLimited(name, r.currentEvent)
-			if limitedCallback != nil {
-				limitedCallback()
-			}
-		})
-	}
+	//if opts.Emitter.Limiting {
+	//	limitedCallback := opts.Emitter.OnLimited
+	//	em = NewLimiter(ctx, r, opts.Emitter.Rate, opts.Emitter.Burst, func() {
+	//		r.sys.recordRateLimited(name, r.currentEvent)
+	//		if limitedCallback != nil {
+	//			limitedCallback()
+	//		}
+	//	})
+	//}
 
 	// If it can derive, add it to the executor (and only after attaching the emitter)
 	if deriver != nil {

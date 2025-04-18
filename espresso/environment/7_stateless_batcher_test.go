@@ -76,11 +76,15 @@ func TestStatelessBatcher(t *testing.T) {
 		// Stop the batcher
 		// TODO Philippe the batcher should be stopped at "random"
 		// TODO Philippe should we restart the batcher in a separate thread to make it more real?
-		if i == 1 {
+		if i == 0 {
 
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
 			time.Sleep(2 * time.Second)
+
+		}
+
+		if i == 2 {
 			driver.StartBatchSubmitting()
 		}
 
