@@ -20,6 +20,10 @@ var excludeContracts = []string{
 	"ERC777TokensRecipient", "Guard", "IProxy", "Vm", "VmSafe", "IMulticall3",
 	"IERC721TokenReceiver", "IProxyCreationCallback", "IBeacon", "IEIP712",
 
+	// Espresso dependencies
+	"IBatchInbox", "IBatchAuthenticator", "IEspressoNitroTEEVerifier",
+	"ICertManager", "BatchAuthenticator", "INitroValidator",
+
 	// EAS
 	"IEAS", "ISchemaResolver", "ISchemaRegistry",
 

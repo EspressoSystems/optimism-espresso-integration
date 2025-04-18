@@ -873,6 +873,19 @@ contract Specification_Test is CommonTest {
         _addSpec({ _name: "LivenessModule", _sel: _getSel("safe()") });
         _addSpec({ _name: "LivenessModule", _sel: _getSel("thresholdPercentage()") });
         _addSpec({ _name: "LivenessModule", _sel: _getSel("version()") });
+
+        // BatchAuthenticator
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("authenticateBatch(bytes32,bytes)") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("decodeAttestationTbs(bytes)") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("espressoTEEVerifier()") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("nitroValidator()") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("owner()") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("preApprovedBatcher()") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("registerSigner(bytes,bytes)") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("renounceOwnership()") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("transferOwnership(address)") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("validBatches(bytes32)") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("version()") });
     }
 
     /// @dev Computes the selector from a function signature.
