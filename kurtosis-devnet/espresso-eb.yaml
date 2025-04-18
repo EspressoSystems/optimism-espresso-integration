@@ -42,6 +42,7 @@ optimism_package:
         granite_time_offset: 0
         holocene_time_offset: 0
         fund_dev_accounts: true
+        pre_approve_batcher: true
       batcher_params:
         dry_run: true
       challenger_params:

@@ -41,3 +41,6 @@
 [submodule "kona"]
 	path = kona
 	url = https://github.com/op-rs/kona
+[submodule "packages/contracts-bedrock/lib/espresso-tee-contracts"]
+	path = packages/contracts-bedrock/lib/espresso-tee-contracts
+	url = https://github.com/EspressoSystems/espresso-tee-contracts
