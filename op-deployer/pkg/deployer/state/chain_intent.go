@@ -47,6 +47,8 @@ type ChainIntent struct {
 	DeployOverrides            map[string]any            `json:"deployOverrides" toml:"deployOverrides"`
 	DangerousAltDAConfig       genesis.AltDADeployConfig `json:"dangerousAltDAConfig,omitempty" toml:"dangerousAltDAConfig,omitempty"`
 	AdditionalDisputeGames     []AdditionalDisputeGame   `json:"dangerousAdditionalDisputeGames" toml:"dangerousAdditionalDisputeGames,omitempty"`
+	EspressoEnabled            bool                      `json:"espressoEnabled,omitzero" toml:"espressoEnabled,omitzero"`
+	PreApprovedBatcherKey      common.Address            `json:"preApprovedBatcherKey,omitzero" toml:"preApprovedBatcherKey,omitzero"`
 }
 
 type ChainRoles struct {
