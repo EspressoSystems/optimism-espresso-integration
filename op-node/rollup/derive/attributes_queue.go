@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -121,7 +122,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 			// Sishan TODO: add remaining espresso streamer logic here
 			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
-			var espressoBatch = aq.espressoStreamer.CaffNextBatch(ctx, parent)
+			var espressoBatch = aq.espressoStreamer.CaffNextBatch(ctx)
 			if espressoBatch == nil {
 				batch = nil
 				concluding = true
@@ -132,6 +133,32 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 				// For caff node, assign concluding to true for now
 				concluding = true
 				err = nil
+
+				// check the batch is valid
+				nextTimestamp := parent.Time + aq.config.BlockTime
+				if batch.Timestamp != nextTimestamp {
+					log.Warn("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+					return nil, ErrTemporary
+				}
+
+				// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+				if batch.ParentHash != parent.Hash {
+					log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+					return nil, ErrTemporary
+				}
+
+				// We can do this check earlier, but it's a more intensive one, so we do this last.
+				for i, txBytes := range batch.Transactions {
+					if len(txBytes) == 0 {
+						log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+						return nil, ErrTemporary
+					}
+					if txBytes[0] == types.DepositTxType {
+						log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+						return nil, ErrTemporary
+					}
+				}
+
 			}
 			if err != nil {
 				return nil, err
