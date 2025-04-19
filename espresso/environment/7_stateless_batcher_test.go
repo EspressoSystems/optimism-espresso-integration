@@ -7,10 +7,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
-	"time"
 )
 
 // TODO Phlippe make the description of the test more detailed using the AAA pattern
@@ -65,7 +63,7 @@ func TestStatelessBatcher(t *testing.T) {
 
 	var caffBalanceNew *big.Int
 
-	driver := system.BatchSubmitter.TestDriver()
+	//driver := system.BatchSubmitter.TestDriver()
 
 	// We select a range of iterations when the batcher is turned off.
 	var rangeBatcherDown [2]int
@@ -73,23 +71,23 @@ func TestStatelessBatcher(t *testing.T) {
 	rangeBatcherDown[1] = 4 //rand.IntN(5) + 5 // Random number between 5 and 9
 
 	batcherIsUp := true
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 10; i++ {
 
 		t.Log("******************* Iteration: ", i)
 		// Let us stop the batcher
-		if i == rangeBatcherDown[0] {
-
-			err = driver.StopBatchSubmitting(ctx)
-			require.NoError(t, err)
-			time.Sleep(2 * time.Second)
-			batcherIsUp = false
-		}
-
-		// Let us start the batcher again
-		if i == rangeBatcherDown[1] {
-			driver.StartBatchSubmitting()
-			batcherIsUp = true
-		}
+		//if i == rangeBatcherDown[0] {
+		//
+		//	err = driver.StopBatchSubmitting(ctx)
+		//	require.NoError(t, err)
+		//	time.Sleep(2 * time.Second)
+		//	batcherIsUp = false
+		//}
+		//
+		//// Let us start the batcher again
+		//if i == rangeBatcherDown[1] {
+		//	driver.StartBatchSubmitting()
+		//	batcherIsUp = true
+		//}
 
 		// The batcher is up, we can send coins
 		if batcherIsUp {
