@@ -23,12 +23,10 @@ import (
 // More specifically the test is defined as follows
 //	Arrange:
 //		Running Sequencer, Batcher in Espresso mode, Caff node  OP node.
-//		Balance of Alice is b.
-//		Check that this is the case querying both Caff and OP nodes
 //	Act:
 //		Loop over n iterations
 //      Randomly pick one iteration to stop the batcher and another to start the batcher
-//      For all the over iterations send one coin to Alice
+//      For all the other iterations send one coin to Alice.
 //	Assert:
 //		Query the Caff node to check that Alice balance has been increased by n-2
 //		Query the OP node to check that Alice balance has been increased by n-2
@@ -77,13 +75,14 @@ func TestStatelessBatcher(t *testing.T) {
 	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
+	numIterations := 6
 
 	// We select a range of iterations when the batcher is turned off.
-	turnBatcherOffIteration := rand.IntN(3)    // Random number between 0 and 2
-	turnBatcherOnIteration := rand.IntN(3) + 2 // Random number between 3 and 5
+	turnBatcherOffIteration := rand.IntN(numIterations / 2)
+	turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
 
 	batcherIsUp := true
-	for i := 0; i < 6; i++ {
+	for i := 0; i < numIterations; i++ {
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
@@ -117,7 +116,6 @@ func TestStatelessBatcher(t *testing.T) {
 
 	expectedAmount := new(big.Int).Mul(new(big.Int).Add(balanceAliceInitial, &numDepositsBigInt), amount)
 
-	// TODO this is not very robust. Should use functions like wait.ForBalanceChange
 	caffBalanceNew, _ = caffVerif.BalanceAt(ctx, addressAlice, nil)
 	l2BalanceNew, _ := l2Verif.BalanceAt(ctx, addressAlice, nil)
 
