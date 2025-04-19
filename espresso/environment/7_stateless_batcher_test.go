@@ -7,11 +7,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
+	"math/rand/v2"
 	"testing"
+	"time"
 )
-
-// TODO Phlippe make the description of the test more detailed using the AAA pattern
 
 // TestStatelessBatcher is a test that verifies a batcher can operate (especially restart) correctly and efficiently without persistent storage.
 //
@@ -19,6 +20,18 @@ import (
 // Espresso Celo Integration plan.  It has stated task definition as follows:
 // Run the rollup and randomly restart the batcher. Check the liveness of the rollup, and the consistency of Espresso confirmations and L1 confirmations.
 // We don't need to clear persistent storage because the original Optimism code isn't and our integration work shouldn't use any.
+// More specifically the test is defined as follows
+//	Arrange:
+//		Running Sequencer, Batcher in Espresso mode, Caff node  OP node.
+//		Balance of Alice is b.
+//		Check that this is the case querying both Caff and OP nodes
+//	Act:
+//		Loop over n iterations
+//      Randomly pick one iteration to stop the batcher and another to start the batcher
+//      For all the over iterations send one coin to Alice
+//	Assert:
+//		Query the Caff node to check that Alice balance has been increased by n-2
+//		Query the OP node to check that Alice balance has been increased by n-2
 
 func TestStatelessBatcher(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -33,7 +46,7 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	defer system.Close()
-	//defer espressoDevNode.Stop()
+	defer espressoDevNode.Stop()
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -63,31 +76,30 @@ func TestStatelessBatcher(t *testing.T) {
 
 	var caffBalanceNew *big.Int
 
-	//driver := system.BatchSubmitter.TestDriver()
+	driver := system.BatchSubmitter.TestDriver()
 
 	// We select a range of iterations when the batcher is turned off.
-	var rangeBatcherDown [2]int
-	rangeBatcherDown[0] = 2 //rand.IntN(5)     // Random number between 0 and 4
-	rangeBatcherDown[1] = 4 //rand.IntN(5) + 5 // Random number between 5 and 9
+	turnBatcherOffIteration := rand.IntN(3)    // Random number between 0 and 2
+	turnBatcherOnIteration := rand.IntN(3) + 2 // Random number between 3 and 5
 
 	batcherIsUp := true
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 6; i++ {
 
 		t.Log("******************* Iteration: ", i)
-		// Let us stop the batcher
-		//if i == rangeBatcherDown[0] {
-		//
-		//	err = driver.StopBatchSubmitting(ctx)
-		//	require.NoError(t, err)
-		//	time.Sleep(2 * time.Second)
-		//	batcherIsUp = false
-		//}
-		//
-		//// Let us start the batcher again
-		//if i == rangeBatcherDown[1] {
-		//	driver.StartBatchSubmitting()
-		//	batcherIsUp = true
-		//}
+		//Let us stop the batcher
+		if i == turnBatcherOffIteration {
+
+			err = driver.StopBatchSubmitting(ctx)
+			require.NoError(t, err)
+			time.Sleep(2 * time.Second)
+			batcherIsUp = false
+		}
+
+		// Let us start the batcher again
+		if i == turnBatcherOnIteration {
+			driver.StartBatchSubmitting()
+			batcherIsUp = true
+		}
 
 		// The batcher is up, we can send coins
 		if batcherIsUp {
