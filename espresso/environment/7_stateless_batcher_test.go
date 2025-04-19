@@ -35,7 +35,7 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	defer system.Close()
-	defer espressoDevNode.Stop()
+	//defer espressoDevNode.Stop()
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -60,32 +60,45 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	amount := new(big.Int).SetUint64(1)
-	numDeposits := 3
+	numDeposits := 0
 	bobOptions.Value = amount
 
 	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
-	for i := 0; i < numDeposits; i++ {
+	var rangeBatcherDown [2]int
+	rangeBatcherDown[0] = 2
+	rangeBatcherDown[0] = 4
+	batcherIsUp := true
+	for i := 0; i < 7; i++ {
 
-		_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
-			// Send from Bob to Alice
-			l2Opts.ToAddr = addressAlice
-		})
+		t.Log("***********************Loop iteration:  ", i)
 
 		// Stop the batcher
 		// TODO Philippe the batcher should be stopped at "random"
 		// TODO Philippe should we restart the batcher in a separate thread to make it more real?
-		if i == 0 {
+		if i == rangeBatcherDown[0] {
 
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
 			time.Sleep(2 * time.Second)
-
+			t.Log("******************** Batcher is down.")
+			batcherIsUp = false
 		}
 
-		if i == 2 {
+		if i == rangeBatcherDown[1] {
 			driver.StartBatchSubmitting()
+			t.Log("******************** Batcher is up again.")
+			batcherIsUp = true
+		}
+
+		if batcherIsUp {
+			t.Log("******************** Batcher is up, we can send coins.")
+			_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
+				// Send from Bob to Alice
+				l2Opts.ToAddr = addressAlice
+			})
+			numDeposits++
 		}
 
 	}
@@ -99,7 +112,7 @@ func TestStatelessBatcher(t *testing.T) {
 	caffBalanceNew, _ = caffVerif.BalanceAt(ctx, addressAlice, nil)
 	l2BalanceNew, _ := l2Verif.BalanceAt(ctx, addressAlice, nil)
 
-	assert.Equal(t, caffBalanceNew, expectedAmount)
-	assert.Equal(t, l2BalanceNew, expectedAmount)
+	assert.Equal(t, expectedAmount, caffBalanceNew)
+	assert.Equal(t, expectedAmount, l2BalanceNew)
 
 }
