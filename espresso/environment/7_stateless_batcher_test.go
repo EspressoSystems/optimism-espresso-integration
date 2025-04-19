@@ -35,7 +35,7 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	defer system.Close()
-	defer espressoDevNode.Stop()
+	//defer espressoDevNode.Stop()
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -66,34 +66,33 @@ func TestStatelessBatcher(t *testing.T) {
 	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
+
+	// We select a range of iterations when the batcher is turned off.
 	var rangeBatcherDown [2]int
-	rangeBatcherDown[0] = 2
-	rangeBatcherDown[0] = 4
+	rangeBatcherDown[0] = 2 //rand.IntN(5)     // Random number between 0 and 4
+	rangeBatcherDown[1] = 4 //rand.IntN(5) + 5 // Random number between 5 and 9
+
 	batcherIsUp := true
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 6; i++ {
 
-		t.Log("***********************Loop iteration:  ", i)
-
-		// Stop the batcher
-		// TODO Philippe the batcher should be stopped at "random"
-		// TODO Philippe should we restart the batcher in a separate thread to make it more real?
+		t.Log("******************* Iteration: ", i)
+		// Let us stop the batcher
 		if i == rangeBatcherDown[0] {
 
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
 			time.Sleep(2 * time.Second)
-			t.Log("******************** Batcher is down.")
 			batcherIsUp = false
 		}
 
+		// Let us start the batcher again
 		if i == rangeBatcherDown[1] {
 			driver.StartBatchSubmitting()
-			t.Log("******************** Batcher is up again.")
 			batcherIsUp = true
 		}
 
+		// The batcher is up, we can send coins
 		if batcherIsUp {
-			t.Log("******************** Batcher is up, we can send coins.")
 			_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
 				// Send from Bob to Alice
 				l2Opts.ToAddr = addressAlice
