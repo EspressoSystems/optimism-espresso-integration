@@ -35,7 +35,7 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	defer system.Close()
-	//defer espressoDevNode.Stop()
+	defer espressoDevNode.Stop()
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -70,7 +70,7 @@ func TestStatelessBatcher(t *testing.T) {
 	rangeBatcherDown[0] = 2
 	rangeBatcherDown[0] = 4
 	batcherIsUp := true
-	for i := 0; i < 7; i++ {
+	for i := 0; i < 10; i++ {
 
 		t.Log("***********************Loop iteration:  ", i)
 
