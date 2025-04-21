@@ -580,6 +580,9 @@ type L2CoreDeployConfig struct {
 	// from. It is an override to set this value on legacy networks where it is not set by
 	// default. It can be removed once all networks have this value set in their storage.
 	SystemConfigStartBlock uint64 `json:"systemConfigStartBlock"`
+
+	EspressoEnabled           bool           `json:"espressoEnabled,omitzero,omitempty"`
+	BatchAuthenticatorAddress common.Address `json:"batchAuthenticatorAddress,omitzero,omitempty"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)
@@ -1021,13 +1024,16 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 			L2Time:       l2GenesisTimestamp,
 			SystemConfig: d.GenesisSystemConfig(),
 		},
-		BlockTime:               d.L2BlockTime,
-		MaxSequencerDrift:       d.MaxSequencerDrift,
-		SeqWindowSize:           d.SequencerWindowSize,
-		ChannelTimeoutBedrock:   d.ChannelTimeoutBedrock,
-		L1ChainID:               new(big.Int).SetUint64(d.L1ChainID),
-		L2ChainID:               new(big.Int).SetUint64(d.L2ChainID),
-		BatchInboxAddress:       d.BatchInboxAddress,
+		BlockTime:             d.L2BlockTime,
+		MaxSequencerDrift:     d.MaxSequencerDrift,
+		SeqWindowSize:         d.SequencerWindowSize,
+		ChannelTimeoutBedrock: d.ChannelTimeoutBedrock,
+		L1ChainID:             new(big.Int).SetUint64(d.L1ChainID),
+		L2ChainID:             new(big.Int).SetUint64(d.L2ChainID),
+		BatchInboxAddress:     d.BatchInboxAddress,
+		CaffNodeConfig: rollup.CaffNodeConfig{
+			BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
+		},
 		DepositContractAddress:  d.OptimismPortalProxy,
 		L1SystemConfigAddress:   d.SystemConfigProxy,
 		RegolithTime:            d.RegolithTime(l1StartTime),

@@ -109,17 +109,6 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
 
-	if bs.UseEspresso {
-		// try to generate attestation on public key when start batcher
-		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
-		if err != nil {
-			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
-		} else {
-			// output length of attestation
-			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestation))
-			bs.Attestation = attestation
-		}
-	}
 	return &bs, nil
 }
 
@@ -160,6 +149,31 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
+		}
+
+		// try to generate attestation on public key when start batcher
+		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
+		if err != nil {
+			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
+
+			// Replace ephemeral keys with persistent keys, as in devnet they'll be pre-approved for batching
+			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TxMgrConfig.PrivateKey, "0x"))
+			if err != nil {
+				return fmt.Errorf("Failed to parse batcher's private key")
+			}
+
+			publicKey := privateKey.Public()
+			publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+			if !ok {
+				return fmt.Errorf("error casting public key to ECDSA")
+			}
+
+			bs.BatcherPrivateKey = privateKey
+			bs.BatcherPublicKey = publicKeyECDSA
+		} else {
+			// output length of attestation
+			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestation))
+			bs.Attestation = attestation
 		}
 	}
 
@@ -441,6 +455,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		AltDA:               bs.AltDA,
 		Espresso:            bs.Espresso,
 		EspressoLightClient: bs.EspressoLightClient,
+		Attestation:         bs.Attestation,
 	}
 	for _, opt := range opts {
 		opt(&ds)
