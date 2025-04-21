@@ -152,12 +152,15 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		log.Error("failed to get the L1 finalized block", "err", err)
 		return nil, false, NotEnoughData
 	}
+	// check if the batch is derived from a L1 origin that is not finalized
+	// this could only happen to malicious sequencer!!
+	// if it is, return NotEnoughData to wait longer
 	if batch.Epoch().Number > l1FinalizedBlock.Number {
 		// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
 		log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", batch.Epoch().Number)
 		return nil, false, NotEnoughData
 	} else {
-		// make sure it's a valid L1 origin state by check the hash
+		// make sure it's a valid L1 origin state by checking the hash
 		expectedL1BlockRef, err := l1BlockRefByNumber(ctx, batch.Epoch().Number)
 		if err != nil {
 			log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", batch.Epoch().Number)
