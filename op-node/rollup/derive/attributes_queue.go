@@ -104,7 +104,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 	// Refresh the sync status
 	// we don't need to reset l1Finalized here, because caff node will directly use l1Finalized()
 	// s.ConfirmedBatchPos = parent.Number // restore this?
-	// Sishan TODO: update the assignment of confirmedHotShotPos with the task
+	// Sishan TODO: update the assignment of confirmedHotShotPos with the task https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1209828906283637?focus=true
 	//s.EspressoLightClient.LightClient.FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)}).BlockHeight
 	// s.Reset() // restore this?
 
