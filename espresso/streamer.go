@@ -156,7 +156,7 @@ func (s *EspressoStreamer[B]) CheckBatch(batch B) (BatchValidity, int) {
 
 	// Batch already buffered/finalized
 	if batch.Number() < s.BatchPos {
-		s.Log.Error("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", b.batchPos)
+		s.Log.Error("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
 		return BatchPast, 0
 	}
 
