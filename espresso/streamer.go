@@ -116,6 +116,71 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 	return true, nil
 }
 
+func (s *EspressoStreamer[B]) CheckBatch(batch B) (BatchValidity, int) {
+
+	// TODO finality check
+	//espressoFinalizedL1 := getFinalizedL1(&batch)
+	//if espressoFinalizedL1 == nil {
+	//	log.Error("Invalid batch: Unknown Espresso header version")
+	//	return BatchDrop, 0
+	//}
+
+	//if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
+	//	// Enforce that we only deal with finalized deposits
+	//	log.Warn("batch with unfinalized L1 origin",
+	//		"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
+	//	)
+	//	return BatchUndecided, 0
+	//} else {
+	//	// make sure it's a valid L1 origin state by check the hash
+	//	// TODO Adapt Sishan's logic described in
+	//	// https: //github.com/EspressoSystems/optimism-espresso-integration/blob/40a52d5b334f5dca169dfc1b41d8d06a2a72470d/op-node/rollup/derive/espresso_streamer.go#L148
+	//}
+
+	// origin := (*batch).L1Origin()
+	// if origin.Number > s.finalizedL1.Number {
+	// 	break
+	// }
+
+	// l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+	// if err != nil {
+	// 	break
+	// }
+
+	// if l1header.Hash() != origin.Hash {
+	// 	continue
+	// }
+
+	// Find a slot to insert the batch
+	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
+
+	// Batch already buffered/finalized
+	if batch.Number() < s.BatchPos {
+		s.Log.Error("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", b.batchPos)
+		return BatchPast, 0
+	}
+
+	if batchRecorded {
+		// Duplicate batch found, skip it
+		return BatchPast, i
+	}
+
+	// We can do this check earlier, but it's a more intensive one, so we do this last.
+	// TODO as the batcher is considered honest does is this check needed?
+	//for i, txBytes := range batch.Batch.Transactions {
+	//	if len(txBytes) == 0 {
+	//		b.Log.Error("Transaction data must not be empty, but found empty tx", "tx_index", i)
+	//		return BatchDrop, 0
+	//	}
+	//	if txBytes[0] == types.DepositTxType {
+	//		log.Error("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+	//		return BatchDrop, 0
+	//	}
+	//}
+
+	return BatchAccept, i
+}
+
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	// Fetch more batches from HotShot if available.
 	blockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
@@ -150,27 +215,32 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 			}
 
-			if (*batch).Number() < s.BatchPos {
-				s.Log.Warn("Skipping older batch", "batch", (*batch).Number(), "batchPos", s.BatchPos)
-				continue
+			s.Log.Trace("Inserting batch into buffer", "batch", batch)
+
+			validity, i := s.CheckBatch(*batch)
+
+			switch validity {
+
+			case BatchDrop:
+				//b.Log.Info("Dropping batch", batch)
+				return nil
+
+			case BatchPast:
+				//b.Log.Info("Batch already processed. Skipping", batch)
+				return nil
+
+			case BatchUndecided: // Sishan TODO: remove if this is not needed
+				// TODO Philippe logic of remaining list
+				return nil
+
+			case BatchAccept:
+				//b.Log.Debug("Recovered batch, inserting", "batchnr", batch.Number())
+
+			case BatchFuture:
+				//b.Log.Info("Inserting batch for future processing")
 			}
 
-			// origin := (*batch).L1Origin()
-			// if origin.Number > s.finalizedL1.Number {
-			// 	break
-			// }
-
-			// l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-			// if err != nil {
-			// 	break
-			// }
-
-			// if l1header.Hash() != origin.Hash {
-			// 	continue
-			// }
-
-			s.Log.Trace("Inserting batch into buffer", "batch", batch)
-			s.BatchBuffer.Insert(*batch)
+			s.BatchBuffer.Insert(*batch, i)
 		}
 	}
 
