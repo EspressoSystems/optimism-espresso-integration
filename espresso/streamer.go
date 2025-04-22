@@ -52,7 +52,7 @@ type EspressoStreamer[B Batch] struct {
 	// HotShot block we're to fetch next
 	hotShotPos uint64
 	// Position of the last safe batch
-	confirmedBatchPos uint64
+	ConfirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
 	confirmedHotShotPos uint64
 	finalizedL1         eth.L1BlockRef
@@ -90,7 +90,7 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
-	s.BatchPos = s.confirmedBatchPos + 1
+	s.BatchPos = s.ConfirmedBatchPos + 1
 	s.hotShotPos = s.confirmedHotShotPos
 	s.BatchBuffer.Clear()
 }
@@ -98,7 +98,7 @@ func (s *EspressoStreamer[B]) Reset() {
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
-	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
+	if s.ConfirmedBatchPos == syncStatus.SafeL2.Number {
 		return false, nil
 	}
 
@@ -109,7 +109,7 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 	}
 
 	s.finalizedL1 = syncStatus.FinalizedL1
-	s.confirmedBatchPos = syncStatus.SafeL2.Number
+	s.ConfirmedBatchPos = syncStatus.SafeL2.Number
 	s.confirmedHotShotPos = hotshotState.BlockHeight
 	s.Reset()
 	return true, nil

@@ -101,6 +101,13 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 // It is called when there is a PipelineStepEvent want to progress the buffer.
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 
+	// Refresh the sync status
+	// we don't need to reset l1Finalized here, because caff node will directly use l1Finalized()
+	// s.ConfirmedBatchPos = parent.Number // restore this?
+	// Sishan TODO: update the assignment of confirmedHotShotPos with the task
+	//s.EspressoLightClient.LightClient.FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)}).BlockHeight
+	// s.Reset() // restore this?
+
 	// Fetch more batches from HotShot if available.
 	err := s.Update(ctx)
 	if err != nil {
