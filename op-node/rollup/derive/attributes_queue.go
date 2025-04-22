@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -96,6 +97,85 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 	return &streamer
 }
 
+// CaffNextBatch is a function that returns the next batch from the espresso streamer for caff node.
+// It is called when there is a PipelineStepEvent want to progress the buffer.
+func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
+
+	// Fetch more batches from HotShot if available.
+	err := s.Update(ctx)
+	if err != nil {
+		s.Log.Error("failed to update Espresso streamer", "err", err)
+	}
+
+	var espressoBatch = s.Next(ctx)
+
+	if espressoBatch == nil {
+		return nil, true, NotEnoughData
+	}
+
+	batch := &espressoBatch.Batch
+	log.Info("espressoBatch", "batch", espressoBatch.Batch)
+
+	// For caff node, assign concluding to true for now
+	concluding := true
+
+	// check the batch is valid
+	nextTimestamp := parent.Time + blockTime
+
+	if batch.Timestamp != nextTimestamp {
+		log.Warn("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+		return nil, concluding, ErrTemporary
+	}
+
+	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+	if batch.ParentHash != parent.Hash {
+		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+		return nil, concluding, ErrTemporary
+	}
+
+	// We can do this check earlier, but it's a more intensive one, so we do this last.
+	for i, txBytes := range batch.Transactions {
+		if len(txBytes) == 0 {
+			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+			return nil, concluding, ErrTemporary
+		}
+		if txBytes[0] == types.DepositTxType {
+			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			return nil, concluding, ErrTemporary
+		}
+	}
+
+	// check the L1 origin of returnBatch is already finalized
+	// if not, return NotEnoughData to wait longer
+	l1FinalizedBlock, err := l1Finalized()
+	if err != nil {
+		log.Error("failed to get the L1 finalized block", "err", err)
+		return nil, false, NotEnoughData
+	}
+	// check if the batch is derived from a L1 origin that is not finalized
+	// this could only happen to malicious sequencer!!
+	// if it is, return NotEnoughData to wait longer
+	if batch.Epoch().Number > l1FinalizedBlock.Number {
+		// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
+		log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", batch.Epoch().Number)
+		return nil, false, NotEnoughData
+	} else {
+		// make sure it's a valid L1 origin state by checking the hash
+		expectedL1BlockRef, err := l1BlockRefByNumber(ctx, batch.Epoch().Number)
+		if err != nil {
+			log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", batch.Epoch().Number)
+			return nil, false, err
+		}
+		if batch.Epoch().Hash != expectedL1BlockRef.Hash {
+			log.Warn("the L1 origin hash is not valid anymore", "l1_origin", batch.Epoch().Hash, "expected", expectedL1BlockRef.Hash)
+			// drop the batch and wait longer
+			return nil, false, NotEnoughData
+		}
+	}
+
+	return batch, concluding, nil
+}
+
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
 	return &AttributesQueue{
 		log:              log,
@@ -118,21 +198,8 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var concluding bool
 		var err error
 		if aq.isCaffNode {
-			// Sishan TODO: add remaining espresso streamer logic here
-			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
 
-			var espressoBatch = aq.espressoStreamer.CaffNextBatch(ctx)
-			if espressoBatch == nil {
-				batch = nil
-				concluding = true
-				err = NotEnoughData
-			} else {
-				log.Info("espressoBatch", "batch", espressoBatch.Batch)
-				batch = &espressoBatch.Batch
-				// For caff node, assign concluding to true for now
-				concluding = true
-				err = nil
-			}
+			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Finalized, l1BlockRefByNumber)
 			if err != nil {
 				return nil, err
 			}
