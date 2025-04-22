@@ -148,10 +148,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			l.espressoSyncAndRefresh(ctx, newSyncStatus, &streamer)
 
 			err = streamer.Update(ctx)
-			if err != nil {
-				l.Log.Error("failed to update Espresso streamer", "err", err)
-				continue
-			}
 
 			var batch *derive.EspressoBatch
 
@@ -190,7 +186,14 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 				l.Log.Info("Added L2 block to channel manager")
 			}
+
 			trySignal(publishSignal)
+
+			// A failure in the streamer Update can happen after the buffer has been partially filled
+			if err != nil {
+				l.Log.Error("failed to update Espresso streamer", "err", err)
+				continue
+			}
 
 		case <-ctx.Done():
 			l.Log.Info("espressoBatchLoadingLoop returning")

@@ -126,6 +126,8 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 				batch = nil
 				concluding = true
 				err = NotEnoughData
+				//
+				//time.Sleep(100 * time.Millisecond)
 			} else {
 				log.Info("espressoBatch", "batch", espressoBatch.Batch)
 				batch = &espressoBatch.Batch
@@ -133,14 +135,13 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 				concluding = true
 				err = nil
 			}
-			if err != nil {
-				return nil, err
-			}
+
 		} else {
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
-			if err != nil {
-				return nil, err
-			}
+		}
+
+		if err != nil {
+			return nil, err
 		}
 		aq.batch = batch
 		aq.concluding = concluding

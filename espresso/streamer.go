@@ -11,7 +11,6 @@ import (
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -92,26 +91,28 @@ func NewEspressoStreamer[B Batch](
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
 	s.BatchPos = s.confirmedBatchPos + 1
-	s.hotShotPos = s.confirmedHotShotPos
+	//s.hotShotPos = s.confirmedHotShotPos
 	s.BatchBuffer.Clear()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
+	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
 	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
 		return false, nil
 	}
 
-	hotshotState, err := s.EspressoLightClient.LightClient.
-		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)})
-	if err != nil {
-		return false, err
-	}
+	// Logic to fetch the right Espresso block for catching up the Batcher will be implemented later https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1209828906283637?focus=true
+	//hotshotState, err := s.EspressoLightClient.LightClient.
+	//	FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(syncStatus.SafeL2.L1Origin.Number)})
+	//if err != nil {
+	//	return false, err
+	//}
 
 	s.finalizedL1 = syncStatus.FinalizedL1
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
-	s.confirmedHotShotPos = hotshotState.BlockHeight
+	//s.confirmedHotShotPos = hotshotState.BlockHeight
 	s.Reset()
 	return true, nil
 }
@@ -156,7 +157,7 @@ func (s *EspressoStreamer[B]) CheckBatch(batch B) (BatchValidity, int) {
 
 	// Batch already buffered/finalized
 	if batch.Number() < s.BatchPos {
-		s.Log.Error("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
+		s.Log.Warn("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
 		return BatchPast, 0
 	}
 
@@ -188,21 +189,27 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch HotShot block height: %w", err)
 	}
 
-	targetHeight := min(blockHeight, s.hotShotPos+100)
-	s.Log.Debug("Fetching hotshot blocks", "from", s.hotShotPos, "upTo", targetHeight)
+	//targetHeight := min(blockHeight, s.hotShotPos+100)
+	targetHeight := blockHeight
+	// TODO Switch to Debug
+	s.Log.Info("Fetching hotshot blocks", "from", s.hotShotPos, "upTo", targetHeight)
 
-	for ; s.hotShotPos < targetHeight; s.hotShotPos += 1 {
-		s.Log.Trace("Fetching HotShot block", "block", s.hotShotPos)
+	i := s.hotShotPos
+	// TODO this is not right in case some of the iteration below fail
+	// TODO Very hacky!!
+	s.hotShotPos = targetHeight - 5
+	for ; i <= targetHeight; i++ {
+		s.Log.Trace("Fetching HotShot block", "block", i)
 
-		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, s.hotShotPos, s.Namespace)
+		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, i, s.Namespace)
 		if err != nil {
-			return fmt.Errorf("failed to fetch transactions in block: %w", err)
+			return fmt.Errorf("Failed to fetch transactions in block: %w", err)
 		}
 
-		s.Log.Trace("Fetched HotShot block", "block", s.hotShotPos, "txns", len(txns.Transactions))
+		s.Log.Trace("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
 
 		if len(txns.Transactions) == 0 {
-			s.Log.Trace("No transactions in hotshot block", "block", s.hotShotPos)
+			s.Log.Trace("No transactions in hotshot block", "block", i)
 			continue
 		}
 
@@ -215,9 +222,9 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 			}
 
-			s.Log.Trace("Inserting batch into buffer", "batch", batch)
+			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
-			validity, i := s.CheckBatch(*batch)
+			validity, pos := s.CheckBatch(*batch)
 
 			switch validity {
 
@@ -240,7 +247,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				//b.Log.Info("Inserting batch for future processing")
 			}
 
-			s.BatchBuffer.Insert(*batch, i)
+			s.BatchBuffer.Insert(*batch, pos)
 		}
 	}
 
