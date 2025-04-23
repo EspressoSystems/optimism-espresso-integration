@@ -110,6 +110,8 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 	var espressoBatch = s.Next(ctx)
 
 	if espressoBatch == nil {
+		// TODO Philippe why is this needed. Introduce a configuration variable?
+		time.Sleep(100 * time.Millisecond)
 		return nil, true, NotEnoughData
 	}
 
@@ -133,6 +135,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		return nil, concluding, ErrTemporary
 	}
 
+	// Sishan TODO: check whether these are still needed
 	// We can do this check earlier, but it's a more intensive one, so we do this last.
 	for i, txBytes := range batch.Transactions {
 		if len(txBytes) == 0 {
@@ -198,16 +201,16 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var concluding bool
 		var err error
 		if aq.isCaffNode {
-
 			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Finalized, l1BlockRefByNumber)
 			if err != nil {
 				return nil, err
 			}
 		} else {
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
-			if err != nil {
-				return nil, err
-			}
+		}
+
+		if err != nil {
+			return nil, err
 		}
 		aq.batch = batch
 		aq.concluding = concluding
