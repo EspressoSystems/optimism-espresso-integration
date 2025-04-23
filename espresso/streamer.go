@@ -92,6 +92,7 @@ func NewEspressoStreamer[B Batch](
 func (s *EspressoStreamer[B]) Reset() {
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.BatchBuffer.Clear()
+	s.confirmEspressoBlockHeight()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -239,7 +240,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			case BatchUndecided: // Sishan TODO: remove if this is not needed
 				// TODO Philippe logic of remaining list
-				return nil
+				continue
 
 			case BatchAccept:
 				s.Log.Debug("Recovered batch, inserting")
