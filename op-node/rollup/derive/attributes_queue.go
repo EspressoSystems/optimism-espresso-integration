@@ -126,8 +126,8 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 				batch = nil
 				concluding = true
 				err = NotEnoughData
-				//
-				//time.Sleep(100 * time.Millisecond)
+				// TODO Philippe why is this needed. Introduce a configuration variable?
+				time.Sleep(100 * time.Millisecond)
 			} else {
 				log.Info("espressoBatch", "batch", espressoBatch.Batch)
 				batch = &espressoBatch.Batch
