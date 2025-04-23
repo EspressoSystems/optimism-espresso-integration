@@ -11,9 +11,15 @@ import (
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
 // Parameters for transaction fetching loop, which waits for transactions
@@ -21,13 +27,6 @@ import (
 const (
 	transactionFetchTimeout  = 4 * time.Second
 	transactionFetchInterval = 100 * time.Millisecond
-)
-
-// Parameters for finality checking loop, which waits for merkle proof for
-// Espresso transaction to be available from Light Client contract
-const (
-	finalityTimeout       = 2 * time.Minute
-	finalityCheckInterval = 100 * time.Millisecond
 )
 
 func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transaction espressoCommon.Transaction) error {
@@ -123,6 +122,12 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	ticker := time.NewTicker(l.Config.PollInterval)
 	defer ticker.Stop()
 	defer close(publishSignal)
+
+	err := l.registerBatcher(ctx)
+	if err != nil {
+		l.Log.Error("could not register with batch inbox contract", "err", err)
+		return
+	}
 
 	streamer := espresso.NewEspressoStreamer(
 		l.RollupConfig.L2ChainID.Uint64(),
@@ -324,4 +329,128 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	}
 
 	return block, nil
+}
+
+func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
+	if l.Attestation == nil {
+		l.Log.Warn("Attestation is nil, skipping registration")
+		return nil
+	}
+
+	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create batch authenticator contract bindings: %w", err)
+	}
+
+	// Decode the attestation off-chain to conserve gas
+	attestationTbs, signature, err := batchAuthenticator.DecodeAttestationTbs(&bind.CallOpts{}, l.Attestation)
+	if err != nil {
+		return fmt.Errorf("failed to decode attestation: %w", err)
+	}
+
+	txOpts, err := bind.NewKeyedTransactorWithChainID(l.Config.BatcherPrivateKey, l.RollupConfig.L1ChainID)
+	if err != nil {
+		return fmt.Errorf("failed to create transactor: %w", err)
+	}
+
+	// Submit decoded attestation to batch inbox contract
+	tx, err := batchAuthenticator.RegisterSigner(txOpts, attestationTbs, signature)
+	if err != nil {
+		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
+	}
+
+	candidate := txmgr.TxCandidate{
+		TxData: tx.Data(),
+		To:     tx.To(),
+	}
+
+	_, err = l.Txmgr.Send(ctx, candidate)
+	if err != nil {
+		return fmt.Errorf("failed to send transaction: %w", err)
+	}
+
+	l.Log.Info("Registered batcher with the batch inbox contract")
+
+	return nil
+}
+
+// sendEspressoTx uses the txmgr queue to send the given transaction candidate after setting its
+// gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
+func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
+	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
+	l.Log.Debug("Sending Espresso-enabled L1 transaction", "txRef", transactionReference)
+
+	var commitment [32]byte
+	if len(candidate.Blobs) == 0 {
+		commitment = crypto.Keccak256Hash(candidate.TxData)
+		l.Log.Debug("Hashing calldata transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
+	} else {
+		contactenatedBlobHashes := make([]byte, 0)
+		for _, blob := range candidate.Blobs {
+			blobCommitment, err := blob.ComputeKZGCommitment()
+			if err != nil {
+				receiptsCh <- txmgr.TxReceipt[txRef]{
+					ID:  transactionReference,
+					Err: fmt.Errorf("failed to compute KZG commitment for blob: %w", err),
+				}
+				return
+			}
+			blobHash := eth.KZGToVersionedHash(blobCommitment)
+			contactenatedBlobHashes = append(contactenatedBlobHashes, blobHash.Bytes()...)
+		}
+		commitment = crypto.Keccak256Hash(contactenatedBlobHashes)
+		l.Log.Debug("Hashing blob transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
+	}
+
+	signature, err := crypto.Sign(commitment[:], l.Config.BatcherPrivateKey)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to sign transaction: %w", err),
+		}
+		return
+	}
+	l.Log.Debug("Signed transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
+
+	batchAuthenticatorAbi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to get batch authenticator ABI: %w", err),
+		}
+		return
+	}
+
+	authenticateBatchCalldata, err := batchAuthenticatorAbi.Pack("authenticateBatch", commitment, signature)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to pack authenticateBatch calldata: %w", err),
+		}
+		return
+	}
+
+	verifyCandidate := txmgr.TxCandidate{
+		TxData: authenticateBatchCalldata,
+		To:     &l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress,
+	}
+
+	l.Log.Debug(
+		"Sending authenticateBatch transaction",
+		"txRef", transactionReference,
+		"commitment", hexutil.Encode(commitment[:]),
+		"sig", hexutil.Encode(signature),
+		"address", l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress.String(),
+	)
+	_, err = l.Txmgr.Send(l.killCtx, verifyCandidate)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to send authenticateBatch transaction: %w", err),
+		}
+		return
+	}
+
+	l.Log.Debug("Queueing transaction", "txRef", transactionReference)
+	queue.Send(transactionReference, *candidate, receiptsCh)
 }

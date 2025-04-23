@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -130,7 +131,10 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 		// Wait for the context that governs us to tell us to die
 		<-ctx.Done()
 
-		stopContainer()
+		err := stopContainer()
+		if err != nil {
+			log.Printf("failed to stop docker container: %v", err)
+		}
 	})(originalContext)
 
 	// We have the container ID.  Let's get our Ports
@@ -359,7 +363,10 @@ func (d *DockerCli) Logs(ctx context.Context, containerID string) (io.Reader, er
 
 		// We don't really have a great opportunity to inspect any error
 		// returned by this command
-		cmd.Wait()
+		err := cmd.Wait()
+		if err != nil {
+			log.Printf("failed to wait for docker logs command: %v", err)
+		}
 	}(logsCmd)
 
 	return reader, nil
