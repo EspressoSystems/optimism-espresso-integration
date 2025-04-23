@@ -202,6 +202,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 		case <-ctx.Done():
 			l.Log.Info("espressoBatchLoadingLoop returning")
+			// TODO wait for the tryToPublishBatchEspresso tasks to finish
 			return
 		}
 	}
