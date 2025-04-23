@@ -164,16 +164,14 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			// Make sure the finalized L1 block is initialized before checking the block number.
 			if s.finalizedL1 == (eth.L1BlockRef{}) {
 				s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node but not the batcher")
-				needResync = true
-				break
-			}
-
-			origin := (*batch).L1Origin()
-			if origin.Number > s.finalizedL1.Number {
-				// Signal to resync to wait for the L1 finality.
-				s.Log.Warn("L1 origin not finalized, pending resync")
-				needResync = true;
-				break
+			} else {
+				origin := (*batch).L1Origin()
+				if origin.Number > s.finalizedL1.Number {
+					// Signal to resync to wait for the L1 finality.
+					s.Log.Warn("L1 origin not finalized, pending resync")
+					needResync = true;
+					break
+				}
 			}
 
 			l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
