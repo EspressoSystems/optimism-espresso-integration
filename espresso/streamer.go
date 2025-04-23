@@ -56,6 +56,8 @@ type EspressoStreamer[B Batch] struct {
 	confirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
 	confirmedHotShotPos uint64
+	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
+	// until it calls `Refresh`.
 	finalizedL1         eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
@@ -141,9 +143,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			continue
 		}
 
-		// Whether to exit the loop early for a resync.
-		var needResync bool;
-
 		// Batches to be inserted into `BatchBuffer`.
 		var batchesToInsert []B;
 
@@ -160,34 +159,32 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 			}
 
-			origin := (*batch).L1Origin()
-			if origin.Number > s.finalizedL1.Number {
-				// Signal to resync to wait for the L1 finality.
-				s.Log.Warn("L1 origin not finalized, pending resync")
-				needResync = true;
-				break
-			}
+			// Make sure the finalized L1 block is initialized before checking the block number.
+			if s.finalizedL1 == (eth.L1BlockRef{}) {
+				s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node (before it adds `Refresh` call) but not the batcher")
+			} else {
+				origin := (*batch).L1Origin()
+				if origin.Number > s.finalizedL1.Number {
+					// Signal to resync to wait for the L1 finality.
+					s.Log.Warn("L1 origin not finalized, pending resync")
+					return nil
+				}
 
-			l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-			if err != nil {
-				// Signal to resync to be able to fetch the L1 header.
-				s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-				needResync = true;
-				break
-			}
+				l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+				if err != nil {
+					// Signal to resync to be able to fetch the L1 header.
+					s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+					return nil
+				}
 
-			if l1header.Hash() != origin.Hash {
-				s.Log.Warn("Dropping batch with invalid hash", "error", err)
-				continue
+				if l1header.Hash() != origin.Hash {
+					s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+					continue
+				}
 			}
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			batchesToInsert = append(batchesToInsert, *batch)
-		}
-
-		if needResync {
-			// Exit early so `hotShotPos` won't increment.
-			break;
 		}
 
 		// Insert batches with the same HotShot position at the end together, in case a resync is
