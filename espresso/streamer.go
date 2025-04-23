@@ -235,7 +235,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchPast:
-				s.Log.Info("Batch already processed. Skipping", batch)
+				s.Log.Info("Batch already processed. Skipping", "batch", batch)
 				continue
 
 			case BatchUndecided: // Sishan TODO: remove if this is not needed

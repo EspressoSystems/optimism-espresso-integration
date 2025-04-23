@@ -62,7 +62,7 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
-func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
+func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block, wg *sync.WaitGroup) error {
 
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
@@ -76,13 +76,20 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		// We will retry publishing until successful
 		for {
 			err := l.tryPublishBatchToEspresso(ctx, *transaction)
 			if err == nil {
 				l.Log.Info(fmt.Sprintf("Published block %s to Espresso", eth.ToBlockID(block)))
 				break
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 		}
 	}()
@@ -220,7 +227,7 @@ func (l *BlockLoader) Reset(ctx context.Context) {
 	l.batcher.clearState(ctx)
 }
 
-func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
+func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange, wg *sync.WaitGroup) {
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
 		if errors.Is(err, ErrReorg) {
@@ -236,7 +243,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 			continue
 		}
 
-		err = l.batcher.queueBlockToEspresso(ctx, block)
+		err = l.batcher.queueBlockToEspresso(ctx, block, wg)
 		if err != nil {
 			continue
 		}
@@ -256,6 +263,8 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 	var loader = BlockLoader{
 		batcher: l,
 	}
+
+	espressoQueueingWg := &sync.WaitGroup{}
 
 	for {
 		select {
@@ -306,9 +315,10 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 
 			blocksToQueue := inclusiveBlockRange{loader.lastQueuedBlock.Number + 1, newSyncStatus.UnsafeL2.Number}
 
-			loader.EnqueueBlocks(ctx, blocksToQueue)
+			loader.EnqueueBlocks(ctx, blocksToQueue, espressoQueueingWg)
 
 		case <-ctx.Done():
+			espressoQueueingWg.Wait()
 			l.Log.Info("blockLoadingLoop returning")
 			return
 		}
