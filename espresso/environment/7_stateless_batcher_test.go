@@ -116,7 +116,6 @@ func TestStatelessBatcher(t *testing.T) {
 	caffBalanceNew, _ = caffVerif.BalanceAt(ctx, addressAlice, nil)
 	l2BalanceNew, _ := l2Verif.BalanceAt(ctx, addressAlice, nil)
 
-	assert.Equal(t, expectedAmount, caffBalanceNew)
 	assert.Equal(t, expectedAmount, l2BalanceNew)
-
+	assert.Equal(t, expectedAmount, caffBalanceNew)
 }

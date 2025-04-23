@@ -291,7 +291,7 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
-		// TODO when moving this call to Reset the test fails. Why?
+		// TODO when moving this call to Reset the test fails. FIX will be implemented in https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210059438517335?focus=true
 		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
