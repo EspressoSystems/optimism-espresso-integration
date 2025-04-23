@@ -56,6 +56,7 @@ type EspressoStreamer[B Batch] struct {
 	confirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
 	confirmedHotShotPos uint64
+	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node.
 	finalizedL1         eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
@@ -158,6 +159,13 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			if (*batch).Number() < s.BatchPos {
 				s.Log.Warn("Skipping older batch", "batch", (*batch).Number(), "batchPos", s.BatchPos)
 				continue
+			}
+
+			// Make sure the finalized L1 block is initialized before checking the block number.
+			if s.finalizedL1 == (eth.L1BlockRef{}) {
+				s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node but not the batcher")
+				needResync = true
+				break
 			}
 
 			origin := (*batch).L1Origin()
