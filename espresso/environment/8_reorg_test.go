@@ -9,19 +9,9 @@ import (
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 )
-
-// checkBatcherSubmission checks if the batcher has submitted the L2 block corresponding to the given L1 block number.
-func checkBatcherSubmission(ctx context.Context, l1Client *ethclient.Client, blockNum uint64) bool {
-        _, err := l1Client.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
-        if err != nil {
-            return false
-        }
-
-        return true
-}
 
 // TestBatcherWaitForFinality is a test that attempts to make sure that the batcher waits for the
 // derived L1 block to be finalized before submitting a new block.
@@ -59,43 +49,47 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	// Shut down the Caff Node
 	defer caffNode.Close(ctx)
 
-	// We want to setup our test condition
-	addressAlice := system.Cfg.Secrets.Addresses().Alice
-
-	l1Client := system.NodeClient(e2esys.RoleL1)
+	l2Seq := system.NodeClient("sequencer")
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
+	rollupClient := system.RollupClient("verifier")
+
+	intialSeqStatus, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
 
 	// Increase Alice's balance by 1 via a deposit transaction
     privateKey := system.Cfg.Secrets.Bob
-    bobOptions, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
     if err != nil {
         t.Fatalf("failed to create transaction options for Bob: %v", err)
     }
 
-    mintAmount := big.NewInt(1)
-    bobOptions.Value = mintAmount
+	_ = helpers.SendL2Tx(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
+		opts.Value = big.NewInt(1)
+		opts.Nonce = 1 // Already have deposit
+		opts.ToAddr = &common.Address{0xff, 0xff}
+		opts.VerifyOnClients(l2Verif)
+	})
 
-	_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
-        l2Opts.ToAddr = addressAlice
-    })
+	_ = helpers.SendL2Tx(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
+		opts.Value = big.NewInt(1)
+		opts.Nonce = 2
+		opts.ToAddr = &common.Address{0xff, 0xff}
+		opts.VerifyOnClients(l2Verif)
+	})
 
-	depositReceipt2 := helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
-        l2Opts.ToAddr = addressAlice
-    })
+	// Verify that no block is finalized.
+	SeqStatusBeforeWait, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, SeqStatusBeforeWait.FinalizedL1.Number, intialSeqStatus.FinalizedL1.Number, "Finalized L1 number increased")
 
-	depositBlockNumber2 := depositReceipt2.BlockNumber.Uint64()
-	t.Logf("Deposit landed in L1: %d", depositBlockNumber2)
+	// TODO (Keyao) Find a proper time or a better way to handle the wait
+	time.Sleep(2 * time.Second)
+	SeqStatusAfterWait1, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, SeqStatusAfterWait1.FinalizedL1.Number, intialSeqStatus.FinalizedL1.Number + 2, "Finalized L1 number increased")
 
-    // Assert that the batcher has not submitted the L2 block to L1 before L1 finalization
-    if checkBatcherSubmission(ctx, l1Client, depositBlockNumber2) {
-        t.Fatalf("batcher submitted the L2 block to L1 before L1 block was finalized")
-    }
-
-	// TODO (Keyao) Find a proper time
+	// Verify that both blocks are finalized.
 	time.Sleep(5 * time.Second)
-
-    // Assert that the batcher has submitted the L2 block to L1 after L1 finalization
-    if !checkBatcherSubmission(ctx, l1Client, depositBlockNumber2) {
-        t.Fatalf("batcher did not submit the L2 block to L1 after L1 block was finalized")
-    }
+	SeqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
+	require.Greater(t, SeqStatusAfterWait.FinalizedL1.Number, intialSeqStatus.FinalizedL1.Number + 2, "Finalized L1 number not increased")
 }

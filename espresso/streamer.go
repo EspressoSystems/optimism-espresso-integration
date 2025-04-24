@@ -260,7 +260,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				origin := (*batch).L1Origin()
 				if origin.Number > s.finalizedL1.Number {
 					// Signal to resync to wait for the L1 finality.
-					s.Log.Warn("L1 origin not finalized, pending resync")
+					s.Log.Warn("L1 origin not finalized, pending resync", "L1 origin", origin.Number, "finalized", s.finalizedL1.Number)
 					return nil
 				}
 
