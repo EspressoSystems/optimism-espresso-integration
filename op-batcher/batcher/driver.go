@@ -995,6 +995,7 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		go l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
 		return
 	}
+	floorDataGas, err := core.FloorDataGas(candidate.TxData)
 	if err != nil {
 		// We log instead of return an error here because the txmgr will do its own gas estimation.
 		l.Log.Warn("Failed to calculate floor data gas", "err", err)

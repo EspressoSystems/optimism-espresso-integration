@@ -128,6 +128,7 @@ func (s *EspressoStreamer[B]) Reset() {
 	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
 	s.BatchBuffer.Clear()
+	s.confirmEspressoBlockHeight()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -278,6 +279,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			// transactions from HotShot).
 			break
 		}
+
 	}
 
 	return nil
@@ -404,6 +406,8 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 		// Current batch is going to be processed, update fallback batch position
 		s.fallbackBatchPos = s.BatchPos
 		s.BatchPos += 1
+		// TODO when moving this call to Reset the test fails. FIX will be implemented in https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210059438517335?focus=true
+		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
