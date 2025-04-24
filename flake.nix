@@ -55,6 +55,7 @@
             pkgs.go_1_22
             pkgs.gotools
             pkgs.go-ethereum
+            pkgs.gotestsum
           ];
           shellHook = ''
             export FOUNDRY_DISABLE_NIGHTLY_WARNING=1

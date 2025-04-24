@@ -43,7 +43,9 @@ packages/contracts-bedrock/deployments/anvil
 # Ignore local fuzzing results
 **/testdata/fuzz/
 
+tmp
 coverage.out
+coverage.html
 
 
 __pycache__

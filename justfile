@@ -1,10 +1,14 @@
-# Run the tests
+coverage:
+  # Example for now
+  (cd op-node ; gotestsum -- -coverprofile=coverage.out ./...; go tool cover -html=coverage.out -o coverage.html)
+  echo "Coverage output available at op-node/coverage.html"
+
+
 tests:
  ./run_all_tests.sh
 
 fast-tests:
  ./run_fast_tests.sh
-
 
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
