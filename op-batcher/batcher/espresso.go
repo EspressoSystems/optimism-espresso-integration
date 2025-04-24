@@ -63,7 +63,6 @@ func (l *BatchSubmitter) tryPublishBatchToEspresso(ctx context.Context, transact
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
-
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
 		l.Log.Warn("Failed to derive batch from block", "err", err)
@@ -83,6 +82,11 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 			if err == nil {
 				l.Log.Info(fmt.Sprintf("Published block %s to Espresso", eth.ToBlockID(block)))
 				break
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 		}
 	}()
@@ -153,10 +157,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			l.espressoSyncAndRefresh(ctx, newSyncStatus, &streamer)
 
 			err = streamer.Update(ctx)
-			if err != nil {
-				l.Log.Error("failed to update Espresso streamer", "err", err)
-				continue
-			}
 
 			var batch *derive.EspressoBatch
 
@@ -195,7 +195,14 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 				l.Log.Info("Added L2 block to channel manager")
 			}
+
 			trySignal(publishSignal)
+
+			// A failure in the streamer Update can happen after the buffer has been partially filled
+			if err != nil {
+				l.Log.Error("failed to update Espresso streamer", "err", err)
+				continue
+			}
 
 		case <-ctx.Done():
 			l.Log.Info("espressoBatchLoadingLoop returning")

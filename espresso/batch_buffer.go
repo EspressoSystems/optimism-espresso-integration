@@ -32,6 +32,12 @@ type BatchBuffer[B Batch] struct {
 	batches []B
 }
 
+type BatchWithPosition[B Batch] struct {
+	batch  B
+	// Position to be inserted into the buffer.
+	position int
+}
+
 func NewBatchBuffer[B Batch]() BatchBuffer[B] {
 	return BatchBuffer[B]{
 		batches: []B{},
@@ -46,21 +52,22 @@ func (b *BatchBuffer[B]) Clear() {
 	b.batches = nil
 }
 
-func (b *BatchBuffer[B]) Insert(batch B) {
-	i, batchRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
+func (b *BatchBuffer[B]) Insert(batchWithPosition BatchWithPosition[B]) {
+	b.batches = slices.Insert(b.batches, batchWithPosition.position, batchWithPosition.batch)
+}
+
+func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
+	pos, batchIsRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
 		return cmp.Compare(x.Number(), y.Number())
 	})
 
-	if batchRecorded {
-		return
-	}
+	return pos, batchIsRecorded
 
-	b.batches = slices.Insert(b.batches, i, batch)
 }
 
-func (b *BatchBuffer[B]) InsertMultiple(batches []B) {
-	for _, batch := range batches {
-		b.Insert(batch)
+func (b *BatchBuffer[B]) InsertMultiple(batches []BatchWithPosition[B]) {
+	for _, batchWithPosition := range batches {
+		b.Insert(batchWithPosition)
 	}
 }
 
