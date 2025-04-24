@@ -218,7 +218,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		}
 
 		// Batches to be inserted into `BatchBuffer` with the position.
-		var batchesToInsert [](B, int);
+		var batchesToInsert []BatchWithPosition[B]
 
 		for _, transaction := range txns.Transactions {
 
@@ -253,12 +253,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				s.Log.Info("Inserting batch for future processing")
 			}
 
-			// Batch can be inserted
-			// This is the first batch of the buffer, we update the temporary Espresso block height we can use at a later stage
-			if pos == 0 {
-				s.hotShotPos = i
-			}
-
 			// Make sure the finalized L1 block is initialized before checking the block number.
 			if s.finalizedL1 == (eth.L1BlockRef{}) {
 				s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node (before it adds `Refresh` call) but not the batcher")
@@ -284,8 +278,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			}
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
-			batchesToInsert = append(batchesToInsert, (*batch, pos))
+			batchesToInsert = append(batchesToInsert, BatchWithPosition[B]{*batch, pos})
 		}
+
+		s.hotShotPos = i
 
 		// Insert batches with the same HotShot position at the end together, in case a resync is
 		// needed which may cause looping the same set of batches again.
