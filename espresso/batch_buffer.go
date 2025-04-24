@@ -46,16 +46,18 @@ func (b *BatchBuffer[B]) Clear() {
 	b.batches = nil
 }
 
-func (b *BatchBuffer[B]) Insert(batch B) {
-	i, batchRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
+func (b *BatchBuffer[B]) Insert(batch B, i int) {
+
+	b.batches = slices.Insert(b.batches, i, batch)
+}
+
+func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
+	pos, batchIsRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
 		return cmp.Compare(x.Number(), y.Number())
 	})
 
-	if batchRecorded {
-		return
-	}
+	return pos, batchIsRecorded
 
-	b.batches = slices.Insert(b.batches, i, batch)
 }
 
 func (b *BatchBuffer[B]) Peek() *B {
