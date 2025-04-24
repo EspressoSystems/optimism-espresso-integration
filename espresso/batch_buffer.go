@@ -46,21 +46,23 @@ func (b *BatchBuffer[B]) Clear() {
 	b.batches = nil
 }
 
-func (b *BatchBuffer[B]) Insert(batch B) {
-	i, batchRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
-		return cmp.Compare(x.Number(), y.Number())
-	})
-
-	if batchRecorded {
-		return
-	}
+func (b *BatchBuffer[B]) Insert(batch B, i int) {
 
 	b.batches = slices.Insert(b.batches, i, batch)
 }
 
-func (b *BatchBuffer[B]) InsertMultiple(batches []B) {
+func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
+	pos, batchIsRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
+		return cmp.Compare(x.Number(), y.Number())
+	})
+
+	return pos, batchIsRecorded
+
+}
+
+func (b *BatchBuffer[B]) InsertMultiple(batches [](batch B, i int)) {
 	for _, batch := range batches {
-		b.Insert(batch)
+		b.Insert(batch, i)
 	}
 }
 
