@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -79,6 +78,14 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 		return nil
 	}
 
+	/*
+		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
+		if err != nil {
+			return fmt.Errorf("failed to create Espresso light client")
+		}
+		bs.EspressoLightClient = espressoLightClient
+	*/
+
 	streamer := espresso.NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
 		nil, // TODO(AG)
@@ -101,6 +108,19 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 // It is called when there is a PipelineStepEvent want to progress the buffer.
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 
+	// Refresh the sync status
+	// we don't need to reset l1Finalized here, because caff node will directly use l1Finalized()
+	if s.ConfirmedBatchPos == parent.Number {
+		s.BatchPos = s.ConfirmedBatchPos + 1
+		s.ConfirmedHotShotPos = s.HotShotPos
+	} else {
+		s.BatchPos = s.ConfirmedBatchPos + 1
+		s.BatchBuffer.Clear()
+		s.ConfirmedBatchPos = parent.Number
+	}
+
+	s.Log.Info("In CaffNextBatch", "HotShotPos", s.HotShotPos, "ConfirmedHotShotPos", s.ConfirmedHotShotPos, "parent.Number", parent.Number, "ConfirmedBatchPos", s.ConfirmedBatchPos, "BatchPos", s.BatchPos)
+
 	// Fetch more batches from HotShot if available.
 	err := s.Update(ctx)
 	if err != nil {
@@ -111,7 +131,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 
 	if espressoBatch == nil {
 		// TODO Philippe why is this needed. Introduce a configuration variable?
-		time.Sleep(100 * time.Millisecond)
+		// time.Sleep(100 * time.Millisecond)
 		return nil, true, NotEnoughData
 	}
 
@@ -135,46 +155,47 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		return nil, concluding, ErrTemporary
 	}
 
-	// Sishan TODO: check whether these are still needed
-	// We can do this check earlier, but it's a more intensive one, so we do this last.
-	for i, txBytes := range batch.Transactions {
-		if len(txBytes) == 0 {
-			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
-			return nil, concluding, ErrTemporary
-		}
-		if txBytes[0] == types.DepositTxType {
-			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
-			return nil, concluding, ErrTemporary
-		}
-	}
+	// // Sishan TODO: these are not needed if there's a way to restore all checks in CheckBatch()
 
-	// check the L1 origin of returnBatch is already finalized
-	// if not, return NotEnoughData to wait longer
-	l1FinalizedBlock, err := l1Finalized()
-	if err != nil {
-		log.Error("failed to get the L1 finalized block", "err", err)
-		return nil, false, NotEnoughData
-	}
-	// check if the batch is derived from a L1 origin that is not finalized
-	// this could only happen to malicious sequencer!!
-	// if it is, return NotEnoughData to wait longer
-	if batch.Epoch().Number > l1FinalizedBlock.Number {
-		// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
-		log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", batch.Epoch().Number)
-		return nil, false, NotEnoughData
-	} else {
-		// make sure it's a valid L1 origin state by checking the hash
-		expectedL1BlockRef, err := l1BlockRefByNumber(ctx, batch.Epoch().Number)
-		if err != nil {
-			log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", batch.Epoch().Number)
-			return nil, false, err
-		}
-		if batch.Epoch().Hash != expectedL1BlockRef.Hash {
-			log.Warn("the L1 origin hash is not valid anymore", "l1_origin", batch.Epoch().Hash, "expected", expectedL1BlockRef.Hash)
-			// drop the batch and wait longer
-			return nil, false, NotEnoughData
-		}
-	}
+	// // check the L1 origin of returnBatch is already finalized
+	// // if not, return NotEnoughData to wait longer
+	// l1FinalizedBlock, err := l1Finalized()
+	// if err != nil {
+	// 	log.Error("failed to get the L1 finalized block", "err", err)
+	// 	return nil, false, NotEnoughData
+	// }
+	// // check if the batch is derived from a L1 origin that is not finalized
+	// // this could only happen to malicious sequencer!!
+	// // if it is, return NotEnoughData to wait longer
+	// if batch.Epoch().Number > l1FinalizedBlock.Number {
+	// 	// we will not change s.messagesWithHeights here, because we want to keep the same lists of batches
+	// 	log.Warn("you need to wait longer for the L1 origin to be finalized", "l1_origin", batch.Epoch().Number)
+	// 	return nil, false, NotEnoughData
+	// } else {
+	// 	// make sure it's a valid L1 origin state by checking the hash
+	// 	expectedL1BlockRef, err := l1BlockRefByNumber(ctx, batch.Epoch().Number)
+	// 	if err != nil {
+	// 		log.Warn("failed to get the L1 block ref by number", "err", err, "l1_origin_number", batch.Epoch().Number)
+	// 		return nil, false, err
+	// 	}
+	// 	if batch.Epoch().Hash != expectedL1BlockRef.Hash {
+	// 		log.Warn("the L1 origin hash is not valid anymore", "l1_origin", batch.Epoch().Hash, "expected", expectedL1BlockRef.Hash)
+	// 		// drop the batch and wait longer
+	// 		return nil, false, NotEnoughData
+	// 	}
+	// }
+
+	// // We can do this check earlier, but it's a more intensive one, so we do this last.
+	// for i, txBytes := range batch.Transactions {
+	// 	if len(txBytes) == 0 {
+	// 		log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+	// 		return nil, concluding, ErrTemporary
+	// 	}
+	// 	if txBytes[0] == types.DepositTxType {
+	// 		log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+	// 		return nil, concluding, ErrTemporary
+	// 	}
+	// }
 
 	return batch, concluding, nil
 }
@@ -202,9 +223,6 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var err error
 		if aq.isCaffNode {
 			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Finalized, l1BlockRefByNumber)
-			if err != nil {
-				return nil, err
-			}
 		} else {
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 		}

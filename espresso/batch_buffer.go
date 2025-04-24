@@ -14,8 +14,6 @@ const (
 	BatchDrop = iota
 	// BatchAccept indicates that the batch is valid and should be processed
 	BatchAccept
-	// BatchUndecided indicates we are lacking L1 information until we can proceed batch filtering
-	BatchUndecided
 	// BatchFuture indicates that the batch may be valid, but cannot be processed yet and should be checked again later
 	BatchFuture
 	// BatchPast indicates that the batch is from the past, i.e. its timestamp is smaller or equal

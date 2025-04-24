@@ -49,11 +49,11 @@ type EspressoStreamer[B Batch] struct {
 	// Batch number we're to give out next
 	BatchPos uint64
 	// HotShot block that was visited last
-	hotShotPos uint64
+	HotShotPos uint64
 	// Position of the last safe batch
-	confirmedBatchPos uint64
+	ConfirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
-	confirmedHotShotPos uint64
+	ConfirmedHotShotPos uint64
 	finalizedL1         eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
@@ -89,7 +89,7 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
-	s.BatchPos = s.confirmedBatchPos + 1
+	s.BatchPos = s.ConfirmedBatchPos + 1
 	s.BatchBuffer.Clear()
 	s.confirmEspressoBlockHeight()
 }
@@ -98,12 +98,16 @@ func (s *EspressoStreamer[B]) Reset() {
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
 	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
-	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
+	if s.ConfirmedBatchPos == syncStatus.SafeL2.Number {
+		s.finalizedL1 = syncStatus.FinalizedL1
+		s.ConfirmedBatchPos = syncStatus.SafeL2.Number
+		s.BatchPos = s.ConfirmedBatchPos + 1
+		s.ConfirmedHotShotPos = s.HotShotPos
 		return false, nil
 	}
 
 	s.finalizedL1 = syncStatus.FinalizedL1
-	s.confirmedBatchPos = syncStatus.SafeL2.Number
+	s.ConfirmedBatchPos = syncStatus.SafeL2.Number
 
 	s.Reset()
 	return true, nil
@@ -144,14 +148,14 @@ func (s *EspressoStreamer[B]) CheckBatch(batch B) (BatchValidity, int) {
 	// 	continue
 	// }
 
-	// Find a slot to insert the batch
-	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
-
 	// Batch already buffered/finalized
 	if batch.Number() < s.BatchPos {
 		s.Log.Warn("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
-		return BatchPast, 0
+		return BatchPast, -1
 	}
+
+	// Find a slot to insert the batch
+	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
 
 	if batchRecorded {
 		// Duplicate batch found, skip it
@@ -179,7 +183,7 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Conte
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to fetch HotShot block height: %w", err)
 	}
-	start := s.confirmedHotShotPos
+	start := s.ConfirmedHotShotPos
 	finish := min(start+100, currentBlockHeight)
 
 	return start, finish, nil
@@ -200,17 +204,17 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	i := start
 
 	for ; i <= finish; i++ {
-		s.Log.Trace("Fetching HotShot block", "block", i)
+		s.Log.Info("Fetching HotShot block", "block", i)
 
 		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, i, s.Namespace)
 		if err != nil {
 			return fmt.Errorf("Failed to fetch transactions in block: %w", err)
 		}
 
-		s.Log.Trace("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
+		s.Log.Info("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
 
 		if len(txns.Transactions) == 0 {
-			s.Log.Trace("No transactions in hotshot block", "block", i)
+			s.Log.Info("No transactions in hotshot block", "block", i)
 			continue
 		}
 
@@ -237,10 +241,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				s.Log.Info("Batch already processed. Skipping", "batch", batch)
 				continue
 
-			case BatchUndecided: // Sishan TODO: remove if this is not needed
-				// TODO Philippe logic of remaining list
-				continue
-
 			case BatchAccept:
 				s.Log.Debug("Recovered batch, inserting")
 
@@ -249,9 +249,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			}
 
 			// Batch can be inserted
-			// This is the first batch of the buffer, we update the temporary Espresso block height we can use at a later stage
+			// ???This is the first batch of the buffer, we update the temporary Espresso block height we can use at a later stage
 			if pos == 0 {
-				s.hotShotPos = i
+				s.HotShotPos = i
+				s.Log.Info("Updated s.HotShotPos", "i", i)
 			}
 			s.BatchBuffer.Insert(*batch, pos)
 		}
@@ -265,8 +266,6 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
-		// TODO when moving this call to Reset the test fails. FIX will be implemented in https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210059438517335?focus=true
-		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
@@ -276,5 +275,5 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
 // Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
-	s.confirmedHotShotPos = s.hotShotPos
+	s.ConfirmedHotShotPos = s.HotShotPos
 }
