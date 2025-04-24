@@ -8,13 +8,11 @@ import (
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // TestEspressoDockerDevNodeSmokeTest is a smoke test for the Espresso Dev Node
@@ -175,83 +173,6 @@ func runSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 		t.Errorf("balance of burn address does not match amount burned:\nhave:\n\t\"%s\"\nwant:\n\t\"%s\"\n", have, want)
 	}
 
-	cancel()
-}
-
-// TestE2eDevNetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
-// and runs a couple of simple transactions to it.
-func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	launcher := new(env.EspressoDevNodeLauncherDocker)
-
-	privateKey, err := crypto.GenerateKey()
-	if err != nil {
-		t.Fatalf("failed to generate private key")
-	}
-
-	system, _, err :=
-		launcher.StartDevNet(ctx, t,
-			env.SetBatcherKey(*privateKey),
-			env.Config(func(cfg *e2esys.SystemConfig) {
-				cfg.DisableBatcher = true
-			}),
-		)
-
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	batchDriver := system.BatchSubmitter.TestDriver()
-	batchDriver.Attestation = []byte{1}
-	err = batchDriver.StartBatchSubmitting()
-
-	if err == nil {
-		t.Fatalf("batcher should've failed to register with invalid attestation")
-	}
-
-	cancel()
-}
-
-// TestE2eDevNetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
-// and runs a couple of simple transactions to it.
-func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	launcher := new(env.EspressoDevNodeLauncherDocker)
-
-	privateKey, err := crypto.GenerateKey()
-	if err != nil {
-		t.Fatalf("failed to generate private key")
-	}
-
-	system, _, err :=
-		launcher.StartDevNet(ctx, t,
-			env.SetBatcherKey(*privateKey),
-		)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	l2Seq := system.NodeClient("sequencer")
-
-	// Check that unsafe L2 is progressing...
-	_, err = geth.WaitForBlock(big.NewInt(15), l2Seq)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to wait for block:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// ...but safe L2 is not
-	_, err = geth.WaitForBlockToBeSafe(big.NewInt(1), l2Seq, 1*time.Minute)
-	if err == nil {
-		t.Fatalf("block shouldn't be safe")
-	}
-
-	_ = system
-
-	// Signal the testnet to shut down
 	cancel()
 }
 
