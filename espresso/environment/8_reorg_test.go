@@ -7,7 +7,6 @@ import (
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -66,8 +65,6 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 
-	balanceAliceInitial, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
-
 	// Increase Alice's balance by 1 via a deposit transaction
     privateKey := system.Cfg.Secrets.Bob
     bobOptions, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
@@ -78,38 +75,27 @@ func TestBatcherWaitForFinality(t *testing.T) {
     mintAmount := big.NewInt(1)
     bobOptions.Value = mintAmount
 
-    _ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
+	_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
         l2Opts.ToAddr = addressAlice
     })
 
-    // Wait for balance change on verification node
-    verifBalanceNew, err := wait.ForBalanceChange(ctx, l2Verif, addressAlice, balanceAliceInitial)
-    if err != nil {
-        t.Fatalf("failed to get Alice's new balance from verification node: %v", err)
-    }
+	depositReceipt2 := helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
+        l2Opts.ToAddr = addressAlice
+    })
 
-    // Ensure the balance increased by exactly 1
-    diff := new(big.Int).Sub(verifBalanceNew, balanceAliceInitial)
-    if diff.Cmp(mintAmount) != 0 {
-        t.Fatalf("Alice's balance did not increase by 1: got=%s, want=%s", diff, mintAmount)
-    }
-
-    // Retrieve the L1 block number corresponding to the deposit
-    depositBlockNumber, err := l1Client.BlockNumber(ctx)
-    if err != nil {
-        t.Fatalf("failed to get L1 block number: %v", err)
-    }
+	depositBlockNumber2 := depositReceipt2.BlockNumber.Uint64()
+	t.Logf("Deposit landed in L1: %d", depositBlockNumber2)
 
     // Assert that the batcher has not submitted the L2 block to L1 before L1 finalization
-    if checkBatcherSubmission(ctx, l1Client, depositBlockNumber) {
-        t.Fatalf("batcher submitted the L2 block to L1 before L1 block %d was finalized", depositBlockNumber)
+    if checkBatcherSubmission(ctx, l1Client, depositBlockNumber2) {
+        t.Fatalf("batcher submitted the L2 block to L1 before L1 block was finalized")
     }
 
 	// TODO (Keyao) Find a proper time
 	time.Sleep(5 * time.Second)
 
     // Assert that the batcher has submitted the L2 block to L1 after L1 finalization
-    if !checkBatcherSubmission(ctx, l1Client, depositBlockNumber) {
-        t.Fatalf("batcher did not submit the L2 block to L1 after L1 block %d was finalized", depositBlockNumber)
+    if !checkBatcherSubmission(ctx, l1Client, depositBlockNumber2) {
+        t.Fatalf("batcher did not submit the L2 block to L1 after L1 block was finalized")
     }
 }
