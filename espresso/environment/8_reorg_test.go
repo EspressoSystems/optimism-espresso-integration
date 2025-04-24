@@ -52,21 +52,21 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	defer system.Close()
 	defer espressoDevNode.Stop()
 
+	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+
+	// Shut down the Caff Node
+	defer caffNode.Close(ctx)
+
 	// We want to setup our test condition
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-	var balanceAliceInitial *big.Int
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 
-	// Retrieve Alice's starting Balance
-	{
-		verifBalance, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
-		if have, want := err, error(nil); have != want {
-			t.Fatalf("failed to get alice's balance from verification node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-		balanceAliceInitial = verifBalance
-	}
+	balanceAliceInitial, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
 
 	// Increase Alice's balance by 1 via a deposit transaction
     privateKey := system.Cfg.Secrets.Bob
