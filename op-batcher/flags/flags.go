@@ -207,6 +207,12 @@ var (
 		Value:   "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
 		EnvVars: prefixEnvVars("ESPRESSO_LIGHT_CLIENT_ADDR"),
 	}
+	TestingEspressoBatcherPrivateKeyFlag = &cli.StringFlag{
+		Name:    "testing-espresso-batcher-private-key",
+		Usage:   "Private key of batcher in Espresso mode: ONLY FOR TESTING",
+		Value:   "",
+		EnvVars: prefixEnvVars("TESTING_ESPRESSO_BATCHER_PRIVATE_KEY"),
+	}
 	// Legacy Flags
 	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
 )
