@@ -1170,16 +1170,15 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 			L2Time:       l1StartBlock.Time,
 			SystemConfig: d.GenesisSystemConfig(),
 		},
-		BlockTime:             d.L2BlockTime,
-		MaxSequencerDrift:     d.MaxSequencerDrift,
-		SeqWindowSize:         d.SequencerWindowSize,
-		ChannelTimeoutBedrock: d.ChannelTimeoutBedrock,
-		L1ChainID:             new(big.Int).SetUint64(d.L1ChainID),
-		L2ChainID:             new(big.Int).SetUint64(d.L2ChainID),
-		BatchInboxAddress:     d.BatchInboxAddress,
-		CaffNodeConfig: rollup.CaffNodeConfig{
-			BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
-		},
+		BlockTime:                 d.L2BlockTime,
+		MaxSequencerDrift:         d.MaxSequencerDrift,
+		SeqWindowSize:             d.SequencerWindowSize,
+		ChannelTimeoutBedrock:     d.ChannelTimeoutBedrock,
+		L1ChainID:                 new(big.Int).SetUint64(d.L1ChainID),
+		L2ChainID:                 new(big.Int).SetUint64(d.L2ChainID),
+		BatchInboxAddress:         d.BatchInboxAddress,
+		BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
+
 		DepositContractAddress:  d.OptimismPortalProxy,
 		L1SystemConfigAddress:   d.SystemConfigProxy,
 		RegolithTime:            d.RegolithTime(l1StartTime),
@@ -1270,6 +1269,8 @@ type L1Deployments struct {
 	ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
 	DataAvailabilityChallenge         common.Address `json:"DataAvailabilityChallenge"`
 	DataAvailabilityChallengeProxy    common.Address `json:"DataAvailabilityChallengeProxy"`
+	BatchInbox                        common.Address `json:"BatchInbox"`
+	BatchAuthenticator                common.Address `json:"BatchAuthenticator"`
 }
 
 func CreateL1DeploymentsFromContracts(contracts *addresses.L1Contracts) *L1Deployments {
@@ -1323,6 +1324,9 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	}
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
+		if name == "BatchInbox" || name == "BatchAuthenticator" {
+			continue
+		}
 		if !deployConfig.UseFaultProofs &&
 			(name == "DisputeGameFactory" ||
 				name == "DisputeGameFactoryProxy") {

@@ -155,8 +155,9 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoUrl             string
-	EspressoLightClientAddr string
+	EspressoUrl                      string
+	EspressoLightClientAddr          string
+	TestingEspressoBatcherPrivateKey string
 }
 
 func (c *CLIConfig) Check() error {
@@ -272,5 +273,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		},
 		EspressoUrl:             ctx.String(flags.EspressoUrlFlag.Name),
 		EspressoLightClientAddr: ctx.String(flags.EspressoLCAddrFlag.Name),
+		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
 	}
 }
