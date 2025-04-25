@@ -56,6 +56,7 @@ const (
 	AllocTypeAltDAGeneric AllocType = "alt-da-generic"
 	AllocTypeL2OO         AllocType = "l2oo"
 	AllocTypeMTCannon     AllocType = "mt-cannon"
+	AllocTypeEspresso     AllocType = "espresso"
 
 	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
 	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
