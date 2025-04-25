@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type BatchValidity uint8
@@ -26,6 +27,7 @@ const (
 type Batch interface {
 	Number() uint64
 	L1Origin() eth.BlockID
+	Header() *types.Header
 }
 
 type BatchBuffer[B Batch] struct {
@@ -47,7 +49,6 @@ func (b *BatchBuffer[B]) Clear() {
 }
 
 func (b *BatchBuffer[B]) Insert(batch B, i int) {
-
 	b.batches = slices.Insert(b.batches, i, batch)
 }
 
