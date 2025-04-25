@@ -45,6 +45,10 @@ func (b EspressoBatch) L1Origin() eth.BlockID {
 	return b.Batch.Epoch()
 }
 
+func (b EspressoBatch) Header() *types.Header {
+	return b.BatchHeader
+}
+
 func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner) (*espressoCommon.Transaction, error) {
 	buf := new(bytes.Buffer)
 	err := rlp.Encode(buf, *b)
