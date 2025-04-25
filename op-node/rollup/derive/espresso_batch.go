@@ -19,17 +19,21 @@ import (
 // A SingularBatch with block number attached to restore ordering
 // when fetching from Espresso
 type EspressoBatch struct {
-	Header        *types.Header
+	BatchHeader   *types.Header
 	Batch         SingularBatch
 	L1InfoDeposit *types.Transaction
 }
 
 func (b EspressoBatch) Number() uint64 {
-	return b.Header.Number.Uint64()
+	return b.BatchHeader.Number.Uint64()
 }
 
 func (b EspressoBatch) L1Origin() eth.BlockID {
 	return b.Batch.Epoch()
+}
+
+func (b EspressoBatch) Header() *types.Header {
+	return b.BatchHeader
 }
 
 func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner) (*espressoCommon.Transaction, error) {
@@ -67,7 +71,7 @@ func BlockToEspressoBatch(rollupCfg *rollup.Config, block *types.Block) (*Espres
 	}
 
 	return &EspressoBatch{
-		Header:        block.Header(),
+		BatchHeader:   block.Header(),
 		Batch:         *batch,
 		L1InfoDeposit: l1InfoDeposit,
 	}, nil
@@ -107,7 +111,7 @@ func (b *EspressoBatch) ToBlock(rollupCfg *rollup.Config) (*types.Block, error) 
 		}
 		txs = append(txs, &tx)
 	}
-	return types.NewBlockWithHeader(b.Header).WithBody(types.Body{
+	return types.NewBlockWithHeader(b.BatchHeader).WithBody(types.Body{
 		Transactions: txs,
 	}), nil
 }

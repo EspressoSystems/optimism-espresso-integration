@@ -205,3 +205,11 @@ If in the Nix environment, any `just` command fails with a tool version mismatch
     ```bash
     kurtosis clean -a
     ```
+
+
+### CI environment
+
+We currently use Circle CI but this is temporary. In order to run the go linter do:
+```
+just golint
+```
