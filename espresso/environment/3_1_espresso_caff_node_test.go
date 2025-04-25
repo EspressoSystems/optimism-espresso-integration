@@ -43,14 +43,8 @@ func TestE2eDevNetWithEspressoWithCaffNodeDeterministicDerivation(t *testing.T) 
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	defer system.Close()
-
-	defer func() {
-		if err := espressoDevNode.Stop(); err != nil {
-			// Handle or log the error if needed
-			t.Logf("failed to stop dev node: %v", err)
-		}
-	}()
+	defer env.Stop(t, system)
+	defer env.Stop(t, espressoDevNode)
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -58,9 +52,9 @@ func TestE2eDevNetWithEspressoWithCaffNodeDeterministicDerivation(t *testing.T) 
 	}
 
 	// Shut down the Caff Node
-	defer caffNode.Close(ctx)
+	defer env.Stop(t, caffNode)
 
-	// We want to setup our test condition
+	// We want to setup our test
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
 	var balanceAliceInitial *big.Int
 
