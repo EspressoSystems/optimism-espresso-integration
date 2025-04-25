@@ -28,6 +28,9 @@ type DevNetLauncherContext struct {
 	// Any Current Error
 	Error error
 
+	// The Current System configuration
+	SystemCfg *e2esys.SystemConfig
+
 	// The Current System instance
 	System *e2esys.System
 
@@ -45,6 +48,8 @@ type DevNetLauncherOption func(
 // e2e system that is being launched. It contains the GethOptions and
 // any relevant StartOptions that may be needed for the system.
 type E2eSystemOption struct {
+	SysConfigOption func(*e2esys.SystemConfig)
+
 	// The GethOptions to pass to the Geth Node.
 	GethOptions map[string][]geth.GethOption
 

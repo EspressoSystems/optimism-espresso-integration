@@ -37,6 +37,8 @@ import (
 	_ "embed"
 )
 
+const ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+
 // legacy geth log levels - the geth command line --verbosity flag wasn't
 // migrated to use slog's numerical levels.
 const (
@@ -51,11 +53,13 @@ const (
 type AllocType string
 
 const (
+	AllocTypeStandard     AllocType = "standard"
 	AllocTypeAltDA        AllocType = "alt-da"
 	AllocTypeAltDAGeneric AllocType = "alt-da-generic"
 	AllocTypeMTCannon     AllocType = "mt-cannon"
 	AllocTypeMTCannonNext AllocType = "mt-cannon-next"
 	AllocTypeFastGame     AllocType = "fast-game"
+	AllocTypeEspresso     AllocType = "espresso"
 
 	DefaultAllocType = AllocTypeMTCannon
 )
@@ -69,14 +73,14 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric:
+	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspresso:
 		return true
 	default:
 		return false
 	}
 }
 
-var allocTypes = []AllocType{AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame}
+var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame, AllocTypeEspresso}
 
 var (
 	// All of the following variables are set in the init function
@@ -264,6 +268,15 @@ func initAllocType(root string, allocType AllocType) {
 							MakeRespected: true,
 						})
 				}
+			}
+
+			if allocType == AllocTypeEspresso {
+				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
+				if err != nil {
+					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
+				}
+				intent.Chains[0].EspressoEnabled = true
+				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
 			}
 
 			baseUpgradeSchedule := map[string]any{
