@@ -44,9 +44,11 @@ func TestE2eDevNetWithEspressoWithCaffNodeDeterministicDerivation(t *testing.T) 
 	}
 
 	defer system.Close()
+
 	defer func() {
 		if err := espressoDevNode.Stop(); err != nil {
-			t.Logf("error stopping espresso dev node: %v", err)
+			// Handle or log the error if needed
+			t.Logf("failed to stop dev node: %v", err)
 		}
 	}()
 

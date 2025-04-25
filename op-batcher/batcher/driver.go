@@ -835,7 +835,7 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 		panic(err) // this error should not happen
 	}
 	l.Log.Warn("sending a cancellation transaction to unblock txpool", "blocked_blob", isBlockedBlob)
-	l.sendTx(txData{}, true, candidate, queue, receiptsCh)
+	l.sendTx(txData{}, true, candidate, queue, receiptsCh, nil)
 }
 
 // publishToAltDAAndL1 posts the txdata to the DA Provider and then sends the commitment to L1.
@@ -863,7 +863,7 @@ func (l *BatchSubmitter) publishToAltDAAndL1(txdata txData, queue *txmgr.Queue[t
 		}
 		l.Log.Info("Set altda input", "commitment", comm, "tx", txdata.ID())
 		candidate := l.calldataTxCandidate(comm.TxData())
-		l.sendTx(txdata, false, candidate, queue, receiptsCh)
+		l.sendTx(txdata, false, candidate, queue, receiptsCh, daGroup)
 		return nil
 	})
 	if !goroutineSpawned {
@@ -907,7 +907,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		l.Log.Crit("Unknown DA type", "da_type", txdata.daType)
 	}
 
-	l.sendTx(txdata, false, candidate, queue, receiptsCh)
+	l.sendTx(txdata, false, candidate, queue, receiptsCh, daGroup)
 	return nil
 }
 
@@ -917,10 +917,17 @@ type TxSender[T any] interface {
 
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
-func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
-	if l.Config.UseEspresso {
-		l.Log.Warn("Sending transaction to Espresso")
-		go l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
+func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+	if l.Config.UseEspresso && !isCancel {
+		goroutineSpawned := daGroup.TryGo(
+			func() error {
+				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
+				return nil
+			},
+		)
+		if !goroutineSpawned {
+			l.recordFailedDARequest(txdata.ID(), nil)
+		}
 		return
 	}
 	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, nil, false, true, true, false, nil, nil)
