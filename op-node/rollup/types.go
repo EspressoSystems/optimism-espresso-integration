@@ -153,6 +153,8 @@ type Config struct {
 
 	// Caff Node config
 	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
+
+	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
 }
 
 // CaffNodeConfig is the config for the Caff Node
@@ -161,7 +163,6 @@ type CaffNodeConfig struct {
 	NextHotShotBlockNum           uint64
 	PollingHotShotPollingInterval time.Duration
 	HotShotUrls                   []string
-	BatchAuthenticatorAddress     common.Address `json:"batch_authenticator_address"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.
