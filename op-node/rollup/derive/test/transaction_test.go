@@ -2,16 +2,17 @@ package test
 
 import (
 	"context"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	espresso_batch "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum/go-ethereum/log"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 var rollupCfgTest = &rollup.Config{
