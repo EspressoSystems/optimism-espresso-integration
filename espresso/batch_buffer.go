@@ -2,6 +2,7 @@ package espresso
 
 import (
 	"cmp"
+	"github.com/ethereum/go-ethereum/core/types"
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -26,16 +27,11 @@ const (
 type Batch interface {
 	Number() uint64
 	L1Origin() eth.BlockID
+	Header() *types.Header
 }
 
 type BatchBuffer[B Batch] struct {
 	batches []B
-}
-
-type BatchWithPosition[B Batch] struct {
-	batch  B
-	// Position to be inserted into the buffer.
-	position int
 }
 
 func NewBatchBuffer[B Batch]() BatchBuffer[B] {
@@ -52,8 +48,8 @@ func (b *BatchBuffer[B]) Clear() {
 	b.batches = nil
 }
 
-func (b *BatchBuffer[B]) Insert(batchWithPosition BatchWithPosition[B]) {
-	b.batches = slices.Insert(b.batches, batchWithPosition.position, batchWithPosition.batch)
+func (b *BatchBuffer[B]) Insert(batch B, i int) {
+	b.batches = slices.Insert(b.batches, i, batch)
 }
 
 func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
@@ -63,12 +59,6 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
 
 	return pos, batchIsRecorded
 
-}
-
-func (b *BatchBuffer[B]) InsertMultiple(batches []BatchWithPosition[B]) {
-	for _, batchWithPosition := range batches {
-		b.Insert(batchWithPosition)
-	}
 }
 
 func (b *BatchBuffer[B]) Peek() *B {
