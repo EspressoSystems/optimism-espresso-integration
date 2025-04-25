@@ -584,5 +584,13 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 		return
 	}
 
+	if cast, castOk := toStop.(interface{ Close(context.Context) error }); castOk {
+		if have, want := cast.Close(ctx), error(nil); have != want && !config.IgnoreErrors {
+			t.Fatalf("failed to stop node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
+
+		return
+	}
+
 	t.Fatalf("unable to determine how to stop the given node")
 }
