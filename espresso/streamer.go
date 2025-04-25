@@ -3,6 +3,7 @@ package espresso
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sync"
 	"time"
@@ -63,6 +64,9 @@ type EspressoStreamer[B Batch] struct {
 	// any out of order.
 	BatchBuffer BatchBuffer[B]
 
+	// Manage the batches which origin is unfinalized
+	RemainingBatches map[common.Hash]B
+
 	UnmarshalBatch func([]byte) (*B, error)
 }
 
@@ -85,6 +89,7 @@ func NewEspressoStreamer[B Batch](
 		BatchPos:                      1,
 		BatchBuffer:                   NewBatchBuffer[B](),
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
+		RemainingBatches:              make(map[common.Hash]B),
 
 		UnmarshalBatch: unmarshalBatch,
 	}
@@ -123,7 +128,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 			// Signal to resync to wait for the L1 finality.
 			s.Log.Warn("L1 origin not finalized, pending resync")
 			// TODO uncomment the line below once the remaining list is implemented
-			//return 0, BatchUndecided
+			return 0, BatchUndecided
 		}
 
 		l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
@@ -131,7 +136,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 			// Signal to resync to be able to fetch the L1 header.
 			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
 			// TODO uncomment the line below once the remaining list is implemented
-			//return 0, BatchUndecided
+			return 0, BatchUndecided
 		} else {
 			if l1header.Hash() != origin.Hash {
 				s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
@@ -194,6 +199,41 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 	i := start
 
+	// Process the remaining batches
+	for k, batch := range s.RemainingBatches {
+
+		validity, pos := s.CheckBatch(ctx, batch)
+
+		switch validity {
+
+		case BatchDrop:
+			s.Log.Warn("Dropping batch", batch)
+			delete(s.RemainingBatches, k)
+			continue
+
+		case BatchPast:
+			s.Log.Warn("Batch already processed. Skipping", "batch", batch)
+			delete(s.RemainingBatches, k)
+			continue
+
+		case BatchUndecided:
+			s.Log.Debug("Batch is still undecided, keeping it in the remaining list", "batch", batch)
+			continue
+
+		case BatchAccept:
+			s.Log.Debug("Recovered batch, inserting")
+
+		case BatchFuture:
+			s.Log.Info("Inserting batch for future processing")
+		}
+
+		s.Log.Trace("Inserting batch into buffer", "batch", batch)
+		delete(s.RemainingBatches, k)
+		s.BatchBuffer.Insert(batch, pos)
+
+	}
+
+	// Process the new batches fetched from Espresso
 	for ; i <= finish; i++ {
 		s.Log.Trace("Fetching HotShot block", "block", i)
 
@@ -234,8 +274,9 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				s.Log.Info("Batch already processed. Skipping", "batch", batch)
 				continue
 
-			case BatchUndecided: // Sishan TODO: remove if this is not needed
-				// TODO Philippe logic of remaining list
+			case BatchUndecided:
+				header := (*batch).Header().Hash()
+				s.RemainingBatches[header] = *batch
 				continue
 
 			case BatchAccept:
