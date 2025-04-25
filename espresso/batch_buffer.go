@@ -2,10 +2,10 @@ package espresso
 
 import (
 	"cmp"
-	"github.com/ethereum/go-ethereum/core/types"
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type BatchValidity uint8
