@@ -57,7 +57,7 @@ type EspressoStreamer[B Batch] struct {
 	confirmedHotShotPos uint64
 	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
 	// until it calls `Refresh`.
-	finalizedL1         eth.L1BlockRef
+	finalizedL1 eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
@@ -112,41 +112,33 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 	return true, nil
 }
 
-func (s *EspressoStreamer[B]) CheckBatch(batch B) (BatchValidity, int) {
+func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
 
-	// TODO finality check
-	//espressoFinalizedL1 := getFinalizedL1(&batch)
-	//if espressoFinalizedL1 == nil {
-	//	log.Error("Invalid batch: Unknown Espresso header version")
-	//	return BatchDrop, 0
-	//}
+	// Make sure the finalized L1 block is initialized before checking the block number.
+	if s.finalizedL1 == (eth.L1BlockRef{}) {
+		s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node (before it adds `Refresh` call) but not the batcher")
+	} else {
+		origin := (batch).L1Origin()
+		if origin.Number > s.finalizedL1.Number {
+			// Signal to resync to wait for the L1 finality.
+			s.Log.Warn("L1 origin not finalized, pending resync")
+			// TODO uncomment the line below once the remaining list is implemented
+			//return 0, BatchUndecided
+		}
 
-	//if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
-	//	// Enforce that we only deal with finalized deposits
-	//	log.Warn("batch with unfinalized L1 origin",
-	//		"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
-	//	)
-	//	return BatchUndecided, 0
-	//} else {
-	//	// make sure it's a valid L1 origin state by check the hash
-	//	// TODO Adapt Sishan's logic described in
-	//	// https: //github.com/EspressoSystems/optimism-espresso-integration/blob/40a52d5b334f5dca169dfc1b41d8d06a2a72470d/op-node/rollup/derive/espresso_streamer.go#L148
-	//}
-
-	// origin := (*batch).L1Origin()
-	// if origin.Number > s.finalizedL1.Number {
-	// 	break
-	// }
-
-	// l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-	// if err != nil {
-	// 	break
-	// }
-
-	// if l1header.Hash() != origin.Hash {
-	// 	continue
-	// }
-
+		l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+		if err != nil {
+			// Signal to resync to be able to fetch the L1 header.
+			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+			// TODO uncomment the line below once the remaining list is implemented
+			//return 0, BatchUndecided
+		} else {
+			if l1header.Hash() != origin.Hash {
+				s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+				return 0, BatchDrop
+			}
+		}
+	}
 	// Find a slot to insert the batch
 	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
 
@@ -217,9 +209,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			continue
 		}
 
-		// Batches to be inserted into `BatchBuffer` with the position.
-		var batchesToInsert []BatchWithPosition[B]
-
 		for _, transaction := range txns.Transactions {
 
 			batch, err := s.UnmarshalBatch(transaction)
@@ -230,7 +219,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
-			validity, pos := s.CheckBatch(*batch)
+			validity, pos := s.CheckBatch(ctx, *batch)
+			if pos == 0 {
+				s.hotShotPos = i
+			}
 
 			switch validity {
 
@@ -253,39 +245,9 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				s.Log.Info("Inserting batch for future processing")
 			}
 
-			// Make sure the finalized L1 block is initialized before checking the block number.
-			if s.finalizedL1 == (eth.L1BlockRef{}) {
-				s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node (before it adds `Refresh` call) but not the batcher")
-			} else {
-				origin := (*batch).L1Origin()
-				if origin.Number > s.finalizedL1.Number {
-					// Signal to resync to wait for the L1 finality.
-					s.Log.Warn("L1 origin not finalized, pending resync", "L1 origin", origin.Number, "finalized", s.finalizedL1.Number)
-					return nil
-				}
-
-				l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-				if err != nil {
-					// Signal to resync to be able to fetch the L1 header.
-					s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-					return nil
-				}
-
-				if l1header.Hash() != origin.Hash {
-					s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
-					continue
-				}
-			}
-
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
-			batchesToInsert = append(batchesToInsert, BatchWithPosition[B]{*batch, pos})
+			s.BatchBuffer.Insert(*batch, pos)
 		}
-
-		s.hotShotPos = i
-
-		// Insert batches with the same HotShot position at the end together, in case a resync is
-		// needed which may cause looping the same set of batches again.
-		s.BatchBuffer.InsertMultiple(batchesToInsert)
 	}
 
 	return nil

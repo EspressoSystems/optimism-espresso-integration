@@ -2,16 +2,17 @@ package environment_test
 
 import (
 	"context"
+	"math/big"
+	"math/rand/v2"
+	"testing"
+	"time"
+
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand/v2"
-	"testing"
-	"time"
 )
 
 // TestStatelessBatcher is a test that verifies a batcher can operate (especially restart) correctly and efficiently without persistent storage.
@@ -43,8 +44,8 @@ func TestStatelessBatcher(t *testing.T) {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	defer system.Close()
-	defer espressoDevNode.Stop()
+	defer env.Stop(t, system)
+	defer env.Stop(t, espressoDevNode)
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -52,7 +53,7 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	// Shut down the Caff Node
-	defer caffNode.Close(ctx)
+	defer env.Stop(t, caffNode)
 
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
 
@@ -61,6 +62,10 @@ func TestStatelessBatcher(t *testing.T) {
 	caffVerif := system.NodeClient(env.RoleCaffNode)
 
 	balanceAliceInitial, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("Failed to fetch Alice's balance:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+
 	// Setup Bob for sending coins to Alice
 	privateKey := system.Cfg.Secrets.Bob
 	bobOptions, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
