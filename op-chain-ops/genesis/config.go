@@ -1139,6 +1139,9 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	}
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
+		if name == "BatchInbox" || name == "BatchAuthenticator" {
+			continue
+		}
 		if !deployConfig.UseFaultProofs &&
 			(name == "DisputeGameFactory" ||
 				name == "DisputeGameFactoryProxy") {
