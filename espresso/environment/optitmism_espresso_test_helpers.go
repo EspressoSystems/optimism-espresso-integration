@@ -85,9 +85,10 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 		// Alright, presumably, we have a block height
 
 		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, response.Body)
-		response.Body.Close()
-		if err != nil {
+		if _, err := io.Copy(buf, response.Body); err != nil {
+			return err
+		}
+		if err := response.Body.Close(); err != nil {
 			return err
 		}
 
@@ -521,4 +522,67 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 			},
 		}
 	}
+}
+
+// StopConfig represents the configuration options for the Stop function.
+// The configuration options help to define how the Stop function should
+// to failure types.
+type StopConfig struct {
+	IgnoreErrors bool
+	Ctx          context.Context
+}
+
+// StopOption is a functional option that allows for the modification of the
+// Stop Config
+type StopOption func(*StopConfig)
+
+// IgnoreStopErrors is a functional option that ignores errors encountered
+// by the stop function, so that they do not cause test failure
+func IgnoreStopErrors(c *StopConfig) {
+	c.IgnoreErrors = true
+}
+
+// Stop is a convenience method to handle the graceful shutdown, and the errors
+// thereof of any node that should be stopped on test exit.
+// There are different type signatures for the shutdown methods, and this
+// aims to handle each of them as gracefully as possible while still ensuring
+// that any returned errors are handled accordingly.
+func Stop(t *testing.T, toStop any, options ...StopOption) {
+	config := StopConfig{
+		Ctx: context.Background(),
+	}
+
+	for _, opt := range options {
+		opt(&config)
+	}
+
+	ctx := config.Ctx
+	if cast, castOk := toStop.(interface{ Stop() error }); castOk {
+		if have, want := cast.Stop(), error(nil); have != want && !config.IgnoreErrors {
+			t.Fatalf("failed to stop node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
+
+		return
+
+	}
+
+	if cast, castOk := toStop.(interface{ Stop(context.Context) error }); castOk {
+		if have, want := cast.Stop(ctx), error(nil); have != want && !config.IgnoreErrors {
+			t.Fatalf("failed to stop node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
+
+		return
+	}
+
+	if cast, castOk := toStop.(interface{ Close() }); castOk {
+		cast.Close()
+		return
+	}
+
+	if cast, castOk := toStop.(interface{ Close(context.Context) }); castOk {
+		cast.Close(ctx)
+		return
+	}
+
+	t.Fatalf("unable to determine how to stop the given node")
 }
