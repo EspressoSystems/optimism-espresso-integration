@@ -55,7 +55,9 @@ type EspressoStreamer[B Batch] struct {
 	confirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
 	confirmedHotShotPos uint64
-	finalizedL1         eth.L1BlockRef
+	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
+	// until it calls `Refresh`.
+	finalizedL1 eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
@@ -110,41 +112,33 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 	return true, nil
 }
 
-func (s *EspressoStreamer[B]) CheckBatch(batch B) (BatchValidity, int) {
+func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
 
-	// TODO finality check
-	//espressoFinalizedL1 := getFinalizedL1(&batch)
-	//if espressoFinalizedL1 == nil {
-	//	log.Error("Invalid batch: Unknown Espresso header version")
-	//	return BatchDrop, 0
-	//}
+	// Make sure the finalized L1 block is initialized before checking the block number.
+	if s.finalizedL1 == (eth.L1BlockRef{}) {
+		s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node (before it adds `Refresh` call) but not the batcher")
+	} else {
+		origin := (batch).L1Origin()
+		if origin.Number > s.finalizedL1.Number {
+			// Signal to resync to wait for the L1 finality.
+			s.Log.Warn("L1 origin not finalized, pending resync")
+			// TODO uncomment the line below once the remaining list is implemented
+			//return 0, BatchUndecided
+		}
 
-	//if uint64(batch.Batch.EpochNum) > espressoFinalizedL1.Number {
-	//	// Enforce that we only deal with finalized deposits
-	//	log.Warn("batch with unfinalized L1 origin",
-	//		"batchEpochNum", batch.Batch.EpochNum, "espressoFinalizedL1Num", espressoFinalizedL1.Number,
-	//	)
-	//	return BatchUndecided, 0
-	//} else {
-	//	// make sure it's a valid L1 origin state by check the hash
-	//	// TODO Adapt Sishan's logic described in
-	//	// https: //github.com/EspressoSystems/optimism-espresso-integration/blob/40a52d5b334f5dca169dfc1b41d8d06a2a72470d/op-node/rollup/derive/espresso_streamer.go#L148
-	//}
-
-	// origin := (*batch).L1Origin()
-	// if origin.Number > s.finalizedL1.Number {
-	// 	break
-	// }
-
-	// l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-	// if err != nil {
-	// 	break
-	// }
-
-	// if l1header.Hash() != origin.Hash {
-	// 	continue
-	// }
-
+		l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+		if err != nil {
+			// Signal to resync to be able to fetch the L1 header.
+			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+			// TODO uncomment the line below once the remaining list is implemented
+			//return 0, BatchUndecided
+		} else {
+			if l1header.Hash() != origin.Hash {
+				s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+				return 0, BatchDrop
+			}
+		}
+	}
 	// Find a slot to insert the batch
 	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
 
@@ -219,14 +213,16 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			batch, err := s.UnmarshalBatch(transaction)
 			if err != nil {
-				// Invalid Batch
-				s.Log.Warn("Invalid batch", "error", err)
+				s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
 				continue
 			}
 
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
-			validity, pos := s.CheckBatch(*batch)
+			validity, pos := s.CheckBatch(ctx, *batch)
+			if pos == 0 {
+				s.hotShotPos = i
+			}
 
 			switch validity {
 
@@ -249,11 +245,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				s.Log.Info("Inserting batch for future processing")
 			}
 
-			// Batch can be inserted
-			// This is the first batch of the buffer, we update the temporary Espresso block height we can use at a later stage
-			if pos == 0 {
-				s.hotShotPos = i
-			}
+			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
 		}
 
