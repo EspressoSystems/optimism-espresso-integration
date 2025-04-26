@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -72,15 +73,18 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.EspressoStreamer[EspressoBatch] {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.EspressoStreamer[EspressoBatch] {
 
 	if !cfg.CaffNodeConfig.IsCaffNode {
 		return nil
 	}
 
+	// Create an adapter that implements espresso.L1Client
+	l1Client := NewL1BlockRefClient(l1Fetcher.L1FinalizedBlock, l1Fetcher.L1BlockRefByNumber)
+
 	streamer := espresso.NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
-		nil, // TODO(AG)
+		l1Client,
 		espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
 		nil, // TODO(AG)
 		log,
@@ -96,19 +100,83 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.Espresso
 	return &streamer
 }
 
-func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
+func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider, l1Fetcher L1Fetcher) *AttributesQueue {
 	return &AttributesQueue{
 		log:              log,
 		config:           cfg,
 		builder:          builder,
 		prev:             prev,
 		isCaffNode:       cfg.CaffNodeConfig.IsCaffNode,
-		espressoStreamer: initEspressoStreamer(log, cfg),
+		espressoStreamer: initEspressoStreamer(log, cfg, l1Fetcher),
 	}
 }
 
 func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
+}
+
+// Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
+func CaffRefresh(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error)) error {
+	s.BatchPos = s.ConfirmedBatchPos + 1
+	s.ConfirmedBatchPos = parent.Number
+	s.ConfirmedHotShotPos = s.HotShotPos
+	finalizedL1Block, err := l1Finalized()
+	if err != nil {
+		s.Log.Error("failed to get the L1 finalized block", "err", err)
+		return ErrTemporary
+	}
+	s.FinalizedL1 = finalizedL1Block
+	return nil
+}
+
+func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
+
+	// Refresh the sync status
+	if err := CaffRefresh(s, ctx, parent, l1Finalized); err != nil {
+		return nil, false, err
+	}
+
+	var espressoBatch = s.Next(ctx)
+
+	if espressoBatch == nil {
+		// TODO Philippe why is this needed. Introduce a configuration variable?
+		// time.Sleep(100 * time.Millisecond)
+		return nil, true, NotEnoughData
+	}
+
+	batch := &espressoBatch.Batch
+	log.Info("espressoBatch", "batch", espressoBatch.Batch)
+
+	// For caff node, assign concluding to true for now
+	concluding := true
+
+	// check the batch is valid regarding given parent
+	nextTimestamp := parent.Time + blockTime
+
+	if batch.Timestamp != nextTimestamp {
+		log.Warn("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+		return nil, concluding, ErrTemporary
+	}
+
+	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+	if batch.ParentHash != parent.Hash {
+		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+		return nil, concluding, ErrTemporary
+	}
+
+	// We can do this check earlier, but it's a more intensive one, so we do this last.
+	for i, txBytes := range batch.Transactions {
+		if len(txBytes) == 0 {
+			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+			return nil, concluding, ErrTemporary
+		}
+		if txBytes[0] == types.DepositTxType {
+			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			return nil, concluding, ErrTemporary
+		}
+	}
+
+	return batch, concluding, nil
 }
 
 func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
@@ -118,24 +186,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var concluding bool
 		var err error
 		if aq.isCaffNode {
-			// Sishan TODO: add remaining espresso streamer logic here
-			//_, _, _ = aq.espressoStreamer.NextBatch(ctx, parent, l1Finalized, l1BlockRefByNumber)
-
-			var espressoBatch = aq.espressoStreamer.Next(ctx)
-			if espressoBatch == nil {
-				batch = nil
-				concluding = true
-				err = NotEnoughData
-				// TODO Philippe why is this needed. Introduce a configuration variable?
-				time.Sleep(100 * time.Millisecond)
-			} else {
-				log.Info("espressoBatch", "batch", espressoBatch.Batch)
-				batch = &espressoBatch.Batch
-				// For caff node, assign concluding to true for now
-				concluding = true
-				err = nil
-			}
-
+			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Finalized, l1BlockRefByNumber)
 		} else {
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 		}
