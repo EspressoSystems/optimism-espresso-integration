@@ -11,17 +11,17 @@ import (
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 )
 
 type L1Client interface {
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+	HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error)
 }
 
 // espresso-network-go's HeaderInterface currently lacks a function to get this info,
 // although it is present in all header versions
-func GetFinalizedL1(header *espressoTypes.HeaderImpl) espressoTypes.L1BlockInfo {
+func GetfinalizedL1(header *espressoTypes.HeaderImpl) espressoTypes.L1BlockInfo {
 	v0_1, ok := header.Header.(*espressoTypes.Header0_1)
 	if ok {
 		return *v0_1.L1Finalized
@@ -50,14 +50,14 @@ type EspressoStreamer[B Batch] struct {
 	// Batch number we're to give out next
 	BatchPos uint64
 	// HotShot block that was visited last
-	hotShotPos uint64
+	HotShotPos uint64
 	// Position of the last safe batch
-	confirmedBatchPos uint64
+	ConfirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
-	confirmedHotShotPos uint64
+	ConfirmedHotShotPos uint64
 	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
 	// until it calls `Refresh`.
-	finalizedL1 eth.L1BlockRef
+	FinalizedL1 eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
@@ -92,7 +92,7 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
-	s.BatchPos = s.confirmedBatchPos + 1
+	s.BatchPos = s.ConfirmedBatchPos + 1
 	s.BatchBuffer.Clear()
 	s.confirmEspressoBlockHeight()
 }
@@ -101,12 +101,16 @@ func (s *EspressoStreamer[B]) Reset() {
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
 	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
-	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
+	if s.ConfirmedBatchPos == syncStatus.SafeL2.Number {
+		s.FinalizedL1 = syncStatus.FinalizedL1
+		s.ConfirmedBatchPos = syncStatus.SafeL2.Number
+		s.BatchPos = s.ConfirmedBatchPos + 1
+		s.ConfirmedHotShotPos = s.HotShotPos
 		return false, nil
 	}
 
-	s.finalizedL1 = syncStatus.FinalizedL1
-	s.confirmedBatchPos = syncStatus.SafeL2.Number
+	s.FinalizedL1 = syncStatus.FinalizedL1
+	s.ConfirmedBatchPos = syncStatus.SafeL2.Number
 
 	s.Reset()
 	return true, nil
@@ -115,30 +119,32 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
 
 	// Make sure the finalized L1 block is initialized before checking the block number.
-	if s.finalizedL1 == (eth.L1BlockRef{}) {
-		s.Log.Warn("Finalized L1 block not initialized, expected for the Caff node (before it adds `Refresh` call) but not the batcher")
-	} else {
-		origin := (batch).L1Origin()
-		if origin.Number > s.finalizedL1.Number {
-			// Signal to resync to wait for the L1 finality.
-			s.Log.Warn("L1 origin not finalized, pending resync")
-			// TODO uncomment the line below once the remaining list is implemented
-			//return 0, BatchUndecided
-		}
+	if s.FinalizedL1 == (eth.L1BlockRef{}) {
+		s.Log.Error("Finalized L1 block not initialized")
+		return BatchDrop, 0
+	}
+	// Start L1 finality check
+	origin := (batch).L1Origin()
+	if origin.Number > s.FinalizedL1.Number {
+		// Signal to resync to wait for the L1 finality.
+		s.Log.Warn("L1 origin not finalized, pending resync")
+		// TODO uncomment the line below once the remaining list is implemented
+		//return 0, BatchUndecided
+	}
 
-		l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-		if err != nil {
-			// Signal to resync to be able to fetch the L1 header.
-			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-			// TODO uncomment the line below once the remaining list is implemented
-			//return 0, BatchUndecided
-		} else {
-			if l1header.Hash() != origin.Hash {
-				s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
-				return 0, BatchDrop
-			}
+	l1headerHash, err := s.L1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+	if err != nil {
+		// Signal to resync to be able to fetch the L1 header.
+		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+		// TODO uncomment the line below once the remaining list is implemented
+		//return 0, BatchUndecided
+	} else {
+		if l1headerHash != origin.Hash {
+			s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+			return 0, BatchDrop
 		}
 	}
+
 	// Find a slot to insert the batch
 	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
 
@@ -153,19 +159,6 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		return BatchPast, i
 	}
 
-	// We can do this check earlier, but it's a more intensive one, so we do this last.
-	// TODO as the batcher is considered honest does is this check needed?
-	//for i, txBytes := range batch.Batch.Transactions {
-	//	if len(txBytes) == 0 {
-	//		b.Log.Error("Transaction data must not be empty, but found empty tx", "tx_index", i)
-	//		return BatchDrop, 0
-	//	}
-	//	if txBytes[0] == types.DepositTxType {
-	//		log.Error("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
-	//		return BatchDrop, 0
-	//	}
-	//}
-
 	return BatchAccept, i
 }
 
@@ -174,7 +167,7 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Conte
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to fetch HotShot block height: %w", err)
 	}
-	start := s.confirmedHotShotPos
+	start := s.ConfirmedHotShotPos
 	finish := min(start+100, currentBlockHeight)
 
 	return start, finish, nil
@@ -221,7 +214,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			validity, pos := s.CheckBatch(ctx, *batch)
 			if pos == 0 {
-				s.hotShotPos = i
+				s.HotShotPos = i
 			}
 
 			switch validity {
@@ -271,7 +264,7 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
 			}
 
 		case <-ctx.Done():
-			s.Log.Info("espressoBatchLoadingLoop returning")
+			s.Log.Info("espressoStreamerLoop returning")
 			return
 		}
 	}
@@ -283,8 +276,6 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
-		// TODO when moving this call to Reset the test fails. FIX will be implemented in https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210059438517335?focus=true
-		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
@@ -294,5 +285,5 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
 // Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
-	s.confirmedHotShotPos = s.hotShotPos
+	s.ConfirmedHotShotPos = s.HotShotPos
 }
