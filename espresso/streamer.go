@@ -126,7 +126,8 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		origin := (batch).L1Origin()
 		if origin.Number > s.finalizedL1.Number {
 			// Signal to resync to wait for the L1 finality.
-			s.Log.Warn("L1 origin not finalized, pending resync")
+			s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.finalizedL1.Number)
+			s.Log.Warn("L1 origin not finalized, pending resync", "origin number", origin.Number)
 			return BatchUndecided, 0
 		}
 
@@ -282,7 +283,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchAccept:
-				s.Log.Debug("Recovered batch, inserting")
+				s.Log.Info("Recovered batch, inserting")
 
 			case BatchFuture:
 				s.Log.Info("Inserting batch for future processing")

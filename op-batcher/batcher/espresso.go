@@ -127,18 +127,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer ticker.Stop()
 	defer close(publishSignal)
 
-	streamer := espresso.NewEspressoStreamer(
-		l.RollupConfig.L2ChainID.Uint64(),
-		l.L1Client,
-		l.Espresso,
-		l.EspressoLightClient,
-		l.Log,
-		func(data []byte) (*derive.EspressoBatch, error) {
-			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
-		},
-		2*time.Second,
-	)
-
 	for {
 		select {
 		case <-ticker.C:
@@ -148,15 +136,15 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			l.espressoSyncAndRefresh(ctx, newSyncStatus, &streamer)
+			l.espressoSyncAndRefresh(ctx, newSyncStatus, &l.streamer)
 
-			err = streamer.Update(ctx)
+			err = l.streamer.Update(ctx)
 
 			var batch *derive.EspressoBatch
 
 			for {
 
-				batch = streamer.Next(ctx)
+				batch = l.streamer.Next(ctx)
 
 				if batch == nil {
 					break
@@ -184,7 +172,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
-					streamer.Reset()
+					l.streamer.Reset()
 				}
 
 				l.Log.Info("Added L2 block to channel manager")

@@ -215,6 +215,11 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	originalCtx := ctx
 
 	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeEspresso))
+
+	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
+	sysConfig.DeployConfig.L1BlockTime = 2
+	sysConfig.L1FinalizedDistance = 2
+
 	sysConfig.DeployConfig.DeployCeloContracts = true
 
 	// Ensure that we fund the dev accounts
