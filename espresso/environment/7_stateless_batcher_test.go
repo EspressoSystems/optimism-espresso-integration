@@ -7,8 +7,11 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
+	"math/rand/v2"
 	"testing"
+	"time"
 )
 
 // TestStatelessBatcher is a test that verifies a batcher can operate (especially restart) correctly and efficiently without persistent storage.
@@ -75,32 +78,31 @@ func TestStatelessBatcher(t *testing.T) {
 
 	var caffBalanceNew *big.Int
 
-	//driver := system.BatchSubmitter.TestDriver()
+	driver := system.BatchSubmitter.TestDriver()
 	numIterations := 10
 
 	// We select a range of iterations when the batcher is turned off.
-	//turnBatcherOffIteration := rand.IntN(numIterations / 2)
-	//turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
+	turnBatcherOffIteration := rand.IntN(numIterations / 2)
+	turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
 
 	batcherIsUp := true
 	for i := 0; i < numIterations; i++ {
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
-		//if i == turnBatcherOffIteration {
-		//
-		//	err = driver.StopBatchSubmitting(ctx)
-		//	require.NoError(t, err)
-		//	time.Sleep(2 * time.Second)
-		//	batcherIsUp = false
-		//}
-		//
+		if i == turnBatcherOffIteration {
+			err = driver.StopBatchSubmitting(ctx)
+			require.NoError(t, err)
+			time.Sleep(2 * time.Second)
+			batcherIsUp = false
+		}
+
 		//// Let us start the batcher again
-		//if i == turnBatcherOnIteration {
-		//	err = driver.StartBatchSubmitting()
-		//	require.NoError(t, err)
-		//	batcherIsUp = true
-		//}
+		if i == turnBatcherOnIteration {
+			err = driver.StartBatchSubmitting()
+			require.NoError(t, err)
+			batcherIsUp = true
+		}
 
 		// The batcher is up, we can send coins
 		if batcherIsUp {
