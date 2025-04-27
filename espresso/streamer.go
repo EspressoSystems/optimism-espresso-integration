@@ -127,20 +127,18 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		if origin.Number > s.finalizedL1.Number {
 			// Signal to resync to wait for the L1 finality.
 			s.Log.Warn("L1 origin not finalized, pending resync")
-			// TODO uncomment the line below once the remaining list is implemented
-			return 0, BatchUndecided
+			return BatchUndecided, 0
 		}
 
 		l1header, err := s.L1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(origin.Number))
 		if err != nil {
 			// Signal to resync to be able to fetch the L1 header.
 			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-			// TODO uncomment the line below once the remaining list is implemented
-			return 0, BatchUndecided
+			return BatchUndecided, 0
 		} else {
 			if l1header.Hash() != origin.Hash {
 				s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
-				return 0, BatchDrop
+				return BatchDrop, 0
 			}
 		}
 	}
@@ -199,6 +197,8 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 	i := start
 
+	s.Log.Info("Remaining list before", "Size", len(s.RemainingBatches))
+
 	// Process the remaining batches
 	for k, batch := range s.RemainingBatches {
 
@@ -207,7 +207,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		switch validity {
 
 		case BatchDrop:
-			s.Log.Warn("Dropping batch", batch)
+			s.Log.Warn("Dropping batch", "batch", batch)
 			delete(s.RemainingBatches, k)
 			continue
 
@@ -217,21 +217,23 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			continue
 
 		case BatchUndecided:
-			s.Log.Debug("Batch is still undecided, keeping it in the remaining list", "batch", batch)
+			s.Log.Warn("Batch is still undecided, keeping it in the remaining list", "batch", batch)
 			continue
 
 		case BatchAccept:
-			s.Log.Debug("Recovered batch, inserting")
+			s.Log.Info("Remaining list", "Recovered batch, inserting batch", batch)
 
 		case BatchFuture:
-			s.Log.Info("Inserting batch for future processing")
+			s.Log.Info("Remaining list", "Inserting batch for future processing", batch)
 		}
 
-		s.Log.Trace("Inserting batch into buffer", "batch", batch)
-		delete(s.RemainingBatches, k)
+		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(batch, pos)
+		delete(s.RemainingBatches, k)
 
 	}
+
+	s.Log.Info("Remaining list after", "Size", len(s.RemainingBatches))
 
 	// Process the new batches fetched from Espresso
 	for ; i <= finish; i++ {

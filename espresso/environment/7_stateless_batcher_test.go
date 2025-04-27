@@ -108,10 +108,11 @@ func TestStatelessBatcher(t *testing.T) {
 
 		// The batcher is up, we can send coins
 		if batcherIsUp {
-			_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
+			receipt := helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
 				// Send from Bob to Alice
 				l2Opts.ToAddr = addressAlice
 			})
+			t.Log("Deposit transaction receipt", "receipt", receipt)
 			numDeposits++
 		}
 
