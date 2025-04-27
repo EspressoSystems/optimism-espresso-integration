@@ -180,6 +180,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
+				l.Log.Info("block", "content", block.Body().Transactions)
 			}
 
 			trySignal(publishSignal)

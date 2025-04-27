@@ -103,6 +103,7 @@ func (s *EspressoStreamer[B]) Reset() {
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
+	s.Log.Info("Refreshing streamer...")
 	s.Log.Info("L2 ", "safe block number", syncStatus.SafeL2.Number)
 	s.Log.Info("L1 ", "finalized block number", syncStatus.FinalizedL1.Number, "safe block number", syncStatus.SafeL1.Number)
 	s.finalizedL1 = syncStatus.FinalizedL1
