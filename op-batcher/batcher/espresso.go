@@ -139,6 +139,10 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			l.espressoSyncAndRefresh(ctx, newSyncStatus, &l.streamer)
 
 			err = l.streamer.Update(ctx)
+			remainingListLen := len(l.streamer.RemainingBatches)
+			if remainingListLen > 0 {
+				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
+			}
 
 			var batch *derive.EspressoBatch
 

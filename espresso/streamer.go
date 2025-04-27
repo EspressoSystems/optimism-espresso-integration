@@ -80,18 +80,16 @@ func NewEspressoStreamer[B Batch](
 	pollingHotShotPollingInterval time.Duration,
 ) EspressoStreamer[B] {
 	return EspressoStreamer[B]{
-		L1Client:            l1Client,
-		EspressoClient:      espressoClient,
-		EspressoLightClient: lightClient,
-		Log:                 log,
-
+		L1Client:                      l1Client,
+		EspressoClient:                espressoClient,
+		EspressoLightClient:           lightClient,
+		Log:                           log,
 		Namespace:                     namespace,
 		BatchPos:                      1,
 		BatchBuffer:                   NewBatchBuffer[B](),
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		RemainingBatches:              make(map[common.Hash]B),
-
-		UnmarshalBatch: unmarshalBatch,
+		UnmarshalBatch:                unmarshalBatch,
 	}
 }
 
@@ -105,12 +103,15 @@ func (s *EspressoStreamer[B]) Reset() {
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
-	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
+	s.Log.Info("L2 ", "safe block number", syncStatus.SafeL2.Number)
+	s.Log.Info("L1 ", "finalized block number", syncStatus.FinalizedL1.Number, "safe block number", syncStatus.SafeL1.Number)
+	s.finalizedL1 = syncStatus.FinalizedL1
+
+	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
 		return false, nil
 	}
 
-	s.finalizedL1 = syncStatus.FinalizedL1
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
 
 	s.Reset()
@@ -126,8 +127,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		origin := (batch).L1Origin()
 		if origin.Number > s.finalizedL1.Number {
 			// Signal to resync to wait for the L1 finality.
-			s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.finalizedL1.Number)
-			s.Log.Warn("L1 origin not finalized, pending resync", "origin number", origin.Number)
+			s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.finalizedL1.Number, "origin number", origin.Number)
 			return BatchUndecided, 0
 		}
 

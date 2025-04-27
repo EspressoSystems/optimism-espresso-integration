@@ -218,7 +218,7 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2
-	sysConfig.L1FinalizedDistance = 2
+	sysConfig.L1FinalizedDistance = 4
 
 	sysConfig.DeployConfig.DeployCeloContracts = true
 
