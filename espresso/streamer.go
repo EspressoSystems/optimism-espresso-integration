@@ -101,17 +101,14 @@ func (s *EspressoStreamer[B]) Reset() {
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
 	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
+	s.finalizedL1 = syncStatus.FinalizedL1
 	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
-		s.finalizedL1 = syncStatus.FinalizedL1
-		s.confirmedBatchPos = syncStatus.SafeL2.Number
 		s.BatchPos = s.confirmedBatchPos + 1
 		s.confirmedHotShotPos = s.hotShotPos
 		return false, nil
 	}
 
-	s.finalizedL1 = syncStatus.FinalizedL1
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
-
 	s.Reset()
 	return true, nil
 }
