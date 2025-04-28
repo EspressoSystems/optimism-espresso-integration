@@ -106,19 +106,17 @@ func SendL2TxWithID(t *testing.T, chainID *big.Int, l2Client *ethclient.Client, 
 	err := l2Client.SendTransaction(ctx, tx)
 	require.NoError(t, err, "Sending L2 tx")
 
-	// TODO (Keyao) Restore the commented-out code or create a new function without the code below.
-	return nil
-	// receipt, err := wait.ForReceiptOK(ctx, l2Client, tx.Hash())
-	// require.NoError(t, err, "Waiting for L2 tx")
-	// require.Equal(t, opts.ExpectedStatus, receipt.Status, "TX should have expected status")
+	receipt, err := wait.ForReceiptOK(ctx, l2Client, tx.Hash())
+	require.NoError(t, err, "Waiting for L2 tx")
+	require.Equal(t, opts.ExpectedStatus, receipt.Status, "TX should have expected status")
 
-	// for i, client := range opts.VerifyClients {
-	// 	t.Logf("Waiting for tx %v on verification client %d", tx.Hash(), i)
-	// 	receiptVerif, err := wait.ForReceiptOK(ctx, client, tx.Hash())
-	// 	require.NoErrorf(t, err, "Waiting for L2 tx on verification client %d", i)
-	// 	require.Equalf(t, receipt, receiptVerif, "Receipts should be the same on sequencer and verification client %d", i)
-	// }
-	// return receipt
+	for i, client := range opts.VerifyClients {
+		t.Logf("Waiting for tx %v on verification client %d", tx.Hash(), i)
+		receiptVerif, err := wait.ForReceiptOK(ctx, client, tx.Hash())
+		require.NoErrorf(t, err, "Waiting for L2 tx on verification client %d", i)
+		require.Equalf(t, receipt, receiptVerif, "Receipts should be the same on sequencer and verification client %d", i)
+	}
+	return receipt
 }
 
 func SendL2Tx(t *testing.T, cfg e2esys.SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyTxOpts TxOptsFn) *types.Receipt {

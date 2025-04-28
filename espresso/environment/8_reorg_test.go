@@ -32,14 +32,14 @@ func TestBatcherWaitForFinality(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	defer system.Close()
-	defer espressoDevNode.Stop()
+	defer env.Stop(t, system)
+	defer env.Stop(t, espressoDevNode)
 
 	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
@@ -47,7 +47,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	}
 
 	// Shut down the Caff Node
-	defer caffNode.Close(ctx)
+	defer env.Stop(t, caffNode)
 
 	l2Seq := system.NodeClient("sequencer")
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
@@ -56,7 +56,6 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	intialSeqStatus, err := rollupClient.SyncStatus(context.Background())
 	require.NoError(t, err)
 
-	// Increase Alice's balance by 1 via a deposit transaction
     privateKey := system.Cfg.Secrets.Bob
     if err != nil {
         t.Fatalf("failed to create transaction options for Bob: %v", err)
