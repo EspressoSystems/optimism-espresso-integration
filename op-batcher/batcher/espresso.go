@@ -133,7 +133,6 @@ func NewAdaptL1BlockRefClient(L1Client L1Client) *AdaptL1BlockRefClient {
 
 // HeaderHashByNumber implements the espresso.L1Client interface
 func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
-
 	expectedL1BlockRef, err := c.L1Client.HeaderByNumber(ctx, number)
 	if err != nil {
 		return common.Hash{}, err
