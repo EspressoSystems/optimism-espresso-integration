@@ -38,7 +38,7 @@ func TestStatelessBatcher(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -92,7 +92,6 @@ func TestStatelessBatcher(t *testing.T) {
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
 		if i == turnBatcherOffIteration {
-
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
 			time.Sleep(2 * time.Second)
@@ -108,10 +107,11 @@ func TestStatelessBatcher(t *testing.T) {
 
 		// The batcher is up, we can send coins
 		if batcherIsUp {
-			_ = helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
+			receipt := helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
 				// Send from Bob to Alice
 				l2Opts.ToAddr = addressAlice
 			})
+			t.Log("Deposit transaction receipt", "receipt", receipt)
 			numDeposits++
 		}
 
