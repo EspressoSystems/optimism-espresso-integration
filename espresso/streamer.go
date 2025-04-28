@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -100,6 +99,8 @@ func (s *EspressoStreamer[B]) Reset() {
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
+	// s.BatchBuffer.Mu.Lock()
+	// defer s.BatchBuffer.Mu.Unlock()
 	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
 	s.finalizedL1 = syncStatus.FinalizedL1
 	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
@@ -188,6 +189,9 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Conte
 // / @param ctx context
 // / @return error possible error
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
+	// s.BatchBuffer.Mu.Lock()
+	// defer s.BatchBuffer.Mu.Unlock()
+
 	// Fetch more batches from HotShot if available.
 	start, finish, err := s.computeEspressoBlockHeightsRange(ctx)
 	if err != nil {
@@ -258,10 +262,9 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	return nil
 }
 
-func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
+func (s *EspressoStreamer[B]) Start(ctx context.Context) {
 
 	s.Log.Info("Starting espresso streamer")
-	defer wg.Done()
 	ticker := time.NewTicker(s.PollingHotShotPollingInterval)
 	defer ticker.Stop()
 
@@ -284,6 +287,9 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
 
 // TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
+	// s.BatchBuffer.Mu.Lock()
+	// defer s.BatchBuffer.Mu.Unlock()
+
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
