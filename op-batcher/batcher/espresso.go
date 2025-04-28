@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
-	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -94,8 +93,8 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	return nil
 }
 
-func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) {
-	shouldClearState, err := streamer.Refresh(ctx, newSyncStatus)
+func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
+	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus)
 	shouldClearState = shouldClearState || err != nil
 
 	l.channelMgrMutex.Lock()
@@ -108,10 +107,10 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState == nil && shouldClearState {
 		l.channelMgr.Clear(newSyncStatus.SafeL2.L1Origin)
-		streamer.Reset()
+		l.streamer.Reset()
 	} else if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		streamer.Reset()
+		l.streamer.Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -136,7 +135,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			l.espressoSyncAndRefresh(ctx, newSyncStatus, &l.streamer)
+			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
 			err = l.streamer.Update(ctx)
 			remainingListLen := len(l.streamer.RemainingBatches)
