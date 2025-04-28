@@ -3,10 +3,11 @@ package espresso
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"

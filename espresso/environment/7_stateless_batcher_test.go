@@ -2,16 +2,17 @@ package environment_test
 
 import (
 	"context"
+	"math/big"
+	"math/rand/v2"
+	"testing"
+	"time"
+
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand/v2"
-	"testing"
-	"time"
 )
 
 // TestStatelessBatcher is a test that verifies a batcher can operate (especially restart) correctly and efficiently without persistent storage.

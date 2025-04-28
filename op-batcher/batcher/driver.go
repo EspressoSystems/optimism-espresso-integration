@@ -5,14 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espresso "github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"math"
 	"math/big"
 	_ "net/http/pprof"
 	"sync"
 	"time"
+
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espresso "github.com/ethereum-optimism/optimism/espresso"
 
 	"golang.org/x/sync/errgroup"
 
