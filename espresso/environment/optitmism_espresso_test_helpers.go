@@ -54,7 +54,20 @@ func init() {
 	}
 }
 
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+//go:embed allocs.json
+var ESPRESSO_ALLOCS_RAW string
+var ESPRESSO_ALLOCS map[common.Address]EspressoAllocAccount
+
+func init() {
+	// Unmarshal allocs to set up the dockerConfig environment variables
+	ESPRESSO_ALLOCS = make(map[common.Address]EspressoAllocAccount)
+
+	if err := json.Unmarshal([]byte(ESPRESSO_ALLOCS_RAW), &ESPRESSO_ALLOCS); err != nil {
+		panic(fmt.Sprintf("failed to unmarshal ESPRESSO_ALLOCS: %v", err))
+	}
+}
+
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
 
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 

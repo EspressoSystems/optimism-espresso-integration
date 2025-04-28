@@ -15,7 +15,7 @@ type EspressoDevNetLauncher interface {
 	// StartDevNet will launch the DevNet with the provided options. The
 	// returned system will be a fully configured e2e system with the configured
 	// options.
-	StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error)
+	StartDevNet(ctx context.Context, t *testing.T, L1FinalidedDistance uint64, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error)
 }
 
 // DevNetLauncherContext is a struct that contains the context and any errors
