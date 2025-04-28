@@ -20,13 +20,17 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	gethNode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 )
 
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
@@ -634,4 +638,27 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 	}
 
 	t.Fatalf("unable to determine how to stop the given node")
+}
+
+// SendL2TxNoReceipt creates and sends a transaction.
+//
+// It does everything the same as SendL2Tx, but doesn not wait for the receipt from the L1.
+func SendL2TxNoReceipt(t *testing.T, cfg e2esys.SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyTxOpts helpers.TxOptsFn) {
+	chainID := cfg.L2ChainIDBig()
+	opts := helpers.DefaultTxOpts()
+	applyTxOpts(opts)
+	tx := types.MustSignNewTx(privKey, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     opts.Nonce, // Already have deposit
+		To:        opts.ToAddr,
+		Value:     opts.Value,
+		GasTipCap: opts.GasTipCap,
+		GasFeeCap: opts.GasFeeCap,
+		Gas:       opts.Gas,
+		Data:      opts.Data,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	err := l2Client.SendTransaction(ctx, tx)
+	require.NoError(t, err, "Sending L2 tx")
 }

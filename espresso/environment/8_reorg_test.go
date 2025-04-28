@@ -20,24 +20,22 @@ import (
 // plan. It has stated task definition as follows:
 //
 //	Arrange:
-//		Running the sequencer and the batcher in Espresso mode.
+//		Run the sequencer and the batcher in Espresso mode.
 //	Act:
-//		Send a single transaction derived from an unfinalized L1 block.
+//		Send two transactions.
 //	Assert:
-//		The batcher doesn't submit the transaction to the L1 immediatly.
-//		After the derived L1 block is finalized, the batcher submits the transaciton.
+//		The batcher doesn't submit the second transaction to the L1 immediatly.
+//		After the first block is finalized the L1, the batcher submits the second transaction.
 func TestBatcherWaitForFinality(t *testing.T) {
+	// Basic test setup.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
-
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
-	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
-
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
@@ -45,50 +43,73 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
-
-	// Shut down the Caff Node
 	defer env.Stop(t, caffNode)
 
 	l2Seq := system.NodeClient("sequencer")
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	rollupClient := system.RollupClient("verifier")
 
-	intialSeqStatus, err := rollupClient.SyncStatus(context.Background())
+	// Record the initial sync status.
+	initialSeqStatus, err := rollupClient.SyncStatus(context.Background())
 	require.NoError(t, err)
+	initialFinalizedL1Number := initialSeqStatus.FinalizedL1.Number
+	initialCurrentL1Number := initialSeqStatus.CurrentL1.Number
 
+	// Send two transactions.
     privateKey := system.Cfg.Secrets.Bob
     if err != nil {
         t.Fatalf("failed to create transaction options for Bob: %v", err)
     }
-
-	_ = helpers.SendL2Tx(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
+	env.SendL2TxNoReceipt(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
 		opts.Value = big.NewInt(1)
 		opts.Nonce = 1 // Already have deposit
 		opts.ToAddr = &common.Address{0xff, 0xff}
 		opts.VerifyOnClients(l2Verif)
 	})
-
-	_ = helpers.SendL2Tx(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
+	env.SendL2TxNoReceipt(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
 		opts.Value = big.NewInt(1)
 		opts.Nonce = 2
 		opts.ToAddr = &common.Address{0xff, 0xff}
 		opts.VerifyOnClients(l2Verif)
 	})
 
-	// Verify that no block is finalized.
+	// Verify that the second block is not submitted to the L1 before the first block is finalized.
 	SeqStatusBeforeWait, err := rollupClient.SyncStatus(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, SeqStatusBeforeWait.FinalizedL1.Number, intialSeqStatus.FinalizedL1.Number, "Finalized L1 number increased")
+	require.Equal(t, SeqStatusBeforeWait.FinalizedL1.Number, initialSeqStatus.FinalizedL1.Number, "Finalized L1 number not expected to increase")
+	require.Less(t, SeqStatusBeforeWait.CurrentL1.Number, initialSeqStatus.CurrentL1.Number + 2, "Current L1 number not expected to increase by more than 1")
 
-	// TODO (Keyao) Find a proper time or a better way to handle the wait
-	time.Sleep(2 * time.Second)
-	SeqStatusAfterWait1, err := rollupClient.SyncStatus(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, SeqStatusAfterWait1.FinalizedL1.Number, intialSeqStatus.FinalizedL1.Number + 2, "Finalized L1 number increased")
+	// Verify that the second block is submitted to the L1 after the first block is finalized.
+	tickerFinality := time.NewTicker(1 * time.Second)
+	defer tickerFinality.Stop()
 
-	// Verify that both blocks are finalized.
-	time.Sleep(5 * time.Second)
-	SeqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
-	require.NoError(t, err)
-	require.Greater(t, SeqStatusAfterWait.FinalizedL1.Number, intialSeqStatus.FinalizedL1.Number + 2, "Finalized L1 number not increased")
+	for {
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "Timeout: Finalized L1 number not increased")
+		case <-tickerFinality.C:
+			seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
+			require.NoError(t, err)
+
+			// Wait for the first block to be finalized.
+			if seqStatusAfterWait.FinalizedL1.Number > initialFinalizedL1Number {
+				tickerSubmission := time.NewTicker(1 * time.Second)
+				defer tickerSubmission.Stop()
+
+				for {
+					select {
+					case <-ctx.Done():
+						require.FailNow(t, "Timeout: Current L1 number not increased by 2")
+					case <-tickerSubmission.C:
+						seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
+						require.NoError(t, err)
+
+						if seqStatusAfterWait.CurrentL1.Number > initialCurrentL1Number + 1 {
+							return
+						}
+					}
+				}
+			}
+		}
+	}
 }

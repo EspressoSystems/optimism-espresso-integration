@@ -294,6 +294,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
 		}
+
 	}
 
 	return nil
