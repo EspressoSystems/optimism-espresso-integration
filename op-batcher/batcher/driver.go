@@ -11,6 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espresso "github.com/ethereum-optimism/optimism/espresso"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,12 +25,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -125,6 +127,7 @@ type BatchSubmitter struct {
 
 	throttling atomic.Bool // whether the batcher is throttling sequencers and additional endpoints
 
+	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
 	txpoolBlockedBlob bool
@@ -141,10 +144,25 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		state.SetChannelOutFactory(setup.ChannelOutFactory)
 	}
 
-	return &BatchSubmitter{
+	batchSubmitter := &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
 	}
+
+	batchSubmitter.streamer = espresso.NewEspressoStreamer(
+		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
+		batchSubmitter.L1Client,
+		batchSubmitter.Espresso,
+		batchSubmitter.EspressoLightClient,
+		batchSubmitter.Log,
+		func(data []byte) (*derive.EspressoBatch, error) {
+			return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
+		},
+		2*time.Second,
+	)
+	log.Info("Streamer started", "streamer", batchSubmitter.streamer)
+
+	return batchSubmitter
 }
 
 func (l *BatchSubmitter) StartBatchSubmitting() error {
