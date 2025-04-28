@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -23,15 +25,32 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	gethNode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 )
 
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
+type EspressoAllocAccount struct {
+	State types.Account `json:"state"`
+	Name  string        `json:"name"`
+}
 
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+//go:embed allocs.json
+var ESPRESSO_ALLOCS_RAW string
+var ESPRESSO_ALLOCS map[common.Address]EspressoAllocAccount
+
+func init() {
+	// Unmarshal allocs to set up the dockerConfig environment variables
+	ESPRESSO_ALLOCS = make(map[common.Address]EspressoAllocAccount)
+
+	if err := json.Unmarshal([]byte(ESPRESSO_ALLOCS_RAW), &ESPRESSO_ALLOCS); err != nil {
+		panic(fmt.Sprintf("failed to unmarshal ESPRESSO_ALLOCS: %v", err))
+	}
+}
+
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
 
 // This is the mnemonic that we use to create the private key for deploying
 // contacts on the L1
@@ -211,18 +230,30 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
-func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, L1finalizedDistance uint64, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 	originalCtx := ctx
 
 	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeEspresso))
+
+	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
+	sysConfig.DeployConfig.L1BlockTime = 2
+	sysConfig.L1FinalizedDistance = L1finalizedDistance
+
 	sysConfig.DeployConfig.DeployCeloContracts = true
 
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
 
-	// Pre-fund Espresso acount with 1M Ether
 	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
-	sysConfig.Premine[ESPRESSO_CONTRACT_ACCOUNT] = espressoPremine
+	sysConfig.L1Allocs[ESPRESSO_CONTRACT_ACCOUNT] = types.Account{
+		Nonce:   100000,          // Set the nonce to avoid collisions with predeployed contracts
+		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
+	}
+
+	//Set up the L1Allocs in the system config
+	for address, account := range ESPRESSO_ALLOCS {
+		sysConfig.L1Allocs[address] = account.State
+	}
 
 	initialOptions := []DevNetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
@@ -464,15 +495,23 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 									"ESPRESSO_SEQUENCER_STORAGE_PATH":             "/data/espresso",
 									"RUST_LOG":                                    "info",
 
-									"ESPRESSO_BUILDER_PORT":       portRemapping[ESPRESSO_BUILDER_PORT],
-									"ESPRESSO_SEQUENCER_API_PORT": portRemapping[ESPRESSO_SEQUENCER_API_PORT],
-									"ESPRESSO_DEV_NODE_PORT":      portRemapping[ESPRESSO_DEV_NODE_PORT],
+									"ESPRESSO_BUILDER_PORT":           portRemapping[ESPRESSO_BUILDER_PORT],
+									"ESPRESSO_SEQUENCER_API_PORT":     portRemapping[ESPRESSO_SEQUENCER_API_PORT],
+									"ESPRESSO_DEV_NODE_PORT":          portRemapping[ESPRESSO_DEV_NODE_PORT],
+									"ESPRESSO_DEV_NODE_L1_DEPLOYMENT": "skip",
 								},
 								Ports: []string{
 									portRemapping[ESPRESSO_BUILDER_PORT],
 									portRemapping[ESPRESSO_SEQUENCER_API_PORT],
 									portRemapping[ESPRESSO_DEV_NODE_PORT],
 								},
+							}
+
+							// Add name:address pairs to dockerConfig environment
+							for address, account := range ESPRESSO_ALLOCS {
+								if account.Name != "" {
+									dockerConfig.Environment[account.Name] = hexutil.Encode(address[:])
+								}
 							}
 
 							if isRunningOnLinux {
