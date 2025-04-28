@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
-	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -94,8 +93,8 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	return nil
 }
 
-func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) {
-	shouldClearState, err := streamer.Refresh(ctx, newSyncStatus)
+func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
+	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus)
 	shouldClearState = shouldClearState || err != nil
 
 	l.channelMgrMutex.Lock()
@@ -108,10 +107,10 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState == nil && shouldClearState {
 		l.channelMgr.Clear(newSyncStatus.SafeL2.L1Origin)
-		streamer.Reset()
+		l.streamer.Reset()
 	} else if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		streamer.Reset()
+		l.streamer.Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -127,24 +126,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 	defer ticker.Stop()
 	defer close(publishSignal)
 
-	err := l.registerBatcher(ctx)
-	if err != nil {
-		l.Log.Error("could not register with batch inbox contract", "err", err)
-		return
-	}
-
-	streamer := espresso.NewEspressoStreamer(
-		l.RollupConfig.L2ChainID.Uint64(),
-		l.L1Client,
-		l.Espresso,
-		l.EspressoLightClient,
-		l.Log,
-		func(data []byte) (*derive.EspressoBatch, error) {
-			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
-		},
-		2*time.Second,
-	)
-
 	for {
 		select {
 		case <-ticker.C:
@@ -154,15 +135,19 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
-			l.espressoSyncAndRefresh(ctx, newSyncStatus, &streamer)
+			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
-			err = streamer.Update(ctx)
+			err = l.streamer.Update(ctx)
+			remainingListLen := len(l.streamer.RemainingBatches)
+			if remainingListLen > 0 {
+				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
+			}
 
 			var batch *derive.EspressoBatch
 
 			for {
 
-				batch = streamer.Next(ctx)
+				batch = l.streamer.Next(ctx)
 
 				if batch == nil {
 					break
@@ -190,10 +175,11 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
-					streamer.Reset()
+					l.streamer.Reset()
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
+				l.Log.Info("block", "content", block.Body().Transactions)
 			}
 
 			trySignal(publishSignal)
@@ -341,7 +327,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress, l.L1Client)
+	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create batch authenticator contract bindings: %w", err)
 	}
@@ -436,7 +422,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 
 	verifyCandidate := txmgr.TxCandidate{
 		TxData: authenticateBatchCalldata,
-		To:     &l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress,
+		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
 	l.Log.Debug(
@@ -444,10 +430,11 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		"txRef", transactionReference,
 		"commitment", hexutil.Encode(commitment[:]),
 		"sig", hexutil.Encode(signature),
-		"address", l.RollupConfig.CaffNodeConfig.BatchAuthenticatorAddress.String(),
+		"address", l.RollupConfig.BatchAuthenticatorAddress.String(),
 	)
 	_, err = l.Txmgr.Send(l.killCtx, verifyCandidate)
 	if err != nil {
+		l.Log.Error("Failed to send authenticateBatch transaction", "txRef", transactionReference, "err", err)
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
 			Err: fmt.Errorf("failed to send authenticateBatch transaction: %w", err),

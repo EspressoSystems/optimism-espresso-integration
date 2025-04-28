@@ -156,8 +156,8 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		if err != nil {
 			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
 
-			// Replace ephemeral keys with persistent keys, as in devnet they'll be pre-approved for batching
-			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TxMgrConfig.PrivateKey, "0x"))
+			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
+			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TestingEspressoBatcherPrivateKey, "0x"))
 			if err != nil {
 				return fmt.Errorf("Failed to parse batcher's private key")
 			}
