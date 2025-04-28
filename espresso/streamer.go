@@ -92,8 +92,6 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
-	s.BatchBuffer.mu.Lock()
-	defer s.BatchBuffer.mu.Unlock()
 
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.BatchBuffer.Clear()
@@ -103,6 +101,9 @@ func (s *EspressoStreamer[B]) Reset() {
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
+	s.BatchBuffer.mu.Lock()
+	defer s.BatchBuffer.mu.Unlock()
+
 	s.Log.Info("Safe L2 ", "block number", syncStatus.SafeL2.Number)
 	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
 		return false, nil
