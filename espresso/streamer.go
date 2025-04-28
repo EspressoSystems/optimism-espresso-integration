@@ -92,6 +92,9 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
+	s.BatchBuffer.mu.Lock()
+	defer s.BatchBuffer.mu.Unlock()
+
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.BatchBuffer.Clear()
 	s.confirmEspressoBlockHeight()
