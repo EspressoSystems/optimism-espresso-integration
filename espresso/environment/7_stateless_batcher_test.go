@@ -97,7 +97,7 @@ func TestStatelessBatcher(t *testing.T) {
 			batcherIsUp = false
 		}
 
-		//// Let us start the batcher again
+		// Let us start the batcher again
 		if i == turnBatcherOnIteration {
 			err = driver.StartBatchSubmitting()
 			require.NoError(t, err)
