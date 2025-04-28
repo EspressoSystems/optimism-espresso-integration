@@ -184,6 +184,8 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Conte
 // / @param ctx context
 // / @return error possible error
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
+	s.BatchBuffer.mu.Lock()
+	defer s.BatchBuffer.mu.Unlock()
 	// Fetch more batches from HotShot if available.
 	start, finish, err := s.computeEspressoBlockHeightsRange(ctx)
 	if err != nil {
@@ -280,6 +282,8 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
 
 // TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
+	s.BatchBuffer.mu.Lock()
+	defer s.BatchBuffer.mu.Unlock()
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
