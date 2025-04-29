@@ -146,30 +146,30 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 	}
 
 	batch := &espressoBatch.Batch
-	log.Info("espressoBatch", "batch", espressoBatch.Batch)
+	s.Log.Info("espressoBatch", "batch", espressoBatch.Batch)
 
 	// check the batch is valid regarding given parent
 	nextTimestamp := parent.Time + blockTime
 
 	if batch.Timestamp != nextTimestamp {
-		log.Warn("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+		s.Log.Warn("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
 		return nil, false, ErrTemporary
 	}
 
 	// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
 	if batch.ParentHash != parent.Hash {
-		log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+		s.Log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
 		return nil, false, ErrTemporary
 	}
 
 	// We can do this check earlier, but it's a more intensive one, so we do this last.
 	for i, txBytes := range batch.Transactions {
 		if len(txBytes) == 0 {
-			log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+			s.Log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
 			return nil, false, ErrTemporary
 		}
 		if txBytes[0] == types.DepositTxType {
-			log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+			s.Log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
 			return nil, false, ErrTemporary
 		}
 	}
