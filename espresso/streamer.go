@@ -130,6 +130,7 @@ func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2Bloc
 		return err
 	}
 	s.finalizedL1 = finalizedL1Block
+	s.Log.Info("CaffRefresh", "confirmedBatchPos", s.confirmedBatchPos, "confirmedHotShotPos", s.confirmedHotShotPos, "finalizedL1Block", s.finalizedL1)
 	return nil
 }
 
@@ -211,9 +212,8 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	for k, batch := range s.RemainingBatches {
 
 		validity, pos := s.CheckBatch(ctx, batch)
-		s.Log.Info("calculate pos", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
+		// s.Log.Info("calculate pos", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
 
-		
 		switch validity {
 
 		case BatchDrop:
@@ -238,7 +238,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		}
 
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
-		s.Log.Info("calculate pos 2", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
+		// s.Log.Info("calculate pos 2", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
 		s.BatchBuffer.Insert(batch, pos)
 		delete(s.RemainingBatches, k)
 
@@ -273,7 +273,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
 			validity, pos := s.CheckBatch(ctx, *batch)
-			s.Log.Info("calculate pos 3", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", (*batch).Number())
+			// s.Log.Info("calculate pos 3", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", (*batch).Number())
 
 			if pos == 0 {
 				s.hotShotPos = i
@@ -303,7 +303,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
-			s.Log.Info("calculate pos 4", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch)
+			// s.Log.Info("calculate pos 4", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch)
 
 		}
 

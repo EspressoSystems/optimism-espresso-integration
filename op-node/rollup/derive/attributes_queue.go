@@ -123,9 +123,13 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		return nil, false, err
 	}
 
-	err := s.Update(ctx)
-	if err != nil {
-		s.Log.Error("failed to update Espresso streamer", "err", err)
+	if s.BatchBuffer.Len() > 0 {
+		s.Log.Info("BatchBuffer is not empty", "len", s.BatchBuffer.Len())
+	} else {
+		err := s.Update(ctx)
+		if err != nil {
+			s.Log.Error("failed to update Espresso streamer", "err", err)
+		}
 	}
 
 	var espressoBatch = s.Next(ctx)
