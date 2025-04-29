@@ -121,16 +121,16 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 
 // Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
 func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error)) error {
-	s.BatchPos = s.confirmedBatchPos + 1
-	s.confirmedBatchPos = parent.Number
-	s.confirmedHotShotPos = s.hotShotPos
 	finalizedL1Block, err := l1Finalized()
 	if err != nil {
 		s.Log.Error("failed to get the L1 finalized block", "err", err)
 		return err
 	}
 	s.finalizedL1 = finalizedL1Block
-	s.Log.Info("CaffRefresh", "confirmedBatchPos", s.confirmedBatchPos, "confirmedHotShotPos", s.confirmedHotShotPos, "finalizedL1Block", s.finalizedL1)
+
+	s.confirmedBatchPos = parent.Number
+	s.BatchPos = s.confirmedBatchPos + 1
+	s.confirmEspressoBlockHeight()
 	return nil
 }
 
@@ -192,10 +192,6 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Conte
 // / @param ctx context
 // / @return error possible error
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
-	// s.BatchBuffer.Mu.Lock()
-	// defer s.BatchBuffer.Mu.Unlock()
-
-	s.Log.Info("Updating Espresso streamer")
 	// Fetch more batches from HotShot if available.
 	start, finish, err := s.computeEspressoBlockHeightsRange(ctx)
 	if err != nil {
@@ -212,7 +208,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	for k, batch := range s.RemainingBatches {
 
 		validity, pos := s.CheckBatch(ctx, batch)
-		// s.Log.Info("calculate pos", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
 
 		switch validity {
 
@@ -238,7 +233,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		}
 
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
-		// s.Log.Info("calculate pos 2", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
 		s.BatchBuffer.Insert(batch, pos)
 		delete(s.RemainingBatches, k)
 
@@ -273,7 +267,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
 			validity, pos := s.CheckBatch(ctx, *batch)
-			// s.Log.Info("calculate pos 3", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", (*batch).Number())
 
 			if pos == 0 {
 				s.hotShotPos = i
@@ -303,51 +296,36 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
-			// s.Log.Info("calculate pos 4", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch)
 
 		}
 
 	}
 
 	return nil
-}
-
-func (s *EspressoStreamer[B]) Start(ctx context.Context) {
-
-	s.Log.Info("Starting espresso streamer")
-	ticker := time.NewTicker(s.PollingHotShotPollingInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			err := s.Update(ctx)
-			if err != nil {
-				s.Log.Error("failed to update Espresso streamer", "err", err)
-				continue
-			}
-
-		case <-ctx.Done():
-			s.Log.Info("espressoStreamerLoop returning")
-			return
-		}
-	}
-
 }
 
 // TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
-	// s.BatchBuffer.Mu.Lock()
-	// defer s.BatchBuffer.Mu.Unlock()
 
 	s.Log.Info("Next batch", "BatchPos", s.BatchPos, "BatchBufferLen", s.BatchBuffer.Len())
 	// Is the next batch available?
-	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
+	if s.HasNext(ctx) {
 		s.BatchPos += 1
+		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
 	return nil
+}
+
+func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
+	s.Log.Info("HasNext", "BatchBufferLen", s.BatchBuffer.Len())
+	if s.BatchBuffer.Len() > 0 {
+		s.Log.Info("HasNext", "BatchPos", s.BatchPos, "BatchBuffer.Peek().Number()", (*s.BatchBuffer.Peek()).Number())
+		return (*s.BatchBuffer.Peek()).Number() == s.BatchPos
+	}
+
+	return false
 }
 
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
