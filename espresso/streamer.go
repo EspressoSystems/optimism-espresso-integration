@@ -159,7 +159,6 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 			return BatchDrop, 0
 		}
 	}
-
 	// Find a slot to insert the batch
 	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
 
@@ -306,8 +305,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 // TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
-
-	s.Log.Info("Next batch", "BatchPos", s.BatchPos, "BatchBufferLen", s.BatchBuffer.Len())
 	// Is the next batch available?
 	if s.HasNext(ctx) {
 		s.BatchPos += 1
@@ -319,9 +316,7 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 }
 
 func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
-	s.Log.Info("HasNext", "BatchBufferLen", s.BatchBuffer.Len())
 	if s.BatchBuffer.Len() > 0 {
-		s.Log.Info("HasNext", "BatchPos", s.BatchPos, "BatchBuffer.Peek().Number()", (*s.BatchBuffer.Peek()).Number())
 		return (*s.BatchBuffer.Peek()).Number() == s.BatchPos
 	}
 

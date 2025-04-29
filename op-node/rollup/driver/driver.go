@@ -8,8 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	gosync "sync"
-
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/async"
@@ -82,7 +80,6 @@ type DerivationPipeline interface {
 	DerivationReady() bool
 	ConfirmEngineReset()
 	EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch]
-	EspressoWaitGroup() *gosync.WaitGroup
 }
 
 type EngineController interface {

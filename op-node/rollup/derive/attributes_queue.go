@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/espresso"
@@ -63,9 +62,8 @@ type AttributesQueue struct {
 	concluding  bool
 	lastAttribs *AttributesWithParent
 
-	isCaffNode        bool
-	espressoStreamer  *espresso.EspressoStreamer[EspressoBatch]
-	espressoWaitGroup *sync.WaitGroup
+	isCaffNode       bool
+	espressoStreamer *espresso.EspressoStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
@@ -293,8 +292,4 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 
 func (dp *DerivationPipeline) EspressoStreamer() *espresso.EspressoStreamer[EspressoBatch] {
 	return dp.attrib.espressoStreamer
-}
-
-func (dp *DerivationPipeline) EspressoWaitGroup() *sync.WaitGroup {
-	return dp.attrib.espressoWaitGroup
 }

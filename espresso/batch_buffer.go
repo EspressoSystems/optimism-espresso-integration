@@ -3,7 +3,6 @@ package espresso
 import (
 	"cmp"
 	"slices"
-	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -33,13 +32,11 @@ type Batch interface {
 
 type BatchBuffer[B Batch] struct {
 	batches []B
-	Mu      sync.Mutex
 }
 
 func NewBatchBuffer[B Batch]() BatchBuffer[B] {
 	return BatchBuffer[B]{
 		batches: []B{},
-		Mu:      sync.Mutex{},
 	}
 }
 
