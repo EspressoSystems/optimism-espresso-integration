@@ -115,6 +115,15 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
+// CaffNextBatch fetches the next batch from the Espresso streamer for the caff node.
+//
+// It follows the flow: CaffRefresh() -> Update() -> Next().
+//
+// This is similar to the batcher's flow: espressoBatchLoadingLoop -> getSyncStatus -> refresh -> Update -> Next,
+// but with a few key differences:
+// - CaffNextBatch uses its own refresh logic (CaffRefresh) because it obtains sync state differently from the batcher.
+// - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
+// - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 	// Refresh the sync status
 	if err := s.CaffRefresh(ctx, parent, l1Finalized); err != nil {
@@ -165,7 +174,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		}
 	}
 
-	// For caff node, when we get a batch, we assign concluding to true for now
+	// For caff node, when we get a batch, we assign concluding to true to drive progress
 	concluding := true
 	return batch, concluding, nil
 }
