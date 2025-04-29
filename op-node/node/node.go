@@ -587,11 +587,11 @@ func (n *OpNode) Start(ctx context.Context) error {
 	}
 
 	if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
-		log.Info("Starting espresso streamer")
+		// log.Info("Starting espresso streamer")
 
 		// n.l2Driver.SyncDeriver.Derivation.EspressoWaitGroup().Add(1)
 
-		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
+		// go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx)
 
 		// n.l2Driver.SyncDeriver.Derivation.EspressoWaitGroup().Wait()
 	}

@@ -194,6 +194,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	// s.BatchBuffer.Mu.Lock()
 	// defer s.BatchBuffer.Mu.Unlock()
 
+	s.Log.Info("Updating Espresso streamer")
 	// Fetch more batches from HotShot if available.
 	start, finish, err := s.computeEspressoBlockHeightsRange(ctx)
 	if err != nil {
@@ -210,7 +211,9 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	for k, batch := range s.RemainingBatches {
 
 		validity, pos := s.CheckBatch(ctx, batch)
+		s.Log.Info("calculate pos", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
 
+		
 		switch validity {
 
 		case BatchDrop:
@@ -235,6 +238,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		}
 
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
+		s.Log.Info("calculate pos 2", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch.Number())
 		s.BatchBuffer.Insert(batch, pos)
 		delete(s.RemainingBatches, k)
 
@@ -269,6 +273,8 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
 			validity, pos := s.CheckBatch(ctx, *batch)
+			s.Log.Info("calculate pos 3", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", (*batch).Number())
+
 			if pos == 0 {
 				s.hotShotPos = i
 			}
@@ -280,7 +286,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchPast:
-				s.Log.Info("Batch already processed. Skipping", "batch", batch)
+				s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
 				continue
 
 			case BatchUndecided:
@@ -297,6 +303,8 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
+			s.Log.Info("calculate pos 4", "s.BatchBuffer", s.BatchBuffer.Len(), "pos", pos, "batch", batch)
+
 		}
 
 	}
@@ -332,6 +340,7 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// s.BatchBuffer.Mu.Lock()
 	// defer s.BatchBuffer.Mu.Unlock()
 
+	s.Log.Info("Next batch", "BatchPos", s.BatchPos, "BatchBufferLen", s.BatchBuffer.Len())
 	// Is the next batch available?
 	if s.BatchBuffer.Len() > 0 && (*s.BatchBuffer.Peek()).Number() == s.BatchPos {
 		s.BatchPos += 1
