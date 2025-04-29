@@ -104,13 +104,12 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider, l1Fetcher L1Fetcher) *AttributesQueue {
 	return &AttributesQueue{
-		log:               log,
-		config:            cfg,
-		builder:           builder,
-		prev:              prev,
-		isCaffNode:        cfg.CaffNodeConfig.IsCaffNode,
-		espressoStreamer:  initEspressoStreamer(log, cfg, l1Fetcher),
-		espressoWaitGroup: &sync.WaitGroup{},
+		log:              log,
+		config:           cfg,
+		builder:          builder,
+		prev:             prev,
+		isCaffNode:       cfg.CaffNodeConfig.IsCaffNode,
+		espressoStreamer: initEspressoStreamer(log, cfg, l1Fetcher),
 	}
 }
 
@@ -119,7 +118,6 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 }
 
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
-
 	// Refresh the sync status
 	if err := s.CaffRefresh(ctx, parent, l1Finalized); err != nil {
 		return nil, false, err
