@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -149,6 +148,21 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 
 	s.fallbackBatchPos = safeBatchNumber
 	s.Reset()
+	return nil
+}
+
+// Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
+func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error)) error {
+	finalizedL1Block, err := l1Finalized()
+	if err != nil {
+		s.Log.Error("failed to get the L1 finalized block", "err", err)
+		return err
+	}
+	s.finalizedL1 = finalizedL1Block
+
+	s.confirmedBatchPos = parent.Number
+	s.BatchPos = s.confirmedBatchPos + 1
+	s.confirmEspressoBlockHeight()
 	return nil
 }
 
@@ -406,7 +420,6 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 		// Current batch is going to be processed, update fallback batch position
 		s.fallbackBatchPos = s.BatchPos
 		s.BatchPos += 1
-		// TODO when moving this call to Reset the test fails. FIX will be implemented in https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210059438517335?focus=true
 		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
