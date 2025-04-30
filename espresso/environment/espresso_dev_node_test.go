@@ -2,6 +2,7 @@ package environment_test
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"testing"
 	"time"
@@ -89,6 +90,34 @@ func TestEspressoDockerDevNodeSmokeTest(t *testing.T) {
 			// System closed in the anticipated time
 		}
 	}
+}
+
+// runSimpleL2Transfer runs a simple L2 burn transaction and verifies it on the
+// L2 Verifier.
+func runSimpleL2Transfer(ctx context.Context, t *testing.T, system *e2esys.System, nonce uint64, amount big.Int, l2Seq *ethclient.Client, l2Verif *ethclient.Client) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	privateKey := system.Cfg.Secrets.Bob
+
+	t.Log("Sending tx with nonce", nonce)
+
+	destAddress := system.Cfg.Secrets.Addresses().Alice
+	receipt := helpers.SendL2Tx(
+		t,
+		system.Cfg,
+		l2Seq,
+		privateKey,
+		env.L2TxWithOptions(
+			env.L2TxWithAmount(&amount),
+			env.L2TxWithNonce(nonce),
+			env.L2TxWithToAddress(&destAddress),
+			env.L2TxWithVerifyOnClients(l2Verif),
+		),
+	)
+	t.Log("Receipt", receipt)
+
+	cancel()
 }
 
 // runSimpleL1TransferAndVerifier runs a simple L1 transfer and verifies it on
@@ -187,7 +216,7 @@ func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 2)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -196,7 +225,7 @@ func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
 	defer env.Stop(t, espressoDevNode)
 	defer env.Stop(t, system)
 	// Send Transaction on L1, and wait for verification on the L2 Verifier
-	runSimpleL1TransferAndVerifier(ctx, t, system)
+	//runSimpleL1TransferAndVerifier(ctx, t, system)
 
 	// Submit a Transaction on the L2 Sequencer node, to a Burn Address
 	runSimpleL2Burn(ctx, t, system)

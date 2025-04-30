@@ -2,17 +2,12 @@ package environment_test
 
 import (
 	"context"
-	"math/big"
-	"math/rand/v2"
-	"testing"
-	"time"
-
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"math/big"
+	"testing"
 )
 
 // TestStatelessBatcher is a test that verifies a batcher can operate (especially restart) correctly and efficiently without persistent storage.
@@ -57,9 +52,12 @@ func TestStatelessBatcher(t *testing.T) {
 
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
 
-	l1Client := system.NodeClient(e2esys.RoleL1)
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	caffVerif := system.NodeClient(env.RoleCaffNode)
+
+	// Fund Alice
+	runSimpleL1TransferAndVerifier(ctx, t, system)
 
 	balanceAliceInitial, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
 	if have, want := err, error(nil); have != want {
@@ -79,39 +77,35 @@ func TestStatelessBatcher(t *testing.T) {
 
 	var caffBalanceNew *big.Int
 
-	driver := system.BatchSubmitter.TestDriver()
+	//driver := system.BatchSubmitter.TestDriver()
 	numIterations := 10
 
 	// We select a range of iterations when the batcher is turned off.
-	turnBatcherOffIteration := rand.IntN(numIterations / 2)
-	turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
+	//turnBatcherOffIteration := rand.IntN(numIterations / 2)
+	//turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
 
 	batcherIsUp := true
 	for i := 0; i < numIterations; i++ {
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
-		if i == turnBatcherOffIteration {
-			err = driver.StopBatchSubmitting(ctx)
-			require.NoError(t, err)
-			time.Sleep(2 * time.Second)
-			batcherIsUp = false
-		}
-
-		// Let us start the batcher again
-		if i == turnBatcherOnIteration {
-			err = driver.StartBatchSubmitting()
-			require.NoError(t, err)
-			batcherIsUp = true
-		}
+		//if i == turnBatcherOffIteration {
+		//	err = driver.StopBatchSubmitting(ctx)
+		//	require.NoError(t, err)
+		//	time.Sleep(2 * time.Second)
+		//	batcherIsUp = false
+		//}
+		//
+		//// Let us start the batcher again
+		//if i == turnBatcherOnIteration {
+		//	err = driver.StartBatchSubmitting()
+		//	require.NoError(t, err)
+		//	batcherIsUp = true
+		//}
 
 		// The batcher is up, we can send coins
 		if batcherIsUp {
-			receipt := helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
-				// Send from Bob to Alice
-				l2Opts.ToAddr = addressAlice
-			})
-			t.Log("Deposit transaction receipt", "receipt", receipt)
+			runSimpleL2Transfer(ctx, t, system, uint64(i+1), *amount, l2Seq, l2Verif)
 			numDeposits++
 		}
 

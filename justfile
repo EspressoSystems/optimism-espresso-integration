@@ -8,6 +8,10 @@ fast-tests:
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
 
+
+run-test7: compile-contracts
+  go test ./espresso/environment/7_stateless_batcher_test.go -v > logs.txt
+
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
