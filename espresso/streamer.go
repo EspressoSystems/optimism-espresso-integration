@@ -280,6 +280,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchUndecided:
+				s.Log.Info("Batch undecided", "batch", batch)
 				hash := (*batch).Header().Hash()
 				s.RemainingBatches[hash] = *batch
 				continue
