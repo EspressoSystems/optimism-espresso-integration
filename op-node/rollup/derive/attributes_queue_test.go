@@ -80,7 +80,7 @@ func TestAttributesQueue(t *testing.T) {
 	}
 	attrBuilder := NewFetchingAttributesBuilder(cfg, params.MergedTestChainConfig, nil, l1Fetcher, l2Fetcher)
 
-	aq := NewAttributesQueue(testlog.Logger(t, log.LevelError), cfg, attrBuilder, nil)
+	aq := NewAttributesQueue(testlog.Logger(t, log.LevelError), cfg, attrBuilder, nil, l1Fetcher)
 
 	actual, err := aq.createNextAttributes(context.Background(), &batch, safeHead)
 
