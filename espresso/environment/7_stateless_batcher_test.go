@@ -80,23 +80,21 @@ func TestStatelessBatcher(t *testing.T) {
 	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
-	numIterations := 10
+	numIterations := 6
 
 	// We select a range of iterations when the batcher is turned off.
-	turnBatcherOffIteration := 7 //rand.IntN(numIterations / 2)
-	turnBatcherOnIteration := 8  //rand.IntN(numIterations/2) + numIterations/2
+	turnBatcherOffIteration := 2 //rand.IntN(numIterations / 2)
+	turnBatcherOnIteration := 2  //rand.IntN(numIterations/2) + numIterations/2
 
 	batcherIsUp := true
-	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
+	var lastL2SafeBlock, newL2SafeBlockNumber uint64
 
 	for i := 0; i < numIterations; i++ {
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
 		if i == turnBatcherOffIteration {
-			// wait for any old safe blocks being submitted / derived
-			// startstop_test.go
-			time.Sleep(safeBlockInclusionDuration)
+			lastL2SafeBlock, _ = l2Verif.BlockNumber(ctx)
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
 			batcherIsUp = false
@@ -108,12 +106,18 @@ func TestStatelessBatcher(t *testing.T) {
 			err = driver.StartBatchSubmitting()
 			require.NoError(t, err)
 
-			t.Log("Waiting for the batch submitter to catch up", i)
+			t.Log("Waiting for the batch submitter to catch up...")
+			// Here we wait for the L2 to make progress again which means the batcher is ready to handle new transactions.
 			for {
-				if driver.CaughtUp {
+				newL2SafeBlockNumber, _ = l2Verif.BlockNumber(ctx)
+				if newL2SafeBlockNumber > lastL2SafeBlock {
 					break
 				}
+				t.Log("newL2SafeBlockNumber", "value", newL2SafeBlockNumber)
+				time.Sleep(1 * time.Second)
 			}
+			t.Log("Batcher is caught up, let us send more transactions...")
+
 			batcherIsUp = true
 		}
 

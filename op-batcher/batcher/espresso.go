@@ -150,12 +150,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				batch = l.streamer.Next(ctx)
 
 				if batch == nil {
-					l.Log.Info("Batcher is catching up with Espresso blocks")
 					break
-				} else {
-					// The streamer is caught up
-					l.Log.Info("Batcher is caught up with Espresso blocks")
-					l.CaughtUp = true
 				}
 
 				// This should happen ONLY if the batch is malformed. ToBlock has to guarantee no
