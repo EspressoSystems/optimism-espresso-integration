@@ -155,7 +155,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		return BatchUndecided, 0
 	} else {
 		if l1headerHash != origin.Hash {
-			s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+			s.Log.Warn("Dropping batch with invalid L1 origin hash")
 			return BatchDrop, 0
 		}
 	}
@@ -281,7 +281,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchUndecided:
-				hash := (*batch).Header().Hash()
+				hash := (*batch).Hash()
+				if existingBatch, ok := s.RemainingBatches[hash]; ok {
+					s.Log.Warn("Batch already in buffer", "batch", existingBatch)
+				}
 				s.RemainingBatches[hash] = *batch
 				continue
 

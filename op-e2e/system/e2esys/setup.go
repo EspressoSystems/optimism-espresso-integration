@@ -382,6 +382,8 @@ type System struct {
 	// clients caches lazily created L1/L2 ethclient.Client
 	// instances so they can be reused and closed
 	clients map[string]*ethclient.Client
+
+	L1 *geth.GethInstance
 }
 
 func (sys *System) Config() SystemConfig { return sys.Cfg }
@@ -438,6 +440,10 @@ func (sys *System) AllocType() config.AllocType {
 func (sys *System) L1Slot(l1Timestamp uint64) uint64 {
 	return (l1Timestamp - uint64(sys.Cfg.DeployConfig.L1GenesisBlockTimestamp)) /
 		sys.Cfg.DeployConfig.L1BlockTime
+}
+
+func (sys *System) Fork(parentHash common.Hash) error {
+	return sys.L1.Fork(parentHash)
 }
 
 func (sys *System) Close() {
@@ -700,6 +706,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, err
 	}
 	sys.EthInstances[RoleL1] = l1Geth
+	sys.L1 = l1Geth
 	err = l1Geth.Node.Start()
 	if err != nil {
 		return nil, err
