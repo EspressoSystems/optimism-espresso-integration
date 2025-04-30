@@ -112,20 +112,6 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 	return true, nil
 }
 
-// Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
-func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, finalizedL1Block eth.L1BlockRef, safeBatchNumber uint64) error {
-	s.finalizedL1 = finalizedL1Block
-
-	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
-	if s.fallbackBatchPos == safeBatchNumber {
-		s.BatchPos = s.fallbackBatchPos + 1
-		return nil
-	}
-	s.fallbackBatchPos = safeBatchNumber
-	s.Reset()
-	return nil
-}
-
 func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
 
 	// Make sure the finalized L1 block is initialized before checking the block number.

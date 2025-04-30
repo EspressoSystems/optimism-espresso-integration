@@ -117,11 +117,11 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 
 // CaffNextBatch fetches the next batch from the Espresso streamer for the caff node.
 //
-// It follows the flow: CaffRefresh() -> Update() -> Next().
+// It follows the flow: Refresh() -> Update() -> Next().
 //
 // This is similar to the batcher's flow: espressoBatchLoadingLoop -> getSyncStatus -> refresh -> Update -> Next,
 // but with a few key differences:
-// - CaffNextBatch uses its own refresh logic (CaffRefresh) because it obtains sync state differently from the batcher.
+// - CaffNextBatch obtains sync state differently from the batcher, it treated parent.Number() as the latest safe batch number.
 // - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
@@ -131,10 +131,11 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		s.Log.Error("failed to get the L1 finalized block", "err", err)
 		return nil, false, err
 	}
-	if err := s.CaffRefresh(ctx, finalizedL1Block, parent.Number); err != nil {
+	if _, err := s.Refresh(ctx, finalizedL1Block, parent.Number); err != nil {
 		return nil, false, err
 	}
 
+	// Update the streamer if needed
 	if !s.HasNext(ctx) {
 		err := s.Update(ctx)
 		if err != nil {
@@ -142,6 +143,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		}
 	}
 
+	// Get the next batch
 	var espressoBatch = s.Next(ctx)
 
 	if espressoBatch == nil {
