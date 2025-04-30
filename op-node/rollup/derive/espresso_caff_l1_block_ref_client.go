@@ -24,7 +24,6 @@ func NewL1BlockRefClient(L1FinalizedBlock func() (eth.L1BlockRef, error), L1Bloc
 
 // HeaderHashByNumber implements the espresso.L1Client interface
 func (c *L1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
-
 	expectedL1BlockRef, err := c.L1BlockRefByNumber(ctx, number.Uint64())
 	if err != nil {
 		return common.Hash{}, err
