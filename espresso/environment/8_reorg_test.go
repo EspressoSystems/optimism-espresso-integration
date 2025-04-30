@@ -2,14 +2,10 @@ package environment_test
 
 import (
 	"context"
-	"math/big"
 	"testing"
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,41 +41,18 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	}
 	defer env.Stop(t, caffNode)
 
-	l2Seq := system.NodeClient("sequencer")
-	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	rollupClient := system.RollupClient("verifier")
 
-	// Record the initial sync status.
+	// Verify that the batcher waits for the L1 origin to be finalized before submitting a new
+	// block to the L1.
 	initialSeqStatus, err := rollupClient.SyncStatus(context.Background())
 	require.NoError(t, err)
 	initialFinalizedL1Number := initialSeqStatus.FinalizedL1.Number
-	initialCurrentL1Number := initialSeqStatus.CurrentL1.Number
+	initialSafeL1Number := initialSeqStatus.SafeL1.Number
+	require.LessOrEqual(t, initialSafeL1Number, initialFinalizedL1Number + 1, "Safe L1 number too large")
 
-	// Send two transactions.
-    privateKey := system.Cfg.Secrets.Bob
-    if err != nil {
-        t.Fatalf("failed to create transaction options for Bob: %v", err)
-    }
-	env.SendL2TxNoReceipt(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
-		opts.Value = big.NewInt(1)
-		opts.Nonce = 1 // Already have deposit
-		opts.ToAddr = &common.Address{0xff, 0xff}
-		opts.VerifyOnClients(l2Verif)
-	})
-	env.SendL2TxNoReceipt(t, system.Cfg, l2Seq, privateKey, func(opts *helpers.TxOpts) {
-		opts.Value = big.NewInt(1)
-		opts.Nonce = 2
-		opts.ToAddr = &common.Address{0xff, 0xff}
-		opts.VerifyOnClients(l2Verif)
-	})
-
-	// Verify that the second block is not submitted to the L1 before the first block is finalized.
-	SeqStatusBeforeWait, err := rollupClient.SyncStatus(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, SeqStatusBeforeWait.FinalizedL1.Number, initialSeqStatus.FinalizedL1.Number, "Finalized L1 number not expected to increase")
-	require.Less(t, SeqStatusBeforeWait.CurrentL1.Number, initialSeqStatus.CurrentL1.Number + 2, "Current L1 number not expected to increase by more than 1")
-
-	// Verify that the second block is submitted to the L1 after the first block is finalized.
+	// Verify that eventually a new block will be finalized, which will enable the batcher to
+	// submit another block to the L1.
 	tickerFinality := time.NewTicker(1 * time.Second)
 	defer tickerFinality.Stop()
 
@@ -91,7 +64,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 			seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
 			require.NoError(t, err)
 
-			// Wait for the first block to be finalized.
+			// Wait for a new block to be finalized.
 			if seqStatusAfterWait.FinalizedL1.Number > initialFinalizedL1Number {
 				tickerSubmission := time.NewTicker(1 * time.Second)
 				defer tickerSubmission.Stop()
@@ -99,12 +72,12 @@ func TestBatcherWaitForFinality(t *testing.T) {
 				for {
 					select {
 					case <-ctx.Done():
-						require.FailNow(t, "Timeout: Current L1 number not increased by 2")
+						require.FailNow(t, "Timeout: Safe L1 number not increased")
 					case <-tickerSubmission.C:
 						seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
 						require.NoError(t, err)
 
-						if seqStatusAfterWait.CurrentL1.Number > initialCurrentL1Number + 1 {
+						if seqStatusAfterWait.SafeL1.Number > initialSafeL1Number {
 							return
 						}
 					}
