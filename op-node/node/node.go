@@ -586,16 +586,6 @@ func (n *OpNode) Start(ctx context.Context) error {
 		}
 	}
 
-	if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
-		log.Info("Starting espresso streamer")
-
-		wg := &gosync.WaitGroup{}
-
-		wg.Add(1)
-
-		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx, wg)
-
-	}
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
 	if err := n.l2Driver.Start(); err != nil {
@@ -789,10 +779,6 @@ func (n *OpNode) Stop(ctx context.Context) error {
 
 	// close L2 driver
 	if n.l2Driver != nil {
-		//Sishan TODO: stop the espresso streamer
-		// if n.cfg.Rollup.CaffNodeConfig.IsCaffNode {
-		//
-		// }
 		if err := n.l2Driver.Close(); err != nil {
 			result = multierror.Append(result, fmt.Errorf("failed to close L2 engine driver cleanly: %w", err))
 		}
