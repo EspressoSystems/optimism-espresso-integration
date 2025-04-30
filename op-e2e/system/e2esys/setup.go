@@ -141,6 +141,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 	return SystemConfig{
 		Secrets:                secrets,
 		Premine:                premine,
+		L1Allocs:               make(map[common.Address]types.Account),
 		DeployConfig:           deployConfig,
 		L1Deployments:          l1Deployments,
 		L1InfoPredeployAddress: predeploys.L1BlockAddr,
@@ -297,6 +298,7 @@ type SystemConfig struct {
 	L1FinalizedDistance uint64
 
 	Premine     map[common.Address]*big.Int
+	L1Allocs    map[common.Address]types.Account
 	Nodes       map[string]*rollupNode.Config // Per node config. Don't use populate rollup.Config
 	Loggers     map[string]log.Logger
 	GethOptions map[string][]geth.GethOption
@@ -643,6 +645,13 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 				Nonce:   0,
 			}
 		}
+	}
+
+	for addr, account := range cfg.L1Allocs {
+		if _, ok := l1Genesis.Alloc[addr]; ok {
+			t.Logf("Additional L1 alloc conflicts with existing account: %v", addr)
+		}
+		l1Genesis.Alloc[addr] = account
 	}
 
 	l1Block := l1Genesis.ToBlock()
