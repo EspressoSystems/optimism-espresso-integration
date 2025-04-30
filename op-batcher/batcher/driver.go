@@ -129,6 +129,7 @@ type BatchSubmitter struct {
 	channelMgrMutex sync.Mutex // guards channelMgr and prevCurrentL1
 	channelMgr      *channelManager
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
+	CaughtUp        bool
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -154,6 +155,8 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		},
 		2*time.Second,
 	)
+
+	batchSubmitter.CaughtUp = false
 	log.Info("Streamer started", "streamer", batchSubmitter.streamer)
 
 	return batchSubmitter
@@ -193,6 +196,20 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	// Channels used to signal between the loops
 	pendingBytesUpdated := make(chan int64, 1)
 	publishSignal := make(chan struct{})
+
+	// We drop the current streamer and launch a new one
+	l.streamer = espresso.NewEspressoStreamer(
+		l.RollupConfig.L2ChainID.Uint64(),
+		l.L1Client,
+		l.Espresso,
+		l.EspressoLightClient,
+		l.Log,
+		func(data []byte) (*derive.EspressoBatch, error) {
+			return derive.UnmarshalEspressoTransaction(data, l.SequencerAddress)
+		},
+		2*time.Second,
+	)
+	log.Info("Streamer started", "streamer", l.streamer)
 
 	// DA throttling loop should always be started except for testing (indicated by ThrottleThreshold == 0)
 	if l.Config.ThrottleThreshold > 0 {

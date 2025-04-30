@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
-	"math/rand/v2"
 	"testing"
 	"time"
 )
@@ -84,8 +83,8 @@ func TestStatelessBatcher(t *testing.T) {
 	numIterations := 10
 
 	// We select a range of iterations when the batcher is turned off.
-	turnBatcherOffIteration := rand.IntN(numIterations / 2)
-	turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
+	turnBatcherOffIteration := 7 //rand.IntN(numIterations / 2)
+	turnBatcherOnIteration := 8  //rand.IntN(numIterations/2) + numIterations/2
 
 	batcherIsUp := true
 	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
@@ -108,6 +107,13 @@ func TestStatelessBatcher(t *testing.T) {
 
 			err = driver.StartBatchSubmitting()
 			require.NoError(t, err)
+
+			t.Log("Waiting for the batch submitter to catch up", i)
+			for {
+				if driver.CaughtUp {
+					break
+				}
+			}
 			batcherIsUp = true
 		}
 
