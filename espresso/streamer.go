@@ -266,7 +266,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
 			validity, pos := s.CheckBatch(ctx, *batch)
-
 			if pos == 0 {
 				s.hotShotPos = i
 			}
@@ -295,7 +294,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
-
 		}
 
 	}
