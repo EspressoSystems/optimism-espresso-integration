@@ -18,10 +18,10 @@ import (
 //	Arrange:
 //		Run the sequencer and the batcher in Espresso mode.
 //	Act:
-//		Send two transactions.
+//		Wait until a new block is finalized.
 //	Assert:
-//		The batcher doesn't submit the second transaction to the L1 immediatly.
-//		After the first block is finalized the L1, the batcher submits the second transaction.
+//		The batcher doesn't submit a block without finalized L1 origin to the L1.
+//		After the L1 origin is finalized, the batcher submits the block.
 func TestBatcherWaitForFinality(t *testing.T) {
 	// Basic test setup.
 	ctx, cancel := context.WithCancel(context.Background())
