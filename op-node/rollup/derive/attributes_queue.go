@@ -131,7 +131,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		s.Log.Error("failed to get the L1 finalized block", "err", err)
 		return nil, false, err
 	}
-	if err := s.CaffRefresh(ctx, finalizedL1Block, parent); err != nil {
+	if err := s.CaffRefresh(ctx, finalizedL1Block, parent.Number); err != nil {
 		return nil, false, err
 	}
 

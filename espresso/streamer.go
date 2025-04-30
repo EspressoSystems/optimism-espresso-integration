@@ -98,33 +98,31 @@ func (s *EspressoStreamer[B]) Reset() {
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
-func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, syncStatus *eth.SyncStatus) (bool, error) {
+func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64) (bool, error) {
 	s.finalizedL1 = finalizedL1
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
-	if s.fallbackBatchPos == syncStatus.SafeL2.Number {
+	if s.fallbackBatchPos == safeBatchNumber {
 		s.BatchPos = s.fallbackBatchPos + 1
 		return false, nil
 	}
 
-	s.fallbackBatchPos = syncStatus.SafeL2.Number
+	s.fallbackBatchPos = safeBatchNumber
 	s.Reset()
 	return true, nil
 }
 
 // Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
-func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, finalizedL1Block eth.L1BlockRef, parent eth.L2BlockRef) error {
+func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, finalizedL1Block eth.L1BlockRef, safeBatchNumber uint64) error {
 	s.finalizedL1 = finalizedL1Block
 
-	s.Log.Info("CaffRefresh", "s.fallbackBatchPos", s.fallbackBatchPos, "parent.Number", parent.Number)
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
-	if s.fallbackBatchPos == parent.Number {
+	if s.fallbackBatchPos == safeBatchNumber {
 		s.BatchPos = s.fallbackBatchPos + 1
 		return nil
 	}
-	s.fallbackBatchPos = parent.Number
-	s.BatchPos = s.fallbackBatchPos + 1
-	// s.Reset()
+	s.fallbackBatchPos = safeBatchNumber
+	s.Reset()
 	return nil
 }
 
@@ -301,6 +299,8 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {
+		// Current batch is going to be processed, update fallback batch position
+		s.fallbackBatchPos = s.BatchPos
 		s.BatchPos += 1
 		return s.BatchBuffer.Pop()
 	}
