@@ -103,7 +103,7 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
-		s.BatchPos = s.fallbackBatchPos + 1
+		// This means everything is in sync, no state update needed
 		return false, nil
 	}
 
