@@ -98,11 +98,8 @@ func (s *EspressoStreamer[B]) Reset() {
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
-func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
-	s.Log.Info("Refreshing streamer...")
-	s.Log.Info("L2 ", "safe block number", syncStatus.SafeL2.Number)
-	s.Log.Info("L1 ", "finalized block number", syncStatus.FinalizedL1.Number, "safe block number", syncStatus.SafeL1.Number)
-	s.finalizedL1 = syncStatus.FinalizedL1
+func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, syncStatus *eth.SyncStatus) (bool, error) {
+	s.finalizedL1 = finalizedL1
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == syncStatus.SafeL2.Number {
@@ -116,16 +113,18 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 }
 
 // Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
-func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error)) error {
-	finalizedL1Block, err := l1Finalized()
-	if err != nil {
-		s.Log.Error("failed to get the L1 finalized block", "err", err)
-		return err
-	}
+func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, finalizedL1Block eth.L1BlockRef, parent eth.L2BlockRef) error {
 	s.finalizedL1 = finalizedL1Block
 
+	s.Log.Info("CaffRefresh", "s.fallbackBatchPos", s.fallbackBatchPos, "parent.Number", parent.Number)
+	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
+	if s.fallbackBatchPos == parent.Number {
+		s.BatchPos = s.fallbackBatchPos + 1
+		return nil
+	}
 	s.fallbackBatchPos = parent.Number
 	s.BatchPos = s.fallbackBatchPos + 1
+	// s.Reset()
 	return nil
 }
 

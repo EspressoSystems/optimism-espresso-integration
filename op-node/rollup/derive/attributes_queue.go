@@ -126,7 +126,12 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
 	// Refresh the sync status
-	if err := s.CaffRefresh(ctx, parent, l1Finalized); err != nil {
+	finalizedL1Block, err := l1Finalized()
+	if err != nil {
+		s.Log.Error("failed to get the L1 finalized block", "err", err)
+		return nil, false, err
+	}
+	if err := s.CaffRefresh(ctx, finalizedL1Block, parent); err != nil {
 		return nil, false, err
 	}
 
