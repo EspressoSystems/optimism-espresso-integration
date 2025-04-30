@@ -54,7 +54,7 @@ func TestE2eDevNetWithL1Reorg(t *testing.T) {
 
 	// Introduce a reorg at L1
 	t.Logf("Introducing reorg at L1Origin %d, l2Head %d", l1Origin.Number(), unsafeL2Height)
-	err = system.Fork(l1Origin.ParentHash())
+	err = system.ForkL1(l1Origin.ParentHash())
 	require.NoError(t, err)
 
 	// Wait for SafeL2 to advance despite the reorg

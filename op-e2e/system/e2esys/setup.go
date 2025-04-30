@@ -442,7 +442,7 @@ func (sys *System) L1Slot(l1Timestamp uint64) uint64 {
 		sys.Cfg.DeployConfig.L1BlockTime
 }
 
-func (sys *System) Fork(parentHash common.Hash) error {
+func (sys *System) ForkL1(parentHash common.Hash) error {
 	return sys.L1.Fork(parentHash)
 }
 
