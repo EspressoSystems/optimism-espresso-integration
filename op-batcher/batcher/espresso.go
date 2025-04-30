@@ -11,6 +11,7 @@ import (
 
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -115,6 +116,28 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
 	}
+}
+
+// AdaptL1BlockRefClient is a wrapper around eth.L1BlockRef that implements the espresso.L1Client interface
+type AdaptL1BlockRefClient struct {
+	L1Client L1Client
+}
+
+// NewAdaptL1BlockRefClient creates a new L1BlockRefClient
+func NewAdaptL1BlockRefClient(L1Client L1Client) *AdaptL1BlockRefClient {
+	return &AdaptL1BlockRefClient{
+		L1Client: L1Client,
+	}
+}
+
+// HeaderHashByNumber implements the espresso.L1Client interface
+func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
+	expectedL1BlockRef, err := c.L1Client.HeaderByNumber(ctx, number)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	return expectedL1BlockRef.Hash(), nil
 }
 
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
