@@ -50,7 +50,7 @@ func init() {
 	}
 }
 
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:pr-3181"
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
 
 // This is the mnemonic that we use to create the private key for deploying
 // contacts on the L1
