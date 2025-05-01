@@ -59,6 +59,7 @@ type EspressoDevNodeIntercept struct {
 
 // performProxy performs the actual proxying of the request to the stored URL.
 func (e *EspressoDevNodeIntercept) performProxy(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	buf := new(bytes.Buffer)
 	if _, err := io.Copy(buf, r.Body); err != nil && err != io.EOF {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -71,6 +72,11 @@ func (e *EspressoDevNodeIntercept) performProxy(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Copy over the headers
+	for k, v := range r.Header {
+		req.Header.Set(k, v[0])
+	}
+
 	res, err := e.client.Do(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -78,15 +84,19 @@ func (e *EspressoDevNodeIntercept) performProxy(w http.ResponseWriter, r *http.R
 	}
 	defer res.Body.Close()
 
+	buf.Reset()
+	if _, err := io.Copy(buf, res.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(res.StatusCode)
 	for k, v := range res.Header {
 		w.Header().Set(k, v[0])
 	}
-	w.Header().Set("Origin", e.u.Host)
-	w.Header().Set("Host", e.u.Host)
 
 	// Write the proxy response contents
-	if _, err := io.Copy(w, res.Body); err != nil {
+	if _, err := io.Copy(w, buf); err != nil {
 		// If we encounter an error here, it will be difficult to actually
 		// handle it at this point, as we've already sent the response headers.
 		//
