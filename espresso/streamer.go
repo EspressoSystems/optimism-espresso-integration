@@ -97,6 +97,7 @@ func (s *EspressoStreamer[B]) Reset() {
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.BatchBuffer.Clear()
 	s.confirmEspressoBlockHeight()
+	s.Log.Info("Streamer reset", "batchPos", s.BatchPos, "bufferSize", s.BatchBuffer.Len(), "confirmedHotShotPos", s.confirmedHotShotPos)
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -327,5 +328,5 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
 // Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
-	s.confirmedHotShotPos = s.hotShotPos
+	s.confirmedHotShotPos = 0
 }
