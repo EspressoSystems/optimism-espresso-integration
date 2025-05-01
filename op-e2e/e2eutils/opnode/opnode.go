@@ -5,10 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/services"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/endpoint"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -16,6 +18,10 @@ import (
 
 type Opnode struct {
 	node *rollupNode.OpNode
+}
+
+func (o *Opnode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return o.node.EspressoStreamer()
 }
 
 func (o *Opnode) InteropRPC() (endpoint string, jwtSecret eth.Bytes32) {

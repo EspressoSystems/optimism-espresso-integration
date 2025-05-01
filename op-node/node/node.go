@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop/managed"
 
 	"github.com/hashicorp/go-multierror"
@@ -554,6 +556,10 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) (err error) {
 	return
 }
 
+func (n *OpNode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
+}
+
 func (n *OpNode) Start(ctx context.Context) error {
 	// If n.cfg.Driver.SequencerUseFinalized is true, sequencer does not use non-finalized L1 blocks as L1 origin
 	// The OpNode periodically fetches the latest safe and finalized L1 block heights (1 epoch ≒ 6.4 minutes by default),
@@ -593,7 +599,7 @@ func (n *OpNode) Start(ctx context.Context) error {
 
 		wg.Add(1)
 
-		go n.l2Driver.SyncDeriver.Derivation.EspressoStreamer().Start(ctx, wg)
+		go n.EspressoStreamer().Start(ctx, wg)
 
 	}
 	n.log.Info("Starting execution engine driver")
