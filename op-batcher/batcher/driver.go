@@ -145,7 +145,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 
 	batchSubmitter.streamer = espresso.NewEspressoStreamer(
 		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-		batchSubmitter.L1Client,
+		NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
 		batchSubmitter.Espresso,
 		batchSubmitter.EspressoLightClient,
 		batchSubmitter.Log,

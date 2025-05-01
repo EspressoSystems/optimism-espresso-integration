@@ -445,7 +445,7 @@ func (s *EthClient) BlockRefByHash(ctx context.Context, hash common.Hash) (eth.B
 
 func (s *EthClient) FinalizedBlock() (eth.L1BlockRef, error) {
 	var block *RPCBlock
-	err := s.client.CallContext(context.Background(), &block, "eth_getBlockByNumber", "finalized", false)
+	err := s.client.CallContext(context.Background(), &block, "eth_getBlockByNumber", "finalized", true)
 	if err != nil {
 		return eth.L1BlockRef{}, fmt.Errorf("failed to fetch finalized block: %w", err)
 	}
