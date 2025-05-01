@@ -96,13 +96,13 @@ func TestBatcherWaitForFinality(t *testing.T) {
 //	Arrange:
 //		Run the sequencer and the Caff node in Espresso mode.
 //	Act:
-//		Wait the Caff node's batch buffer is empty.
+//		Wait until the Caff node's batch buffer is empty.
 //	Assert:
-//		The Caff node doesn't update its batch buffer without finalized L1 origin to the L1.
-//		After the L1 origin is finalized, the Caff node updates the batch buffer.
+//		The Caff node doesn't insert a batch without finalized L1 origin to the batch buffer.
+//		After the L1 origin is finalized, the Caff node inserts the batch.
 func TestCaffNodeWaitForFinality(t *testing.T) {
 	// Basic test setup.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Minute)
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
@@ -122,7 +122,8 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 	rollupClient := system.RollupClient("verifier")
 	streamer := caffNode.OpNode.EspressoStreamer()
 
-	// Wait for the batch buffer to be empty which will trigger the Caff node to sync the status.
+	// Wait for the batch buffer to be empty which will trigger the Caff node to sync the status
+	// and insert more batches to the buffer.
 	tickerBufferClear := time.NewTicker(1 * time.Second)
 	defer tickerBufferClear.Stop()
 
@@ -134,10 +135,9 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 			if streamer.BatchBuffer.Len() == 0 {
 				initialSeqStatus, err := rollupClient.SyncStatus(context.Background())
 				require.NoError(t, err)
-				initialFinalizedL1Number := initialSeqStatus.FinalizedL1.Number
 
 				// Wait for a new block to be finalized on the L1.
-				tickerFinality := time.NewTicker(1 * time.Second)
+				tickerFinality := time.NewTicker(100 * time.Millisecond)
 				defer tickerFinality.Stop()
 
 				for {
@@ -148,16 +148,19 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 						seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
 						require.NoError(t, err)
 
-						if seqStatusAfterWait.SafeL1.Number > initialFinalizedL1Number {
-							// Verify that eventually the Caff node will update its batch buffer
-							// after the L1 origin update.
-							tickerBufferInsert := time.NewTicker(1 * time.Second)
+						if seqStatusAfterWait.FinalizedL1.Number > initialSeqStatus.FinalizedL1.Number {
+							// Verify that the batch buffer is still empty right after a new block
+							// is finalized on the L1.
+							require.Equal(t, streamer.BatchBuffer.Len(), 0, "Batch buffer updated too soon")
+
+							// Verify that eventually the batch buffer will be updated.
+							tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
 							defer tickerBufferInsert.Stop()
 
 							for {
 								select {
 								case <-ctx.Done():
-									require.FailNow(t, "Timeout: Batch buffer not inserted")
+									require.FailNow(t, "Timeout: Batch buffer not updated")
 								case <-tickerBufferInsert.C:
 									if streamer.BatchBuffer.Len() > 0 {
 										return
@@ -165,10 +168,6 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 								}
 							}
 						}
-
-						// Verify that the Caff node doesn't update its batch buffer because the L1
-						// origin isn't updated.
-						require.Equal(t, streamer.BatchBuffer.Len(), 0, "Batch buffer not empty")
 					}
 				}
 			}
