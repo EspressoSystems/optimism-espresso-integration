@@ -113,6 +113,11 @@ func TestStatelessBatcher(t *testing.T) {
 			time.Sleep(safeBlockInclusionDuration)
 			t.Log("Batcher restarting....")
 
+			// Ensure that the safe chain does advance while the batcher is stopped
+			newSeqStatus, err = rollupClient.SyncStatus(ctx)
+			require.NoError(t, err)
+			require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain does not make progress")
+
 		} else {
 			// The batcher is up, we can send coins
 			// Nonce is i+1 because nonce 0 is used for the initial deposit

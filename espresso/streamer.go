@@ -53,6 +53,10 @@ type EspressoStreamer[B Batch] struct {
 	BatchPos uint64
 	// HotShot block that was visited last
 	hotShotPos uint64
+
+	// Previous confirmed HotShot position. Use for catchup
+	oldConfirmedHotShotPos uint64
+
 	// Position of the last safe batch
 	confirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
@@ -325,6 +329,16 @@ func (s *EspressoStreamer[B]) Start(ctx context.Context, wg *sync.WaitGroup) {
 
 }
 
+func (s *EspressoStreamer[B]) LoadCatchupData() {
+	// TODO Read this info from L1
+	s.confirmedHotShotPos = s.oldConfirmedHotShotPos
+}
+
+func (s *EspressoStreamer[B]) StoreCatchupData() {
+	// TODO Store this info to L1
+	s.oldConfirmedHotShotPos = s.confirmedHotShotPos
+}
+
 // TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
@@ -339,7 +353,7 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 }
 
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
-// Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
 	s.confirmedHotShotPos = s.hotShotPos
+
 }

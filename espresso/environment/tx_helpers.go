@@ -25,6 +25,7 @@ func RunSimpleL2Transfer(ctx context.Context, t *testing.T, system *e2esys.Syste
 	t.Log("Sending tx", "nonce", nonce)
 
 	destAddress := system.Cfg.Secrets.Addresses().Alice
+
 	receipt := helpers.SendL2Tx(
 		t,
 		system.Cfg,

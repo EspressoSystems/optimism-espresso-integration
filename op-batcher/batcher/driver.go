@@ -204,6 +204,9 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
+		// This will read from L1
+		l.streamer.LoadCatchupData()
+
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)

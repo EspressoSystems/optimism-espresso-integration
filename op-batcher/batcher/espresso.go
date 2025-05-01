@@ -135,6 +135,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				continue
 			}
 
+			l.streamer.StoreCatchupData()
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
 			err = l.streamer.Update(ctx)
