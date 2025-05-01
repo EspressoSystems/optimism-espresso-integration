@@ -63,6 +63,7 @@
             echo "Espresso go library ${espresso_go_lib_version} stored at $DOWNLOADED_FILE_PATH"
             ln -sf ${espressoGoLibFile} ${target_link}
             export CGO_LDFLAGS="${cgo_ld_flags}"
+            export MACOSX_DEPLOYMENT_TARGET=14.5
           '';
         };
       }
