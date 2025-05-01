@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -19,12 +20,25 @@ type InterceptBehavior uint
 const (
 	BehaviorProxy                        InterceptBehavior = 0
 	BehaviorSubmitTxnSuccessWhileDropped InterceptBehavior = 1 << iota
+	BehaviorRandomRollTxnSubmissionFailure
 )
 
 // HasBehavior is a method that checks whether the passed InterceptBehavior is
 // contained within the bitmap of the host InterceptBehavior.
 func (i InterceptBehavior) HasBehavior(b InterceptBehavior) bool {
 	return i&b == b
+}
+
+// Unset is a method that removes the passed InterceptBehavior bits from the
+// host InterceptBehavior, effectively turning them off.
+func (i *InterceptBehavior) Unset(b InterceptBehavior) {
+	*i = *i &^ b
+}
+
+// Set is a method that sets the passed InterceptBehavior bits in the host
+// InterceptBehavior, effectively turning them on.
+func (i *InterceptBehavior) Set(b InterceptBehavior) {
+	*i = *i | b
 }
 
 // requestMatchesPath checks if the HTTP request matches the specified method
@@ -47,6 +61,11 @@ func isSubmitTransactionRequest(r *http.Request) bool {
 		requestMatchesPath(r, http.MethodPost, stringEquals("/v0/submit/submit"))
 }
 
+// Rng is an interface that defines a method for generating random integers.
+type Rng interface {
+	Intn(n int) int
+}
+
 // EspressoDevNodeIntercept is a struct that is a Proxy to the Espresso Dev Node.
 // It is used to intercept request to the Espresso Dev Node and make decisions
 // about handling the requests.  This is useful for simulating failures or
@@ -55,6 +74,13 @@ type EspressoDevNodeIntercept struct {
 	u      url.URL
 	b      InterceptBehavior
 	client *http.Client
+	r      rand.Rand
+}
+
+// TurnOnBehavior is a method that sets the specified InterceptBehavior on the
+// EspressoDevNodeIntercept instance.
+func (e *EspressoDevNodeIntercept) TurnOnBehavior(b InterceptBehavior) {
+	e.b.Set(b)
 }
 
 // performProxy performs the actual proxying of the request to the stored URL.
@@ -148,9 +174,20 @@ func (e *EspressoDevNodeIntercept) simulateSuccessfulSubmitTransaction(w http.Re
 }
 
 func (e *EspressoDevNodeIntercept) handleBehavior(w http.ResponseWriter, r *http.Request) {
-	if e.b.HasBehavior(BehaviorSubmitTxnSuccessWhileDropped) && isSubmitTransactionRequest(r) {
-		e.simulateSuccessfulSubmitTransaction(w, r)
-		return
+	if isSubmitTransactionRequest(r) {
+		if e.b.HasBehavior(BehaviorRandomRollTxnSubmissionFailure) {
+			// We want to randomly simulate a failure in the transaction
+			// submission.  We'll roll to simulate a failure 10% of the time.
+			if e.r.Intn(10) == 0 {
+				e.simulateSuccessfulSubmitTransaction(w, r)
+				return
+			}
+		}
+
+		if e.b.HasBehavior(BehaviorSubmitTxnSuccessWhileDropped) {
+			e.simulateSuccessfulSubmitTransaction(w, r)
+			return
+		}
 	}
 
 	// If we don't have any other behavior to perform that we've detected, then
@@ -208,6 +245,7 @@ func SetupQueryServiceIntercept() (*EspressoDevNodeIntercept, *httptest.Server, 
 	// Start a Server to proxy requests to Espresso
 	proxy := &EspressoDevNodeIntercept{
 		client: http.DefaultClient,
+		r:      *rand.New(rand.NewSource(0)), // Use a fixed seed for reproducibility
 	}
 
 	// Start up a local http server to handle the requests
