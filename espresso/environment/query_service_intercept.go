@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,55 +14,167 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 )
 
-type InterceptBehavior uint
+// InterceptHandleDecision is an enum that represents a decision on how to
+// handle the http handler request for the specific request.
+//
+// It is meant to represent the specific behavior that the user would like to
+// happen to a given request, without needing to worry about the implementation
+// for how to make that behavior happen.
+type InterceptHandleDecision int
 
 const (
-	BehaviorProxy                        InterceptBehavior = 0
-	BehaviorSubmitTxnSuccessWhileDropped InterceptBehavior = 1 << iota
-	BehaviorRandomRollTxnSubmissionFailure
+	// DecisionProxy means that the request should be proxied unmodified to the
+	// target service (the Espresso Dev Node).
+	DecisionProxy InterceptHandleDecision = iota
+
+	// DecisionReportSubmitSuccessWhileDropped means that the request should
+	// be handled by simulating a successful transaction submission, but
+	// without actually submitting the transaction to the Espresso Dev Node.
+	DecisionReportSubmitSuccessWhileDropped
 )
 
-// HasBehavior is a method that checks whether the passed InterceptBehavior is
-// contained within the bitmap of the host InterceptBehavior.
-func (i InterceptBehavior) HasBehavior(b InterceptBehavior) bool {
-	return i&b == b
-}
+// builderHandler is a method that will build the appropriate HTTP handler based
+// on the provided decision.
+func (d InterceptHandleDecision) buildHandler(client *http.Client, baseURL url.URL) http.Handler {
+	switch d {
+	case DecisionProxy:
+		return &proxyRequest{
+			client:  client,
+			baseURL: baseURL,
+		}
 
-// Unset is a method that removes the passed InterceptBehavior bits from the
-// host InterceptBehavior, effectively turning them off.
-func (i *InterceptBehavior) Unset(b InterceptBehavior) {
-	*i = *i &^ b
-}
+	case DecisionReportSubmitSuccessWhileDropped:
+		return fakeSubmitTransactionSuccess{}
 
-// Set is a method that sets the passed InterceptBehavior bits in the host
-// InterceptBehavior, effectively turning them on.
-func (i *InterceptBehavior) Set(b InterceptBehavior) {
-	*i = *i | b
-}
-
-// requestMatchesPath checks if the HTTP request matches the specified method
-func requestMatchesPath(r *http.Request, method string, pathMatcher func(string) bool) bool {
-	return r.Method == method && r.URL != nil && pathMatcher(r.URL.Path)
-}
-
-// stringEquals is a helper function that returns a function that checks if
-// a given path string equals the specified string.
-func stringEquals(s string) func(string) bool {
-	return func(path string) bool {
-		return path == s
+	default:
+		return nil
 	}
 }
 
-// isSubmitTransactionRequest represents the different variations of the submit
-// transaction endpoint that we can utilize or support.
-func isSubmitTransactionRequest(r *http.Request) bool {
-	return requestMatchesPath(r, http.MethodPost, stringEquals("/submit/submit")) ||
-		requestMatchesPath(r, http.MethodPost, stringEquals("/v0/submit/submit"))
+// InterceptHandlerDecider is an interface that defines a method for
+// deciding how it should handle a given HTTP request.
+//
+// The idea is to make it simple for the user to implement their own logic for
+// how to determine how to handle a request without needing to worry about the
+// implementation details of the proxying, or the specific handling cases of
+// his / her desired behaviors.
+type InterceptHandlerDecider interface {
+	DecideHowToHandleRequest(w http.ResponseWriter, r *http.Request) InterceptHandleDecision
 }
 
-// Rng is an interface that defines a method for generating random integers.
-type Rng interface {
-	Intn(n int) int
+// defaultInterceptHandlerDecider is a simple implementation of the
+// InterceptHandlerDecider interface that always returns a proxy decision.
+type defaultInterceptHandlerDecider struct{}
+
+// DecideHowToHandleRequest implements InterceptHandlerDecider
+func (defaultInterceptHandlerDecider) DecideHowToHandleRequest(w http.ResponseWriter, r *http.Request) InterceptHandleDecision {
+	return DecisionProxy
+}
+
+// proxyRequest is a simple HTTP handler that proxies requests to the given
+// baseURL, utilizing the given http.Client.
+type proxyRequest struct {
+	client  *http.Client
+	baseURL url.URL
+}
+
+// ServeHTTP implements http.Handler
+func (p *proxyRequest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, r.Body); err != nil && err != io.EOF {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	req, err := http.NewRequest(r.Method, p.baseURL.JoinPath(r.URL.Path).String(), buf)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Copy over the headers
+	for k, v := range r.Header {
+		req.Header.Set(k, v[0])
+	}
+
+	res, err := p.client.Do(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer res.Body.Close()
+
+	buf.Reset()
+	if _, err := io.Copy(buf, res.Body); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(res.StatusCode)
+	for k, v := range res.Header {
+		w.Header().Set(k, v[0])
+	}
+
+	// Write the proxy response contents
+	if _, err := io.Copy(w, buf); err != nil {
+		// If we encounter an error here, it will be difficult to actually
+		// handle it at this point, as we've already sent the response headers.
+		//
+		// The best we can do at this point, is log the error.
+		_ = err
+		return
+	}
+}
+
+// fakeSubmitTransactionSuccess is a simple HTTP handler that simulates a
+// successful transaction submission by returning a fake commit hash.
+type fakeSubmitTransactionSuccess struct{}
+
+// generateCommitForSubmitTransaction generates a commit hash for the
+// transaction in the request body. This is a fake implementation that
+// simulates a successful transaction submission by returning a commit hash
+// that won't collide with the real transaction commit hashes.
+func generateCommitForSubmitTransaction(r *http.Request) (*types.TaggedBase64, error) {
+	defer r.Body.Close()
+
+	var txn types.Transaction
+	if err := json.NewDecoder(r.Body).Decode(&txn); err != nil {
+		// Unable to decode, this is a problem?
+		var emptyHash [32]byte
+		return tagged_base64.New("FAKE", emptyHash[:])
+	}
+
+	commit := txn.Commit()
+	return tagged_base64.New("FAKE", commit[:])
+}
+
+// ServeHTTP implements http.Handler
+func (fakeSubmitTransactionSuccess) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// We could do a lot of effort to validate the request, and return an
+	// hash that is actually representative of the transaction that was
+	// just submitted. In some cases we may actually want this sort of
+	// validated behavior, but it's very simple to just return any hash
+	// instead.
+
+	// We should probably validate the request contents and format here, but
+	// we will just assume the settings.
+	defer r.Body.Close()
+	hash, err := generateCommitForSubmitTransaction(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	contents, err := json.Marshal(hash)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(contents)
 }
 
 // EspressoDevNodeIntercept is a struct that is a Proxy to the Espresso Dev Node.
@@ -71,16 +182,9 @@ type Rng interface {
 // about handling the requests.  This is useful for simulating failures or
 // bad behaviors for Espresso.
 type EspressoDevNodeIntercept struct {
-	u      url.URL
-	b      InterceptBehavior
-	client *http.Client
-	r      rand.Rand
-}
-
-// TurnOnBehavior is a method that sets the specified InterceptBehavior on the
-// EspressoDevNodeIntercept instance.
-func (e *EspressoDevNodeIntercept) TurnOnBehavior(b InterceptBehavior) {
-	e.b.Set(b)
+	u       url.URL
+	client  *http.Client
+	decider InterceptHandlerDecider
 }
 
 // performProxy performs the actual proxying of the request to the stored URL.
@@ -132,82 +236,79 @@ func (e *EspressoDevNodeIntercept) performProxy(w http.ResponseWriter, r *http.R
 	}
 }
 
-func (e *EspressoDevNodeIntercept) generateCommitForSubmitTransaction(r *http.Request) (*types.TaggedBase64, error) {
-	defer r.Body.Close()
-
-	var txn types.Transaction
-	if err := json.NewDecoder(r.Body).Decode(&txn); err != nil {
-		// Unable to decode, this is a problem?
-		var emptyHash [32]byte
-		return tagged_base64.New("FAKE", emptyHash[:])
-	}
-
-	commit := txn.Commit()
-	return tagged_base64.New("FAKE", commit[:])
+type Rng interface {
+	Intn(n int) int
 }
 
-func (e *EspressoDevNodeIntercept) simulateSuccessfulSubmitTransaction(w http.ResponseWriter, r *http.Request) {
-	// We could do a lot of effort to validate the request, and return an
-	// hash that is actually representative of the transaction that was
-	// just submitted. In some cases we may actually want this sort of
-	// validated behavior, but it's very simple to just return any hash
-	// instead.
+// randomRollFakeSubmitTransactionSuccess is a InterceptHandlerDecider that aids
+// in the simulation of transaction submission failures by randomly deciding
+// whether to return a successful submission response or to proxy the request
+// to the Espresso Dev Node.
+type randomRollFakeSubmitTransactionSuccess struct {
+	// n the upper end of the range to roll against.
+	n int
 
-	// We should probably validate the request contents and format here, but
-	// we will just assume the settings.
-	defer r.Body.Close()
-	hash, err := e.generateCommitForSubmitTransaction(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// The threshold, under which will trigger a faked submission success.
+	threshold int
 
-	contents, err := json.Marshal(hash)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(contents)
+	// the Rng to use to determine the random roll
+	r Rng
 }
 
-func (e *EspressoDevNodeIntercept) handleBehavior(w http.ResponseWriter, r *http.Request) {
+// NewRandomRollFakeSubmitTransactionSuccess creates a new
+// InterceptHandlerDecider that will proxy all requests to the espresso dev
+// node except for the submit transaction requests.
+//
+// When a submit transaction request is received it will use the provided Rng
+// roll a number between 0 and n-1. If the rolled number is less than, or
+// equal to, the provided threshold, it will return a fake successful submit
+// transaction response, otherwise it will proxy the request to the espresso
+// dev node like normal.
+func NewRandomRollFakeSubmitTransactionSuccess(n int, threshold int, r Rng) InterceptHandlerDecider {
+	return &randomRollFakeSubmitTransactionSuccess{
+		n:         n,
+		threshold: threshold,
+		r:         r,
+	}
+}
+
+// requestMatchesPath checks if the HTTP request matches the specified method
+func requestMatchesPath(r *http.Request, method string, pathMatcher func(string) bool) bool {
+	return r.Method == method && r.URL != nil && pathMatcher(r.URL.Path)
+}
+
+// stringEquals is a helper function that returns a function that checks if
+// a given path string equals the specified string.
+func stringEquals(s string) func(string) bool {
+	return func(path string) bool {
+		return path == s
+	}
+}
+
+// isSubmitTransactionRequest represents the different variations of the submit
+// transaction endpoint that we can utilize or support.
+func isSubmitTransactionRequest(r *http.Request) bool {
+	return requestMatchesPath(r, http.MethodPost, stringEquals("/submit/submit")) ||
+		requestMatchesPath(r, http.MethodPost, stringEquals("/v0/submit/submit"))
+}
+
+// DecideHowToHandleRequest implements InterceptHandlerDecider
+func (d *randomRollFakeSubmitTransactionSuccess) DecideHowToHandleRequest(w http.ResponseWriter, r *http.Request) InterceptHandleDecision {
 	if isSubmitTransactionRequest(r) {
-		if e.b.HasBehavior(BehaviorRandomRollTxnSubmissionFailure) {
-			// We want to randomly simulate a failure in the transaction
-			// submission.  We'll roll to simulate a failure 10% of the time.
-			if e.r.Intn(10) == 0 {
-				e.simulateSuccessfulSubmitTransaction(w, r)
-				return
-			}
-		}
-
-		if e.b.HasBehavior(BehaviorSubmitTxnSuccessWhileDropped) {
-			e.simulateSuccessfulSubmitTransaction(w, r)
-			return
+		// We want to randomly simulate a failure in the transaction
+		// submission.  We'll roll to simulate a failure 10% of the time.
+		if d.r.Intn(d.n) <= d.threshold {
+			return DecisionReportSubmitSuccessWhileDropped
 		}
 	}
-
-	// If we don't have any other behavior to perform that we've detected, then
-	// we'll just default to proxying the request.
-	e.performProxy(w, r)
+	return DecisionProxy
 }
 
 // ServerHTTP implements http.Handler
 func (e *EspressoDevNodeIntercept) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Close the request body to prevent resource leaks
-	defer r.Body.Close()
-
-	if e.u == (url.URL{}) {
-		// we don't have a URL to redirect to, so we can do nothing
-		w.WriteHeader(http.StatusServiceUnavailable)
-		return
-	}
-
-	// Perform the proxy request.
-	e.handleBehavior(w, r)
+	decision := e.decider.DecideHowToHandleRequest(w, r)
+	handler := decision.buildHandler(e.client, e.u)
+	handler.ServeHTTP(w, r)
 }
 
 // createEspressoProxyOption will return a Batch CLIConfig option that will
@@ -239,13 +340,35 @@ func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNod
 	}
 }
 
+// EspressoDevNodeInterceptOption is a function that modifies the
+// EspressoDevNodeIntercept configuration.
+type EspressoDevNodeInterceptOption func(*EspressoDevNodeIntercept)
+
+// SetDecider sets the InterceptHandlerDecider for the EspressoDevNodeIntercept.
+func SetDecider(decider InterceptHandlerDecider) EspressoDevNodeInterceptOption {
+	return func(e *EspressoDevNodeIntercept) {
+		e.decider = decider
+	}
+}
+
+// SetHTTPClient sets the HTTP client for the EspressoDevNodeIntercept.
+func SetHTTPClient(client *http.Client) EspressoDevNodeInterceptOption {
+	return func(e *EspressoDevNodeIntercept) {
+		e.client = client
+	}
+}
+
 // SetupQueryServiceIntercept sets up an intercept traffic headed for the
 // Query Service for the Espresso Dev Node
-func SetupQueryServiceIntercept() (*EspressoDevNodeIntercept, *httptest.Server, DevNetLauncherOption) {
+func SetupQueryServiceIntercept(options ...EspressoDevNodeInterceptOption) (*EspressoDevNodeIntercept, *httptest.Server, DevNetLauncherOption) {
 	// Start a Server to proxy requests to Espresso
 	proxy := &EspressoDevNodeIntercept{
-		client: http.DefaultClient,
-		r:      *rand.New(rand.NewSource(0)), // Use a fixed seed for reproducibility
+		client:  http.DefaultClient,
+		decider: defaultInterceptHandlerDecider{},
+	}
+
+	for _, opt := range options {
+		opt(proxy)
 	}
 
 	// Start up a local http server to handle the requests

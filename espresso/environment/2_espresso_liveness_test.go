@@ -2,6 +2,7 @@ package environment_test
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
@@ -14,7 +15,7 @@ import (
 // The Criteria for this test is as follows:
 //
 //	Requirement: Resubmission to Espresso.
-//		Randomy turn the Espresso builder off and on. Check that the rollup
+//		Randomly turn the Espresso builder off and on. Check that the rollup
 //		continues to make progress, including progressing settlement on the
 //		base layer.
 //
@@ -44,7 +45,19 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	// Start a Server to proxy requests to Espresso
-	proxy, server, option := env.SetupQueryServiceIntercept()
+	_, server, option := env.SetupQueryServiceIntercept(
+		// This decider will randomly report successful submissions of
+		// transactions to Espresso, but will not actually submit them.
+		// This will approximately occur 10% of the time, given the
+		// criteria to roll a number 0-9 and only to occur if the rolled
+		// number is 0.
+		env.SetDecider(env.NewRandomRollFakeSubmitTransactionSuccess(
+			10,
+			0,
+			rand.New(rand.NewSource(0)),
+		)),
+	)
+
 	defer server.Close()
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0, option)
 
@@ -55,7 +68,6 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 
 	defer system.Close()
 	defer espressoDevNode.Stop()
-	proxy.TurnOnBehavior(env.BehaviorRandomRollTxnSubmissionFailure)
 
 	const N = 10
 	{
