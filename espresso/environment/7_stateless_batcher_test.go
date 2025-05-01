@@ -82,10 +82,10 @@ func TestStatelessBatcher(t *testing.T) {
 	driver := system.BatchSubmitter.TestDriver()
 	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
 
-	numIterations := 3
+	numIterations := 10
 
 	// We select a range of iterations when the batcher is turned off.
-	restartIteration := 1
+	restartIteration := 5
 	for i := 0; i < numIterations; i++ {
 
 		t.Log("******************* Iteration: ", i)

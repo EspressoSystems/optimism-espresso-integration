@@ -94,7 +94,7 @@ func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 2)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -103,7 +103,7 @@ func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
 	defer env.Stop(t, espressoDevNode)
 	defer env.Stop(t, system)
 	// Send Transaction on L1, and wait for verification on the L2 Verifier
-	//runSimpleL1TransferAndVerifier(ctx, t, system)
+	env.RunSimpleL1TransferAndVerifier(ctx, t, system)
 
 	// Submit a Transaction on the L2 Sequencer node, to a Burn Address
 	env.RunSimpleL2Burn(ctx, t, system)

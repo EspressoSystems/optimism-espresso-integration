@@ -52,9 +52,6 @@ type EspressoStreamer[B Batch] struct {
 	// HotShot block that was visited last
 	hotShotPos uint64
 
-	// Previous confirmed HotShot position. Use for catchup
-	oldConfirmedHotShotPos uint64
-
 	// Position of the last safe batch
 	confirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
@@ -329,12 +326,4 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 // Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
 	s.confirmedHotShotPos = s.hotShotPos
-}
-
-func (s *EspressoStreamer[B]) LoadCatchupData() {
-	s.confirmedHotShotPos = s.oldConfirmedHotShotPos
-}
-
-func (s *EspressoStreamer[B]) StoreCatchupData() {
-	s.oldConfirmedHotShotPos = s.confirmedHotShotPos
 }

@@ -204,8 +204,6 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
-		// This will read from L1
-		l.streamer.LoadCatchupData()
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
