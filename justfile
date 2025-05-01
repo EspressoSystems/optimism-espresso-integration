@@ -18,7 +18,7 @@ compile-contracts:
 espresso-tests: compile-contracts
  go test ./espresso/environment
 
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:pr-3181"
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
 remove-espresso-containers:
   docker stop $(docker ps -q --filter ancestor={{IMAGE_NAME}})
   docker remove $(docker ps -q --filter ancestor={{IMAGE_NAME}})

@@ -53,7 +53,7 @@ func TestStatelessBatcher(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-
+	rollupClient := system.RollupClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	caffVerif := system.NodeClient(env.RoleCaffNode)
@@ -80,49 +80,41 @@ func TestStatelessBatcher(t *testing.T) {
 	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
-	numIterations := 6
+	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
+
+	numIterations := 3
 
 	// We select a range of iterations when the batcher is turned off.
-	turnBatcherOffIteration := 2 //rand.IntN(numIterations / 2)
-	turnBatcherOnIteration := 2  //rand.IntN(numIterations/2) + numIterations/2
-
-	batcherIsUp := true
-	var lastL2SafeBlock, newL2SafeBlockNumber uint64
-
+	restartIteration := 1
 	for i := 0; i < numIterations; i++ {
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
-		if i == turnBatcherOffIteration {
-			lastL2SafeBlock, _ = l2Verif.BlockNumber(ctx)
+		if i == restartIteration {
+			// Stop the batcher
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
-			batcherIsUp = false
-		}
 
-		//// Let us start the batcher again
-		if i == turnBatcherOnIteration {
+			// wait for any old safe blocks being submitted / derived
+			time.Sleep(safeBlockInclusionDuration)
 
-			err = driver.StartBatchSubmitting()
+			// get the initial sync status
+			seqStatus, err := rollupClient.SyncStatus(context.Background())
 			require.NoError(t, err)
 
-			t.Log("Waiting for the batch submitter to catch up...")
-			// Here we wait for the L2 to make progress again which means the batcher is ready to handle new transactions.
-			for {
-				newL2SafeBlockNumber, _ = l2Verif.BlockNumber(ctx)
-				if newL2SafeBlockNumber > lastL2SafeBlock {
-					break
-				}
-				t.Log("newL2SafeBlockNumber", "value", newL2SafeBlockNumber)
-				time.Sleep(1 * time.Second)
-			}
-			t.Log("Batcher is caught up, let us send more transactions...")
+			// ensure that the safe chain does not advance while the batcher is stopped
+			newSeqStatus, err := rollupClient.SyncStatus(ctx)
+			require.NoError(t, err)
+			require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain advanced while batcher was stopped")
 
-			batcherIsUp = true
-		}
+			// Start again
+			err = driver.StartBatchSubmitting()
+			require.NoError(t, err)
+			time.Sleep(safeBlockInclusionDuration)
+			t.Log("Batcher restarting....")
 
-		// The batcher is up, we can send coins
-		if batcherIsUp {
+		} else {
+			// The batcher is up, we can send coins
 			// Nonce is i+1 because nonce 0 is used for the initial deposit
 			env.RunSimpleL2Transfer(ctx, t, system, uint64(i+1), *amount, l2Seq, l2Verif)
 			numDeposits++
