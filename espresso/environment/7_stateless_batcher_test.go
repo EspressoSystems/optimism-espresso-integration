@@ -121,7 +121,7 @@ func TestStatelessBatcher(t *testing.T) {
 		} else {
 			// The batcher is up, we can send coins
 			// Nonce is i+1 because nonce 0 is used for the initial deposit
-			env.RunSimpleL2Transfer(ctx, t, system, uint64(i+1), *amount, l2Seq, l2Verif)
+			env.RunSimpleL2Transfer(ctx, t, system, uint64(numDeposits+1), *amount, l2Seq, l2Verif)
 			numDeposits++
 		}
 
