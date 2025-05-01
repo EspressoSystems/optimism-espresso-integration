@@ -2,10 +2,15 @@ package environment_test
 
 import (
 	"context"
+	"math/big"
 	"math/rand"
 	"testing"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
+	geth_types "github.com/ethereum/go-ethereum/core/types"
 )
 
 // TestE2eDevNetWithEspressoEspressoDegradedLiveness is a test that checks that
@@ -69,10 +74,47 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 	defer system.Close()
 	defer espressoDevNode.Stop()
 
+	addressAlice := system.Cfg.Secrets.Addresses().Alice
+
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	l2Verif := system.NodeClient(e2esys.RoleVerif)
+
+	balanceAliceInitial, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("Failed to fetch Alice's balance:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+
 	const N = 10
 	{
+		var receipts []*geth_types.Receipt
+
 		for i := 0; i < N; i++ {
-			runSimpleL1TransferAndVerifier(ctx, t, system)
+			receipt := helpers.SendL2TxWithID(t, system.Cfg.L2ChainIDBig(), l2Seq, system.Cfg.Secrets.Bob, func(opts *helpers.TxOpts) {
+				opts.Nonce = uint64(i)
+				opts.ToAddr = &addressAlice
+				opts.Value = new(big.Int).SetUint64(1)
+			})
+
+			receipts = append(receipts, receipt)
+		}
+
+		// Let's verify that all of our transactions came through successfully
+		for _, receipt := range receipts {
+			_, err := wait.ForReceiptOK(ctx, l2Verif, receipt.TxHash)
+			if have, want := err, error(nil); have != want {
+				t.Fatalf("Waiting for L2 tx on verification client:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
+		}
+
+		// Alice's balance should have increased by N
+		balanceAliceFinal, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
+		if have, want := err, error(nil); have != want {
+			t.Fatalf("Failed to fetch Alice's balance:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
+
+		expectedBalance := new(big.Int).Add(balanceAliceInitial, big.NewInt(int64(N)))
+		if balanceAliceFinal.Cmp(expectedBalance) != 0 {
+			t.Fatalf("Alice's balance did not increase as expected:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", balanceAliceFinal, expectedBalance)
 		}
 	}
 }
