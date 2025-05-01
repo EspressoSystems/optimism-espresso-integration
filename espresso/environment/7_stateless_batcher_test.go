@@ -116,7 +116,7 @@ func TestStatelessBatcher(t *testing.T) {
 			// Ensure that the safe chain does advance while the batcher is stopped
 			newSeqStatus, err = rollupClient.SyncStatus(ctx)
 			require.NoError(t, err)
-			require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain does not make progress")
+			require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain does not make progress")
 
 		} else {
 			// The batcher is up, we can send coins
