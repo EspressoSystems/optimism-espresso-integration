@@ -87,7 +87,7 @@ func TestStatelessBatcher(t *testing.T) {
 	numIterations := 4
 
 	// We select a range of iterations when the batcher is turned off.
-	restartIteration := 5
+	restartIteration := 1
 	for i := 0; i < numIterations; i++ {
 
 		// +1 because of the deposit transaction above
@@ -142,8 +142,7 @@ func TestStatelessBatcher(t *testing.T) {
 
 		} else {
 			// The batcher is up, we can send coins
-			// Nonce is i+1 because nonce 0 is used for the initial deposit
-			env.RunSimpleL2Transfer(ctx, t, system, uint64(numDeposits+1), *amount, l2Seq, l2Verif)
+			env.RunSimpleL2Transfer(ctx, t, system, nonce, *amount, l2Seq, l2Verif)
 			numDeposits++
 		}
 
