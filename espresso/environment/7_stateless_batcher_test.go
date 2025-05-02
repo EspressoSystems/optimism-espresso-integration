@@ -3,6 +3,7 @@ package environment_test
 import (
 	"context"
 	"math/big"
+	"math/rand/v2"
 	"testing"
 	"time"
 
@@ -70,14 +71,14 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	// Setup Bob for sending coins to Alice
-	privateKey := system.Cfg.Secrets.Alice
+	privateKey := system.Cfg.Secrets.Bob
 	bobOptions, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to create transaction options for bob:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
 	amount := new(big.Int).SetUint64(1)
-	numDeposits := 0
+	numTransfers := 0
 	bobOptions.Value = amount
 
 	var caffBalanceNew *big.Int
@@ -85,14 +86,14 @@ func TestStatelessBatcher(t *testing.T) {
 	driver := system.BatchSubmitter.TestDriver()
 	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
 
-	numIterations := 4
+	numIterations := 8
 
 	// We select a range of iterations when the batcher is turned off.
-	restartIteration := 1
+	restartIteration := 1 + rand.IntN(numIterations-1)
 	for i := 0; i < numIterations; i++ {
 
 		// +1 because of the deposit transaction above
-		nonce := uint64(numDeposits + 1)
+		nonce := uint64(numTransfers + 1)
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
@@ -124,8 +125,6 @@ func TestStatelessBatcher(t *testing.T) {
 			// Store the hash to check later if the transaction has been submitted successfully to the L2
 			tx_hash := receipt.TxHash
 
-			numDeposits++
-
 			// Start again
 			err = driver.StartBatchSubmitting()
 			require.NoError(t, err)
@@ -144,13 +143,14 @@ func TestStatelessBatcher(t *testing.T) {
 		} else {
 			// The batcher is up, we can send coins
 			env.RunSimpleL2Transfer(ctx, t, system, nonce, *amount, l2Seq, l2Verif)
-			numDeposits++
 		}
 
+		// There should be a transfer for each iteration
+		numTransfers++
 	}
 
 	var numDepositsBigInt big.Int
-	numDepositsBigInt.SetInt64(int64(numDeposits))
+	numDepositsBigInt.SetInt64(int64(numTransfers))
 
 	expectedAmount := new(big.Int).Mul(new(big.Int).Add(balanceAliceInitial, &numDepositsBigInt), amount)
 
