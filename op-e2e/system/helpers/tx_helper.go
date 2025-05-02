@@ -104,7 +104,6 @@ func SendL2TxWithID(t *testing.T, chainID *big.Int, l2Client *ethclient.Client, 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	err := l2Client.SendTransaction(ctx, tx)
-
 	require.NoError(t, err, "Sending L2 tx")
 
 	receipt, err := wait.ForReceiptOK(ctx, l2Client, tx.Hash())
