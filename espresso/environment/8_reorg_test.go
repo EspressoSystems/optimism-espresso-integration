@@ -6,6 +6,7 @@ import (
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,15 +42,12 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	}
 	defer env.Stop(t, caffNode)
 
-	rollupClient := system.RollupClient("verifier")
+	rollupClient := system.RollupClient(e2esys.RoleVerif)
 
-	// Verify that the batcher waits for the L1 origin to be finalized before submitting a new
-	// block to the L1.
-	initialSeqStatus, err := rollupClient.SyncStatus(context.Background())
+	initialStatus, err := rollupClient.SyncStatus(context.Background())
 	require.NoError(t, err)
-	initialFinalizedL1Number := initialSeqStatus.FinalizedL1.Number
-	initialSafeL1Number := initialSeqStatus.SafeL1.Number
-	require.LessOrEqual(t, initialSafeL1Number, initialFinalizedL1Number + 1, "Safe L1 number too large")
+	initialFinalizedL1Number := initialStatus.FinalizedL1.Number
+	initialSafeL1Number := initialStatus.SafeL1.Number
 
 	// Verify that eventually a new block will be finalized, which will enable the batcher to
 	// submit another block to the L1.
@@ -61,11 +59,16 @@ func TestBatcherWaitForFinality(t *testing.T) {
 		case <-ctx.Done():
 			require.FailNow(t, "Timeout: Finalized L1 number not increased")
 		case <-tickerFinality.C:
-			seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
+			// Verify that the batcher waits for the L1 origin to be finalized before submitting a new
+			// block to the L1.
+			statusAfterWait, err := rollupClient.SyncStatus(context.Background())
 			require.NoError(t, err)
+			finalizedL1NumberAfterWait := statusAfterWait.FinalizedL1.Number
+			require.LessOrEqual(t, statusAfterWait.SafeL1.Number, finalizedL1NumberAfterWait + 1, "Safe L1 number too large")
+
 
 			// Wait for a new block to be finalized.
-			if seqStatusAfterWait.FinalizedL1.Number > initialFinalizedL1Number {
+			if finalizedL1NumberAfterWait > initialFinalizedL1Number {
 				tickerSubmission := time.NewTicker(1 * time.Second)
 				defer tickerSubmission.Stop()
 
@@ -74,10 +77,10 @@ func TestBatcherWaitForFinality(t *testing.T) {
 					case <-ctx.Done():
 						require.FailNow(t, "Timeout: Safe L1 number not increased")
 					case <-tickerSubmission.C:
-						seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
+						statusAfterFinality, err := rollupClient.SyncStatus(context.Background())
 						require.NoError(t, err)
 
-						if seqStatusAfterWait.SafeL1.Number > initialSafeL1Number {
+						if statusAfterFinality.SafeL1.Number > initialSafeL1Number {
 							return
 						}
 					}
