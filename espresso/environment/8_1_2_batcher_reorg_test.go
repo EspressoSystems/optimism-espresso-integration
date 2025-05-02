@@ -69,20 +69,3 @@ func TestE2eDevNetWithL1Reorg(t *testing.T) {
 
 	runL1Reorg(ctx, t, system)
 }
-
-//func TestE2eDevNetWithL1ReorgWithoutEspresso(t *testing.T) {
-//	ctx, cancel := context.WithCancel(context.Background())
-//	defer cancel()
-//
-//	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
-//
-//	system, err := sysConfig.Start(t)
-//	if have, want := err, error(nil); have != want {
-//		t.Fatalf("failed to start e2e dev environment:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-//	}
-//	// Shut down the test net on exit
-//	defer env.Stop(t, system)
-//
-//	runL1Reorg(ctx, t, system)
-//}
-//
