@@ -2,22 +2,24 @@ package environment
 
 import (
 	"context"
+
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 // runSimpleL2Transfer runs a simple L2 burn transaction and verifies it on the
 // L2 Verifier.
 func RunSimpleL2Transfer(ctx context.Context, t *testing.T, system *e2esys.System, nonce uint64, amount big.Int, l2Seq *ethclient.Client, l2Verif *ethclient.Client) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	_, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	privateKey := system.Cfg.Secrets.Bob
