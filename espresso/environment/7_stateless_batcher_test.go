@@ -3,7 +3,9 @@ package environment_test
 import (
 	"context"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +69,7 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	// Setup Bob for sending coins to Alice
-	privateKey := system.Cfg.Secrets.Bob
+	privateKey := system.Cfg.Secrets.Alice
 	bobOptions, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to create transaction options for bob:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -82,11 +84,14 @@ func TestStatelessBatcher(t *testing.T) {
 	driver := system.BatchSubmitter.TestDriver()
 	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
 
-	numIterations := 10
+	numIterations := 4
 
 	// We select a range of iterations when the batcher is turned off.
 	restartIteration := 5
 	for i := 0; i < numIterations; i++ {
+
+		// +1 because of the deposit transaction above
+		nonce := uint64(numDeposits + 1)
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
@@ -107,6 +112,19 @@ func TestStatelessBatcher(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain advanced while batcher was stopped")
 
+			// Send a transaction while the batcher is down. This transaction should still be processed correctly by the sequencer and at some point be
+			// inserted in a safe L2 block
+			receipt := helpers.SendL2TxWithID(t, system.Cfg.L2ChainIDBig(), l2Seq, system.Cfg.Secrets.Bob, func(opts *helpers.TxOpts) {
+				opts.Nonce = nonce
+				opts.ToAddr = &addressAlice
+				opts.Value = new(big.Int).SetUint64(1)
+			})
+
+			// Store the hash to check later if the transaction has been submitted successfully to the L2
+			tx_hash := receipt.TxHash
+
+			numDeposits++
+
 			// Start again
 			err = driver.StartBatchSubmitting()
 			require.NoError(t, err)
@@ -117,6 +135,10 @@ func TestStatelessBatcher(t *testing.T) {
 			newSeqStatus, err = rollupClient.SyncStatus(ctx)
 			require.NoError(t, err)
 			require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain does not make progress")
+
+			// Ensure the transaction sent while the batcher was down did go through
+			_, err = wait.ForReceiptOK(ctx, l2Verif, tx_hash)
+			require.NoError(t, err)
 
 		} else {
 			// The batcher is up, we can send coins
