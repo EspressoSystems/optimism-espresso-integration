@@ -59,6 +59,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 		env.SetDecider(env.NewRandomRollFakeSubmitTransactionSuccess(
 			10,
 			0,
+			1,
 			rand.New(rand.NewSource(0)),
 		)),
 	)
