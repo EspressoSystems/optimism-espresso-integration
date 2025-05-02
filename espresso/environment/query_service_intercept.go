@@ -31,6 +31,11 @@ const (
 	// be handled by simulating a successful transaction submission, but
 	// without actually submitting the transaction to the Espresso Dev Node.
 	DecisionReportSubmitSuccessWhileDropped
+
+	// DecisionReportServerUnreachable means that the request should be
+	// handled by returning an error indicating that the Espresso Dev Node
+	// was unreachable to the client.
+	DecisionReportServerUnreachable
 )
 
 // builderHandler is a method that will build the appropriate HTTP handler based
@@ -45,6 +50,9 @@ func (d InterceptHandleDecision) buildHandler(client *http.Client, baseURL url.U
 
 	case DecisionReportSubmitSuccessWhileDropped:
 		return fakeSubmitTransactionSuccess{}
+
+	case DecisionReportServerUnreachable:
+		return reportServerUnreachable{}
 
 	default:
 		return nil
@@ -151,7 +159,7 @@ func generateCommitForSubmitTransaction(r *http.Request) (*types.TaggedBase64, e
 
 // ServeHTTP implements http.Handler
 func (fakeSubmitTransactionSuccess) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// We could do a lot of effort to validate the request, and return an
+	// We could do a lot of effort to validate the request, and return a
 	// hash that is actually representative of the transaction that was
 	// just submitted. In some cases we may actually want this sort of
 	// validated behavior, but it's very simple to just return any hash
@@ -177,6 +185,20 @@ func (fakeSubmitTransactionSuccess) ServeHTTP(w http.ResponseWriter, r *http.Req
 	w.Write(contents)
 }
 
+// reportServerUnreachable is a simple HTTP handler that simulates a load
+// balancer, or some other intermediary, returning an error indicating that the
+// target handling service is unreachable.
+type reportServerUnreachable struct{}
+
+// ServeHTTP implements http.Handler
+func (reportServerUnreachable) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Don't forget to close the request body, though we won't actually read
+	// anything from it.
+	defer r.Body.Close()
+
+	http.Error(w, "service unreachable", http.StatusServiceUnavailable)
+}
+
 // EspressoDevNodeIntercept is a struct that is a Proxy to the Espresso Dev Node.
 // It is used to intercept request to the Espresso Dev Node and make decisions
 // about handling the requests.  This is useful for simulating failures or
@@ -187,69 +209,25 @@ type EspressoDevNodeIntercept struct {
 	decider InterceptHandlerDecider
 }
 
-// performProxy performs the actual proxying of the request to the stored URL.
-func (e *EspressoDevNodeIntercept) performProxy(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	buf := new(bytes.Buffer)
-	if _, err := io.Copy(buf, r.Body); err != nil && err != io.EOF {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	req, err := http.NewRequest(r.Method, e.u.JoinPath(r.URL.Path).String(), buf)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Copy over the headers
-	for k, v := range r.Header {
-		req.Header.Set(k, v[0])
-	}
-
-	res, err := e.client.Do(req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer res.Body.Close()
-
-	buf.Reset()
-	if _, err := io.Copy(buf, res.Body); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(res.StatusCode)
-	for k, v := range res.Header {
-		w.Header().Set(k, v[0])
-	}
-
-	// Write the proxy response contents
-	if _, err := io.Copy(w, buf); err != nil {
-		// If we encounter an error here, it will be difficult to actually
-		// handle it at this point, as we've already sent the response headers.
-		//
-		// The best we can do at this point, is log the error.
-		_ = err
-		return
-	}
-}
-
 type Rng interface {
 	Intn(n int) int
 }
 
 // randomRollFakeSubmitTransactionSuccess is a InterceptHandlerDecider that aids
-// in the simulation of transaction submission failures by randomly deciding
-// whether to return a successful submission response or to proxy the request
-// to the Espresso Dev Node.
+// in the simulation of various transaction submission failures by randomly
+// deciding whether to return a successful submission response, to return that
+// the service is unavailable or to proxy the request to the Espresso Dev Node.
 type randomRollFakeSubmitTransactionSuccess struct {
 	// n the upper end of the range to roll against.
 	n int
 
-	// The threshold, under which will trigger a faked submission success.
-	threshold int
+	// The fakeSuccessThreshold, under which will trigger a faked submission
+	// success.
+	fakeSuccessThreshold int
+
+	// fakeServiceUnavailableThreshold is the threshold under which the
+	// decision will return a simulated service unavailable error.
+	fakeServiceUnavailableThreshold int
 
 	// the Rng to use to determine the random roll
 	r Rng
@@ -260,15 +238,49 @@ type randomRollFakeSubmitTransactionSuccess struct {
 // node except for the submit transaction requests.
 //
 // When a submit transaction request is received it will use the provided Rng
-// roll a number between 0 and n-1. If the rolled number is less than, or
-// equal to, the provided threshold, it will return a fake successful submit
-// transaction response, otherwise it will proxy the request to the espresso
-// dev node like normal.
-func NewRandomRollFakeSubmitTransactionSuccess(n int, threshold int, r Rng) InterceptHandlerDecider {
+// roll a number between 0 and n-1.
+// Depending on the value rolled it will determine the resulting behavior as
+// follows:
+//   - If the number rolled is less than or equal to the given
+//     fakeSuccessThreshold, it will return a simulated successful transaction
+//     submission response, while dropping the request ensuring it does not
+//     actually reach the Espresso Dev Node.
+//   - If the number rolled is less than or equal to the given
+//     fakeServiceUnavailableThreshold, it will return a simulated service
+//     unavailable error response.
+//   - Otherwise, it will proxy the request to the Espresso Dev Node.
+//
+// NOTE: We only roll once per request, so the thresholds are not cumulative,
+// This means if they overlap, then one of the behaviors will never be
+// triggered.  However, you can utilize this to your advantage by setting
+// the thresholds so that they overlap directly, ensuring you only test
+// one of the behaviors.
+//
+// NOTE: Setting the `fakeSuccessThreshold` value less than `0` will ensure
+// that the fake success threshold case is never triggered.
+//
+// NOTE: Setting the `fakeServiceUnavailableThreshold` value less than or
+// equal to `fakeSuccessThreshold` will ensure that the service unavailable
+// threshold case is never triggered.
+//
+// The thresholds are evaluated in order of `fakeSuccessThreshold`, then
+// `fakeServiceUnavailableThreshold`, then the default proxy behavior.
+// So if you want to ensure that all cases are tested you should specify your
+// values with the following constraints:
+//   - `fakeSuccessThreshold` >= 0
+//   - `fakeServiceUnavailableThreshold` > `fakeSuccessThreshold`
+//   - `fakeServiceUnavailableThreshold` < `n`
+func NewRandomRollFakeSubmitTransactionSuccess(
+	rollUpperRange,
+	fakeSuccessThreshold,
+	fakeServiceUnavailableThreshold int,
+	r Rng,
+) InterceptHandlerDecider {
 	return &randomRollFakeSubmitTransactionSuccess{
-		n:         n,
-		threshold: threshold,
-		r:         r,
+		n:                               rollUpperRange,
+		fakeSuccessThreshold:            fakeSuccessThreshold,
+		fakeServiceUnavailableThreshold: fakeServiceUnavailableThreshold,
+		r:                               r,
 	}
 }
 
@@ -297,8 +309,11 @@ func (d *randomRollFakeSubmitTransactionSuccess) DecideHowToHandleRequest(w http
 	if isSubmitTransactionRequest(r) {
 		// We want to randomly simulate a failure in the transaction
 		// submission.  We'll roll to simulate a failure 10% of the time.
-		if d.r.Intn(d.n) <= d.threshold {
+		roll := d.r.Intn(d.n)
+		if roll <= d.fakeSuccessThreshold {
 			return DecisionReportSubmitSuccessWhileDropped
+		} else if roll <= d.fakeServiceUnavailableThreshold {
+			return DecisionReportServerUnreachable
 		}
 	}
 	return DecisionProxy
