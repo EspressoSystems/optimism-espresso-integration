@@ -328,5 +328,6 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
 // Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
-	s.confirmedHotShotPos = 0
+	// TODO(AG): this is not correct and causes 8.1.2. to fail
+	s.confirmedHotShotPos = s.hotShotPos
 }
