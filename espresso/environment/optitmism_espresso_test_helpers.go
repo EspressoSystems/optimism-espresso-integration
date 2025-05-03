@@ -22,17 +22,14 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	gethNode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/stretchr/testify/require"
 )
 
 type EspressoAllocAccount struct {
@@ -233,10 +230,10 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
-func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, L1finalizedDistance uint64, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, L1finalizedDistance uint64, NonFinalizedProposals bool, SequencerUseFinalized bool, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 	originalCtx := ctx
 
-	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeEspresso))
+	sysConfig := e2esys.DefaultSystemWithFinalityConfig(t, NonFinalizedProposals, SequencerUseFinalized, e2esys.WithAllocType(config.AllocTypeEspresso))
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2
@@ -671,27 +668,4 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 	}
 
 	t.Fatalf("unable to determine how to stop the given node")
-}
-
-// SendL2TxNoReceipt creates and sends a transaction.
-//
-// It does everything the same as SendL2Tx, but doesn not wait for the receipt from the L1.
-func SendL2TxNoReceipt(t *testing.T, cfg e2esys.SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyTxOpts helpers.TxOptsFn) {
-	chainID := cfg.L2ChainIDBig()
-	opts := helpers.DefaultTxOpts()
-	applyTxOpts(opts)
-	tx := types.MustSignNewTx(privKey, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
-		ChainID:   chainID,
-		Nonce:     opts.Nonce, // Already have deposit
-		To:        opts.ToAddr,
-		Value:     opts.Value,
-		GasTipCap: opts.GasTipCap,
-		GasFeeCap: opts.GasFeeCap,
-		Gas:       opts.Gas,
-		Data:      opts.Data,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	err := l2Client.SendTransaction(ctx, tx)
-	require.NoError(t, err, "Sending L2 tx")
 }
