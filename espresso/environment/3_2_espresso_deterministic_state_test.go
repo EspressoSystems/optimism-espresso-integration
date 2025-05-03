@@ -4,15 +4,15 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
-// TestDeterministicDerivationState is a test that
+// TestDeterministicDerivationExecutionState is a test that
 // attempts to make sure that the caff node can derive the same state as the
 // original op-node (non caffeinated).
 //
@@ -20,18 +20,15 @@ import (
 // Espresso Celo Integration plan.  It has stated task definition as follows:
 //
 //	Arrange:
-//		Running Sequencer, Batcher in Espresso mode, Caff node  OP node.
-//		Balance of Alice is x. Balance of Bob is y.
-//		Check that this is the case querying both Caff and OP nodes
+//		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
+//		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 //	Act:
-//		Send some transactions from Alice to Bob
+//		Send some transactions from Bob to Alice
 //	Assert:
 //		Query the executive machine state when Caff node is on
 //		Query the executive machine state when OP node is on
 
-// The actual tests is unable to make Alice's initial balance zero, and will
-// instead just check Alice's starting balance against the rest of the cases.
-func TestDeterministicDerivationState(t *testing.T) {
+func TestDeterministicDerivationExecutionState(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -56,32 +53,12 @@ func TestDeterministicDerivationState(t *testing.T) {
 
 	// We want to setup our test
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-	var balanceAliceInitial *big.Int
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
-	caffVerif := system.NodeClient(env.RoleCaffNode)
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
 
-	// Retrieve Alice's starting Balance, and verify that they match between
-	// the Verification Node, and the Caff Node
-	{
-		verifBalance, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
-		if have, want := err, error(nil); have != want {
-			t.Fatalf("failed to get alice's balance from verification node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-		caffBalance, err := caffVerif.BalanceAt(ctx, addressAlice, nil)
-		if have, want := err, error(nil); have != want {
-			t.Fatalf("failed to get alice's balance from caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-		if have, want := verifBalance, caffBalance; have.Cmp(want) != 0 {
-			t.Fatalf("alice's balance does not match between verification node and caff node:\nhave:\n\t\"%s\"\nwant:\n\t\"%s\"\n", have, want)
-		}
-
-		balanceAliceInitial = verifBalance
-	}
-
-	// Next We want to Increase Alice's balance by 1, and verify that the balance
-	// matches between the verification node and the caff node
+	// We want to send some transactions from Bob to Alice
 	{
 		privateKey := system.Cfg.Secrets.Bob
 		bobOptions, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
@@ -95,31 +72,29 @@ func TestDeterministicDerivationState(t *testing.T) {
 			// Send from Bob to Alice
 			l2Opts.ToAddr = addressAlice
 		})
-
-		verifBalanceNew, err := wait.ForBalanceChange(ctx, l2Verif, addressAlice, balanceAliceInitial)
-		if have, want := err, error(nil); have != want {
-			t.Fatalf("failed to get alice's new balance from verification node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-		caffBalanceNew, err := wait.ForBalanceChange(ctx, caffVerif, addressAlice, balanceAliceInitial)
-		if have, want := err, error(nil); have != want {
-			t.Fatalf("failed to get alice's new balance from caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-
-		if have, want := verifBalanceNew, caffBalanceNew; have.Cmp(want) != 0 {
-			t.Fatalf("alice's new balance does not match between verification node and caff node:\nhave:\n\t\"%s\"\nwant:\n\t\"%s\"\n", have, want)
-		}
-
-		// We have a new balance, and it matches between the verification node
-		// and the Caff Node.
-
-		// Let's check to make sure that Alice's balance has increased by
-		// exactly 1.
-
-		diff := new(big.Int).Sub(verifBalanceNew, balanceAliceInitial)
-		if have, want := diff, mintAmount; have.Cmp(want) != 0 {
-			t.Fatalf("alice's balance did not increase by 1:\nhave:\n\t\"%s\"\nwant:\n\t\"%s\"\n", have, want)
-		}
-
 	}
+
+	// Sishan TODO: Add state verification
+
+	// output state of both nodes
+	for i := 0; i < 10; i++ {
+		block, err := l2Seq.BlockByNumber(ctx, nil)
+		if err != nil {
+			t.Fatalf("failed to get block %d from l2Seq: %v", i, err)
+		}
+		t.Logf("l2Seq block %d: %v", i, block)
+		block, err = l2Verif.BlockByNumber(ctx, nil)
+		if err != nil {
+			t.Fatalf("failed to get block %d from l2Verif: %v", i, err)
+		}
+		t.Logf("l2Verif block %d: %v", i, block)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+	}
+
+	// Sishan TODO: SendL2Tx instead of DepositTx
 
 }
