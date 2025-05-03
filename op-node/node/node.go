@@ -561,6 +561,7 @@ func (n *OpNode) Start(ctx context.Context) error {
 	// In some cases, this can cause the sequencer to get stuck because it fails to retrieve the next L1 block.
 	// To prevent this, fetch and initialize the latest safe and finalized L1 block references at startup.
 	if n.cfg.Driver.SequencerUseFinalized {
+		log.Info("Sequencer configured to wait for L1 origin finality")
 		reqCtx, reqCancel := context.WithTimeout(ctx, time.Second*20)
 		defer reqCancel()
 

@@ -29,7 +29,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0, false)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -49,8 +49,8 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	initialFinalizedL1Number := initialStatus.FinalizedL1.Number
 	initialSafeL1Number := initialStatus.SafeL1.Number
 
-	// Verify that eventually a new block will be finalized, which will enable the batcher to
-	// submit another block to the L1.
+	// Wait for a new block to be finalized, which will enable the batcher to submit another block
+	// to the L1.
 	tickerFinality := time.NewTicker(1 * time.Second)
 	defer tickerFinality.Stop()
 

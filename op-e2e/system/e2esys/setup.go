@@ -105,7 +105,7 @@ func WithLogLevel(level slog.Level) SystemConfigOpt {
 	}
 }
 
-func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
+func DefaultSystemWithFinalityConfig(t testing.TB, SequencerUseFinalized bool, opts ...SystemConfigOpt) SystemConfig {
 	sco := &SystemConfigOpts{
 		AllocType: config.DefaultAllocType,
 		LogLevel:  slog.LevelInfo,
@@ -152,6 +152,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 					VerifierConfDepth:  0,
 					SequencerConfDepth: 0,
 					SequencerEnabled:   true,
+					SequencerUseFinalized: SequencerUseFinalized,
 				},
 				// Submitter PrivKey is set in system start for rollup nodes where sequencer = true
 				RPC: rollupNode.RPCConfig{
@@ -196,6 +197,10 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 		BatcherMaxPendingTransactions: 1,
 		BatcherTargetNumFrames:        1,
 	}
+}
+
+func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
+	return DefaultSystemWithFinalityConfig(t, false, opts...)
 }
 
 func RegolithSystemConfig(t *testing.T, regolithTimeOffset *hexutil.Uint64, opts ...SystemConfigOpt) SystemConfig {
