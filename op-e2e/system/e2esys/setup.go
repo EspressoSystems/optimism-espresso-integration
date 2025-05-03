@@ -105,7 +105,7 @@ func WithLogLevel(level slog.Level) SystemConfigOpt {
 	}
 }
 
-func DefaultSystemWithFinalityConfig(t testing.TB, SequencerUseFinalized bool, opts ...SystemConfigOpt) SystemConfig {
+func DefaultSystemWithFinalityConfig(t testing.TB, NonFinalizedProposals bool, SequencerUseFinalized bool, opts ...SystemConfigOpt) SystemConfig {
 	sco := &SystemConfigOpts{
 		AllocType: config.DefaultAllocType,
 		LogLevel:  slog.LevelInfo,
@@ -192,7 +192,7 @@ func DefaultSystemWithFinalityConfig(t testing.TB, SequencerUseFinalized bool, o
 		},
 		GethOptions:                   map[string][]geth.GethOption{},
 		P2PTopology:                   nil, // no P2P connectivity by default
-		NonFinalizedProposals:         false,
+		NonFinalizedProposals:         NonFinalizedProposals,
 		DataAvailabilityType:          batcherFlags.CalldataType,
 		BatcherMaxPendingTransactions: 1,
 		BatcherTargetNumFrames:        1,
@@ -200,7 +200,7 @@ func DefaultSystemWithFinalityConfig(t testing.TB, SequencerUseFinalized bool, o
 }
 
 func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
-	return DefaultSystemWithFinalityConfig(t, false, opts...)
+	return DefaultSystemWithFinalityConfig(t, false, false, opts...)
 }
 
 func RegolithSystemConfig(t *testing.T, regolithTimeOffset *hexutil.Uint64, opts ...SystemConfigOpt) SystemConfig {
