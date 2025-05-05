@@ -81,24 +81,26 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 	// Compare states between nodes
 	for i := 0; i < 10; i++ {
 		// Get latest blocks from each node
-		seqBlock, err := l2Seq.BlockByNumber(ctx, nil)
-		if err != nil {
-			t.Fatalf("failed to get block from l2Seq: %v", err)
-		}
 
 		caffBlock, err := caffNodeL2Client.InfoByLabel(ctx, eth.Unsafe)
 		if err != nil {
 			t.Fatalf("failed to get block from caff node: %v", err)
 		}
 
+		seqBlock, err := l2Seq.BlockByNumber(ctx, big.NewInt(int64(caffBlock.NumberU64())))
+		if err != nil {
+			t.Fatalf("failed to get block from l2Seq: %v", err)
+		}
+
 		// Compare block states
-		t.Logf("Block number %v:", seqBlock.Number())
+
 		t.Logf("Block number of caffBlock %v:", caffBlock.NumberU64())
-		t.Logf("  Sequencer    hash: %v", seqBlock.Hash())
+		t.Logf("Block number %v:", seqBlock.Number())
 		t.Logf("  Caff node    hash: %v", caffBlock.Hash())
+		t.Logf("  Sequencer    hash: %v", seqBlock.Hash())
 		t.Logf("  State roots:")
-		t.Logf("    Sequencer: %v", seqBlock.Root())
 		t.Logf("    Caff node: %v", caffBlock.Root())
+		t.Logf("    Sequencer: %v", seqBlock.Root())
 
 		// Verify state consistency
 		if seqBlock.Hash() != caffBlock.Hash() {
