@@ -9,6 +9,7 @@ import (
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
@@ -74,27 +75,45 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		})
 	}
 
-	// Sishan TODO: Add state verification
+	// Get L2Client from caff node's engine state
+	caffNodeL2Client := caffNode.OpNode.EngineState().L2Client
 
-	// output state of both nodes
+	// Compare states between nodes
 	for i := 0; i < 10; i++ {
-		block, err := l2Seq.BlockByNumber(ctx, nil)
+		// Get latest blocks from each node
+		seqBlock, err := l2Seq.BlockByNumber(ctx, nil)
 		if err != nil {
-			t.Fatalf("failed to get block %d from l2Seq: %v", i, err)
+			t.Fatalf("failed to get block from l2Seq: %v", err)
 		}
-		t.Logf("l2Seq block %d: %v", i, block)
-		block, err = l2Verif.BlockByNumber(ctx, nil)
+
+		caffBlock, err := caffNodeL2Client.InfoByLabel(ctx, eth.Unsafe)
 		if err != nil {
-			t.Fatalf("failed to get block %d from l2Verif: %v", i, err)
+			t.Fatalf("failed to get block from caff node: %v", err)
 		}
-		t.Logf("l2Verif block %d: %v", i, block)
+
+		// Compare block states
+		t.Logf("Block number %v:", seqBlock.Number())
+		t.Logf("Block number of caffBlock %v:", caffBlock.NumberU64())
+		t.Logf("  Sequencer    hash: %v", seqBlock.Hash())
+		t.Logf("  Caff node    hash: %v", caffBlock.Hash())
+		t.Logf("  State roots:")
+		t.Logf("    Sequencer: %v", seqBlock.Root())
+		t.Logf("    Caff node: %v", caffBlock.Root())
+
+		// Verify state consistency
+		if seqBlock.Hash() != caffBlock.Hash() {
+			t.Errorf("block hash mismatch between sequencer and caff node at block %v", seqBlock.Number())
+		}
+		if seqBlock.Root() != caffBlock.Root() {
+			t.Errorf("state root mismatch between sequencer and caff node at block %v", seqBlock.Number())
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(2 * time.Second):
 		}
 	}
-
 	// Sishan TODO: SendL2Tx instead of DepositTx
 
 }

@@ -888,3 +888,7 @@ func (n *OpNode) getP2PNodeIfEnabled() *p2p.NodeP2P {
 	defer n.p2pMu.Unlock()
 	return n.p2pNode
 }
+
+func (n *OpNode) EngineState() *sources.EngineClient {
+	return n.l2Source
+}

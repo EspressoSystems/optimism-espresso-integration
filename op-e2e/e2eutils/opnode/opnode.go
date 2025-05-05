@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/endpoint"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
 )
 
 type Opnode struct {
@@ -40,6 +41,10 @@ func (o *Opnode) RuntimeConfig() rollupNode.ReadonlyRuntimeConfig {
 
 func (o *Opnode) P2P() p2p.Node {
 	return o.node.P2P()
+}
+
+func (o *Opnode) EngineState() *sources.EngineClient {
+	return o.node.EngineState()
 }
 
 var _ services.RollupNode = (*Opnode)(nil)
