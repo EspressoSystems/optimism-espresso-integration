@@ -184,10 +184,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					continue
 				}
 
-				for _, txn := range block.Transactions() {
-					l.Log.Info("tx hash", "hash", txn.Hash().String())
-				}
-
 				l.Log.Trace(
 					"Received block from Espresso",
 					"blockNr", block.NumberU64(),
@@ -205,13 +201,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.streamer.Reset()
 				}
 
-				txs := block.Body().Transactions
 				l.Log.Info("Added L2 block to channel manager")
-				l.Log.Info("block", "Txs", txs)
-
-				for _, t := range txs {
-					l.Log.Info("L2 block tx", "tx hash", t.Hash())
-				}
 			}
 
 			trySignal(publishSignal)
