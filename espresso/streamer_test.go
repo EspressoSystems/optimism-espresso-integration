@@ -26,18 +26,9 @@ import (
 )
 
 // TestNewEspressoStreamer tests that we can create a new EspressoStreamer
-// without any errors being thrown.
+// without any panic being thrown.
 
 func TestNewEspressoStreamer(t *testing.T) {
-	defer func() {
-		err := recover()
-		if have, want := err, any(nil); have != want {
-			t.Fatalf("failed to create EspressoStreamer:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-	}()
-
-	// Test that we can create a new EspressoStreamer without any errors
-	// being thrown
 	_ = espresso.NewEspressoStreamer(
 		1,
 		nil,
