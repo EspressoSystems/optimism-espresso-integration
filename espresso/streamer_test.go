@@ -382,7 +382,7 @@ func TestEspressoStreamerSimpleIncremental(t *testing.T) {
 	state, streamer := setupStreamerTesting(namespace, signerAddress)
 	rng := rand.New(rand.NewSource(0))
 	// The number of batches to create
-	const N = 10
+	const N = 1000
 
 	for i := 0; i < N; i++ {
 		// update the state of our streamer
@@ -446,19 +446,15 @@ func TestEspressoStreamerIncrementalDelayedConsumption(t *testing.T) {
 	rng := rand.New(rand.NewSource(0))
 
 	// The number of batches to create
-	const N = 10
+	const N = 1000
 
 	var batches []*derive.SingularBatch
 
+	// update the state of our streamer
+	syncStatus := state.SyncStatus()
+	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number)
+
 	for i := 0; i < N; i++ {
-		// update the state of our streamer
-		syncStatus := state.SyncStatus()
-		_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number)
-
-		if have, want := err, error(nil); have != want {
-			t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-
 		batch, _, _, espTxnInBlock := state.CreateEspressoTxnData(
 			ctx,
 			namespace,
@@ -472,12 +468,18 @@ func TestEspressoStreamerIncrementalDelayedConsumption(t *testing.T) {
 		batches = append(batches, batch)
 	}
 
-	// Update the state of our streamer
-	if have, want := streamer.Update(ctx), error(nil); !errors.Is(have, want) {
-		t.Fatalf("failed to update streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
 	for i := 0; i < N; i++ {
+		if !streamer.HasNext(ctx) {
+			// Update the state of our streamer
+			if have, want := streamer.Update(ctx), error(nil); !errors.Is(have, want) {
+				t.Fatalf("failed to update streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
+		}
+
 		batch := batches[i]
 
 		batchFromEsp := streamer.Next(ctx)
@@ -527,7 +529,7 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	const N = 10
+	const N = 1000
 	var batches []*derive.SingularBatch
 	for i := 0; i < N; i++ {
 		batch, _, _, block := state.CreateEspressoTxnData(
@@ -555,14 +557,16 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 		batches = append(batches, batch)
 	}
 
-	// Update the state of our streamer
-	if have, want := streamer.Update(ctx), error(nil); !errors.Is(have, want) {
-		t.Fatalf("failed to update streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
 	{
 
 		for i := 0; i < N; i++ {
+			if !streamer.HasNext(ctx) {
+				// Update the state of our streamer
+				if have, want := streamer.Update(ctx), error(nil); !errors.Is(have, want) {
+					t.Fatalf("failed to update streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+				}
+			}
+
 			batch := batches[i]
 			batchFromEsp := streamer.Next(ctx)
 			if have, want := batchFromEsp, (*derive.EspressoBatch)(nil); have == want {
