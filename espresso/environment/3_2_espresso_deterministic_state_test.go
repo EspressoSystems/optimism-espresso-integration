@@ -81,11 +81,11 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 	// Compare states between nodes for multiple blocks
 	for i := 0; i < numIterations; i++ {
 
-		// Sishan TODO: Also send some regular L2 transactions when https://github.com/EspressoSystems/optimism-espresso-integration/pull/122 is merged
+		// Sishan TODO: Also send some regular L2 transactions after https://github.com/EspressoSystems/optimism-espresso-integration/pull/122 is merged
 
-		// Get latest blocks from caff node first as caff node usually has larger overhead
+		// Get latest blocks from caff node first as caff node usually has bigger overhead
 		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block
-		caffBlock, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Safe)
+		caffBlock, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Finalized)
 		if err != nil {
 			t.Fatalf("failed to get block from caff node: %v", err)
 		}
