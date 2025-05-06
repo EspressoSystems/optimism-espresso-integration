@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"slices"
@@ -31,13 +32,13 @@ import (
 //		Collect the hashes of the 10 next blocks from the OP node
 //		Check that these hashes are the same and in the same order as the ones collected earlier
 
-func getNextNBatches(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client, numberOfBatches int) []string {
+func getNextUnfinalizedBatches(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client) ([]string, uint64) {
 	var l2HeadHashes []string
 
 	l2HeadL1Info := &derive.L1BlockInfo{}
-
-	//l2HeadL1Info.Number == 0 && (l1Height-l2HeadL1Info.Number) < system.Cfg.L1FinalizedDistance && (len(l2HeadHashes) < numberOfBatches)
-	for len(l2HeadHashes) < numberOfBatches {
+	var firstBlockHeight uint64
+	var l1Height uint64
+	for l2HeadL1Info.Number == 0 && (l1Height-l2HeadL1Info.Number) < system.Cfg.L1FinalizedDistance {
 		unsafeL2Height, err := l2Seq.BlockNumber(ctx)
 		require.NoError(t, err)
 
@@ -48,21 +49,40 @@ func getNextNBatches(ctx context.Context, t *testing.T, system *e2esys.System, l
 		if !slices.Contains(l2HeadHashes, hash) {
 			l2HeadHashes = append(l2HeadHashes, hash)
 			t.Log("New element", "value", hash, "list length", len(l2HeadHashes))
+			// First element, we store the L2 block height
+			if len(l2HeadHashes) == 1 {
+				firstBlockHeight = l2Head.NumberU64()
+			}
 		}
 
 		_, l2HeadL1Info, err = derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
 		log.Info("l2HeadL1Info", "value", l2HeadL1Info)
 
-		//l1Height, err := l1Client.BlockNumber(ctx)
+		l1Height, err = l1Client.BlockNumber(ctx)
 		require.NoError(t, err)
 	}
 
+	return l2HeadHashes, firstBlockHeight
+}
+
+func getNextNBatchesFromL2Height(ctx context.Context, t *testing.T, l2Verif *ethclient.Client, initialHeight uint64, n int) []string {
+	var l2HeadHashes []string
+
+	for i := 0; i < n; i++ {
+
+		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(initialHeight))
+		require.NoError(t, err)
+
+		hash := l2Head.Hash().String()
+		l2HeadHashes = append(l2HeadHashes, hash)
+
+	}
 	return l2HeadHashes
 }
 
-// TODO Should be merged with https://github.com/EspressoSystems/optimism-espresso-integration/pull/119
-func runL1Reorg2(ctx context.Context, t *testing.T, system *e2esys.System) {
+func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
 	// Wait for batcher to start advancing L2 head
@@ -73,29 +93,29 @@ func runL1Reorg2(ctx context.Context, t *testing.T, system *e2esys.System) {
 
 	t.Log("L2 is progressing")
 
-	// Wait for L2 head to be based off non-genesis unfinalized block
-
-	batches := getNextNBatches(ctx, t, system, l1Client, l2Seq, 10)
-
-	// Wait for these blocks to be final TODO
-
-	log.Info("+++ L2 blocks before reorg", "value", batches)
-
 	var unsafeL2Height uint64
 	var l1Height uint64
 
+	// Record the l1Origin in order to do a reorg afterwards
 	l1Height, err = l1Client.BlockNumber(ctx)
 	l1Origin, err := l1Client.BlockByNumber(ctx, new(big.Int).SetUint64(l1Height))
 	require.NoError(t, err)
 
+	// Fetch unfinalized batches
+	batchesBefore, firstBlockHeight := getNextUnfinalizedBatches(ctx, t, system, l1Client, l2Seq)
+
+	log.Info("+++ L2 blocks before reorg", "value", batchesBefore)
 	// Introduce a reorg at L1
 	t.Logf("Introducing reorg at L1Origin %d, L1Head %d, l2Head %d", l1Origin.Number(), l1Height, unsafeL2Height)
 	err = system.ForkL1(l1Origin.ParentHash())
 	require.NoError(t, err)
 
-	// Wait for SafeL2 to advance despite the reorg
-	//_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(unsafeL2Height+1), l2Seq, 2*time.Minute)
-	//require.NoError(t, err)
+	n := len(batchesBefore)
+	batchesAfter := getNextNBatchesFromL2Height(ctx, t, l2Verif, firstBlockHeight, n)
+
+	log.Info("+++ L2 blocks after reorg", "value", batchesAfter)
+
+	assert.Equal(t, batchesAfter, batchesBefore)
 
 }
 
@@ -105,11 +125,11 @@ func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, _, err := launcher.StartDevNet(ctx, t, 16)
+	system, _, err := launcher.StartDevNet(ctx, t, 32)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	runL1Reorg2(ctx, t, system)
+	run(ctx, t, system)
 
 }
