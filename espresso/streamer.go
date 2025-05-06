@@ -127,7 +127,6 @@ func (s *EspressoStreamer[B]) Reset() {
 	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
 	s.BatchBuffer.Clear()
-	s.confirmEspressoBlockHeight()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
@@ -148,21 +147,6 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 
 	s.fallbackBatchPos = safeBatchNumber
 	s.Reset()
-	return nil
-}
-
-// Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
-func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error)) error {
-	finalizedL1Block, err := l1Finalized()
-	if err != nil {
-		s.Log.Error("failed to get the L1 finalized block", "err", err)
-		return err
-	}
-	s.finalizedL1 = finalizedL1Block
-
-	s.confirmedBatchPos = parent.Number
-	s.BatchPos = s.confirmedBatchPos + 1
-	s.confirmEspressoBlockHeight()
 	return nil
 }
 
@@ -420,7 +404,6 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 		// Current batch is going to be processed, update fallback batch position
 		s.fallbackBatchPos = s.BatchPos
 		s.BatchPos += 1
-		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
