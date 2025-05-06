@@ -74,15 +74,13 @@ func BlockAndNamespace(height, namespace uint64) EspBlockAndNamespace {
 // verify that we end up with the expected state.
 //
 // The current expected use case for the Streamer is for the user to "Refresh"
-// the state of the streamer by calling `.Refresh` or `.CaffRefresh` with the
-// relevant signatures.
+// the state of the streamer by calling `.Refresh`.
 type MockStreamerSource struct {
 	// At the moment the Streamer utilizes the SyncStatus in order to update
 	// it's local state.  But, in general the Streamer doesn't consume all
 	// of the fields provided within the SyncStatus.  At the moment it only
-	// cares about SafeL2, FinalizedL1, SafeL1. So this is what we will track
+	// cares about SafeL2, and FinalizedL1. So this is what we will track
 
-	SafeL1      eth.L1BlockRef
 	FinalizedL1 eth.L1BlockRef
 	SafeL2      eth.L2BlockRef
 
@@ -90,29 +88,24 @@ type MockStreamerSource struct {
 	LatestEspHeight    uint64
 }
 
-// AdvanceSafeL1ByNBlocks advances the SafeL1 block reference by n blocks.
-func (m *MockStreamerSource) AdvanceSafeL1ByNBlocks(n uint) {
-	m.SafeL1 = createL1BlockRef(m.SafeL1.Number + uint64(n))
+// AdvanceFinalizedL1ByNBlocks advances the FinalizedL1 block reference by n blocks.
+func (m *MockStreamerSource) AdvanceFinalizedL1ByNBlocks(n uint) {
+	m.FinalizedL1 = createL1BlockRef(m.FinalizedL1.Number + uint64(n))
 }
 
-// AdvanceSafeL1 advances the SafeL1 block reference by one block.
-func (m *MockStreamerSource) AdvanceSafeL1() {
-	m.SafeL1 = createL1BlockRef(m.SafeL1.Number + 1)
-}
-
-// FinalizeL1 sets the FinalizedL1 block reference to the provided block.
-func (m *MockStreamerSource) FinalizeL1(block eth.L1BlockRef) {
-	m.FinalizedL1 = block
+// AdvanceFinalizedL1 advances the FinalizedL1 block reference by one block.
+func (m *MockStreamerSource) AdvanceFinalizedL1() {
+	m.FinalizedL1 = createL1BlockRef(m.FinalizedL1.Number + 1)
 }
 
 // AdvanceL2ByNBlocks advances the SafeL2 block reference by n blocks.
 func (m *MockStreamerSource) AdvanceL2ByNBlocks(n uint) {
-	m.SafeL2 = createL2BlockRef(m.SafeL2.Number+uint64(n), m.SafeL1)
+	m.SafeL2 = createL2BlockRef(m.SafeL2.Number+uint64(n), m.FinalizedL1)
 }
 
 // AdvanceSafeL2 advances the SafeL2 block reference by one block.
 func (m *MockStreamerSource) AdvanceSafeL2() {
-	m.SafeL2 = createL2BlockRef(m.SafeL2.Number+1, m.SafeL1)
+	m.SafeL2 = createL2BlockRef(m.SafeL2.Number+1, m.FinalizedL1)
 }
 
 // AdvanceEspressoHeightByNBlocks advances the LatestEspHeight by n blocks.
@@ -126,11 +119,10 @@ func (m *MockStreamerSource) AdvanceEspressoHeight() {
 }
 
 // SyncStatus returns the current sync status of the mock streamer source.
-// Only the fields SafeL1, FinalizedL1, and SafeL2 are populated, as those
+// Only the fields FinalizedL1, FinalizedL1, and SafeL2 are populated, as those
 // are the only fields explicitly inspected by the EspressoStreamer.
 func (m *MockStreamerSource) SyncStatus() *eth.SyncStatus {
 	return &eth.SyncStatus{
-		SafeL1:      m.SafeL1,
 		FinalizedL1: m.FinalizedL1,
 		SafeL2:      m.SafeL2,
 	}
@@ -256,8 +248,7 @@ func createL2BlockRef(height uint64, l1Ref eth.L1BlockRef) eth.L2BlockRef {
 // and returns both the MockStreamerSource and the EspressoStreamer.
 func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*MockStreamerSource, espresso.EspressoStreamer[derive.EspressoBatch]) {
 	state := new(MockStreamerSource)
-	state.AdvanceSafeL1()
-	state.FinalizeL1(state.SafeL1)
+	state.AdvanceFinalizedL1()
 
 	logger := new(NoOpLogger)
 	streamer := espresso.NewEspressoStreamer(
@@ -282,7 +273,6 @@ func (m *MockStreamerSource) createSingularBatch(rng *rand.Rand, txCount int, ch
 	signer := geth_types.NewLondonSigner(chainID)
 	baseFee := big.NewInt(rng.Int63n(300_000_000_000))
 	txsEncoded := make([]hexutil.Bytes, 0, txCount)
-	// force each tx to have equal chainID
 	for i := 0; i < txCount; i++ {
 		tx := testutils.RandomTx(rng, baseFee, signer)
 		txEncoded, err := tx.MarshalBinary()
@@ -294,8 +284,8 @@ func (m *MockStreamerSource) createSingularBatch(rng *rand.Rand, txCount int, ch
 
 	return &derive.SingularBatch{
 		ParentHash:   createHashFromHeight(l2Height),
-		EpochNum:     rollup.Epoch(m.SafeL1.Number),
-		EpochHash:    m.SafeL1.Hash,
+		EpochNum:     rollup.Epoch(m.FinalizedL1.Number),
+		EpochHash:    m.FinalizedL1.Hash,
 		Timestamp:    l2Height,
 		Transactions: txsEncoded,
 	}
@@ -441,8 +431,7 @@ func TestEspressoStreamerSimpleIncremental(t *testing.T) {
 		}
 
 		state.AdvanceSafeL2()
-		state.AdvanceSafeL1()
-		state.FinalizeL1(state.SafeL1)
+		state.AdvanceFinalizedL1()
 	}
 
 	if have, want := len(state.EspTransactionData), N; have != want {
@@ -513,8 +502,7 @@ func TestEspressoStreamerIncrementalDelayedConsumption(t *testing.T) {
 		}
 
 		state.AdvanceSafeL2()
-		state.AdvanceSafeL1()
-		state.FinalizeL1(state.SafeL1)
+		state.AdvanceFinalizedL1()
 	}
 
 	if have, want := len(state.EspTransactionData), N; have != want {
