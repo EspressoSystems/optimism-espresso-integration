@@ -25,13 +25,13 @@ import (
 //		After the L1 origin is finalized, the batcher submits the block.
 func TestBatcherWaitForFinality(t *testing.T) {
 	// Basic test setup.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Minute)
 	defer cancel()
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	// Set NonFinalizedProposals to true and SequencerUseFinalized to false, to test how the
-	// batcher handles the finality.
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0, true, false)
+	// Set NonFinalizedProposals to true and SequencerUseFinalized to false, to make sure we are
+	// testing how the batcher handles the finality.
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
