@@ -89,7 +89,7 @@ func defaultDepositTxOpts(opts *bind.TransactOpts) *DepositTxOpts {
 // Transaction options and expected status can be configured in the applyTxOpts function by modifying the supplied TxOpts
 // Will verify that the transaction is included with the expected status on l2Client and any clients added to TxOpts.VerifyClients
 func SendL2TxWithID(t *testing.T, chainID *big.Int, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyTxOpts TxOptsFn) *types.Receipt {
-	opts := DefaultTxOpts()
+	opts := defaultTxOpts()
 	applyTxOpts(opts)
 	tx := types.MustSignNewTx(privKey, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
 		ChainID:   chainID,
@@ -143,7 +143,7 @@ func (o *TxOpts) VerifyOnClients(clients ...*ethclient.Client) {
 	o.VerifyClients = append(o.VerifyClients, clients...)
 }
 
-func DefaultTxOpts() *TxOpts {
+func defaultTxOpts() *TxOpts {
 	return &TxOpts{
 		ToAddr:         nil,
 		Nonce:          0,
