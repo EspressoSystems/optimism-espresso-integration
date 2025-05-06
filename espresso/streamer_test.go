@@ -91,10 +91,8 @@ type MockStreamerSource struct {
 }
 
 // AdvanceSafeL1ByNBlocks advances the SafeL1 block reference by n blocks.
-func (m *MockStreamerSource) AdvanceSafeL1ByNBlocks(n int) {
-	for i := 0; i < n; i++ {
-		m.SafeL1 = createL1BlockRef(m.SafeL1.Number + 1)
-	}
+func (m *MockStreamerSource) AdvanceSafeL1ByNBlocks(n uint) {
+	m.SafeL1 = createL1BlockRef(m.SafeL1.Number + uint64(n))
 }
 
 // AdvanceSafeL1 advances the SafeL1 block reference by one block.
@@ -108,10 +106,8 @@ func (m *MockStreamerSource) FinalizeL1(block eth.L1BlockRef) {
 }
 
 // AdvanceL2ByNBlocks advances the SafeL2 block reference by n blocks.
-func (m *MockStreamerSource) AdvanceL2ByNBlocks(n int) {
-	for i := 0; i < n; i++ {
-		m.SafeL2 = createL2BlockRef(m.SafeL2.Number+1, m.SafeL1)
-	}
+func (m *MockStreamerSource) AdvanceL2ByNBlocks(n uint) {
+	m.SafeL2 = createL2BlockRef(m.SafeL2.Number+uint64(n), m.SafeL1)
 }
 
 // AdvanceSafeL2 advances the SafeL2 block reference by one block.
