@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
@@ -889,6 +890,7 @@ func (n *OpNode) getP2PNodeIfEnabled() *p2p.NodeP2P {
 	return n.p2pNode
 }
 
-func (n *OpNode) EngineState() *sources.EngineClient {
-	return n.l2Source
+func (n *OpNode) EngineState() derive.L2Source {
+	// we use this as Engine State as it contains Engine interface
+	return n.l2Driver.SyncDeriver.L2
 }

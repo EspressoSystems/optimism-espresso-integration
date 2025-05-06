@@ -9,7 +9,6 @@ import (
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
@@ -76,38 +75,37 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 	}
 
 	// Get L2Client from caff node's engine state
-	caffNodeL2Client := caffNode.OpNode.EngineState().L2Client
+	caffNodeL2Client := caffNode.OpNode.EngineState()
 
-	// Compare states between nodes
-	for i := 0; i < 10; i++ {
+	numIterations := 10
+	// Compare states between nodes for multiple blocks
+	for i := 0; i < numIterations; i++ {
+
+		// Sishan TODO: Also send some regular L2 transactions when https://github.com/EspressoSystems/optimism-espresso-integration/pull/122 is merged
+
 		// Get latest blocks from each node
-
-		caffBlock, err := caffNodeL2Client.InfoByLabel(ctx, eth.Unsafe)
-		if err != nil {
-			t.Fatalf("failed to get block from caff node: %v", err)
-		}
-
-		seqBlock, err := l2Seq.BlockByNumber(ctx, big.NewInt(int64(caffBlock.NumberU64())))
+		seqBlock, err := l2Seq.BlockByNumber(ctx, nil)
 		if err != nil {
 			t.Fatalf("failed to get block from l2Seq: %v", err)
 		}
 
+		// We use l2BlockRefByNumber to get the states as the engine state will be reflected in the block
+		time.Sleep(2 * time.Second) // Sishan: Need to figure out why we need to wait for the block to be finalized
+		caffBlock, err := caffNodeL2Client.L2BlockRefByNumber(ctx, seqBlock.NumberU64())
+		if err != nil {
+			t.Fatalf("failed to get block from caff node: %v", err)
+		}
+
 		// Compare block states
 
-		t.Logf("Block number of caffBlock %v:", caffBlock.NumberU64())
+		t.Logf("Block number of caffBlock %v:", caffBlock.Number)
 		t.Logf("Block number %v:", seqBlock.Number())
-		t.Logf("  Caff node    hash: %v", caffBlock.Hash())
+		t.Logf("  Caff node    hash: %v", caffBlock.Hash)
 		t.Logf("  Sequencer    hash: %v", seqBlock.Hash())
-		t.Logf("  State roots:")
-		t.Logf("    Caff node: %v", caffBlock.Root())
-		t.Logf("    Sequencer: %v", seqBlock.Root())
 
 		// Verify state consistency
-		if seqBlock.Hash() != caffBlock.Hash() {
+		if seqBlock.Hash() != caffBlock.Hash {
 			t.Errorf("block hash mismatch between sequencer and caff node at block %v", seqBlock.Number())
-		}
-		if seqBlock.Root() != caffBlock.Root() {
-			t.Errorf("state root mismatch between sequencer and caff node at block %v", seqBlock.Number())
 		}
 
 		select {
@@ -116,6 +114,5 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		case <-time.After(2 * time.Second):
 		}
 	}
-	// Sishan TODO: SendL2Tx instead of DepositTx
 
 }
