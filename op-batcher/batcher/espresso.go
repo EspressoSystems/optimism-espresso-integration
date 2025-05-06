@@ -95,7 +95,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus)
+	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number)
 	shouldClearState = shouldClearState || err != nil
 
 	l.channelMgrMutex.Lock()
