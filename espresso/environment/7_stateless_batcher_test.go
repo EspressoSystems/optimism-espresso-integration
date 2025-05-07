@@ -2,6 +2,7 @@ package environment_test
 
 import (
 	"context"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"math/big"
 	"math/rand/v2"
 	"testing"
@@ -132,6 +133,8 @@ func TestStatelessBatcher(t *testing.T) {
 			t.Log("Batcher restarting....")
 
 			// Ensure that the safe chain does advance while the batcher is stopped
+			_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(seqStatus.SafeL2.Number+1), l2Verif, 2*time.Minute)
+			require.NoError(t, err)
 			newSeqStatus, err = rollupClient.SyncStatus(ctx)
 			require.NoError(t, err)
 			require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain does not make progress")
