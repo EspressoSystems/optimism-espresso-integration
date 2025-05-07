@@ -398,7 +398,9 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		}
 	}
 
-	averageDuration := totalDiff / N
+	// We cast the len(espressoReceipts) to a time.Duration so we can divide
+	// the totalDiff to get the average duration, to appease the type system.
+	averageDuration := totalDiff / time.Duration(len(espressoReceipts))
 	if have, want := averageDuration, 10*time.Second; have > want {
 		t.Errorf("Average time to confirm transactions in espresso blocks exceeded 10 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
 	}
