@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
-	"slices"
 	"testing"
 	"time"
 )
@@ -24,53 +23,58 @@ import (
 //	Arrange:
 //		Running Sequencer, Batcher in Espresso mode, OP node.
 //	Act:
-//		Wait for 10 L2 blocks to be posted on L1.
-//		Collect the hashes of the corresponding blocks
-//		Reorg the chain 10 blocks earlier.
+//		Store the (unfinalized) head of the L1 in variable h.
+//		Wait for the first n batches to be posted on possibly unfinalized L1 blocks.
+//		Collect the L2 block hashes of the corresponding batches and store them in list L.
+//		Reorg the L1 to height h.
+//		Wait for the L2 to reach safe height n again as the corresponding batches are submitted again to L1.
+//		Store these n L2 blocks in L'
 //	Assert:
-//		Wait for 10 L2 blocks to be posted on L1 again
-//		Collect the hashes of the 10 next blocks from the OP node
-//		Check that these hashes are the same and in the same order as the ones collected earlier
+//		L == L'
 
-func getNextUnfinalizedBatches(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client) ([]string, uint64) {
+func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Verif *ethclient.Client) ([]string, uint64) {
 	var l2HeadHashes []string
 
 	l2HeadL1Info := &derive.L1BlockInfo{}
-	var firstBlockHeight uint64
-	var l1Height uint64
-	for l2HeadL1Info.Number == 0 && (l1Height-l2HeadL1Info.Number) < system.Cfg.L1FinalizedDistance {
-		unsafeL2Height, err := l2Seq.BlockNumber(ctx)
-		require.NoError(t, err)
 
-		l2Head, err := l2Seq.BlockByNumber(ctx, new(big.Int).SetUint64(unsafeL2Height))
+	l1Height, err := l1Client.BlockNumber(ctx)
+	require.NoError(t, err)
+	l1HeightStart := l1Height
+	log.Info("L1 height to reorg to", "height", l1HeightStart)
+	// Keep monitoring L2 blocks while L1 is producing unfinalized blocks
+	i := int64(0)
+	for (l1Height - l1HeightStart) < system.Cfg.L1FinalizedDistance {
+		_, err := geth.WaitForBlockToBeSafe(big.NewInt(i), l2Verif, 2*time.Minute)
+		require.NoError(t, err)
+		time.Sleep(2 * time.Second)
+		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(uint64(i)))
 		require.NoError(t, err)
 
 		hash := l2Head.Hash().String()
-		if !slices.Contains(l2HeadHashes, hash) {
-			l2HeadHashes = append(l2HeadHashes, hash)
-			t.Log("New element", "value", hash, "list length", len(l2HeadHashes))
-			// First element, we store the L2 block height
-			if len(l2HeadHashes) == 1 {
-				firstBlockHeight = l2Head.NumberU64()
-			}
-		}
+		t.Log("New element", "value", hash, "list length", len(l2HeadHashes))
+		l2HeadHashes = append(l2HeadHashes, hash)
 
 		_, l2HeadL1Info, err = derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
 		log.Info("l2HeadL1Info", "value", l2HeadL1Info)
 
 		l1Height, err = l1Client.BlockNumber(ctx)
 		require.NoError(t, err)
+
+		i++
 	}
 
-	return l2HeadHashes, firstBlockHeight
+	return l2HeadHashes, l1HeightStart
 }
 
-func getNextNBatchesFromL2Height(ctx context.Context, t *testing.T, l2Verif *ethclient.Client, initialHeight uint64, n int) []string {
+func getFirstNL2SafeBlocks(ctx context.Context, t *testing.T, l2Verif *ethclient.Client, n int) []string {
 	var l2HeadHashes []string
 
 	for i := 0; i < n; i++ {
+		height := uint64(i)
+		_, err := geth.WaitForBlockToBeSafe(big.NewInt(int64(height)), l2Verif, 2*time.Minute)
+		require.NoError(t, err)
 
-		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(initialHeight))
+		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(height))
 		require.NoError(t, err)
 
 		hash := l2Head.Hash().String()
@@ -85,33 +89,25 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
-	// Wait for batcher to start advancing L2 head
-	_, err := geth.WaitForBlockToBeSafe(big.NewInt(2), l2Seq, 2*time.Minute)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("L2 isn't progressing:\nhave:\n\t%v\nwant:\n\t%v", have, want)
-	}
-
-	t.Log("L2 is progressing")
-
 	var unsafeL2Height uint64
 	var l1Height uint64
 
-	// Record the l1Origin in order to do a reorg afterwards
-	l1Height, err = l1Client.BlockNumber(ctx)
-	l1Origin, err := l1Client.BlockByNumber(ctx, new(big.Int).SetUint64(l1Height))
-	require.NoError(t, err)
+	// Fetch batches before reorg
+	batchesBefore, L1BlockHeightToReorgTo := getBatchesPublishedOnUnfinalizedL1Blocks(ctx, t, system, l1Client, l2Seq)
 
-	// Fetch unfinalized batches
-	batchesBefore, firstBlockHeight := getNextUnfinalizedBatches(ctx, t, system, l1Client, l2Seq)
+	l1Origin, err := l1Client.BlockByNumber(ctx, new(big.Int).SetUint64(L1BlockHeightToReorgTo))
+	require.NoError(t, err)
 
 	log.Info("+++ L2 blocks before reorg", "value", batchesBefore)
 	// Introduce a reorg at L1
+	l1Height, err = l1Client.BlockNumber(ctx)
+	require.NoError(t, err)
 	t.Logf("Introducing reorg at L1Origin %d, L1Head %d, l2Head %d", l1Origin.Number(), l1Height, unsafeL2Height)
 	err = system.ForkL1(l1Origin.ParentHash())
 	require.NoError(t, err)
 
 	n := len(batchesBefore)
-	batchesAfter := getNextNBatchesFromL2Height(ctx, t, l2Verif, firstBlockHeight, n)
+	batchesAfter := getFirstNL2SafeBlocks(ctx, t, l2Verif, n)
 
 	log.Info("+++ L2 blocks after reorg", "value", batchesAfter)
 
@@ -125,7 +121,7 @@ func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, _, err := launcher.StartDevNet(ctx, t, 32)
+	system, _, err := launcher.StartDevNet(ctx, t, 12)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
