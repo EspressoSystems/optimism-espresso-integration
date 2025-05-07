@@ -213,7 +213,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		received time.Time
 	}
 
-	espressoReceipts := map[uint64]espressoReceived{}
+	espressoReceipts := map[common.Hash]espressoReceived{}
 
 	streamBlocksCtx, streamBlocksCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
@@ -247,11 +247,14 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number)
 
 		// Start consuming Batches from the Streamer
-		// We cannot guarantee the order of these batches coming from the
-		// streamer.  However, luckily, we can rely on the fact that the Batch
-		// number will be stored within the Batch itself, and we can use that
-		// to match up with the order that the transactions are being submitted
-		// to the sequencer.
+		// We cannot guarantee the that we will receive only the batches that
+		// correspond to the transactions we submitted, so we will need to
+		// keep track of the batches we receive and match them up with the
+		// transactions we submitted.
+		//
+		// Luckily, it seems that the Block contained within the batch will
+		// maintain the same block hash, and the transaction hashes will match
+		// for the transactions beyond the first in the block.
 		wg.Add(1)
 		go (func(ctx context.Context, wg *sync.WaitGroup, streamer espresso.EspressoStreamer[derive.EspressoBatch]) {
 			cfg := system.RollupConfig
@@ -266,8 +269,9 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 
 				if !streamer.HasNext(ctx) {
 					if err := streamer.Update(ctx); err != nil {
-						// Try again?
-						time.Sleep(100 * time.Millisecond)
+						// Try again after a short delay if we we fail to
+						// update the streamer.
+						time.Sleep(50 * time.Millisecond)
 					}
 					continue
 				}
@@ -275,13 +279,11 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 				// consume all of the available batches
 				for batch := streamer.Next(ctx); batch != nil; batch = streamer.Next(ctx) {
 					block, err := batch.ToBlock(cfg)
-					if err != nil {
-						// Try again?
-						time.Sleep(100 * time.Millisecond)
-						continue
+					if have, want := err, error(nil); have != want {
+						return
 					}
 
-					espressoReceipts[batch.Number()] = espressoReceived{
+					espressoReceipts[block.Hash()] = espressoReceived{
 						batch:    batch,
 						block:    block,
 						received: time.Now(),
@@ -304,7 +306,6 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	// from the Espresso streamer.
 	const N = 10
 	{
-
 		for i := 0; i < N; i++ {
 			// Create teh transaction
 			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, geth_types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), &geth_types.DynamicFeeTx{
@@ -380,28 +381,35 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	streamBlocksCancel()
 	wg.Wait()
 
+	if have, want := len(espressoReceipts), N; have < want {
+		t.Fatalf("Expected to received at least many batches as submissions:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+
 	// We'll check that our timings meet or exceed the requirements of the test.
 	var totalDiff time.Duration
+	var totalDenom time.Duration
 	for i, submission := range submissions {
-		espressoReceived, ok := espressoReceipts[uint64(i+1)]
-
+		espressoReceived, ok := espressoReceipts[submission.receipt.BlockHash]
 		if have, want := ok, true; have != want {
-			t.Errorf("Failed to find espresso block for submission %d:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, have, want)
+			t.Errorf("Failed to find batch for submission %d:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, have, want)
 			continue
 		}
 
-		diff := espressoReceived.received.Sub(submission.submitted)
+		diff := espressoReceived.received.Sub(submission.received)
 		totalDiff += diff
+		totalDenom++
 
 		if have, want := diff, 10*time.Second; have > want {
 			t.Errorf("Submission %d was not confirmed in an espresso block within 10 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
 		}
 	}
 
-	// We cast the len(espressoReceipts) to a time.Duration so we can divide
-	// the totalDiff to get the average duration, to appease the type system.
-	averageDuration := totalDiff / time.Duration(len(espressoReceipts))
-	if have, want := averageDuration, 10*time.Second; have > want {
-		t.Errorf("Average time to confirm transactions in espresso blocks exceeded 10 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
+	if totalDenom > 0 {
+		// We cast the len(espressoReceipts) to a time.Duration so we can divide
+		// the totalDiff to get the average duration, to appease the type system.
+		averageDuration := totalDiff / totalDenom
+		if have, want := averageDuration, 10*time.Second; have > want {
+			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 10 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
+		}
 	}
 }
