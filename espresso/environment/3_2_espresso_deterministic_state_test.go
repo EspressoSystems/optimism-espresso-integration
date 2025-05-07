@@ -97,8 +97,8 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		}
 
 		// Compare block states
-		if seqBlock.Hash() != caffBlock.Hash {
-			t.Errorf("block hash mismatch between sequencer and caff node at block %v", seqBlock.Number())
+		if have, want := caffBlock.Hash, seqBlock.Hash(); have != want {
+			t.Errorf("block hash mismatch between sequencer and caff node at block %v\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", seqBlock.Number(), have, want)
 		}
 	}
 
