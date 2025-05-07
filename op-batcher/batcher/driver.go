@@ -154,6 +154,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		},
 		2*time.Second,
 	)
+
 	log.Info("Streamer started", "streamer", batchSubmitter.streamer)
 
 	return batchSubmitter
@@ -203,6 +204,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
+
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)

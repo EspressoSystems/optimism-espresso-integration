@@ -202,7 +202,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
-				l.Log.Info("block", "content", block.Body().Transactions)
 			}
 
 			trySignal(publishSignal)
@@ -235,6 +234,10 @@ func (l *BlockLoader) Reset(ctx context.Context) {
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
+		for _, txn := range block.Transactions() {
+			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
+		}
+
 		if errors.Is(err, ErrReorg) {
 			l.batcher.Log.Warn("Found L2 reorg", "block_number", i)
 			l.Reset(ctx)

@@ -2,12 +2,14 @@ package environment_test
 
 import (
 	"context"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"math/big"
 	"math/rand/v2"
 	"testing"
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -56,10 +58,13 @@ func TestStatelessBatcher(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-
-	l1Client := system.NodeClient(e2esys.RoleL1)
+	rollupClient := system.RollupClient(e2esys.RoleVerif)
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	caffVerif := system.NodeClient(env.RoleCaffNode)
+
+	// Fund Alice
+	env.RunSimpleL1TransferAndVerifier(ctx, t, system)
 
 	balanceAliceInitial, err := l2Verif.BalanceAt(ctx, addressAlice, nil)
 	if have, want := err, error(nil); have != want {
@@ -74,51 +79,81 @@ func TestStatelessBatcher(t *testing.T) {
 	}
 
 	amount := new(big.Int).SetUint64(1)
-	numDeposits := 0
+	numTransfers := 0
 	bobOptions.Value = amount
 
 	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
-	numIterations := 10
+	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
+
+	numIterations := 8
 
 	// We select a range of iterations when the batcher is turned off.
-	turnBatcherOffIteration := rand.IntN(numIterations / 2)
-	turnBatcherOnIteration := rand.IntN(numIterations/2) + numIterations/2
-
-	batcherIsUp := true
+	restartIteration := 1 + rand.IntN(numIterations-1)
 	for i := 0; i < numIterations; i++ {
+
+		// +1 because of the deposit transaction above
+		nonce := uint64(numTransfers + 1)
 
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
-		if i == turnBatcherOffIteration {
+		if i == restartIteration {
+			// Stop the batcher
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
-			time.Sleep(2 * time.Second)
-			batcherIsUp = false
-		}
 
-		// Let us start the batcher again
-		if i == turnBatcherOnIteration {
+			// wait for any old safe blocks being submitted / derived
+			time.Sleep(safeBlockInclusionDuration)
+
+			// get the initial sync status
+			seqStatus, err := rollupClient.SyncStatus(context.Background())
+			require.NoError(t, err)
+
+			// ensure that the safe chain does not advance while the batcher is stopped
+			newSeqStatus, err := rollupClient.SyncStatus(ctx)
+			require.NoError(t, err)
+			require.Equal(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain advanced while batcher was stopped")
+
+			// Send a transaction while the batcher is down. This transaction should still be processed correctly by the sequencer and at some point be
+			// inserted in a safe L2 block
+			receipt := helpers.SendL2TxWithID(t, system.Cfg.L2ChainIDBig(), l2Seq, system.Cfg.Secrets.Bob, func(opts *helpers.TxOpts) {
+				opts.Nonce = nonce
+				opts.ToAddr = &addressAlice
+				opts.Value = new(big.Int).SetUint64(1)
+			})
+
+			// Store the hash to check later if the transaction has been submitted successfully to the L2
+			tx_hash := receipt.TxHash
+
+			// Start again
 			err = driver.StartBatchSubmitting()
 			require.NoError(t, err)
-			batcherIsUp = true
+			time.Sleep(safeBlockInclusionDuration)
+			t.Log("Batcher restarting....")
+
+			// Ensure that the safe chain does advance while the batcher is stopped
+			_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(seqStatus.SafeL2.Number+1), l2Verif, 2*time.Minute)
+			require.NoError(t, err)
+			newSeqStatus, err = rollupClient.SyncStatus(ctx)
+			require.NoError(t, err)
+			require.Greater(t, newSeqStatus.SafeL2.Number, seqStatus.SafeL2.Number, "Safe chain does not make progress")
+
+			// Ensure the transaction sent while the batcher was down did go through
+			_, err = wait.ForReceiptOK(ctx, l2Verif, tx_hash)
+			require.NoError(t, err)
+
+		} else {
+			// The batcher is up, we can send coins
+			env.RunSimpleL2Transfer(ctx, t, system, nonce, *amount, l2Seq, l2Verif)
 		}
 
-		// The batcher is up, we can send coins
-		if batcherIsUp {
-			receipt := helpers.SendDepositTx(t, system.Cfg, l1Client, l2Verif, bobOptions, func(l2Opts *helpers.DepositTxOpts) {
-				// Send from Bob to Alice
-				l2Opts.ToAddr = addressAlice
-			})
-			t.Log("Deposit transaction receipt", "receipt", receipt)
-			numDeposits++
-		}
-
+		// There should be a transfer for each iteration
+		numTransfers++
 	}
 
 	var numDepositsBigInt big.Int
-	numDepositsBigInt.SetInt64(int64(numDeposits))
+	numDepositsBigInt.SetInt64(int64(numTransfers))
 
 	expectedAmount := new(big.Int).Mul(new(big.Int).Add(balanceAliceInitial, &numDepositsBigInt), amount)
 
