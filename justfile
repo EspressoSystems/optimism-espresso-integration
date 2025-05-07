@@ -51,7 +51,7 @@ gen-bindings:
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250412-dev-node-pos-preview"
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
   docker stop $(docker ps -q --filter ancestor={{IMAGE_NAME}})
   docker remove $(docker ps -q --filter ancestor={{IMAGE_NAME}})
