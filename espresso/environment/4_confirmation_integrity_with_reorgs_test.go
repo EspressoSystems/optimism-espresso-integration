@@ -32,7 +32,7 @@ import (
 //	Assert:
 //		L == L'
 
-func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Verif *ethclient.Client) ([]string, uint64) {
+func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client, l2Verif *ethclient.Client) ([]string, uint64) {
 	var l2HeadHashes []string
 
 	l2HeadL1Info := &derive.L1BlockInfo{}
@@ -43,12 +43,19 @@ func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T,
 	log.Info("L1 height to reorg to", "height", l1HeightStart)
 	// Keep monitoring L2 blocks while L1 is producing unfinalized blocks
 	i := int64(0)
+	// Fetch height of the most recent block which is unsafe and which batch will be sent to L1 at a later stage
+	unsafeL2BlockNumber, err := l2Seq.BlockNumber(ctx)
+	require.NoError(t, err)
 	for (l1Height - l1HeightStart) < system.Cfg.L1FinalizedDistance {
-		_, err := geth.WaitForBlockToBeSafe(big.NewInt(i), l2Verif, 2*time.Minute)
-		require.NoError(t, err)
-		time.Sleep(2 * time.Second)
-		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(uint64(i)))
-		require.NoError(t, err)
+		height := uint64(i) + unsafeL2BlockNumber
+
+		l2Head, err := l2Seq.BlockByNumber(ctx, new(big.Int).SetUint64(height))
+		time.Sleep(1 * time.Second)
+		if err != nil {
+			continue
+		} else {
+			i++
+		}
 
 		hash := l2Head.Hash().String()
 		t.Log("New element", "value", hash, "list length", len(l2HeadHashes))
@@ -60,8 +67,9 @@ func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T,
 		l1Height, err = l1Client.BlockNumber(ctx)
 		require.NoError(t, err)
 
-		i++
 	}
+
+	// Wait for blocks to be safe TODO on l2Verif
 
 	return l2HeadHashes, l1HeightStart
 }
@@ -92,8 +100,16 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 	var unsafeL2Height uint64
 	var l1Height uint64
 
+	// Wait for batcher to start advancing L2 head
+	_, err := geth.WaitForBlockToBeSafe(big.NewInt(2), l2Seq, 2*time.Minute)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("L2 isn't progressing:\nhave:\n\t%v\nwant:\n\t%v", have, want)
+	}
+
+	t.Log("L2 is progressing")
+
 	// Fetch batches before reorg
-	batchesBefore, L1BlockHeightToReorgTo := getBatchesPublishedOnUnfinalizedL1Blocks(ctx, t, system, l1Client, l2Seq)
+	batchesBefore, L1BlockHeightToReorgTo := getBatchesPublishedOnUnfinalizedL1Blocks(ctx, t, system, l1Client, l2Seq, l2Verif)
 
 	l1Origin, err := l1Client.BlockByNumber(ctx, new(big.Int).SetUint64(L1BlockHeightToReorgTo))
 	require.NoError(t, err)
