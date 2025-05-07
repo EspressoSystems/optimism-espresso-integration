@@ -25,7 +25,7 @@ import (
 //		After the L1 origin is finalized, the batcher submits the block.
 func TestBatcherWaitForFinality(t *testing.T) {
 	// Basic test setup.
-	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
@@ -66,7 +66,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 			statusAfterWait, err := rollupClient.SyncStatus(context.Background())
 			require.NoError(t, err)
 			finalizedL1NumberAfterWait := statusAfterWait.FinalizedL1.Number
-			require.LessOrEqual(t, statusAfterWait.SafeL1.Number, finalizedL1NumberAfterWait + 1, "Safe L1 number too large")
+			require.LessOrEqual(t, statusAfterWait.SafeL1.Number, finalizedL1NumberAfterWait+1, "Safe L1 number too large")
 
 			// Wait for a new block to be finalized.
 			if finalizedL1NumberAfterWait > initialFinalizedL1Number {
@@ -106,7 +106,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 //		After the L1 origin is finalized, the Caff node inserts the batch.
 func TestCaffNodeWaitForFinality(t *testing.T) {
 	// Basic test setup.
-	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
@@ -128,60 +128,48 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 	rollupClient := system.RollupClient(e2esys.RoleVerif)
 	streamer := caffNode.OpNode.EspressoStreamer()
 
+	initialStatus, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
+
 	// Wait for the batch buffer to be empty which will trigger the Caff node to sync the status
 	// and insert more batches to the buffer.
-	tickerBufferClear := time.NewTicker(100 * time.Millisecond)
-	defer tickerBufferClear.Stop()
-
 	for {
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "Timeout: Batch buffer not processed")
-		case <-tickerBufferClear.C:
-			if streamer.BatchBuffer.Len() == 0 {
-				initialSeqStatus, err := rollupClient.SyncStatus(context.Background())
-				require.NoError(t, err)
-
-				// Wait for a new block to be finalized on the L1.
-				tickerFinality := time.NewTicker(1 * time.Second)
-				defer tickerFinality.Stop()
-
-				for {
-					select {
-					case <-ctx.Done():
-						require.FailNow(t, "Timeout: Finalized L1 number not increased")
-					case <-tickerFinality.C:
-						// Get the buffer size before other operations to avoid the false negative
-						// test result due to the batch buffer being updated after fetching the
-						// sync status but before getting the buffer size.
-						bufferLenAfterWait := streamer.BatchBuffer.Len()
-						seqStatusAfterWait, err := rollupClient.SyncStatus(context.Background())
+		if streamer.BatchBuffer.Len() == 0 {
+			// Wait for the finalized L1 number and the batch buffer to be updated.
+			for {
+				if streamer.BatchBuffer.Len() > 0 {
+					// Verify that any batch inserted into the batch buffer has a finalized L1
+					// origin.
+					for {
+						batch := streamer.BatchBuffer.Pop()
+						if batch == nil {
+							break
+						}
+						origin := (batch).L1Origin()
+						statusAfterWait, err := rollupClient.SyncStatus(context.Background())
 						require.NoError(t, err)
-
-						if seqStatusAfterWait.FinalizedL1.Number > initialSeqStatus.FinalizedL1.Number {
-							// Verify that eventually the batch buffer will be updated.
-							tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
-							defer tickerBufferInsert.Stop()
-
-							for {
-								select {
-								case <-ctx.Done():
-									require.FailNow(t, "Timeout: Batch buffer not updated")
-								case <-tickerBufferInsert.C:
-									if streamer.BatchBuffer.Len() > 0 {
-										return
-									}
+						require.LessOrEqual(t, origin.Number, statusAfterWait.FinalizedL1.Number)
+					}
+				} else {
+					statusAfterWait, err := rollupClient.SyncStatus(context.Background())
+					require.NoError(t, err)
+					if statusAfterWait.FinalizedL1.Number > initialStatus.FinalizedL1.Number {
+						// Verify that eventually the batch buffer will be updated.
+						tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
+						defer tickerBufferInsert.Stop()
+						for {
+							select {
+							case <-ctx.Done():
+								require.FailNow(t, "Timeout: Batch buffer not updated")
+							case <-tickerBufferInsert.C:
+								if streamer.BatchBuffer.Len() > 0 {
+									return
 								}
 							}
 						}
-
-						// Verify that the batch buffer is empty before a new block is finalized on
-						// the L1.
-						require.Equal(t, bufferLenAfterWait, 0, "Batch buffer updated too soon")
 					}
 				}
 			}
 		}
 	}
 }
-

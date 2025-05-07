@@ -55,8 +55,7 @@ type EspressoStreamer[B Batch] struct {
 	confirmedBatchPos uint64
 	// Hotshot block corresponding to the last safe batch
 	confirmedHotShotPos uint64
-	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
-	// until it calls `Refresh`.
+	// Latest finalized block on the L1.
 	finalizedL1 eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
