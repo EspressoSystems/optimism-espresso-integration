@@ -157,24 +157,6 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 // transaction number we submitted to the sequencer.  As a result, we should
 // be able to match the Batch number to the transaction number in transaction
 // order.
-// Sadly, there does not seem to be an easy way to associate the Transaction
-// submitted to the L2 with the Block being returned from Espresso.  However,
-// in this test scenario, we know that the Batch number will correspond to the
-// transaction number we submitted to the sequencer.  As a result, we should
-// be able to match the Batch number to the transaction number in transaction
-// order.
-// Sadly, there does not seem to be an easy way to associate the Transaction
-// submitted to the L2 with the Block being returned from Espresso.  However,
-// in this test scenario, we know that the Batch number will correspond to the
-// transaction number we submitted to the sequencer.  As a result, we should
-// be able to match the Batch number to the transaction number in transaction
-// order.
-// Sadly, there does not seem to be an easy way to associate the Transaction
-// submitted to the L2 with the Block being returned from Espresso.  However,
-// in this test scenario, we know that the Batch number will correspond to the
-// transaction number we submitted to the sequencer.  As a result, we should
-// be able to match the Batch number to the transaction number in transaction
-// order.
 
 func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
