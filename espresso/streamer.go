@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -43,7 +44,7 @@ type EspressoStreamer[B Batch] struct {
 
 	L1Client                      L1Client // TODO Philippe apparently not used yet
 	EspressoClient                *espressoClient.Client
-	EspressoLightClient           *espressoLightClient.LightClientReader
+	EspressoLightClient           *espressoLightClient.LightclientCaller
 	Log                           log.Logger
 	PollingHotShotPollingInterval time.Duration
 
@@ -73,7 +74,7 @@ func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
 	espressoClient *espressoClient.Client,
-	lightClient *espressoLightClient.LightClientReader,
+	lightClient *espressoLightClient.LightclientCaller,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
@@ -93,10 +94,10 @@ func NewEspressoStreamer[B Batch](
 }
 
 // Reset the state to the last safe batch
-func (s *EspressoStreamer[B]) Reset() {
+func (s *EspressoStreamer[B]) Reset(safeL1Origin eth.BlockID) {
 	s.BatchPos = s.confirmedBatchPos + 1
 	s.BatchBuffer.Clear()
-	s.confirmEspressoBlockHeight()
+	s.confirmEspressoBlockHeight(safeL1Origin)
 	s.Log.Info("Streamer reset", "batchPos", s.BatchPos, "bufferSize", s.BatchBuffer.Len(), "confirmedHotShotPos", s.confirmedHotShotPos)
 }
 
@@ -111,12 +112,11 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncS
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
 		s.BatchPos = s.confirmedBatchPos + 1
-		s.confirmedHotShotPos = s.hotShotPos
 		return false, nil
 	}
 
 	s.confirmedBatchPos = syncStatus.SafeL2.Number
-	s.Reset()
+	s.Reset(syncStatus.SafeL2.L1Origin)
 	return true, nil
 }
 
@@ -131,7 +131,7 @@ func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2Bloc
 
 	s.confirmedBatchPos = parent.Number
 	s.BatchPos = s.confirmedBatchPos + 1
-	s.confirmEspressoBlockHeight()
+	s.confirmedHotShotPos = s.hotShotPos
 	return nil
 }
 
@@ -310,7 +310,6 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {
 		s.BatchPos += 1
-		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
@@ -327,7 +326,14 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
 // Note that this function can be called
-func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
+func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
+	hotshotState, err := s.EspressoLightClient.
+		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
+	if err != nil {
+		return err
+	}
+
 	// TODO(AG): this is not correct and causes 8.1.2. to fail
-	s.confirmedHotShotPos = s.hotShotPos
+	s.confirmedHotShotPos = hotshotState.BlockHeight
+	return nil
 }

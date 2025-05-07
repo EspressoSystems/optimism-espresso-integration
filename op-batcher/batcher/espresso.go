@@ -107,10 +107,10 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState == nil && shouldClearState {
 		l.channelMgr.Clear(newSyncStatus.SafeL2.L1Origin)
-		l.streamer.Reset()
+		l.streamer.Reset(newSyncStatus.SafeL2.L1Origin)
 	} else if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		l.streamer.Reset()
+		l.streamer.Reset(newSyncStatus.SafeL2.L1Origin)
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -197,7 +197,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
-					l.streamer.Reset()
+					l.streamer.Reset(newSyncStatus.SafeL2.L1Origin)
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
@@ -229,7 +229,7 @@ func (l *BlockLoader) reset(ctx context.Context) {
 	l.prevSyncStatus = nil
 	l.queuedBlocks = nil
 	l.batcher.clearState(ctx)
-	l.batcher.streamer.Reset()
+	l.batcher.safeL1Origin(ctx)
 }
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
