@@ -268,13 +268,26 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 					return
 				}
 
+				finalizedL1, finalizedL1Err := l1RefClient.BlockRefByLabel(ctx, eth.Finalized)
+				safeL2, safeL2Error := l2RefClient.BlockRefByLabel(ctx, eth.Safe)
+				if finalizedL1Err == nil && safeL2Error == nil {
+					// Refresh the Streamer with the latest finalized L1 and safe L2
+					_, err := streamer.Refresh(ctx, finalizedL1, safeL2.Number)
+					if have, want := err, error(nil); have != want {
+						// NOTE: we are in a go-routine here, so we are unable
+						// to fail fatally here. Instead, we'll Fail and and
+						// return.
+						t.Errorf("Failed to refresh streamer:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+						return
+					}
+				}
+
 				if !streamer.HasNext(ctx) {
 					if err := streamer.Update(ctx); err != nil {
 						// Try again after a short delay if we we fail to
 						// update the streamer.
 						time.Sleep(50 * time.Millisecond)
 					}
-					continue
 				}
 
 				// consume all of the available batches
