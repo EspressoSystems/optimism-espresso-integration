@@ -86,7 +86,8 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 		nonce++
 		log.Info("Receipt", "value", receipt)
 
-		l2Head, err := geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(height), l2Verif, 2*time.Second)
+		l2Head, err := geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(height), l2Verif, 10*time.Second)
+		require.NoError(t, err)
 		time.Sleep(500 * time.Millisecond)
 		if err != nil {
 			continue
