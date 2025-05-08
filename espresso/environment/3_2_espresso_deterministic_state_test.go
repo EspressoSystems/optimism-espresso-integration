@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -98,6 +99,11 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Sending L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
+		// Wait for the receive
+		_, err = wait.ForReceiptOK(ctx, l2Seq, tx.Hash())
+		if have, want := err, error(nil); have != want {
+			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
 
 		// Get latest blocks from caff node first as caff node usually has bigger overhead
 		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block
@@ -105,6 +111,13 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get block from caff node: %v", err)
 		}
+
+		// Sishan TODO: check which l2seq client you want to use
+		// latestBlock, err := l2Seq.BlockByNumber(ctx, nil)
+		// if err != nil {
+		// 	t.Fatalf("failed to get latest block from sequencer: %v", err)
+		// }
+		// t.Log("Block by number", "seqBlock", latestBlock.Number(), "caffBlock", caffBlock.Number, "i", i)
 
 		// Get the corresponding block from sequencer
 		seqBlock, err := l2Seq.BlockByNumber(ctx, big.NewInt(0).SetUint64(caffBlock.Number))
