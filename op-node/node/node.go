@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop/indexing"
@@ -1070,4 +1071,9 @@ func (n *OpNode) SyncStatus() *eth.SyncStatus {
 		return &eth.SyncStatus{}
 	}
 	return n.l2Driver.StatusTracker.SyncStatus()
+}
+
+func (n *OpNode) EngineState() derive.L2Source {
+	// we use this as Engine State as it contains Engine interface
+	return n.l2Driver.SyncDeriver.L2
 }
