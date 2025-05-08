@@ -11,6 +11,7 @@ import (
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/node/runcfg"
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/endpoint"
@@ -51,6 +52,10 @@ func (o *Opnode) RuntimeConfig() runcfg.ReadonlyRuntimeConfig {
 
 func (o *Opnode) P2P() p2p.Node {
 	return o.node.P2P()
+}
+
+func (o *Opnode) EngineState() derive.L2Source {
+	return o.node.EngineState()
 }
 
 var _ services.RollupNode = (*Opnode)(nil)
