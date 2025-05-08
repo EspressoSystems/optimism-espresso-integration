@@ -77,7 +77,7 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		})
 	}
 
-	// Get L2Client from caff node's engine state
+	// Get caffNodeL2Client from caff node's engine state
 	caffNodeL2Client := caffNode.OpNode.EngineState()
 
 	numIterations := 10
@@ -105,19 +105,13 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
-		// Get latest blocks from caff node first as caff node usually has bigger overhead
+		// Get latest safe blocks from caff node first
+		// as caff node usually has bigger overhead on safe blocks due to submitting additionally to Espresso
 		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block
-		caffBlock, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Finalized)
+		caffBlock, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Safe)
 		if err != nil {
 			t.Fatalf("failed to get block from caff node: %v", err)
 		}
-
-		// Sishan TODO: check which l2seq client you want to use
-		// latestBlock, err := l2Seq.BlockByNumber(ctx, nil)
-		// if err != nil {
-		// 	t.Fatalf("failed to get latest block from sequencer: %v", err)
-		// }
-		// t.Log("Block by number", "seqBlock", latestBlock.Number(), "caffBlock", caffBlock.Number, "i", i)
 
 		// Get the corresponding block from sequencer
 		seqBlock, err := l2Seq.BlockByNumber(ctx, big.NewInt(0).SetUint64(caffBlock.Number))
