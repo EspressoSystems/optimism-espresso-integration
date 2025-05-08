@@ -2,16 +2,19 @@ package environment_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
-	"slices"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -35,16 +38,27 @@ import (
 
 // TODO function to compute the hash of a batch
 func BatchHash(b *derive.SingularBatch) string {
-	hashes := ""
+	str := ""
+	// TODO maybe sort the transactions in alphabettical order to be sure the hash is deterministic.
 	for _, tx := range b.Transactions {
-		hashes = hashes + tx.String()
+		str = str + tx.String()
 	}
+	str = str + b.EpochHash.String()
+	str = str + strconv.Itoa(int(b.Timestamp))
 
-	return hashes
+	h := sha256.New()
+	h.Write([]byte(str))
+	hash := h.Sum(nil)
+
+	res := hex.EncodeToString(hash)
+
+	return res
 }
 
+/// This function picks the current L1 height and then start monitoring recent batches
+
 func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client, l2Verif *ethclient.Client) ([]string, uint64, uint64) {
-	var batchInfo []string
+	var batches []string
 
 	l1Height, err := l1Client.BlockNumber(ctx)
 	require.NoError(t, err)
@@ -53,35 +67,48 @@ func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T,
 	// Keep monitoring L2 blocks while L1 is producing unfinalized blocks
 	i := int64(0)
 	// Fetch height of the most recent block which is unsafe and which batch will be sent to L1 at a later stage
-	unsafeL2BlockNumber, err := l2Seq.BlockNumber(ctx)
+	unsafeL2BlockNumber, err := l2Verif.BlockNumber(ctx)
+
+	nonce := uint64(0)
+	addressAlice := system.Cfg.Secrets.Addresses().Alice
 
 	require.NoError(t, err)
 	for (l1Height - l1HeightStart) < system.Cfg.L1FinalizedDistance {
 		height := uint64(i) + unsafeL2BlockNumber
 
-		l2Head, err := l2Seq.BlockByNumber(ctx, new(big.Int).SetUint64(height))
+		//Send some transactions to fill the batches
+		receipt := helpers.SendL2TxWithID(t, system.Cfg.L2ChainIDBig(), l2Seq, system.Cfg.Secrets.Bob, func(opts *helpers.TxOpts) {
+			opts.Nonce = nonce
+			opts.ToAddr = &addressAlice
+			opts.Value = new(big.Int).SetUint64(1)
+		})
+		nonce++
+		log.Info("Receipt", "value", receipt)
+
+		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(height))
 		time.Sleep(500 * time.Millisecond)
 		if err != nil {
 			continue
-		} else {
-			i++
-		}
-		batch, l2HeadL1Info, err := derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
-		log.Info("l2HeadL1Info", "value", l2HeadL1Info)
+		} else { // Insert new batch in the list
 
-		batchHash := BatchHash(batch)
-		t.Log("New element", "value", batchHash, "list length", len(batchInfo))
-		// Insert new elements only
-		if !slices.Contains(batchInfo, batchHash) {
-			batchInfo = append(batchInfo, batchHash)
+			batch, l2HeadL1Info, err := derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
+			require.NoError(t, err)
+			log.Info("l2HeadL1Info", "value", l2HeadL1Info)
+
+			batchHash := BatchHash(batch)
+
+			t.Log("New element inserted", "value", batchHash, "list length", len(batches))
+			batches = append(batches, batchHash)
+
+			i++
+
 		}
 
 		l1Height, err = l1Client.BlockNumber(ctx)
 		require.NoError(t, err)
-
 	}
 
-	return batchInfo, l1HeightStart, unsafeL2BlockNumber
+	return batches, l1HeightStart, unsafeL2BlockNumber
 }
 
 func getFirstNL2SafeBlocks(ctx context.Context, t *testing.T, system *e2esys.System, l2Verif *ethclient.Client, n int, startIndex uint64) []string {
@@ -95,7 +122,6 @@ func getFirstNL2SafeBlocks(ctx context.Context, t *testing.T, system *e2esys.Sys
 		l2Head, err := l2Verif.BlockByNumber(ctx, new(big.Int).SetUint64(height))
 		require.NoError(t, err)
 
-		//hash := l2Head.Hash().String()
 		batch, _, err := derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
 		batchHash := BatchHash(batch)
 		batches = append(batches, batchHash)
