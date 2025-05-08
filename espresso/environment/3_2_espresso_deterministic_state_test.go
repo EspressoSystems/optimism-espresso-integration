@@ -21,12 +21,13 @@ import (
 //
 //	Arrange:
 //		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
-//		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 //	Act:
 //		Send some transactions from Bob to Alice
 //	Assert:
+//		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 //		Query the executive machine state when Caff node is on
 //		Query the executive machine state when OP node is on
+//		Make sure the states are the same
 
 func TestDeterministicDerivationExecutionState(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
