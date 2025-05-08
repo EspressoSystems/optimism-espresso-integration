@@ -8,13 +8,17 @@ fast-tests:
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
 
+
+run-test7: compile-contracts
+  go test ./espresso/environment/7_stateless_batcher_test.go -v > logs.txt
+
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
 espresso-tests: compile-contracts
  go test ./espresso/environment
 
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 
