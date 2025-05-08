@@ -12,7 +12,7 @@ compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
 run-test4: compile-contracts
-  go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
+ go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
 
 
 espresso-tests: compile-contracts
@@ -21,9 +21,6 @@ espresso-tests: compile-contracts
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
-
-run-test4: compile-contracts
-    go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v > logs.txt
 
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
