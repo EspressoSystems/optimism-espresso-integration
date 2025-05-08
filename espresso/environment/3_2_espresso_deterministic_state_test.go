@@ -106,8 +106,8 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		}
 
 		// Get latest safe blocks from caff node first
-		// as caff node usually has bigger overhead on safe blocks due to submitting additionally to Espresso
-		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block
+		// as caff node usually lags behind the sequencer node on safe blocks due to submitting additionally to Espresso.
+		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block.
 		caffBlock, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Safe)
 		if err != nil {
 			t.Fatalf("failed to get block from caff node: %v", err)
