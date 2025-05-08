@@ -152,12 +152,12 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 // More importantly, this **SHOULD** also continue to be the state even when
 // Espresso is in a degraded state.
 //
-// Sadly, there does not seem to be an easy way to associate the Transaction
-// submitted to the L2 with the Block being returned from Espresso.  However,
-// in this test scenario, we know that the Batch number will correspond to the
-// transaction number we submitted to the sequencer.  As a result, we should
-// be able to match the Batch number to the transaction number in transaction
-// order.
+// The Batches that are submitted to Espresso are derived from the Blocks
+// coming from the L2 Sequencer directly. We are also able to reverse this
+// process reconstructing the Block from the Batch.  This means, that given
+// a Transaction, we should be able to find the receipt on the L2, and then
+// we can use that Block information to track the arrival of the Transaction
+// / Block coming from Espresso.
 
 func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -226,7 +226,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 			system.RollupConfig.L2ChainID.Uint64(),
 			batcher.NewAdaptL1BlockRefClient(l1Client),
 			espressoClient.NewClient(server.URL),
-			nil, // TODO(AG)
+			nil,
 			l,
 			func(b []byte) (*derive.EspressoBatch, error) {
 				return derive.UnmarshalEspressoTransaction(b, system.RollupConfig.Genesis.SystemConfig.BatcherAddr)
@@ -248,7 +248,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number)
 
 		// Start consuming Batches from the Streamer
-		// We cannot guarantee the that we will receive only the batches that
+		// We cannot guarantee that we will receive only the batches that
 		// correspond to the transactions we submitted, so we will need to
 		// keep track of the batches we receive and match them up with the
 		// transactions we submitted.
@@ -308,7 +308,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	const N = 10
 	{
 		for i := 0; i < N; i++ {
-			// Create teh transaction
+			// Create the transaction
 			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, geth_types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), &geth_types.DynamicFeeTx{
 				ChainID:   system.Cfg.L2ChainIDBig(),
 				Nonce:     uint64(i),
@@ -335,7 +335,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 				t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 
-			// We not have a receipt from the L2 Sequencer, indicating that
+			// We now have a receipt from the L2 Sequencer, indicating that
 			// the transaction was successfully included in a block.
 			received := time.Now()
 
