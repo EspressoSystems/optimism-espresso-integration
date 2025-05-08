@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	geth_types "github.com/ethereum/go-ethereum/core/types"
 )
 
 // TestDeterministicDerivationExecutionState is a test that
@@ -82,7 +83,20 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 	// Compare states between nodes for multiple blocks
 	for i := 0; i < numIterations; i++ {
 
-		// Sishan TODO: Also send some regular L2 transactions after https://github.com/EspressoSystems/optimism-espresso-integration/pull/122 is merged
+		// Send some regular L2 transactions in each iteration
+		tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, geth_types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), &geth_types.DynamicFeeTx{
+			ChainID:   system.Cfg.L2ChainIDBig(),
+			Nonce:     uint64(i + 1), // +1 because of the deposit transaction above
+			To:        &addressAlice,
+			Value:     big.NewInt(1),
+			GasTipCap: big.NewInt(10),
+			GasFeeCap: big.NewInt(200),
+			Gas:       21_000,
+		})
+		err := l2Seq.SendTransaction(ctx, tx)
+		if have, want := err, error(nil); have != want {
+			t.Fatalf("Sending L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
 
 		// Get latest blocks from caff node first as caff node usually has bigger overhead
 		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block
