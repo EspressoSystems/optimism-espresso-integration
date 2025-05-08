@@ -19,32 +19,20 @@ import (
 	"time"
 )
 
-// TestConfirmationIntegrityWithReorgs
-// Post batches to both Espresso and the L1 then force the L1 to reorg back to an earlier state in which those batches have not been posted.
-// Wait for some time and check that the batches are eventually posted to the L1 again, in the same order as they were originally sequenced,
-// as if the reorg did not happen.
-// More specifically the test is defined as follows
-//	Arrange:
-//		Running Sequencer, Batcher in Espresso mode, OP node.
-//	Act:
-//		Store the (unfinalized) head of the L1 in variable h.
-//		Wait for the first n batches to be posted on possibly unfinalized L1 blocks.
-//		Collect the batches of the corresponding batches and store them in list L.
-//		Reorg the L1 to height h.
-//		Wait for the L2 to reach safe height n again as the corresponding batches are submitted again to L1.
-//		Store these n batches in L'
-//	Assert:
-//		L == L'
-
-// TODO function to compute the hash of a batch
+// Computes the hash of the content of a batch. Introduced for testing purposes only.
+// @param b batch
+// @return string containing the hash of a batch
 func BatchHash(b *derive.SingularBatch) string {
+
+	// Concatenate the transactions and other relevant metadata of the batch
 	str := ""
-	// TODO maybe sort the transactions in alphabettical order to be sure the hash is deterministic.
+
 	for _, tx := range b.Transactions {
 		str = str + tx.String()
 	}
 	str = str + b.EpochHash.String()
 	str = str + strconv.Itoa(int(b.Timestamp))
+	str = str + b.ParentHash.String()
 
 	h := sha256.New()
 	h.Write([]byte(str))
@@ -55,9 +43,22 @@ func BatchHash(b *derive.SingularBatch) string {
 	return res
 }
 
-/// This function picks the current L1 height and then start monitoring recent batches
-
-func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client, l2Verif *ethclient.Client) ([]string, uint64, uint64) {
+// This function computes a list where at least a few batches are sent to unfinalized L1 blocks.
+// It works as follows:
+//  1. Pick the current L1 block number. Store it so that later we can reorg back to this point
+//  2. Start from the latest L2 block height.
+//  3. Pick the blocks from this height the subsequent. These blocks are unsafe (i.e. not yet sent to L1)
+//  4. Do this until the "finality" window closes i.e. before the number of new L1 blocks is bigger than  L1FinalizedDistance
+//  5. While doing this also send transactions to the sequencer
+//  6. Return the list of batch hashes, the L1 block number to reorg to and also the L2 block height determined in step 2
+//     @param ctx,t,system standard parameters to execute a test
+//     @param l1Client L1 client used to fetch L1 block numbers
+//     @param l2Seq sequencer used to send transactions
+//     @param l2Verif OP node we monitor for unsafe blocks
+//     @return batches list of hashes of the batches
+//     @return l1HeightStart L1 block number collected in step 1.
+//     @return unsafeL2BlockNumber L2 block number collected in step 2.
+func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T, system *e2esys.System, l1Client *ethclient.Client, l2Seq *ethclient.Client, l2Verif *ethclient.Client) ([]string, uint64, uint64) {
 	var batches []string
 
 	l1Height, err := l1Client.BlockNumber(ctx)
@@ -101,7 +102,6 @@ func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T,
 			batches = append(batches, batchHash)
 
 			i++
-
 		}
 
 		l1Height, err = l1Client.BlockNumber(ctx)
@@ -111,7 +111,12 @@ func getBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testing.T,
 	return batches, l1HeightStart, unsafeL2BlockNumber
 }
 
-func getFirstNL2SafeBlocks(ctx context.Context, t *testing.T, system *e2esys.System, l2Verif *ethclient.Client, n int, startIndex uint64) []string {
+// This collect the first N L2 blocks from a specific height. Collected blocks are guaranteed to be safe
+// @param ctx,t,system standard parameters to execute a test.
+// @param l2Verif OP node to fetch the safe blocks.
+// @apram n number of blocks to fetch.
+// @param startIndex initial height of the L2 chain to start fetching blocks from.
+func collectFirstNL2SafeBlocks(ctx context.Context, t *testing.T, system *e2esys.System, l2Verif *ethclient.Client, n int, startIndex uint64) []string {
 	var batches []string
 
 	for i := 0; i < n; i++ {
@@ -130,6 +135,11 @@ func getFirstNL2SafeBlocks(ctx context.Context, t *testing.T, system *e2esys.Sys
 	return batches
 }
 
+// Main logic of the test:
+// 1. Collect some unsafe batches in list L.
+// 2. Do the reorg.
+// 3. Collect the batches into list L'.
+// 4. Check that L=L'.
 func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
@@ -147,7 +157,7 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 	t.Log("L2 is progressing")
 
 	// Fetch batches before reorg
-	batchesBefore, L1BlockHeightToReorgTo, startIndex := getBatchesPublishedOnUnfinalizedL1Blocks(ctx, t, system, l1Client, l2Seq, l2Verif)
+	batchesBefore, L1BlockHeightToReorgTo, startIndex := collectBatchesPublishedOnUnfinalizedL1Blocks(ctx, t, system, l1Client, l2Seq, l2Verif)
 
 	l1Origin, err := l1Client.BlockByNumber(ctx, new(big.Int).SetUint64(L1BlockHeightToReorgTo))
 	require.NoError(t, err)
@@ -161,7 +171,7 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 	require.NoError(t, err)
 
 	n := len(batchesBefore)
-	batchesAfter := getFirstNL2SafeBlocks(ctx, t, system, l2Verif, n, startIndex)
+	batchesAfter := collectFirstNL2SafeBlocks(ctx, t, system, l2Verif, n, startIndex)
 
 	log.Info("+++ L2 blocks after reorg", "value", batchesAfter)
 
@@ -169,6 +179,23 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 
 }
 
+// TestConfirmationIntegrityWithReorgs
+// Post batches to both Espresso and the L1 then force the L1 to reorg back to an earlier state in which those batches have not been posted.
+// Wait for some time and check that the batches are eventually posted to the L1 again, in the same order as they were originally sequenced,
+// as if the reorg did not happen.
+// More specifically the test is defined as follows
+//
+//	Arrange:
+//		Running Sequencer, Batcher in Espresso mode, OP node.
+//	Act:
+//		Store the (unfinalized) head of the L1 in variable h.
+//		Wait for the first n batches to be posted on possibly unfinalized L1 blocks.
+//		Collect the batches of the corresponding batches and store them in list L.
+//		Reorg the L1 to height h.
+//		Wait for the L2 to reach safe height n again as the corresponding batches are submitted again to L1.
+//		Store these n batches in L'
+//	Assert:
+//		L == L'
 func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -181,5 +208,4 @@ func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 	}
 
 	run(ctx, t, system)
-
 }
