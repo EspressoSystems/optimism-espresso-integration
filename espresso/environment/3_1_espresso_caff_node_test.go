@@ -20,7 +20,7 @@ import (
 // Espresso Celo Integration plan.  It has stated task definition as follows:
 //
 //	Arrange:
-//		Running Sequencer, Batcher in Espresso mode, Caff node  OP node.
+//		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
 //		Balance of Alice is 0.
 //		Check that this is the case querying both Caff and OP nodes
 //	Act:
