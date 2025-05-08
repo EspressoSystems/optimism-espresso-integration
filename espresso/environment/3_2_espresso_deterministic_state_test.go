@@ -99,7 +99,7 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Sending L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
-		// Wait for the receive
+		// Wait for the receipt
 		_, err = wait.ForReceiptOK(ctx, l2Seq, tx.Hash())
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
