@@ -16,7 +16,7 @@ import (
 // attempts to make sure that the caff node can derive the same state as the
 // original op-node (non caffeinated).
 //
-// This tests is designed to evaluate Test 3.2 as outlined within the
+// This test is designed to evaluate Test 3.2 as outlined within the
 // Espresso Celo Integration plan.  It has stated task definition as follows:
 //
 //	Arrange:
