@@ -272,6 +272,13 @@ const (
 	ActionReset
 )
 
+// This function is an analogue of `computeSyncActions` for Espresso batcher mode
+//
+// It computes the next block range to enqueue to Espresso based on new newSyncStatus and
+// does a number of checks to ensure consistency of the chain.
+//
+// If reorg is detected, empty range and ActionReset is returned.
+// If there isn't enough information or no blocks to load yet, empty range and ActionRetry is returned.
 func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBlockRange, EnqueueBlockAction) {
 	if newSyncStatus.HeadL1 == (eth.L1BlockRef{}) {
 		// empty sync status
