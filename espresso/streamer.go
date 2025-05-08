@@ -51,10 +51,8 @@ type EspressoStreamer[B Batch] struct {
 	BatchPos uint64
 	// HotShot block that was visited last
 	hotShotPos uint64
-	// Position of the last safe batch
-	confirmedBatchPos uint64
-	// Hotshot block corresponding to the last safe batch
-	confirmedHotShotPos uint64
+	// Position of the last safe batch, we can use it as the position to fallback when resetting
+	fallbackBatchPos uint64
 	// Latest finalized block on the L1.
 	finalizedL1 eth.L1BlockRef
 
@@ -93,44 +91,24 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
-	s.BatchPos = s.confirmedBatchPos + 1
+	s.BatchPos = s.fallbackBatchPos + 1
 	s.BatchBuffer.Clear()
-	s.confirmEspressoBlockHeight()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
-func (s *EspressoStreamer[B]) Refresh(ctx context.Context, syncStatus *eth.SyncStatus) (bool, error) {
-	s.Log.Info("Refreshing streamer...")
-	s.Log.Info("L2 ", "safe block number", syncStatus.SafeL2.Number)
-	s.Log.Info("L1 ", "finalized block number", syncStatus.FinalizedL1.Number, "safe block number", syncStatus.SafeL1.Number)
-	s.finalizedL1 = syncStatus.FinalizedL1
+func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64) (bool, error) {
+	s.finalizedL1 = finalizedL1
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
-	if s.confirmedBatchPos == syncStatus.SafeL2.Number {
-		s.BatchPos = s.confirmedBatchPos + 1
-		s.confirmedHotShotPos = s.hotShotPos
+	if s.fallbackBatchPos == safeBatchNumber {
+		// This means everything is in sync, no state update needed
 		return false, nil
 	}
 
-	s.confirmedBatchPos = syncStatus.SafeL2.Number
+	s.fallbackBatchPos = safeBatchNumber
 	s.Reset()
 	return true, nil
-}
-
-// Sishan TODO: this refresh() is needed before CaffNextBatch, but it is not guaranteed to deal with restarting caff node
-func (s *EspressoStreamer[B]) CaffRefresh(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error)) error {
-	finalizedL1Block, err := l1Finalized()
-	if err != nil {
-		s.Log.Error("failed to get the L1 finalized block", "err", err)
-		return err
-	}
-	s.finalizedL1 = finalizedL1Block
-
-	s.confirmedBatchPos = parent.Number
-	s.BatchPos = s.confirmedBatchPos + 1
-	s.confirmEspressoBlockHeight()
-	return nil
 }
 
 func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
@@ -180,7 +158,7 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Conte
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to fetch HotShot block height: %w", err)
 	}
-	start := s.confirmedHotShotPos
+	start := s.hotShotPos
 	finish := min(start+100, currentBlockHeight)
 
 	return start, finish, nil
@@ -304,8 +282,9 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {
+		// Current batch is going to be processed, update fallback batch position
+		s.fallbackBatchPos = s.BatchPos
 		s.BatchPos += 1
-		s.confirmEspressoBlockHeight()
 		return s.BatchBuffer.Pop()
 	}
 
@@ -318,10 +297,4 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 	}
 
 	return false
-}
-
-// This function allows to "pin" the Espresso block height corresponding to the last safe batch
-// Note that this function can be called
-func (s *EspressoStreamer[B]) confirmEspressoBlockHeight() {
-	s.confirmedHotShotPos = s.hotShotPos
 }
