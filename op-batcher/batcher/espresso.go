@@ -340,7 +340,6 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
 		l.batcher.Log.Warn(
 			"Removing finalized blocks from queued",
-			"queuedBlocks", l.queuedBlocks,
 			"numFinalizedBlocks", numFinalizedBlocks,
 			"safeL2", safeL2,
 			"firstQueuedBlock", firstQueuedBlock)
