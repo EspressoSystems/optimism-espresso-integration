@@ -48,10 +48,9 @@ func TestBatcherWaitForFinality(t *testing.T) {
 
 	initialStatus, err := rollupClient.SyncStatus(context.Background())
 	require.NoError(t, err)
-	initialFinalizedL1Number := initialStatus.FinalizedL1.Number
 	initialSafeL1Number := initialStatus.SafeL1.Number
 
-	// Wait for a new block to be finalized, which will enable the batcher to submit another block
+	// Wait for new blocks to be finalized, which will enable the batcher to submit more blocks to
 	// to the L1.
 	tickerFinality := time.NewTicker(1 * time.Second)
 	defer tickerFinality.Stop()
@@ -59,34 +58,17 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	for {
 		select {
 		case <-ctx.Done():
-			require.FailNow(t, "Timeout: Finalized L1 number not increased")
+			require.FailNow(t, "Timeout: Finalized L1 number not increased by 10")
 		case <-tickerFinality.C:
 			// Verify that the batcher waits for the L1 origin to be finalized before submitting a new
 			// block to the L1.
 			statusAfterWait, err := rollupClient.SyncStatus(context.Background())
 			require.NoError(t, err)
-			finalizedL1NumberAfterWait := statusAfterWait.FinalizedL1.Number
-			require.LessOrEqual(t, statusAfterWait.SafeL1.Number, finalizedL1NumberAfterWait + 1, "Safe L1 number too large")
+			require.LessOrEqual(t, statusAfterWait.SafeL2.L1Origin.Number, statusAfterWait.FinalizedL1.Number, "L1 origin not finalized before submission")
 
-
-			// Wait for a new block to be finalized.
-			if finalizedL1NumberAfterWait > initialFinalizedL1Number {
-				tickerSubmission := time.NewTicker(1 * time.Second)
-				defer tickerSubmission.Stop()
-
-				for {
-					select {
-					case <-ctx.Done():
-						require.FailNow(t, "Timeout: Safe L1 number not increased")
-					case <-tickerSubmission.C:
-						statusAfterFinality, err := rollupClient.SyncStatus(context.Background())
-						require.NoError(t, err)
-
-						if statusAfterFinality.SafeL1.Number > initialSafeL1Number {
-							return
-						}
-					}
-				}
+			// Exit the test if there are 10 new safe blocks on the L1.
+			if statusAfterWait.SafeL1.Number >= initialSafeL1Number + 10 {
+				return
 			}
 		}
 	}
