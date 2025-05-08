@@ -75,7 +75,7 @@ func createEspressoTransaction(tx *geth_types.Transaction, chainID *big.Int, bat
 		L1InfoDeposit: tx,
 	}
 
-	// Encode the EspressoBatch
+	// Encode the EspressoBatch using RLP
 	buf := new(bytes.Buffer)
 	err = rlp.Encode(buf, espressoBatch)
 	if err != nil {
@@ -90,7 +90,12 @@ func createEspressoTransaction(tx *geth_types.Transaction, chainID *big.Int, bat
 
 	// Combine signature and batch data
 	payload := append(batcherSignature, buf.Bytes()...)
-	return &espressoCommon.Transaction{Namespace: chainID.Uint64(), Payload: payload}, nil
+
+	// Create and return Espresso Transaction
+	return &espressoCommon.Transaction{
+		Namespace: chainID.Uint64(),
+		Payload:   payload,
+	}, nil
 }
 
 func TestInvalidTransaction(t *testing.T) {
@@ -145,7 +150,7 @@ func TestInvalidTransaction(t *testing.T) {
 	}
 
 	// Send transaction directly to Espresso
-	_, err = espressoClient.Submit(ctx, realEspressoTransaction)
+	_, err = espressoClient.SubmitTransaction(ctx, *realEspressoTransaction)
 	if err != nil {
 		t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 	}
@@ -172,7 +177,7 @@ func TestInvalidTransaction(t *testing.T) {
 	}
 
 	// Send transaction directly to Espresso to bypass the batcher
-	_, err = espressoClient.Submit(ctx, fakeEspressoTransaction)
+	_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
 	if err != nil {
 		t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 	}
