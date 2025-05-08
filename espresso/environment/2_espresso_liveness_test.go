@@ -405,6 +405,10 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		}
 	}
 
+	if have, want := int(totalDenom), N; have != want {
+		t.Errorf("Expected to have a total of %d submissions:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", want, have, want)
+	}
+
 	if totalDenom > 0 {
 		// We cast the len(espressoReceipts) to a time.Duration so we can divide
 		// the totalDiff to get the average duration, to appease the type system.
