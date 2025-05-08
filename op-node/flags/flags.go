@@ -465,6 +465,20 @@ var (
 		Value:    cli.NewStringSlice("http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000"),
 		Category: OperationsCategory,
 	}
+	CaffNodeL1EthRpc = &cli.StringFlag{
+		Name:     "caff.l1-eth-rpc",
+		Usage:    "L1 Ethereum RPC endpoint for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_L1_ETH_RPC"),
+		Value:    "http://localhost:8545",
+		Category: OperationsCategory,
+	}
+	CaffNodeEspressoLightClientAddr = &cli.StringFlag{
+		Name:     "caff.espresso-light-client-addr",
+		Usage:    "Espresso light client address for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_ESPRESSO_LIGHT_CLIENT_ADDR"),
+		Value:    "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
+		Category: OperationsCategory,
+	}
 )
 
 var requiredFlags = []cli.Flag{

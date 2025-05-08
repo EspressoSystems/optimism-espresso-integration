@@ -2,6 +2,7 @@ package espresso
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -313,14 +314,16 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 }
 
 // This function allows to "pin" the Espresso block height corresponding to the last safe batch
-// Note that this function can be called
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
-	if err != nil {
+	if errors.Is(err, bind.ErrNoCode) {
+		s.fallbackHotShotPos = 0
+		return nil
+	} else if err != nil {
 		return err
 	}
 
-	s.fallbackBatchPos = hotshotState.BlockHeight
+	s.fallbackHotShotPos = hotshotState.BlockHeight
 	return nil
 }
