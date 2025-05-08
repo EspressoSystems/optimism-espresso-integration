@@ -80,7 +80,8 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 	caffNodeL2Client := caffNode.OpNode.EngineState()
 
 	numIterations := 10
-	// Compare states between nodes for multiple blocks
+	// Compare states between nodes for multiple latest blocks
+	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
 	for i := 0; i < numIterations; i++ {
 
 		// Send some regular L2 transactions in each iteration
