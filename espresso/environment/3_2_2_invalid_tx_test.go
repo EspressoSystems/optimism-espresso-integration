@@ -223,7 +223,7 @@ func TestInvalidEspressoTransactionOutsideBatcher(t *testing.T) {
 			t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}
 
-		// Sishan TODO: This check might be incorrect
+		// Sishan TODO: This check might be incorrect, use "Invalid calldata batch" instead?
 		// Check the transaction never go through to l2Verif
 		_, err = wait.ForReceiptOK(ctx, l2Verif, tx.Hash())
 		if have, notwant := err, error(nil); have == notwant {
