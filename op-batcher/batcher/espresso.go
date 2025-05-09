@@ -74,6 +74,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		l.Log.Warn("Failed to create Espresso transaction from a batch", "err", err)
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
+	l.Log.Info("submitting transaction to Espresso", "block", eth.ToBlockID(block), "transaction", transaction)
 
 	go func() {
 		// We will retry publishing until successful
