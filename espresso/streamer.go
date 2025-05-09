@@ -208,27 +208,73 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeigh
 	return start, finish
 }
 
-// / Update the batch buffer by reading from the Espresso blocks
-// / @param ctx context
-// / @return error possible error
+// Update will update the `EspressoStreamer“ by attempting to ensure that the
+// next call to the `Next` method will return a `Batch`.
+//
+// It attempts to ensure the existence of a next batch, provided no errors
+// occur when communicating with HotShot, by processing Blocks retrieved from
+// `HotShot` in discreet batches. If each processing of a batch of blocks will
+// not yield a new `Batch`, then it will continue to process the next batch
+// of blocks from HotShot until it runs out of blocks to process.
+//
+//	NOTE: this method is best effort.  It is unable to guarantee that the
+//	next call to `Next` will return a batch.  However, the only things
+//	that will prevent the next call to `Next` from returning a batch is if
+//	there are no more HotShot blocks to process currently, or if an error
+//	occurs when communicating with HotShot.
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
 		return err
 	}
 
-	s.Log.Info("Remaining list before", "Size", len(s.RemainingBatches))
-
-	// Process the remaining batches
-	s.processRemainingBatches(ctx)
-
-	s.Log.Info("Remaining list after", "Size", len(s.RemainingBatches))
-
 	// Fetch more batches from HotShot if available.
 	start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
 	s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
 	i := start
 
+	for i <= currentBlockHeight {
+		s.Log.Info("Remaining list before", "Size", len(s.RemainingBatches))
+
+		// Process the remaining batches
+		s.processRemainingBatches(ctx)
+
+		s.Log.Info("Remaining list after", "Size", len(s.RemainingBatches))
+		// Process the new batches fetched from Espresso
+		if err := s.processHotShotRange(ctx, i, finish); err != nil {
+			return fmt.Errorf("failed to process hotshot range: %w", err)
+		}
+		// Our position has advanced to the block following the finish block
+		// we just passed.
+		i = finish + 1
+
+		if s.HasNext(ctx) {
+			// If we have a batch ready to be processed, we can exit the loop,
+			// otherwise, we will want to continue to the next range of blocks
+			// to fetch.
+			//
+			// The goal here is to try and provide our best effort to ensure
+			// that we have the next batch available for processing.  We should
+			// only fail to do this if there currently is no next batch
+			// currently available.
+			break
+		}
+
+		// move the finish line to the next block range
+		_, finish = s.computeEspressoBlockHeightsRange(currentBlockHeight)
+	}
+
+	return nil
+}
+
+// processHotShotRange is a helper method that will load all of the blocks from
+// Hotshot from start to finish, inclusive. It will process each block and
+// update the batch buffer with any batches found in the block.
+// It will also update the hotShotPos to the last block processed, in order
+// to effectively keep track of the last block we have successfully fetched,
+// and therefore processed from Hotshot.
+func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, finish uint64) error {
+	i := start
 	// Process the new batches fetched from Espresso
 	for ; i <= finish; i++ {
 		s.Log.Trace("Fetching HotShot block", "block", i)
@@ -240,6 +286,12 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 		s.Log.Trace("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
 
+		// We want to keep track of the latest block we have processed.
+		// This is essential for ensuring we don't unnecessarily keep
+		// refetching the same blocks that we have already processed.
+		// This should ensure that we keep moving forward and consuming
+		// from the Espresso Blocks without missing any blocks.
+		s.hotShotPos = i
 		if len(txns.Transactions) == 0 {
 			s.Log.Trace("No transactions in hotshot block", "block", i)
 			continue
@@ -328,7 +380,6 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(*batch, pos)
 	}
-	s.hotShotPos = i
 }
 
 // TODO this logic might be slightly different between batcher and derivation
