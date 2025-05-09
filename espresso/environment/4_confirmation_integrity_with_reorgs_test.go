@@ -93,7 +93,7 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 
 		l2Head, err := geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(height), l2Verif, 10*time.Second)
 		require.NoError(t, err)
-		time.Sleep(500 * time.Millisecond)
+		
 		if err != nil {
 			continue
 		} else { // Insert new batch in the list
