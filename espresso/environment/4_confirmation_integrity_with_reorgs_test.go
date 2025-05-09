@@ -43,14 +43,15 @@ func BatchHash(b *derive.SingularBatch) string {
 	return res
 }
 
-// This function computes a list where at least a few batches are sent to unfinalized L1 blocks.
+// This function computes a list where several batches are sent to unfinalized L1 blocks.
 // It works as follows:
 //  1. Pick the current L1 block number. Store it so that later we can reorg back to this point
-//  2. Start from the latest L2 block height.
-//  3. Pick the blocks from this height the subsequent. These blocks are unsafe (i.e. not yet sent to L1)
-//  4. Do this until the "finality" window closes i.e. before the number of new L1 blocks is bigger than  L1FinalizedDistance
-//  5. While doing this also send transactions to the sequencer
-//  6. Return the list of batch hashes, the L1 block number to reorg to and also the L2 block height determined in step 2
+//  2. Start from the height of the first L2 block unsafe block.
+//  3. Pick the blocks from this height and the subsequent.
+//     This first block is initially unsafe, but we wait for it to become safe inside the L1 finality window and likewise for the others.
+//  4. Do this until the "finality" window closes i.e. before the number of new L1 blocks is bigger than L1FinalizedDistance.
+//  5. While doing this also send transactions to the sequencer to avoid dealing with empty blocks.
+//  6. Return the list of batch hashes, the L1 block number to reorg to and also the L2 block height determined in step 2.
 //     @param ctx,t,system standard parameters to execute a test
 //     @param l1Client L1 client used to fetch L1 block numbers
 //     @param l2Seq sequencer used to send transactions
@@ -68,7 +69,11 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 	// Keep monitoring L2 blocks while L1 is producing unfinalized blocks
 	i := int64(0)
 	// Fetch height of the most recent block which is unsafe and which batch will be sent to L1 at a later stage
-	unsafeL2BlockNumber, err := l2Verif.BlockNumber(ctx)
+	rollupClient := system.RollupClient(e2esys.RoleVerif)
+
+	status, err := rollupClient.SyncStatus(ctx)
+	require.NoError(t, err)
+	unsafeL2BlockNumber := status.SafeL2.Number + 1
 
 	nonce := uint64(0)
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
@@ -203,7 +208,7 @@ func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, _, err := launcher.StartDevNet(ctx, t, 20)
+	system, _, err := launcher.StartDevNet(ctx, t, 12)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
