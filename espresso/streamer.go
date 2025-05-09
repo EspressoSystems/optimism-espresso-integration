@@ -9,12 +9,31 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
 
+// LightClientReaderInterface is a placeholder for the actual interface
+// that would be used to interact with the Espresso light client.
+//
+// We define this here locally in order to effectively document the methods
+// we utilize.  This approach allows us to avoid importing the entire package
+// and allows us to easily swap implementations for testing.
+type LightClientReaderInterface interface{}
+
+// EspressoClient is an interface that documents the methods we utilize for
+// the espressoClient.Client.
+//
+// As a result we are able to easily swap implementations for testing, or
+// for modification / wrapping.
+type EspressoClient interface {
+	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
+	FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error)
+}
+
+// L1Client is an interface that documents the methods we utilize for
+// the L1 client.
 type L1Client interface {
 	HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error)
 }
@@ -42,8 +61,8 @@ type EspressoStreamer[B Batch] struct {
 	Namespace uint64
 
 	L1Client                      L1Client // TODO Philippe apparently not used yet
-	EspressoClient                *espressoClient.Client
-	EspressoLightClient           *espressoLightClient.LightClientReader
+	EspressoClient                EspressoClient
+	EspressoLightClient           LightClientReaderInterface
 	Log                           log.Logger
 	PollingHotShotPollingInterval time.Duration
 
@@ -70,8 +89,8 @@ type EspressoStreamer[B Batch] struct {
 func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
-	espressoClient *espressoClient.Client,
-	lightClient *espressoLightClient.LightClientReader,
+	espressoClient EspressoClient,
+	lightClient LightClientReaderInterface,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
