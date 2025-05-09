@@ -313,7 +313,12 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 	return false
 }
 
-// This function allows to "pin" the Espresso block height corresponding to the last safe batch
+// This function allows to "pin" the Espresso block height that is guaranteed not to contain
+// any batches that have origin >= safeL1Origin.
+// We do this by reading block height from Light Client FinalizedState at safeL1Origin.
+//
+// For reference on why doing this guarantees we won't skip any unsafe blocks:
+// https://eng-wiki.espressosys.com/mainch30.html#:Components:espresso%20streamer:initializing%20hotshot%20height
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
