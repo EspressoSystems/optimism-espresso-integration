@@ -11,10 +11,8 @@ import (
 	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -51,7 +49,6 @@ func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uin
 		return nil, fmt.Errorf("failed to create batcher signature: %w", err)
 	}
 
-	log.Info("created batcher signature", "buffer", hexutil.Encode(buf.Bytes()), "signature", hexutil.Encode(batcherSignature))
 	payload := append(batcherSignature, buf.Bytes()...)
 
 	return &espressoCommon.Transaction{Namespace: namespace, Payload: payload}, nil
