@@ -94,7 +94,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus)
+	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
 	shouldClearState = shouldClearState || err != nil
 
 	l.channelMgrMutex.Lock()
@@ -107,10 +107,10 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState == nil && shouldClearState {
 		l.channelMgr.Clear(newSyncStatus.SafeL2.L1Origin)
-		l.streamer.Reset(newSyncStatus.SafeL2.L1Origin)
+		l.streamer.Reset()
 	} else if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		l.streamer.Reset(newSyncStatus.SafeL2.L1Origin)
+		l.streamer.Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -197,11 +197,10 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
-					l.streamer.Reset(newSyncStatus.SafeL2.L1Origin)
+					l.streamer.Reset()
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
-				l.Log.Info("block", "content", block.Body().Transactions)
 			}
 
 			trySignal(publishSignal)
@@ -236,6 +235,10 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
+		for _, txn := range block.Transactions() {
+			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
+		}
+
 		if err != nil {
 			l.batcher.Log.Warn("Failed to fetch block", "err", err)
 			break
@@ -269,6 +272,13 @@ const (
 	ActionReset
 )
 
+// This function is an analogue of `computeSyncActions` for Espresso batcher mode
+//
+// It computes the next block range to enqueue to Espresso based on new newSyncStatus and
+// does a number of checks to ensure consistency of the chain.
+//
+// If reorg is detected, empty range and ActionReset is returned.
+// If there isn't enough information or no blocks to load yet, empty range and ActionRetry is returned.
 func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBlockRange, EnqueueBlockAction) {
 	if newSyncStatus.HeadL1 == (eth.L1BlockRef{}) {
 		// empty sync status
@@ -337,7 +347,6 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
 		l.batcher.Log.Warn(
 			"Removing finalized blocks from queued",
-			"queuedBlocks", l.queuedBlocks,
 			"numFinalizedBlocks", numFinalizedBlocks,
 			"safeL2", safeL2,
 			"firstQueuedBlock", firstQueuedBlock)
