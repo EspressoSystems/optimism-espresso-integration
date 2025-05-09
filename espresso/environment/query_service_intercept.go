@@ -308,7 +308,9 @@ func isSubmitTransactionRequest(r *http.Request) bool {
 func (d *randomRollFakeSubmitTransactionSuccess) DecideHowToHandleRequest(w http.ResponseWriter, r *http.Request) InterceptHandleDecision {
 	if isSubmitTransactionRequest(r) {
 		// We want to randomly simulate a failure in the transaction
-		// submission.  We'll roll to simulate a failure 10% of the time.
+		// submission.  We compare our random roll against our thresholds in
+		// order to return the appropriate decision for how to handle the
+		// request.
 		roll := d.r.Intn(d.n)
 		if roll <= d.fakeSuccessThreshold {
 			return DecisionReportSubmitSuccessWhileDropped
