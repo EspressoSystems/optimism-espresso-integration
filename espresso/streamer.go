@@ -192,40 +192,73 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 	return BatchAccept, i
 }
 
-func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(ctx context.Context) (uint64, uint64, error) {
-	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to fetch HotShot block height: %w", err)
-	}
-	start := s.hotShotPos
-	finish := min(start+100, currentBlockHeight)
+// HOTSHOT_BLOCK_LOAD_LIMIT is the maximum number of blocks to attempt to
+// load from Espresso in a single process. This helps to limit our block
+// polling to a limited number of blocks within a single batched attempt.
+const HOTSHOT_BLOCK_LOAD_LIMIT = 100
 
-	return start, finish, nil
+// computeEspressoBlockHeightsRange computes the range of block heights to fetch
+// from Espresso. It starts from the last processed block and goes up to
+// HOTSHOT_BLOCK_LOAD_LIMIT blocks ahead or the current block height, whichever
+// is smaller.
+func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64) (start uint64, finish uint64) {
+	start = s.hotShotPos
+	finish = min(start+HOTSHOT_BLOCK_LOAD_LIMIT, currentBlockHeight)
+
+	return start, finish
 }
 
 // / Update the batch buffer by reading from the Espresso blocks
 // / @param ctx context
 // / @return error possible error
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
-	// Fetch more batches from HotShot if available.
-	start, finish, err := s.computeEspressoBlockHeightsRange(ctx)
+	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
 		return err
 	}
 
-	s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
-
-	i := start
-
 	s.Log.Info("Remaining list before", "Size", len(s.RemainingBatches))
 
 	// Process the remaining batches
-	for k, batch := range s.RemainingBatches {
+	s.processRemainingBatches(ctx)
 
+	s.Log.Info("Remaining list after", "Size", len(s.RemainingBatches))
+
+	// Fetch more batches from HotShot if available.
+	start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
+	s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
+	i := start
+
+	// Process the new batches fetched from Espresso
+	for ; i <= finish; i++ {
+		s.Log.Trace("Fetching HotShot block", "block", i)
+
+		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, i, s.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to fetch transactions in block: %w", err)
+		}
+
+		s.Log.Trace("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
+
+		if len(txns.Transactions) == 0 {
+			s.Log.Trace("No transactions in hotshot block", "block", i)
+			continue
+		}
+
+		s.processEspressoTransactions(ctx, i, txns)
+	}
+
+	return nil
+}
+
+// processRemainingBatches is a helper method that checks the remaining batches
+// and prunes or adds them to the batch buffer as appropriate.
+func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
+	// Process the remaining batches
+	for k, batch := range s.RemainingBatches {
 		validity, pos := s.CheckBatch(ctx, batch)
 
 		switch validity {
-
 		case BatchDrop:
 			s.Log.Warn("Dropping batch", "batch", batch)
 			delete(s.RemainingBatches, k)
@@ -250,71 +283,52 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(batch, pos)
 		delete(s.RemainingBatches, k)
-
 	}
+}
 
-	s.Log.Info("Remaining list after", "Size", len(s.RemainingBatches))
-
-	// Process the new batches fetched from Espresso
-	for ; i <= finish; i++ {
-		s.Log.Trace("Fetching HotShot block", "block", i)
-
-		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, i, s.Namespace)
+// processEspressoTransactions is a helper method that encapsulates the logic of
+// processing batches from the transactions in a block fetched from Espresso.
+func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i uint64, txns espressoClient.TransactionsInBlock) {
+	for _, transaction := range txns.Transactions {
+		batch, err := s.UnmarshalBatch(transaction)
 		if err != nil {
-			return fmt.Errorf("Failed to fetch transactions in block: %w", err)
-		}
-
-		s.Log.Trace("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
-
-		if len(txns.Transactions) == 0 {
-			s.Log.Trace("No transactions in hotshot block", "block", i)
+			s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
 			continue
 		}
 
-		for _, transaction := range txns.Transactions {
+		s.Log.Info("Inserting batch into buffer", "batch", batch)
 
-			batch, err := s.UnmarshalBatch(transaction)
-			if err != nil {
-				s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
-				continue
+		validity, pos := s.CheckBatch(ctx, *batch)
+
+		switch validity {
+
+		case BatchDrop:
+			s.Log.Info("Dropping batch", batch)
+			continue
+
+		case BatchPast:
+			s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
+			continue
+
+		case BatchUndecided:
+			hash := (*batch).Hash()
+			if existingBatch, ok := s.RemainingBatches[hash]; ok {
+				s.Log.Warn("Batch already in buffer", "batch", existingBatch)
 			}
+			s.RemainingBatches[hash] = *batch
+			continue
 
-			s.Log.Info("Inserting batch into buffer", "batch", batch)
+		case BatchAccept:
+			s.Log.Info("Inserting accepted batch")
 
-			validity, pos := s.CheckBatch(ctx, *batch)
-
-			switch validity {
-
-			case BatchDrop:
-				s.Log.Info("Dropping batch", batch)
-				continue
-
-			case BatchPast:
-				s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
-				continue
-
-			case BatchUndecided:
-				hash := (*batch).Hash()
-				if existingBatch, ok := s.RemainingBatches[hash]; ok {
-					s.Log.Warn("Batch already in buffer", "batch", existingBatch)
-				}
-				s.RemainingBatches[hash] = *batch
-				continue
-
-			case BatchAccept:
-				s.Log.Info("Inserting accepted batch")
-
-			case BatchFuture:
-				s.Log.Info("Inserting batch for future processing")
-			}
-
-			s.Log.Trace("Inserting batch into buffer", "batch", batch)
-			s.BatchBuffer.Insert(*batch, pos)
+		case BatchFuture:
+			s.Log.Info("Inserting batch for future processing")
 		}
-		s.hotShotPos = i
-	}
 
-	return nil
+		s.Log.Trace("Inserting batch into buffer", "batch", batch)
+		s.BatchBuffer.Insert(*batch, pos)
+	}
+	s.hotShotPos = i
 }
 
 // TODO this logic might be slightly different between batcher and derivation
