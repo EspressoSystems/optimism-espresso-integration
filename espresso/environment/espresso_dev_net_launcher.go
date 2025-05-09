@@ -2,8 +2,11 @@ package environment
 
 import (
 	"context"
+	"net"
+	"net/url"
 	"testing"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 )
@@ -69,4 +72,21 @@ type EspressoDevNode interface {
 
 	// Shut Down the Espresso Dev Node
 	Stop() error
+}
+
+func DevNodeClient(node EspressoDevNode) (*espressoClient.Client, error) {
+	sequencerHostAndPort := node.SequencerPort()
+	_, sequencerPort, err := net.SplitHostPort(sequencerHostAndPort)
+	if err != nil {
+		return nil, err
+	}
+
+	queryServiceUrl := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort("localhost", sequencerPort),
+		Path:   "/",
+	}
+
+	client := espressoClient.NewClient(queryServiceUrl.String())
+	return client, nil
 }

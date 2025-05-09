@@ -2,10 +2,12 @@ package espresso
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -43,7 +45,7 @@ type EspressoStreamer[B Batch] struct {
 
 	L1Client                      L1Client // TODO Philippe apparently not used yet
 	EspressoClient                *espressoClient.Client
-	EspressoLightClient           *espressoLightClient.LightClientReader
+	EspressoLightClient           *espressoLightClient.LightclientCaller
 	Log                           log.Logger
 	PollingHotShotPollingInterval time.Duration
 
@@ -53,6 +55,8 @@ type EspressoStreamer[B Batch] struct {
 	hotShotPos uint64
 	// Position of the last safe batch, we can use it as the position to fallback when resetting
 	fallbackBatchPos uint64
+	// HotShot position that we can fallback to, guaranteeing not to skip any unsafe batches
+	fallbackHotShotPos uint64
 	// Latest finalized block on the L1.
 	finalizedL1 eth.L1BlockRef
 
@@ -70,7 +74,7 @@ func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
 	espressoClient *espressoClient.Client,
-	lightClient *espressoLightClient.LightClientReader,
+	lightClient *espressoLightClient.LightclientCaller,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
@@ -91,14 +95,20 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
+	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
 	s.BatchBuffer.Clear()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
-func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64) (bool, error) {
+func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) (bool, error) {
 	s.finalizedL1 = finalizedL1
+
+	err := s.confirmEspressoBlockHeight(safeL1Origin)
+	if err != nil {
+		return false, err
+	}
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
@@ -132,7 +142,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		return BatchUndecided, 0
 	} else {
 		if l1headerHash != origin.Hash {
-			s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+			s.Log.Warn("Dropping batch with invalid L1 origin hash")
 			return BatchDrop, 0
 		}
 	}
@@ -258,7 +268,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchUndecided:
-				hash := (*batch).Header().Hash()
+				hash := (*batch).Hash()
+				if existingBatch, ok := s.RemainingBatches[hash]; ok {
+					s.Log.Warn("Batch already in buffer", "batch", existingBatch)
+				}
 				s.RemainingBatches[hash] = *batch
 				continue
 
@@ -297,4 +310,19 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 	}
 
 	return false
+}
+
+// This function allows to "pin" the Espresso block height corresponding to the last safe batch
+func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
+	hotshotState, err := s.EspressoLightClient.
+		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
+	if errors.Is(err, bind.ErrNoCode) {
+		s.fallbackHotShotPos = 0
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	s.fallbackHotShotPos = hotshotState.BlockHeight
+	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"context"
-	"errors"
 	"math/big"
 	"sync"
 
@@ -95,7 +94,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number)
+	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
 	shouldClearState = shouldClearState || err != nil
 
 	l.channelMgrMutex.Lock()
@@ -202,7 +201,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
-				l.Log.Info("block", "content", block.Body().Transactions)
 			}
 
 			trySignal(publishSignal)
@@ -221,28 +219,37 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 }
 
 type BlockLoader struct {
-	prevSyncStatus  *eth.SyncStatus
-	lastQueuedBlock *eth.L2BlockRef
-	batcher         *BatchSubmitter
+	queuedBlocks   []eth.L2BlockRef
+	prevSyncStatus *eth.SyncStatus
+	batcher        *BatchSubmitter
 }
 
-func (l *BlockLoader) Reset(ctx context.Context) {
+func (l *BlockLoader) reset(ctx context.Context) {
 	l.prevSyncStatus = nil
-	l.lastQueuedBlock = nil
+	l.queuedBlocks = nil
 	l.batcher.clearState(ctx)
+	l.batcher.safeL1Origin(ctx)
 }
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
+	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
-		if errors.Is(err, ErrReorg) {
-			l.batcher.Log.Warn("Found L2 reorg", "block_number", i)
-			l.Reset(ctx)
-			break
-		} else if err != nil {
+		for _, txn := range block.Transactions() {
+			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
+		}
+
+		if err != nil {
 			l.batcher.Log.Warn("Failed to fetch block", "err", err)
 			break
 		}
+
+		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
+			l.batcher.Log.Warn("Found L2 reorg", "block_number", i)
+			l.reset(ctx)
+			break
+		}
+
 		blockRef, err := derive.L2BlockToBlockRef(l.batcher.RollupConfig, block)
 		if err != nil {
 			continue
@@ -253,8 +260,100 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 			continue
 		}
 
-		l.lastQueuedBlock = &blockRef
+		l.queuedBlocks = append(l.queuedBlocks, blockRef)
 	}
+}
+
+type EnqueueBlockAction uint
+
+const (
+	ActionEnqueue = iota
+	ActionRetry
+	ActionReset
+)
+
+// This function is an analogue of `computeSyncActions` for Espresso batcher mode
+//
+// It computes the next block range to enqueue to Espresso based on new newSyncStatus and
+// does a number of checks to ensure consistency of the chain.
+//
+// If reorg is detected, empty range and ActionReset is returned.
+// If there isn't enough information or no blocks to load yet, empty range and ActionRetry is returned.
+func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBlockRange, EnqueueBlockAction) {
+	if newSyncStatus.HeadL1 == (eth.L1BlockRef{}) {
+		// empty sync status
+		return inclusiveBlockRange{}, ActionRetry
+	}
+
+	if l.prevSyncStatus == nil {
+		l.prevSyncStatus = newSyncStatus
+	}
+
+	if newSyncStatus.CurrentL1.Number < l.prevSyncStatus.CurrentL1.Number {
+		// sequencer restarted and hasn't caught up yet
+		l.batcher.Log.Warn("sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1)
+		return inclusiveBlockRange{}, ActionRetry
+	}
+
+	var safeL2 eth.L2BlockRef
+	if l.batcher.Config.PreferLocalSafeL2 {
+		// This is preffered when running interop, but not yet enabled by default.
+		safeL2 = newSyncStatus.LocalSafeL2
+	} else {
+		safeL2 = newSyncStatus.SafeL2
+	}
+
+	// State empty, just enqueue all unsafe blocks
+	if len(l.queuedBlocks) == 0 {
+		return inclusiveBlockRange{safeL2.Number, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
+	}
+
+	lastQueuedBlock := l.queuedBlocks[len(l.queuedBlocks)-1]
+	firstQueuedBlock := l.queuedBlocks[0]
+	nextSafeBlockNum := safeL2.Number + 1
+
+	if lastQueuedBlock.Number >= newSyncStatus.UnsafeL2.Number {
+		// nothing to enqueue, unsafe block number is not higher than safe
+		return inclusiveBlockRange{}, ActionRetry
+	}
+
+	if lastQueuedBlock.Number < safeL2.Number {
+		// derivation pipeline is somehow ahead of us, reset
+		return inclusiveBlockRange{}, ActionReset
+	}
+
+	if nextSafeBlockNum < firstQueuedBlock.Number {
+		l.batcher.Log.Warn("next safe block is below oldest block in state")
+		return inclusiveBlockRange{}, ActionReset
+	}
+
+	numBlocksToEnqueue := nextSafeBlockNum - firstQueuedBlock.Number
+
+	if numBlocksToEnqueue > uint64(len(l.queuedBlocks)) {
+		l.batcher.Log.Warn("safe head above newest block in state, resetting loader")
+		return inclusiveBlockRange{}, ActionReset
+	}
+
+	if numBlocksToEnqueue > 0 && l.queuedBlocks[numBlocksToEnqueue-1].Hash != safeL2.Hash {
+		l.batcher.Log.Warn("safe chain reorg, resetting loader")
+		return inclusiveBlockRange{}, ActionReset
+	}
+
+	if newSyncStatus.UnsafeL2.Number <= lastQueuedBlock.Number+1 {
+		return inclusiveBlockRange{}, ActionRetry
+	}
+
+	if safeL2.Number > firstQueuedBlock.Number {
+		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
+		l.batcher.Log.Warn(
+			"Removing finalized blocks from queued",
+			"numFinalizedBlocks", numFinalizedBlocks,
+			"safeL2", safeL2,
+			"firstQueuedBlock", firstQueuedBlock)
+		l.queuedBlocks = l.queuedBlocks[numFinalizedBlocks:]
+	}
+
+	return inclusiveBlockRange{lastQueuedBlock.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
 }
 
 // blockLoadingLoop
@@ -279,46 +378,13 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 				continue
 			}
 
-			if newSyncStatus.HeadL1 == (eth.L1BlockRef{}) {
-				// empty sync status
-				continue
+			blocksToQueue, action := loader.nextBlockRange(newSyncStatus)
+
+			if action == ActionEnqueue {
+				loader.EnqueueBlocks(ctx, blocksToQueue)
+			} else if action == ActionReset {
+				loader.reset(ctx)
 			}
-
-			if loader.prevSyncStatus == nil {
-				loader.prevSyncStatus = newSyncStatus
-			}
-
-			if newSyncStatus.CurrentL1.Number < loader.prevSyncStatus.CurrentL1.Number {
-				// sequencer restarted and hasn't caught up yet
-				continue
-			}
-
-			var safeL2 eth.L2BlockRef
-			if l.Config.PreferLocalSafeL2 {
-				// This is preffered when running interop, but not yet enabled by default.
-				safeL2 = newSyncStatus.LocalSafeL2
-			} else {
-				safeL2 = newSyncStatus.SafeL2
-			}
-
-			if loader.lastQueuedBlock == nil {
-				loader.lastQueuedBlock = &safeL2
-			}
-
-			if loader.lastQueuedBlock.Number >= newSyncStatus.UnsafeL2.Number {
-				// nothing to enqueue, unsafe block number is not higher than safe
-				continue
-			}
-
-			if loader.lastQueuedBlock.Number < safeL2.Number {
-				// derivation pipeline is somehow ahead of us, reset
-				loader.Reset(ctx)
-				continue
-			}
-
-			blocksToQueue := inclusiveBlockRange{loader.lastQueuedBlock.Number + 1, newSyncStatus.UnsafeL2.Number}
-
-			loader.EnqueueBlocks(ctx, blocksToQueue)
 
 		case <-ctx.Done():
 			l.Log.Info("blockLoadingLoop returning")
