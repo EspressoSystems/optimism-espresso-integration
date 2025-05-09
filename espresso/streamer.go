@@ -263,7 +263,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchAccept:
-				s.Log.Info("Recovered batch, inserting")
+				s.Log.Info("Inserting accepted batch")
 
 			case BatchFuture:
 				s.Log.Info("Inserting batch for future processing")
