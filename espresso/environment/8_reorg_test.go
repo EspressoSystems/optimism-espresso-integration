@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System, devNode env.EspressoDevNode) {
+func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	caffClient := system.NodeClient(env.RoleCaffNode)
@@ -69,10 +69,11 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System, devNod
 	require.Equal(t, caffL2Head.Hash(), newL2Head.Hash())
 }
 
-// TestE2eDevNetWithL1Reorg tests the behavior of the batcher when a reorg occurs at L1 while L2 chain
-// contains blocks which origin is not a finalized L1 block.
+// TestE2eDevNetWithL1Reorg tests how the batcher and Caff node handle an L1 reorg.
+// Specifically, it focuses on cases where unsafe L2 chain contains blocks that
+// reference unfinalized L1 blocks as their origin.
 //
-// More specifically the test is defined as follows
+// The test is defined as follows
 // Arrange:
 //
 //	Running Sequencer, Batcher in Espresso mode, Caff node & OP node.
@@ -105,5 +106,5 @@ func TestE2eDevNetWithL1Reorg(t *testing.T) {
 	// Shut down the Caff Node
 	defer env.Stop(t, caffNode)
 
-	runL1Reorg(ctx, t, system, devNode)
+	runL1Reorg(ctx, t, system)
 }
