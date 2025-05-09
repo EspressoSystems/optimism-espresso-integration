@@ -183,6 +183,12 @@ func (e EspressoNodeFailedToBecomeReady) Error() string {
 
 type EspressoDevNodeContainerInfo struct {
 	ContainerInfo DockerContainerInfo
+	espressoUrl   string
+}
+
+// EspressoUrl returns the URL of the Espresso node
+func (e *EspressoDevNodeContainerInfo) EspressoUrl() string {
+	return e.espressoUrl
 }
 
 var _ EspressoDevNode = (*EspressoDevNodeContainerInfo)(nil)
@@ -327,10 +333,16 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 // EspressoDevNodeDockerContainerInfo is an implementation of
 // EspressoDevNode that uses a Docker container to run the Espresso Dev Node
 // and provides the relevant port information for the sequencer API and
-type EspressoDevNodeDockerContainerInfo DockerContainerInfo
+type EspressoDevNodeDockerContainerInfo struct {
+	DockerContainerInfo
+	espressoUrl string
+}
 
-// EspressoDevNodeDockerContainerInfo is an implementation of
-// EspressoDevNode.
+// EspressoUrl returns the URL of the Espresso node
+func (e *EspressoDevNodeDockerContainerInfo) EspressoUrl() string {
+	return e.espressoUrl
+}
+
 var _ EspressoDevNode = (*EspressoDevNodeDockerContainerInfo)(nil)
 
 // SequencerPort implements EspressoDevNode
@@ -421,6 +433,142 @@ func Config(fn func(*e2esys.SystemConfig)) DevNetLauncherOption {
 		}
 	}
 }
+
+// func getEspressoUrl(c *batcher.CLIConfig) (string, error) {
+
+// 	l1EthRpcURL, err := url.Parse(c.L1EthRpc)
+// 	if err != nil {
+// 		return "", FailedToDetermineL1RPCURL{Cause: err}
+// 	}
+
+// 	// We need to know the port, so we can configure docker to
+// 	// communicate with the L1 RPC node running on the host machine.
+// 	_, port, err := net.SplitHostPort(l1EthRpcURL.Host)
+// 	if err != nil {
+// 		return "", FailedToDetermineL1RPCURL{Cause: err}
+// 	}
+
+// 	// We replace the host with host.docker.internal to inform
+// 	// docker to communicate with the host system.
+// 	if isRunningOnLinux {
+// 		l1EthRpcURL.Host = net.JoinHostPort("localhost", port)
+// 	} else {
+// 		l1EthRpcURL.Host = net.JoinHostPort("host.docker.internal", port)
+// 	}
+
+// 	portRemapping := map[string]string{
+// 		ESPRESSO_BUILDER_PORT:       ESPRESSO_BUILDER_PORT,
+// 		ESPRESSO_SEQUENCER_API_PORT: ESPRESSO_SEQUENCER_API_PORT,
+// 		ESPRESSO_DEV_NODE_PORT:      ESPRESSO_DEV_NODE_PORT,
+// 	}
+
+// 	if isRunningOnLinux {
+// 		for portKey := range portRemapping {
+// 			// We need to determine a free port on the host system
+// 			// to bind the espresso-dev-node to.
+// 			freePort, err := determineFreePort()
+// 			if err != nil {
+// 				return "", FailedToDetermineL1RPCURL{Cause: err}
+// 			}
+// 			portRemapping[portKey] = strconv.FormatInt(int64(freePort), 10)
+// 		}
+// 	}
+
+// 	l1EthRpcURL.Scheme = "http"
+// 	containerCli := new(DockerCli)
+
+// 		dockerConfig := DockerContainerConfig{
+// 			Image: ESPRESSO_DEV_NODE_DOCKER_IMAGE,
+// 			Environment: map[string]string{
+// 				"ESPRESSO_DEPLOYER_ACCOUNT_INDEX":             ESPRESSO_MNEMONIC_INDEX,
+// 				"ESPRESSO_SEQUENCER_ETH_MNEMONIC":             ESPRESSO_MNEMONIC,
+// 				"ESPRESSO_SEQUENCER_L1_PROVIDER":              l1EthRpcURL.String(),
+// 				"ESPRESSO_SEQUENCER_L1_POLLING_INTERVAL":      "30ms",
+// 				"ESPRESSO_SEQUENCER_DATABASE_MAX_CONNECTIONS": "25",
+// 				"ESPRESSO_SEQUENCER_STORAGE_PATH":             "/data/espresso",
+// 				"RUST_LOG":                                    "info",
+
+// 				"ESPRESSO_BUILDER_PORT":           portRemapping[ESPRESSO_BUILDER_PORT],
+// 				"ESPRESSO_SEQUENCER_API_PORT":     portRemapping[ESPRESSO_SEQUENCER_API_PORT],
+// 				"ESPRESSO_DEV_NODE_PORT":          portRemapping[ESPRESSO_DEV_NODE_PORT],
+// 				"ESPRESSO_DEV_NODE_L1_DEPLOYMENT": "skip",
+// 			},
+// 			Ports: []string{
+// 				portRemapping[ESPRESSO_BUILDER_PORT],
+// 				portRemapping[ESPRESSO_SEQUENCER_API_PORT],
+// 				portRemapping[ESPRESSO_DEV_NODE_PORT],
+// 			},
+// 		}
+
+// 		// Add name:address pairs to dockerConfig environment
+// 		for address, account := range ESPRESSO_ALLOCS {
+// 			if account.Name != "" {
+// 				dockerConfig.Environment[account.Name] = hexutil.Encode(address[:])
+// 			}
+// 		}
+
+// 		if isRunningOnLinux {
+// 			// We launch in network mode host on linux,
+// 			// otherwise the container is not able to
+// 			// communicate with the host system.
+// 			// We use host.docker.internal to do this on
+// 			// platforms that are not running natively on
+// 			// linux, as this special address achieves the
+// 			// same result.  But on linux, this does not
+// 			// work, and we need to run on the host instead.
+// 			dockerConfig.Network = "host"
+// 		}
+// 		espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ctx, dockerConfig)
+
+// 		if err != nil {
+// 			return "", FailedToLaunchDockerContainer{Cause: err}
+// 		}
+
+// 		if isRunningOnLinux {
+// 			for portKey, portValue := range portRemapping {
+// 				// We copy the port mapping information
+// 				// so we know the original mapping again,
+// 				// since we're hard-coding the ports to use.
+// 				// This should allow us to run multiple
+// 				// e2e test environments in parallel on
+// 				// linux as well.
+// 				espressoDevNodeContainerInfo.PortMap[portKey] = espressoDevNodeContainerInfo.PortMap[portValue]
+
+// 			}
+// 		}
+
+// 		// We have all of our ports.
+// 		// Let's return all of the relevant port mapping information
+// 		// for easy reference, and cancellation
+
+// 		hosts := espressoDevNodeContainerInfo.PortMap[ESPRESSO_SEQUENCER_API_PORT]
+
+// 		if len(hosts) == 0 {
+// 			return "", ErrUnableToDetermineEspressoDevNodeSequencerHost
+// 		}
+
+// 		// We may have more than a single host, but we'll make do.
+
+// 		host, port, err := net.SplitHostPort(hosts[0])
+// 		if err != nil {
+// 			return "", ErrUnableToDetermineEspressoDevNodeSequencerHost
+// 		}
+
+// 		var hostPort string
+// 		switch host {
+// 		case "0.0.0.0":
+// 			// IPv4
+// 			hostPort = net.JoinHostPort("localhost", port)
+// 		case "[::]":
+// 			// IPv6
+// 			hostPort = net.JoinHostPort("localhost", port)
+// 		default:
+// 			hostPort = net.JoinHostPort(host, port)
+// 		}
+
+// 		return "http://" + hostPort, nil
+
+// }
 
 // launchEspressoDevNodeDocker is DevNetLauncherOption that launches th
 // Espresso Dev Node within a Docker container.  It also ensures that the
@@ -532,8 +680,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							ct.EspressoDevNode = EspressoDevNodeDockerContainerInfo(espressoDevNodeContainerInfo)
-
 							if isRunningOnLinux {
 								for portKey, portValue := range portRemapping {
 									// We copy the port mapping information
@@ -588,7 +734,11 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							c.EspressoUrl = "http://" + hostPort
+							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
+								DockerContainerInfo: espressoDevNodeContainerInfo,
+								espressoUrl:         "http://" + hostPort,
+							}
+							ct.EspressoDevNode = espressoDevNode
 							c.LogConfig.Level = slog.LevelDebug
 							c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
 						}

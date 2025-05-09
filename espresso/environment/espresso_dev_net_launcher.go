@@ -67,6 +67,9 @@ type EspressoDevNode interface {
 	// BuilderPort returns the port that the builder is running on.
 	BuilderPort() string
 
+	// EspressoUrl returns the URL of the Espresso node
+	EspressoUrl() string
+
 	// Shut Down the Espresso Dev Node
 	Stop() error
 }
