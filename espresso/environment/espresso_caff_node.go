@@ -20,7 +20,6 @@ import (
 
 const (
 	RoleCaffNode = "caff-node"
-	RoleOpNode   = "op-node"
 )
 
 // ErrorFailedToParseSequencerPort is returned when the sequencer port
