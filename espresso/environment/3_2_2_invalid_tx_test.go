@@ -11,10 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	espresso "github.com/EspressoSystems/espresso-network-go/client"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -57,14 +56,14 @@ func createEspressoTransaction(chainID *big.Int, batcherKey *ecdsa.PrivateKey) (
 
 // TestValidEspressoTransactionCreation is a test that
 // make sure we have correct way to create a Espresso transaction.
-// This test is to serve TestInvalidTransactionOutsideBatcher
+// This test is a unit test to serve correctness of TestInvalidTransactionOutsideBatcher.
 func TestValidEspressoTransactionCreation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	// once this StartDevNet returns, we have a running Espresso Dev Node, and should be able to fetch batcherCLIConfig.EspressoUrl
+	// once this StartDevNet returns, we have a running Espresso Dev Node
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
@@ -83,8 +82,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	// We want to setup our test
-
-	espressoClient := espresso.NewClient(espressoDevNode.EspressoUrl())
+	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
 
 	// create a real Espresso transaction and make sure it can go through
 	{
@@ -131,6 +129,22 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 				t.Fatalf("Cancelling transaction publishing")
 			}
 		}
+
+		// Make sure the transaction will go through to caff node by checking the unmarshal works
+		// The check can directly reflect whether the transaction is valid or not
+		caffStreamer := caffNode.OpNode.EspressoStreamer()
+		_, err = caffStreamer.UnmarshalBatch(realEspressoTransaction.Payload)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+		}
+
+		// Make sure the transaction will go through to op node by checking it will go through batch submitter's streamer
+		batchSubmitter := system.BatchSubmitter
+		_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(realEspressoTransaction.Payload)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+		}
+
 	}
 
 }
@@ -156,7 +170,7 @@ func TestInvalidEspressoTransactionOutsideBatcher(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	// once this StartDevNet returns, we have a running Espresso Dev Node, and should be able to fetch batcherCLIConfig.EspressoUrl
+	// once this StartDevNet returns, we have a running Espresso Dev Node
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
@@ -175,9 +189,8 @@ func TestInvalidEspressoTransactionOutsideBatcher(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	// We want to setup our test
-	l2Verif := system.NodeClient(e2esys.RoleVerif)
-	caffVerif := system.NodeClient(env.RoleCaffNode)
-	espressoClient := espresso.NewClient(espressoDevNode.EspressoUrl())
+	// l2Verif := system.NodeClient(e2esys.RoleVerif)
+	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
 
 	// use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through
 	{
@@ -197,20 +210,20 @@ func TestInvalidEspressoTransactionOutsideBatcher(t *testing.T) {
 			t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}
 
-		// Get the hash of the payload to use as transaction identifier
-		// Sishan TODO: double check whether this could work
-		payloadHash := crypto.Keccak256Hash(fakeEspressoTransaction.Payload)
-
-		// Check that the transaction didn't make it through to L2
-		_, err = wait.ForReceiptOK(ctx, l2Verif, payloadHash)
-		if have, notwant := err, error(nil); have == notwant {
-			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, notwant)
+		// Make sure the transaction won't make it through to caff node by checking the unmarshal will fail
+		// This check will help eliminate the test waiting time
+		// And the check also directly reflect whether the transaction is valid or not
+		caffStreamer := caffNode.OpNode.EspressoStreamer()
+		_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
+		if err == nil {
+			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}
 
-		// Check the transaction never go through to caff node
-		_, err = wait.ForReceiptOK(ctx, caffVerif, payloadHash)
-		if have, notwant := err, error(nil); have == notwant {
-			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, notwant)
+		// Make sure the transaction will go through to op node by checking it will fail to go through batch submitter's streamer
+		batchSubmitter := system.BatchSubmitter
+		_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
+		if err == nil {
+			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}
 	}
 }
