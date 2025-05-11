@@ -50,22 +50,6 @@ func (e ErrorFailedToStartCaffNodeGeth) Unwrap() error {
 	return e.Cause
 }
 
-// ErrorFailedToStartOpNodeGeth is returned when the op node geth
-// instance fails to start.
-type ErrorFailedToStartOpNodeGeth struct {
-	Cause error
-}
-
-// ErrorFailedToStartOpNode is returned when the op node instance fails to start.
-func (e ErrorFailedToStartOpNodeGeth) Error() string {
-	return fmt.Sprintf("failed to start op node instance: %v", e.Cause)
-}
-
-// Unwrap allows for the root cause of the error to be extracted.
-func (e ErrorFailedToStartOpNodeGeth) Unwrap() error {
-	return e.Cause
-}
-
 // ErrorFailedToStartCaffNodeOpNode is returned when the caff node op
 // node instance fails to start.
 type ErrorFailedToStartCaffNodeOpNode struct {
@@ -79,21 +63,6 @@ func (e ErrorFailedToStartCaffNodeOpNode) Error() string {
 
 // Unwrap allows for the root cause of the error to be extracted.
 func (e ErrorFailedToStartCaffNodeOpNode) Unwrap() error {
-	return e.Cause
-}
-
-// ErrorFailedToStartOpNode is returned when the op node instance fails to start.
-type ErrorFailedToStartOpNode struct {
-	Cause error
-}
-
-// Error implements error
-func (e ErrorFailedToStartOpNode) Error() string {
-	return fmt.Sprintf("failed to start op node instance: %v", e.Cause)
-}
-
-// Unwrap allows for the root cause of the error to be extracted.
-func (e ErrorFailedToStartOpNode) Unwrap() error {
 	return e.Cause
 }
 
@@ -178,54 +147,4 @@ func LaunchDecaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espre
 		OpNode: caffNode,
 		Geth:   caffNodeGeth,
 	}, nil
-}
-
-// LaunchOpNode launches an normal op node in the given system.
-func LaunchOpNode(t *testing.T, system *e2esys.System) (*opnode.Opnode, error) {
-	// Let's start the Op Node now.
-	// Configure our op-node geth instance
-	opNodeGeth, err := geth.InitL2(RoleOpNode, system.L2GenesisCfg, system.Cfg.JWTFilePath)
-	if have, want := err, error(nil); have != want {
-		return nil, ErrorFailedToStartOpNodeGeth{Cause: have}
-	}
-
-	// start our op-node geth instance
-	if have, want := opNodeGeth.Node.Start(), error(nil); have != want {
-		return nil, ErrorFailedToStartOpNodeGeth{Cause: have}
-	}
-
-	system.EthInstances[RoleOpNode] = opNodeGeth
-	system.Cfg.Loggers[RoleOpNode] = testlog.Logger(t, slog.LevelInfo).New("role", RoleOpNode)
-
-	// Make a copy
-
-	opNodeConfig := *system.Cfg.Nodes[e2esys.RoleVerif]
-	opNodeConfig.Rollup = *system.RollupConfig
-
-	// Configure
-	e2esys.ConfigureL1(&opNodeConfig, system.EthInstances[e2esys.RoleL1], system.L1BeaconEndpoint())
-	e2esys.ConfigureL2(&opNodeConfig, opNodeGeth, system.Cfg.JWTSecret)
-
-	// Create the Op Node Now
-	opNodeConfig.Rollup.LogDescription(system.Cfg.Loggers[RoleOpNode], chaincfg.L2ChainIDToNetworkDisplayName)
-	l := system.Cfg.Loggers[RoleOpNode]
-
-	var opNodeError error
-	opNode, err := opnode.NewOpnode(l, &opNodeConfig, func(e error) {
-		opNodeError = e
-	})
-	if have, want := err, error(nil); have != want {
-		// Clean up the Op Node Geth instance
-		opNodeGeth.Close()
-		return nil, ErrorFailedToStartOpNode{Cause: have}
-	}
-
-	if have, want := opNodeError, error(nil); have != want {
-		opNodeGeth.Close()
-		return nil, ErrorFailedToStartOpNode{Cause: have}
-	}
-
-	// Alright, we should have our Op Node Launched now.
-
-	return opNode, nil
 }
