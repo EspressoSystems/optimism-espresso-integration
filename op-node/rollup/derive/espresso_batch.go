@@ -36,6 +36,11 @@ func (b EspressoBatch) Header() *types.Header {
 	return b.BatchHeader
 }
 
+func (b EspressoBatch) Hash() common.Hash {
+	hash := crypto.Keccak256Hash(b.BatchHeader.Hash().Bytes(), b.L1InfoDeposit.Hash().Bytes())
+	return hash
+}
+
 func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner) (*espressoCommon.Transaction, error) {
 	buf := new(bytes.Buffer)
 	err := rlp.Encode(buf, *b)
@@ -75,6 +80,16 @@ func BlockToEspressoBatch(rollupCfg *rollup.Config, block *types.Block) (*Espres
 		Batch:         *batch,
 		L1InfoDeposit: l1InfoDeposit,
 	}, nil
+}
+
+// CreateEspressoBatchUnmarshaler returns a function that can be used to
+// unmarshal an Espresso transaction into an EspressoBatch. The returned
+// function takes a batcherAddress as an argument to verify the signature of
+// the transaction.
+func CreateEspressoBatchUnmarshaler(batcherAddress common.Address) func(data []byte) (*EspressoBatch, error) {
+	return func(data []byte) (*EspressoBatch, error) {
+		return UnmarshalEspressoTransaction(data, batcherAddress)
+	}
 }
 
 func UnmarshalEspressoTransaction(data []byte, batcherAddress common.Address) (*EspressoBatch, error) {
