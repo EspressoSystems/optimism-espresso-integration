@@ -2,6 +2,7 @@ package geth
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/big"
 	"math/rand"
 	"time"
@@ -49,6 +50,20 @@ func (f *fakePoS) FakeBeaconBlockRoot(time uint64) common.Hash {
 	var dat [8]byte
 	binary.LittleEndian.PutUint64(dat[:], time)
 	return crypto.Keccak256Hash(dat[:])
+}
+
+// Fork sets the head to the provided hash.
+// Lifted from catalyst's simulated beacon
+func (f *fakePoS) Fork(parentHash common.Hash) error {
+	// Ensure no pending transactions.
+	f.eth.TxPool().Clear()
+
+	parent := f.eth.BlockChain().GetBlockByHash(parentHash)
+	if parent == nil {
+		return errors.New("parent not found")
+	}
+	_, err := f.eth.BlockChain().SetCanonical(parent)
+	return err
 }
 
 func (f *fakePoS) Start() error {
