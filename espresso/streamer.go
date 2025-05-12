@@ -11,12 +11,41 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
 	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
 
+// Espresso light client bindings don't have an explicit name for this struct,
+// so we define it here to avoid spelling it out every time
+type FinalizedState = struct {
+	ViewNum       uint64
+	BlockHeight   uint64
+	BlockCommRoot *big.Int
+}
+
+// LightClientCallerInterface is an interface that documents the methods we utilize
+// for the espresso light client
+//
+// We define this here locally in order to effectively document the methods
+// we utilize.  This approach allows us to avoid importing the entire package
+// and allows us to easily swap implementations for testing.
+type LightClientCallerInterface interface {
+	FinalizedState(opts *bind.CallOpts) (FinalizedState, error)
+}
+
+// EspressoClient is an interface that documents the methods we utilize for
+// the espressoClient.Client.
+//
+// As a result we are able to easily swap implementations for testing, or
+// for modification / wrapping.
+type EspressoClient interface {
+	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
+	FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error)
+}
+
+// L1Client is an interface that documents the methods we utilize for
+// the L1 client.
 type L1Client interface {
 	HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error)
 }
@@ -44,8 +73,8 @@ type EspressoStreamer[B Batch] struct {
 	Namespace uint64
 
 	L1Client                      L1Client // TODO Philippe apparently not used yet
-	EspressoClient                *espressoClient.Client
-	EspressoLightClient           *espressoLightClient.LightclientCaller
+	EspressoClient                EspressoClient
+	EspressoLightClient           LightClientCallerInterface
 	Log                           log.Logger
 	PollingHotShotPollingInterval time.Duration
 
@@ -73,8 +102,8 @@ type EspressoStreamer[B Batch] struct {
 func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
-	espressoClient *espressoClient.Client,
-	lightClient *espressoLightClient.LightclientCaller,
+	espressoClient EspressoClient,
+	lightClient LightClientCallerInterface,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
@@ -253,9 +282,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
 			validity, pos := s.CheckBatch(ctx, *batch)
-			if pos == 0 {
-				s.hotShotPos = i
-			}
 
 			switch validity {
 
@@ -285,7 +311,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
 		}
-
+		s.hotShotPos = i
 	}
 
 	return nil
@@ -312,7 +338,12 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 	return false
 }
 
-// This function allows to "pin" the Espresso block height corresponding to the last safe batch
+// This function allows to "pin" the Espresso block height that is guaranteed not to contain
+// any batches that have origin >= safeL1Origin.
+// We do this by reading block height from Light Client FinalizedState at safeL1Origin.
+//
+// For reference on why doing this guarantees we won't skip any unsafe blocks:
+// https://eng-wiki.espressosys.com/mainch30.html#:Components:espresso%20streamer:initializing%20hotshot%20height
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})

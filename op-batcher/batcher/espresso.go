@@ -305,7 +305,7 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 
 	// State empty, just enqueue all unsafe blocks
 	if len(l.queuedBlocks) == 0 {
-		return inclusiveBlockRange{safeL2.Number, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
+		return inclusiveBlockRange{safeL2.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
 	}
 
 	lastQueuedBlock := l.queuedBlocks[len(l.queuedBlocks)-1]

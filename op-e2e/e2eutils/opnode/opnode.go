@@ -52,6 +52,10 @@ func (o *Opnode) P2P() p2p.Node {
 	return o.node.P2P()
 }
 
+func (o *Opnode) EngineState() derive.L2Source {
+	return o.node.EngineState()
+}
+
 var _ services.RollupNode = (*Opnode)(nil)
 
 func NewOpnode(l log.Logger, c *rollupNode.Config, errFn func(error)) (*Opnode, error) {
