@@ -33,7 +33,7 @@ import (
 //	Arrange:
 //		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
 //	Act:
-//		Send some transactions from Bob to Alice
+//		Send some transactions from Bob to Alice and some regular L2 transactions
 //	Assert:
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 //		Query the executive machine state when Caff node is on
