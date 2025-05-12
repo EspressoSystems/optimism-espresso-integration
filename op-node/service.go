@@ -318,5 +318,7 @@ func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
 		NextHotShotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotShotBlockNum.Name),
 		PollingHotShotPollingInterval: ctx.Duration(flags.CaffNodePollingHotShotPollingInterval.Name),
 		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
+		L1EthRpc:                      ctx.String(flags.CaffNodeL1EthRpc.Name),
+		EspressoLightClientAddr:       ctx.String(flags.CaffNodeEspressoLightClientAddr.Name),
 	}
 }
