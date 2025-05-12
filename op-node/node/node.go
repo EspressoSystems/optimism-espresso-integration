@@ -777,6 +777,7 @@ func (n *OpNode) Start(ctx context.Context) error {
 	// polling occurs. In some cases, this can cause the sequencer to get stuck because it fails to
 	// retrieve the next L1 block. To prevent this, fetch and initialize the latest safe and
 	// finalized L1 block references at startup.
+	log.Info("Sequencer config for finality", "SequencerUseFinalized", n.cfg.Driver.SequencerUseFinalized)
 	if n.cfg.Driver.SequencerUseFinalized {
 		reqCtx, reqCancel := context.WithTimeout(ctx, time.Second*20)
 		defer reqCancel()
