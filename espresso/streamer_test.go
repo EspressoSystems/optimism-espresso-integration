@@ -19,10 +19,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/stretchr/testify/require"
 )
 
 // TestNewEspressoStreamer tests that we can create a new EspressoStreamer
@@ -75,17 +77,32 @@ type MockStreamerSource struct {
 	FinalizedL1 eth.L1BlockRef
 	SafeL2      eth.L2BlockRef
 
-	EspTransactionData map[EspBlockAndNamespace]esp_client.TransactionsInBlock
-	LatestEspHeight    uint64
+	EspTransactionData     map[EspBlockAndNamespace]esp_client.TransactionsInBlock
+	LatestEspHeight        uint64
+	finalizedHeightHistory map[uint64]uint64
+}
+
+func NewMockStreamerSource() *MockStreamerSource {
+	finalizedL1 := createL1BlockRef(1)
+	return &MockStreamerSource{
+		FinalizedL1:            finalizedL1,
+		SafeL2:                 createL2BlockRef(0, finalizedL1),
+		EspTransactionData:     make(map[EspBlockAndNamespace]esp_client.TransactionsInBlock),
+		finalizedHeightHistory: make(map[uint64]uint64),
+		LatestEspHeight:        0,
+	}
 }
 
 // AdvanceFinalizedL1ByNBlocks advances the FinalizedL1 block reference by n blocks.
 func (m *MockStreamerSource) AdvanceFinalizedL1ByNBlocks(n uint) {
-	m.FinalizedL1 = createL1BlockRef(m.FinalizedL1.Number + uint64(n))
+	for range n {
+		m.AdvanceFinalizedL1()
+	}
 }
 
 // AdvanceFinalizedL1 advances the FinalizedL1 block reference by one block.
 func (m *MockStreamerSource) AdvanceFinalizedL1() {
+	m.finalizedHeightHistory[m.FinalizedL1.Number] = m.LatestEspHeight
 	m.FinalizedL1 = createL1BlockRef(m.FinalizedL1.Number + 1)
 }
 
@@ -173,7 +190,19 @@ func (m *MockStreamerSource) FetchTransactionsInBlock(ctx context.Context, block
 }
 
 // Espresso Light Client implementation
-var _ espresso.LightClientReaderInterface = (*MockStreamerSource)(nil)
+var _ espresso.LightClientCallerInterface = (*MockStreamerSource)(nil)
+
+// LightClientCallerInterface implementation
+func (m *MockStreamerSource) FinalizedState(opts *bind.CallOpts) (espresso.FinalizedState, error) {
+	height, ok := m.finalizedHeightHistory[opts.BlockNumber.Uint64()]
+	if !ok {
+		height = m.LatestEspHeight
+	}
+	return espresso.FinalizedState{
+		ViewNum:     height,
+		BlockHeight: height,
+	}, nil
+}
 
 // NoOpLogger is a no-op implementation of the log.Logger interface.
 // It is used to pass a non-nil logger to the EspressoStreamer without
@@ -238,8 +267,7 @@ func createL2BlockRef(height uint64, l1Ref eth.L1BlockRef) eth.L2BlockRef {
 // for testing purposes. It sets up the initial state of the MockStreamerSource
 // and returns both the MockStreamerSource and the EspressoStreamer.
 func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*MockStreamerSource, espresso.EspressoStreamer[derive.EspressoBatch]) {
-	state := new(MockStreamerSource)
-	state.AdvanceFinalizedL1()
+	state := NewMockStreamerSource()
 
 	logger := new(NoOpLogger)
 	streamer := espresso.NewEspressoStreamer(
@@ -346,7 +374,7 @@ func TestStreamerSmoke(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	updated, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number)
+	updated, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 	if have, want := updated, false; have != want {
 		t.Fatalf("failed to refresh streamer state:\nhave:\n\t%v\nwant:\n\t%v\n", updated, want)
 	}
@@ -387,7 +415,7 @@ func TestEspressoStreamerSimpleIncremental(t *testing.T) {
 	for i := 0; i < N; i++ {
 		// update the state of our streamer
 		syncStatus := state.SyncStatus()
-		_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number)
+		_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -410,10 +438,7 @@ func TestEspressoStreamerSimpleIncremental(t *testing.T) {
 		}
 
 		batchFromEsp := streamer.Next(ctx)
-
-		if have, want := batchFromEsp, (*derive.EspressoBatch)(nil); have == want {
-			t.Fatalf("unexpectedly did not received batch from streamer:\nhave:\n\t%v\nwant:\n\t%v\n", have, want)
-		}
+		require.NotNil(t, batchFromEsp, "unexpectedly did not receive a batch from streamer")
 
 		// This batch ** should ** match the one we created above.
 
@@ -452,7 +477,7 @@ func TestEspressoStreamerIncrementalDelayedConsumption(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number)
+	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 	for i := 0; i < N; i++ {
 		batch, _, _, espTxnInBlock := state.CreateEspressoTxnData(
@@ -483,10 +508,7 @@ func TestEspressoStreamerIncrementalDelayedConsumption(t *testing.T) {
 		batch := batches[i]
 
 		batchFromEsp := streamer.Next(ctx)
-
-		if have, want := batchFromEsp, (*derive.EspressoBatch)(nil); have == want {
-			t.Fatalf("unexpectedly did not received batch from streamer:\nhave:\n\t%v\nwant:\n\t%v\n", have, want)
-		}
+		require.NotNil(t, batchFromEsp, "unexpectedly did not receive a batch from streamer")
 
 		// This batch ** should ** match the one we created above.
 
@@ -523,7 +545,7 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number)
+	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -560,18 +582,19 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 	{
 
 		for i := 0; i < N; i++ {
-			if !streamer.HasNext(ctx) {
+			for j := 0; j < int(state.LatestEspHeight/100); j++ {
 				// Update the state of our streamer
 				if have, want := streamer.Update(ctx), error(nil); !errors.Is(have, want) {
 					t.Fatalf("failed to update streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+				}
+				if streamer.HasNext(ctx) {
+					break
 				}
 			}
 
 			batch := batches[i]
 			batchFromEsp := streamer.Next(ctx)
-			if have, want := batchFromEsp, (*derive.EspressoBatch)(nil); have == want {
-				t.Fatalf("unexpectedly did not received batch from streamer:\nhave:\n\t%v\ndo not want:\n\t%v\n", have, want)
-			}
+			require.NotNil(t, batchFromEsp, "unexpectedly did not receive a batch from streamer")
 
 			// This batch ** should ** match the one we created above.
 
