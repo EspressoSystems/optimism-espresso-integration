@@ -82,6 +82,16 @@ func BlockToEspressoBatch(rollupCfg *rollup.Config, block *types.Block) (*Espres
 	}, nil
 }
 
+// CreateEspressoBatchUnmarshaler returns a function that can be used to
+// unmarshal an Espresso transaction into an EspressoBatch. The returned
+// function takes a batcherAddress as an argument to verify the signature of
+// the transaction.
+func CreateEspressoBatchUnmarshaler(batcherAddress common.Address) func(data []byte) (*EspressoBatch, error) {
+	return func(data []byte) (*EspressoBatch, error) {
+		return UnmarshalEspressoTransaction(data, batcherAddress)
+	}
+}
+
 func UnmarshalEspressoTransaction(data []byte, batcherAddress common.Address) (*EspressoBatch, error) {
 	signatureData, batchData := data[:crypto.SignatureLength], data[crypto.SignatureLength:]
 	batchHash := crypto.Keccak256(batchData)
