@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/espresso"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop/managed"
 
 	"github.com/hashicorp/go-multierror"
