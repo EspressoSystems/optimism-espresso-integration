@@ -65,14 +65,23 @@ func InitL1(blockTime uint64, finalizedDistance uint64, genesis *core.Genesis, c
 		return nil, nil, err
 	}
 
-	fakepos := NewFakePoS(&gethBackend{
-		chain: gethInstance.Backend.BlockChain(),
-	}, catalyst.NewConsensusAPI(gethInstance.Backend), c, log.Root(), blockTime, finalizedDistance, beaconSrv, gethInstance.Backend.BlockChain().Config())
-
 	// Instead of running a whole beacon node, we run this fake-proof-of-stake sidecar that sequences L1 blocks using the Engine API.
-	gethInstance.Node.RegisterLifecycle(fakepos)
+	fakePoS := &FakePoS{
+		clock:             c,
+		eth:               gethInstance.Backend,
+		log:               log.Root(), // geth logger is global anyway. Would be nice to replace with a local logger though.
+		blockTime:         blockTime,
+		finalizedDistance: finalizedDistance,
+		safeDistance:      10,
+		engineAPI:         catalyst.NewConsensusAPI(gethInstance.Backend),
+		beacon:            beaconSrv,
+		config:            gethInstance.Backend.BlockChain().Config(),
+	}
+	gethInstance.fakePoS = fakePoS
 
-	return gethInstance, fakepos, nil
+	gethInstance.Node.RegisterLifecycle(fakePoS)
+
+	return gethInstance, fakePoS, nil
 }
 
 func WithAuth(jwtPath string) GethOption {

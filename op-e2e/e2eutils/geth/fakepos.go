@@ -90,6 +90,20 @@ func (f *FakePoS) FakeBeaconBlockRoot(time uint64) common.Hash {
 	return crypto.Keccak256Hash(dat[:])
 }
 
+// Fork sets the head to the provided hash.
+// Lifted from catalyst's simulated beacon
+func (f *FakePoS) Fork(parentHash common.Hash) error {
+	// Ensure no pending transactions.
+	f.eth.TxPool().Clear()
+
+	parent := f.eth.BlockChain().GetBlockByHash(parentHash)
+	if parent == nil {
+		return errors.New("parent not found")
+	}
+	_, err := f.eth.BlockChain().SetCanonical(parent)
+	return err
+}
+
 func (f *FakePoS) Start() error {
 	if advancing, ok := f.clock.(*clock.AdvancingClock); ok {
 		advancing.Start()

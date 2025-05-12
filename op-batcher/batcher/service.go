@@ -76,7 +76,7 @@ type BatcherService struct {
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
 	Espresso            *espresso.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
+	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
 	opcrypto.ChainSigner
@@ -188,7 +188,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 
 	if cfg.EspressoUrl != "" {
 		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
-		espressoLightClient, err := espressoLightClient.NewLightClientReader(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
+		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
 		}
