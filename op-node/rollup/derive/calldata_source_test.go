@@ -114,14 +114,21 @@ func TestDataFromEVMTransactions(t *testing.T) {
 
 		var expectedData []eth.Data
 		var txs []*types.Transaction
+		var receipts []*types.Receipt
 		for i, tx := range tc.txs {
-			txs = append(txs, tx.Create(t, signer, rng))
+			transaction := tx.Create(t, signer, rng)
+			txs = append(txs, transaction)
+			receipts = append(receipts, &types.Receipt{
+				Status: types.ReceiptStatusSuccessful,
+				TxHash: transaction.Hash(),
+			})
+
 			if tx.good {
 				expectedData = append(expectedData, txs[i].Data())
 			}
 		}
 
-		out := DataFromEVMTransactions(DataSourceConfig{cfg.L1Signer(), cfg.BatchInboxAddress, false}, batcherAddr, txs, testlog.Logger(t, log.LevelCrit))
+		out := DataFromEVMTransactions(DataSourceConfig{cfg.L1Signer(), cfg.BatchInboxAddress, false}, batcherAddr, txs, receipts, testlog.Logger(t, log.LevelCrit))
 		require.ElementsMatch(t, expectedData, out)
 	}
 

@@ -44,8 +44,13 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		Data:     testutils.RandomData(rng, rng.Intn(1000)),
 	}
 	calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
+	calldataReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: calldataTx.Hash(),
+	}
 	txs := types.Transactions{calldataTx}
-	data, blobHashes := dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts := types.Receipts{calldataReceipt}
+	data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -59,23 +64,34 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		BlobHashes: []common.Hash{blobHash},
 	}
 	blobTx, _ := types.SignNewTx(privateKey, signer, blobTxData)
+	blobReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
 	txs = types.Transactions{blobTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.Nil(t, data[0].calldata)
 
 	// try again with both the blob & calldata transactions and make sure both are picked up
 	txs = types.Transactions{blobTx, calldataTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt, calldataReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 2, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.NotNil(t, data[1].calldata)
 
 	// make sure blob tx to the batch inbox is ignored if not signed by the batcher
 	blobTx, _ = types.SignNewTx(testutils.RandomKey(), signer, blobTxData)
+	blobReceipt = &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
 	txs = types.Transactions{blobTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -83,8 +99,13 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	// signature is valid.
 	blobTxData.To = testutils.RandomAddress(rng)
 	blobTx, _ = types.SignNewTx(privateKey, signer, blobTxData)
+	blobReceipt = &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
 	txs = types.Transactions{blobTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -96,9 +117,14 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		Data:  testutils.RandomData(rng, rng.Intn(1000)),
 	}
 	setCodeTx, err := types.SignNewTx(privateKey, signer, setCodeTxData)
+	setCodeReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: setCodeTx.Hash(),
+	}
 	require.NoError(t, err)
 	txs = types.Transactions{setCodeTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{setCodeReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 }
