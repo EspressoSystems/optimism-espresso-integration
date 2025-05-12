@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -28,6 +29,7 @@ type Batch interface {
 	Number() uint64
 	L1Origin() eth.BlockID
 	Header() *types.Header
+	Hash() common.Hash
 }
 
 type BatchBuffer[B Batch] struct {
