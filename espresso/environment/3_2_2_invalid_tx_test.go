@@ -134,15 +134,15 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		// The check can directly reflect whether the transaction is valid or not
 		caffStreamer := caffNode.OpNode.EspressoStreamer()
 		_, err = caffStreamer.UnmarshalBatch(realEspressoTransaction.Payload)
-		if err != nil {
-			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+		if have, want := err, error(nil); have != want {
+			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
 		// Make sure the transaction will go through to op node by checking it will go through batch submitter's streamer
 		batchSubmitter := system.BatchSubmitter
 		_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(realEspressoTransaction.Payload)
-		if err != nil {
-			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+		if have, want := err, error(nil); have != want {
+			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
 	}
@@ -215,15 +215,15 @@ func TestInvalidEspressoTransactionOutsideBatcher(t *testing.T) {
 		// And the check also directly reflect whether the transaction is valid or not
 		caffStreamer := caffNode.OpNode.EspressoStreamer()
 		_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
-		if err == nil {
-			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+		if have, want := err.Error(), "invalid signer"; have != want {
+			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
 		// Make sure the transaction will go through to op node by checking it will fail to go through batch submitter's streamer
 		batchSubmitter := system.BatchSubmitter
 		_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
-		if err == nil {
-			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+		if have, want := err.Error(), "invalid signer"; have != want {
+			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 	}
 }
