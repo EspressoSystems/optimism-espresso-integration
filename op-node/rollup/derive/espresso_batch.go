@@ -36,6 +36,11 @@ func (b EspressoBatch) Header() *types.Header {
 	return b.BatchHeader
 }
 
+func (b EspressoBatch) Hash() common.Hash {
+	hash := crypto.Keccak256Hash(b.BatchHeader.Hash().Bytes(), b.L1InfoDeposit.Hash().Bytes())
+	return hash
+}
+
 func (b *EspressoBatch) ToEspressoTransaction(ctx context.Context, namespace uint64, signer opCrypto.ChainSigner) (*espressoCommon.Transaction, error) {
 	buf := new(bytes.Buffer)
 	err := rlp.Encode(buf, *b)

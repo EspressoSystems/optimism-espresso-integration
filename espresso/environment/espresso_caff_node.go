@@ -115,6 +115,8 @@ func LaunchDecaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espre
 		IsCaffNode:                    true,
 		PollingHotShotPollingInterval: 30 * time.Millisecond,
 		HotShotUrls:                   []string{u.String()},
+		L1EthRpc:                      system.L1.UserRPC().RPC(),
+		EspressoLightClientAddr:       ESPRESSO_LIGHT_CLIENT_ADDRESS,
 	}
 
 	// Configure
