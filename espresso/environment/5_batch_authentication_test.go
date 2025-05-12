@@ -53,8 +53,6 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 	if !strings.Contains(errMsg, expectedMsg) {
 		t.Fatalf("error message does not contain expected message %q:\ngot: %q", expectedMsg, errMsg)
 	}
-
-	cancel()
 }
 
 // TestE2eDevNetWithUnattestedBatcherKey verifies that when a batcher key is not properly
@@ -93,7 +91,4 @@ func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
 	}
 
 	_ = system
-
-	// Signal the testnet to shut down
-	cancel()
 }
