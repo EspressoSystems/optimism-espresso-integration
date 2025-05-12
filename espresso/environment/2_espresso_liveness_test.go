@@ -10,6 +10,7 @@ import (
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	lightclient "github.com/EspressoSystems/espresso-network-go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
@@ -102,7 +103,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 	{
 		var receipts []*geth_types.Receipt
 
-		for i := 0; i < N; i++ {
+		for i := range N {
 			receipt := helpers.SendL2TxWithID(t, system.Cfg.L2ChainIDBig(), l2Seq, system.Cfg.Secrets.Bob, func(opts *helpers.TxOpts) {
 				opts.Nonce = uint64(i)
 				opts.ToAddr = &addressAlice
@@ -222,11 +223,12 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	{
 		// Streamer Setup and Configuration
 		l := log.NewLogger(slog.Default().Handler())
+		lightClient, err := lightclient.NewLightclientCaller(common.HexToAddress(env.ESPRESSO_LIGHT_CLIENT_ADDRESS), l1Client)
 		streamer := espresso.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),
 			batcher.NewAdaptL1BlockRefClient(l1Client),
 			espressoClient.NewClient(server.URL),
-			nil,
+			lightClient,
 			l,
 			func(b []byte) (*derive.EspressoBatch, error) {
 				return derive.UnmarshalEspressoTransaction(b, system.RollupConfig.Genesis.SystemConfig.BatcherAddr)
@@ -245,7 +247,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		require.NoError(t, err, "failed to get safe L2 block ref")
 		finalizedL1BlockRef, err := l1RefClient.L1BlockRefByLabel(streamBlocksCtx, eth.Finalized)
 		require.NoError(t, err, "failed to get finalized L1 block ref")
-		streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number)
+		streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number, l2BlockRef.L1Origin)
 
 		// Start consuming Batches from the Streamer
 		// We cannot guarantee that we will receive only the batches that
@@ -269,10 +271,10 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 				}
 
 				finalizedL1, finalizedL1Err := l1RefClient.BlockRefByLabel(ctx, eth.Finalized)
-				safeL2, safeL2Error := l2RefClient.BlockRefByLabel(ctx, eth.Safe)
+				safeL2, safeL2Error := l2RefClient.L2BlockRefByLabel(ctx, eth.Safe)
 				if finalizedL1Err == nil && safeL2Error == nil {
 					// Refresh the Streamer with the latest finalized L1 and safe L2
-					_, err := streamer.Refresh(ctx, finalizedL1, safeL2.Number)
+					_, err := streamer.Refresh(ctx, finalizedL1, safeL2.Number, safeL2.L1Origin)
 					if have, want := err, error(nil); have != want {
 						// NOTE: we are in a go-routine here, so we are unable
 						// to fail fatally here. Instead, we'll Fail and and

@@ -1,6 +1,7 @@
 package geth
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
 
@@ -11,6 +12,7 @@ import (
 type GethInstance struct {
 	Backend *eth.Ethereum
 	Node    *node.Node
+	fakePoS *fakePoS
 }
 
 var _ services.EthInstance = (*GethInstance)(nil)
@@ -40,4 +42,8 @@ func (gi *GethInstance) AuthRPC() endpoint.RPC {
 
 func (gi *GethInstance) Close() error {
 	return gi.Node.Close()
+}
+
+func (gi *GethInstance) Fork(parentHash common.Hash) error {
+	return gi.fakePoS.Fork(parentHash)
 }
