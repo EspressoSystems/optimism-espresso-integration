@@ -103,7 +103,7 @@ type DriverSetup struct {
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
 	Espresso            *espressoClient.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
+	EspressoLightClient *espressoLightClient.LightclientCaller
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
 	Attestation         []byte
@@ -154,6 +154,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		},
 		2*time.Second,
 	)
+
 	log.Info("Streamer started", "streamer", batchSubmitter.streamer)
 
 	return batchSubmitter
@@ -203,6 +204,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
+
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
@@ -759,6 +761,9 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
+			if l.Config.UseEspresso {
+				l.streamer.Reset()
+			}
 			return true
 		}
 	}

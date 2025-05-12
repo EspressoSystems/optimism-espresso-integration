@@ -163,6 +163,8 @@ type CaffNodeConfig struct {
 	NextHotShotBlockNum           uint64
 	PollingHotShotPollingInterval time.Duration
 	HotShotUrls                   []string
+	L1EthRpc                      string
+	EspressoLightClientAddr       string
 }
 
 // ValidateL1Config checks L1 config variables for errors.
