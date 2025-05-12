@@ -2,10 +2,12 @@ package espresso
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
@@ -14,13 +16,23 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// LightClientReaderInterface is a placeholder for the actual interface
-// that would be used to interact with the Espresso light client.
+// Espresso light client bindings don't have an explicit name for this struct,
+// so we define it here to avoid spelling it out every time
+type FinalizedState = struct {
+	ViewNum       uint64
+	BlockHeight   uint64
+	BlockCommRoot *big.Int
+}
+
+// LightClientCallerInterface is an interface that documents the methods we utilize
+// for the espresso light client
 //
 // We define this here locally in order to effectively document the methods
 // we utilize.  This approach allows us to avoid importing the entire package
 // and allows us to easily swap implementations for testing.
-type LightClientReaderInterface interface{}
+type LightClientCallerInterface interface {
+	FinalizedState(opts *bind.CallOpts) (FinalizedState, error)
+}
 
 // EspressoClient is an interface that documents the methods we utilize for
 // the espressoClient.Client.
@@ -62,7 +74,7 @@ type EspressoStreamer[B Batch] struct {
 
 	L1Client                      L1Client // TODO Philippe apparently not used yet
 	EspressoClient                EspressoClient
-	EspressoLightClient           LightClientReaderInterface
+	EspressoLightClient           LightClientCallerInterface
 	Log                           log.Logger
 	PollingHotShotPollingInterval time.Duration
 
@@ -72,6 +84,8 @@ type EspressoStreamer[B Batch] struct {
 	hotShotPos uint64
 	// Position of the last safe batch, we can use it as the position to fallback when resetting
 	fallbackBatchPos uint64
+	// HotShot position that we can fallback to, guaranteeing not to skip any unsafe batches
+	fallbackHotShotPos uint64
 	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
 	// until it calls `Refresh`.
 	finalizedL1 eth.L1BlockRef
@@ -90,7 +104,7 @@ func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
 	espressoClient EspressoClient,
-	lightClient LightClientReaderInterface,
+	lightClient LightClientCallerInterface,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
@@ -111,14 +125,20 @@ func NewEspressoStreamer[B Batch](
 
 // Reset the state to the last safe batch
 func (s *EspressoStreamer[B]) Reset() {
+	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
 	s.BatchBuffer.Clear()
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
-func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64) (bool, error) {
+func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) (bool, error) {
 	s.finalizedL1 = finalizedL1
+
+	err := s.confirmEspressoBlockHeight(safeL1Origin)
+	if err != nil {
+		return false, err
+	}
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
@@ -152,7 +172,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 		return BatchUndecided, 0
 	} else {
 		if l1headerHash != origin.Hash {
-			s.Log.Warn("Dropping batch with invalid L1 origin hash", "error", err)
+			s.Log.Warn("Dropping batch with invalid L1 origin hash")
 			return BatchDrop, 0
 		}
 	}
@@ -263,9 +283,6 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Info("Inserting batch into buffer", "batch", batch)
 
 			validity, pos := s.CheckBatch(ctx, *batch)
-			if pos == 0 {
-				s.hotShotPos = i
-			}
 
 			switch validity {
 
@@ -278,7 +295,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchUndecided:
-				hash := (*batch).Header().Hash()
+				hash := (*batch).Hash()
+				if existingBatch, ok := s.RemainingBatches[hash]; ok {
+					s.Log.Warn("Batch already in buffer", "batch", existingBatch)
+				}
 				s.RemainingBatches[hash] = *batch
 				continue
 
@@ -292,7 +312,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			s.Log.Trace("Inserting batch into buffer", "batch", batch)
 			s.BatchBuffer.Insert(*batch, pos)
 		}
-
+		s.hotShotPos = i
 	}
 
 	return nil
@@ -317,4 +337,24 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 	}
 
 	return false
+}
+
+// This function allows to "pin" the Espresso block height that is guaranteed not to contain
+// any batches that have origin >= safeL1Origin.
+// We do this by reading block height from Light Client FinalizedState at safeL1Origin.
+//
+// For reference on why doing this guarantees we won't skip any unsafe blocks:
+// https://eng-wiki.espressosys.com/mainch30.html#:Components:espresso%20streamer:initializing%20hotshot%20height
+func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
+	hotshotState, err := s.EspressoLightClient.
+		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
+	if errors.Is(err, bind.ErrNoCode) {
+		s.fallbackHotShotPos = 0
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	s.fallbackHotShotPos = hotshotState.BlockHeight
+	return nil
 }
