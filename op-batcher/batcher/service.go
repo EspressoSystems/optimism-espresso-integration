@@ -76,7 +76,7 @@ type BatcherService struct {
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
 	Espresso            *espresso.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
+	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
 	opcrypto.ChainSigner

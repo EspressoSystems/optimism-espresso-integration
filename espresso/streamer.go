@@ -139,6 +139,11 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 		return err
 	}
 
+	err := s.confirmEspressoBlockHeight(safeL1Origin)
+	if err != nil {
+		return false, err
+	}
+
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
 		// This means everything is in sync, no state update needed
