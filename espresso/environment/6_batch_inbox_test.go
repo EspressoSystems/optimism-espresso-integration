@@ -93,7 +93,8 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 
 	require.Equal(t, receipt.Status, types.ReceiptStatusFailed, "transaction should've been rejected by BatchInbox contract")
 
-	time.Sleep(time.Minute * 2)
+	_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(1), system.NodeClient(e2esys.RoleVerif), time.Minute*1)
+	require.Error(t, err)
 }
 
 // This ETHBackend wraps a real ETHBackend and forwards all
