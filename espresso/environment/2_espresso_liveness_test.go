@@ -79,7 +79,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 	)
 
 	defer server.Close()
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0, option)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), option)
 
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
@@ -180,7 +180,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	)
 
 	defer env.Stop(t, server)
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0, option)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), option)
 
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
