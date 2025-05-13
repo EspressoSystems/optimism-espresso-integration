@@ -35,7 +35,6 @@ type L1Fetcher interface {
 	L1BlockRefByHashFetcher
 	L1ReceiptsFetcher
 	L1TransactionFetcher
-	L1FinalizedBlock() (eth.L1BlockRef, error)
 }
 
 type ResettableStage interface {
@@ -214,7 +213,7 @@ func (dp *DerivationPipeline) Step(ctx context.Context, pendingSafeHead eth.L2Bl
 		dp.origin = newOrigin
 	}
 
-	if attrib, err := dp.attrib.NextAttributes(ctx, pendingSafeHead, dp.l1Fetcher.L1FinalizedBlock, dp.l1Fetcher.L1BlockRefByNumber); err == nil {
+	if attrib, err := dp.attrib.NextAttributes(ctx, pendingSafeHead, dp.l1Fetcher); err == nil {
 		return attrib, nil
 	} else if err == io.EOF {
 		// If every stage has returned io.EOF, try to advance the L1 Origin
