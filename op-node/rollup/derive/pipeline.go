@@ -35,7 +35,6 @@ type L1Fetcher interface {
 	L1BlockRefByHashFetcher
 	L1ReceiptsFetcher
 	L1TransactionFetcher
-	L1FinalizedBlock() (eth.L1BlockRef, error)
 }
 
 type ResettableStage interface {
