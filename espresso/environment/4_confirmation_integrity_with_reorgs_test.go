@@ -77,7 +77,7 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 
 	nonce := uint64(0)
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-	
+
 	for (l1Height - l1HeightStart) < system.Cfg.L1FinalizedDistance {
 		height := uint64(i) + unsafeL2BlockNumber
 
@@ -133,6 +133,7 @@ func collectFirstNL2SafeBlocks(ctx context.Context, t *testing.T, system *e2esys
 		require.NoError(t, err)
 
 		batch, _, err := derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
+		require.NoError(t, err)
 		batchHash := BatchHash(batch)
 		batches = append(batches, batchHash)
 
@@ -207,7 +208,7 @@ func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, _, err := launcher.StartDevNet(ctx, t, 12)
+	system, _, err := launcher.StartDevNet(ctx, t)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
