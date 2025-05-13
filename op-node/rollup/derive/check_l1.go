@@ -9,7 +9,6 @@ import (
 
 type L1BlockRefByNumber interface {
 	L1BlockRefByNumber(context.Context, uint64) (eth.L1BlockRef, error)
-	L1FinalizedBlock() (eth.L1BlockRef, error)
 }
 
 // VerifyNewL1Origin checks that the L2 unsafe head still has a L1 origin that is on the canonical chain.
