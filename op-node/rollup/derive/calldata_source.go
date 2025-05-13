@@ -50,6 +50,9 @@ func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConf
 	if err != nil {
 		return closedSource
 	}
+	if len(txs) != len(receipts) {
+		return closedSource
+	}
 	return &CalldataSource{
 		open: true,
 		data: DataFromEVMTransactions(dsCfg, batcherAddr, txs, receipts, log.New("origin", ref)),
@@ -72,6 +75,9 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 			return nil, NewResetError(fmt.Errorf("failed to open calldata source: %w", err))
 		} else if err != nil {
 			return nil, NewTemporaryError(fmt.Errorf("failed to open calldata source: %w", err))
+		}
+		if len(txs) != len(receipts) {
+			return nil, NewTemporaryError(fmt.Errorf("failed to open calldata source: L1 fetcher provided inconsistent number of transactions and receipts"))
 		}
 		ds.open = true
 		ds.data = DataFromEVMTransactions(ds.dsCfg, ds.batcherAddr, txs, receipts, ds.log)

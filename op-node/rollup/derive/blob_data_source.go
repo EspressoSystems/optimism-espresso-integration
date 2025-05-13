@@ -94,6 +94,10 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
 
+	if len(receipts) != len(txs) {
+		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: L1 fetcher provided inconsistent number of receipts"))
+	}
+
 	data, hashes := dataAndHashesFromTxs(txs, receipts, &ds.dsCfg, ds.batcherAddr, ds.log)
 
 	if len(hashes) == 0 {
