@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// TestDeterministicDerivationExecutionState is a test that
+// TestDeterministicDerivationExecutionStateWithInvalidTransaction is a test that
 // attempts to make sure that the caff node can derive the same state as the
 // original op-node (non caffeinated).
 //
@@ -33,14 +33,16 @@ import (
 //	Arrange:
 //		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
 //	Act:
-//		Send some transactions from Bob to Alice and some regular L2 transactions
+//		Send some transactions from Bob to Alice and some regular L2 transactions.
+//		While you send normal L2 tx to the sequencer and monitor the OP node as well as the Caff node,
+//		you also send transactions to Espresso using an invalid batcher address.
 //	Assert:
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 //		Query the executive machine state when Caff node is on
 //		Query the executive machine state when OP node is on
 //		Make sure the states are the same
 
-func TestDeterministicDerivationExecutionState(t *testing.T) {
+func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -63,9 +65,12 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 	// Shut down the Caff Node
 	defer env.Stop(t, caffNode)
 
+	// Get caffNodeL2Client from caff node's engine state
+	caffNodeL2Client := caffNode.OpNode.EngineState()
+
 	// We want to setup our test
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-
+	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -86,10 +91,8 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		})
 	}
 
-	// Get caffNodeL2Client from caff node's engine state
-	caffNodeL2Client := caffNode.OpNode.EngineState()
-
 	numIterations := 10
+	attackRound := 5
 	// Compare states between nodes for multiple latest blocks
 	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
 	for i := 0; i < numIterations; i++ {
@@ -112,6 +115,44 @@ func TestDeterministicDerivationExecutionState(t *testing.T) {
 		_, err = wait.ForReceiptOK(ctx, l2Seq, tx.Hash())
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+		}
+
+		if i == attackRound {
+			// Try to send some invalid Espresso transactions (but looks valid) directly to Espresso, outside of the batcher.
+			// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through
+			{
+				// Create a fake Espresso transaction
+				fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
+				if err != nil {
+					t.Fatalf("Failed to get fake batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+				}
+				fakeEspressoTransaction, err := createEspressoTransaction(system.Cfg.L2ChainIDBig(), fakeBatcherPrivateKey)
+				if err != nil {
+					t.Fatalf("Failed to create fake Espresso transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+				}
+
+				// Send transaction directly to Espresso to bypass the batcher
+				_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
+				if err != nil {
+					t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+				}
+
+				// Make sure the transaction won't make it through to caff node by checking the unmarshal will fail
+				// This check will help eliminate the test waiting time
+				// And the check also directly reflect whether the transaction is valid or not
+				caffStreamer := caffNode.OpNode.EspressoStreamer()
+				_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
+				if have, want := err.Error(), "invalid signer"; have != want {
+					t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+				}
+
+				// Make sure the transaction will go through to op node by checking it will fail to go through batch submitter's streamer
+				batchSubmitter := system.BatchSubmitter
+				_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
+				if have, want := err.Error(), "invalid signer"; have != want {
+					t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+				}
+			}
 		}
 
 		// Get latest safe blocks from caff node first
@@ -173,7 +214,7 @@ func createEspressoTransaction(chainID *big.Int, batcherKey *ecdsa.PrivateKey) (
 
 // TestValidEspressoTransactionCreation is a test that
 // make sure we have correct way to create a Espresso transaction.
-// This test is a unit test to serve correctness of TestInvalidTransactionOutsideBatcher.
+// This test is a unit test to serve the correctness of TestDeterministicDerivationExecutionStateWithInvalidTransaction.
 func TestValidEspressoTransactionCreation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -264,83 +305,4 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 
 	}
 
-}
-
-// TestInvalidEspressoTransactionOutsideBatcher is a test that
-// attempts to make sure that invalid transaction doesn't go through.
-//
-// This tests is designed to evaluate Test 3.2 as outlined within the
-// Espresso Celo Integration plan.  It has stated task definition as follows:
-//
-//	Arrange:
-//		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
-//		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
-//		Manually sending some “invalid” transactions to Espresso (e.g. transactions that look valid but are sent from outside the batcher).
-//	Act:
-//		Form a transaction that looks valid, and send it directly to Espresso to bypass the batcher.
-//	Assert:
-//		Query the OP node and make sure the invalid transaction didn't go through.
-//		Query the Caff node and make sure the invalid transaction didn't go through.
-func TestInvalidEspressoTransactionOutsideBatcher(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	launcher := new(env.EspressoDevNodeLauncherDocker)
-
-	// once this StartDevNet returns, we have a running Espresso Dev Node
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
-	// Signal the testnet to shut down
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	defer env.Stop(t, system)
-	defer env.Stop(t, espressoDevNode)
-
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
-
-	// We want to setup our test
-	// l2Verif := system.NodeClient(e2esys.RoleVerif)
-	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
-
-	// use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through
-	{
-		// Create a fake Espresso transaction
-		fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
-		if err != nil {
-			t.Fatalf("Failed to get fake batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-		}
-		fakeEspressoTransaction, err := createEspressoTransaction(system.Cfg.L2ChainIDBig(), fakeBatcherPrivateKey)
-		if err != nil {
-			t.Fatalf("Failed to create fake Espresso transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-		}
-
-		// Send transaction directly to Espresso to bypass the batcher
-		_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
-		if err != nil {
-			t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-		}
-
-		// Make sure the transaction won't make it through to caff node by checking the unmarshal will fail
-		// This check will help eliminate the test waiting time
-		// And the check also directly reflect whether the transaction is valid or not
-		caffStreamer := caffNode.OpNode.EspressoStreamer()
-		_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
-		if have, want := err.Error(), "invalid signer"; have != want {
-			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-
-		// Make sure the transaction will go through to op node by checking it will fail to go through batch submitter's streamer
-		batchSubmitter := system.BatchSubmitter
-		_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
-		if have, want := err.Error(), "invalid signer"; have != want {
-			t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-		}
-	}
 }
