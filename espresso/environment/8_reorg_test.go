@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	rpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,14 +83,19 @@ func TestBatcherWaitForFinality(t *testing.T) {
 
 // VerifyL1OriginFinalized checks whether every batch in the batch buffer has a finalized L1
 // origin.
-func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) bool {
+func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
 	batch := streamer.BatchBuffer.Pop()
 	for batch != nil {
 		origin := (batch).L1Origin()
+		finalizedL1, err := l1Client.BlockByNumber(context.Background(), big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+		if err != nil {
+			return false
+		}
+
 		// Use the finalized L1 number from the Espresso streamer instead of the rollup client, in
 		// case they update their states at different times.
-		if origin.Number > streamer.FinalizedL1.Number {
-			t.Log("L1 orgin not finalized", "origin", origin.Number, "FinalizedL1", streamer.FinalizedL1.Number)
+		if origin.Number > finalizedL1.NumberU64() {
+			t.Log("L1 origin not finalized", "origin", origin.Number, "FinalizedL1", finalizedL1.NumberU64())
 			return false
 		}
 		batch = streamer.BatchBuffer.Pop()
@@ -146,6 +153,7 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 	}
 	defer env.Stop(t, caffNode)
 
+	l1Client := system.NodeClient(e2esys.RoleL1)
 	rollupClient := system.RollupClient(e2esys.RoleVerif)
 	streamer := caffNode.OpNode.EspressoStreamer()
 
@@ -161,7 +169,7 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 				if streamer.BatchBuffer.Len() > 0 {
 					// Verify that any batch inserted into the batch buffer has a finalized L1
 					// origin.
-					if !VerifyL1OriginFinalized(t, streamer) {
+					if !VerifyL1OriginFinalized(t, streamer, l1Client) {
 						require.FailNow(t, "Timeout: L1 origin not finalized")
 					}
 				} else {
