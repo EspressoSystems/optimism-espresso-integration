@@ -30,8 +30,6 @@ type MeteredL1Fetcher struct {
 	now     func() time.Time
 }
 
-var _ L1Fetcher = (*MeteredL1Fetcher)(nil)
-
 func NewMeteredL1Fetcher(inner L1Fetcher, metrics L1FetcherMetrics) *MeteredL1Fetcher {
 	return &MeteredL1Fetcher{
 		inner:   inner,
@@ -67,11 +65,6 @@ func (m *MeteredL1Fetcher) InfoAndTxsByHash(ctx context.Context, hash common.Has
 func (m *MeteredL1Fetcher) FetchReceipts(ctx context.Context, blockHash common.Hash) (eth.BlockInfo, types.Receipts, error) {
 	defer m.recordTime("FetchReceipts")()
 	return m.inner.FetchReceipts(ctx, blockHash)
-}
-
-func (m *MeteredL1Fetcher) L1FinalizedBlock() (eth.L1BlockRef, error) {
-	defer m.recordTime("L1FinalizedBlock")()
-	return m.inner.L1FinalizedBlock()
 }
 
 func (m *MeteredL1Fetcher) recordTime(method string) func() {
