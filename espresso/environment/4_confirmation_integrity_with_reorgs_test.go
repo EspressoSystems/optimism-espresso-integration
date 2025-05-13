@@ -207,9 +207,7 @@ func TestConfirmationIntegrityWithReorgs(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	system, _, err := launcher.StartDevNet(ctx, t)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
+	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
 	run(ctx, t, system)
 }
