@@ -93,10 +93,8 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 		l2Head, err := geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(height), l2Verif, 10*time.Second)
 		require.NoError(t, err)
 
-		if err != nil {
-			continue
-		} else { // Insert new batch in the list
-
+		if err == nil { // Insert new batch in the list
+			
 			batch, l2HeadL1Info, err := derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
 			require.NoError(t, err)
 			log.Info("l2HeadL1Info", "value", l2HeadL1Info)
