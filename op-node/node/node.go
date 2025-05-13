@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop/managed"
 
 	"github.com/hashicorp/go-multierror"
@@ -555,12 +556,17 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) (err error) {
 	return
 }
 
+func (n *OpNode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
+}
+
 func (n *OpNode) Start(ctx context.Context) error {
 	// If n.cfg.Driver.SequencerUseFinalized is true, sequencer does not use non-finalized L1 blocks as L1 origin
 	// The OpNode periodically fetches the latest safe and finalized L1 block heights (1 epoch ≒ 6.4 minutes by default),
 	// but these values are not available immediately after startup until the first polling occurs.
 	// In some cases, this can cause the sequencer to get stuck because it fails to retrieve the next L1 block.
 	// To prevent this, fetch and initialize the latest safe and finalized L1 block references at startup.
+	log.Info("Sequencer config for finality", "SequencerUseFinalized", n.cfg.Driver.SequencerUseFinalized)
 	if n.cfg.Driver.SequencerUseFinalized {
 		reqCtx, reqCancel := context.WithTimeout(ctx, time.Second*20)
 		defer reqCancel()
