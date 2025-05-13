@@ -59,11 +59,6 @@ func (m *MeteredL1Fetcher) FetchReceipts(ctx context.Context, blockHash common.H
 
 var _ derive.L1Fetcher = (*MeteredL1Fetcher)(nil)
 
-func (m *MeteredL1Fetcher) L1FinalizedBlock() (eth.L1BlockRef, error) {
-	defer m.recordTime("L1FinalizedBlock")()
-	return m.inner.L1FinalizedBlock()
-}
-
 func (m *MeteredL1Fetcher) recordTime(method string) func() {
 	start := m.now()
 	return func() {
