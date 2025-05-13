@@ -86,9 +86,8 @@ type EspressoStreamer[B Batch] struct {
 	fallbackBatchPos uint64
 	// HotShot position that we can fallback to, guaranteeing not to skip any unsafe batches
 	fallbackHotShotPos uint64
-	// Latest finalized block on the L1. Used by the batcher, not initialized by the Caff node
-	// until it calls `Refresh`.
-	finalizedL1 eth.L1BlockRef
+	// Latest finalized block on the L1.
+	FinalizedL1 eth.L1BlockRef
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
@@ -133,7 +132,7 @@ func (s *EspressoStreamer[B]) Reset() {
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1. Returns true if the state was updated.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) (bool, error) {
-	s.finalizedL1 = finalizedL1
+	s.FinalizedL1 = finalizedL1
 
 	err := s.confirmEspressoBlockHeight(safeL1Origin)
 	if err != nil {
@@ -154,14 +153,14 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
 
 	// Make sure the finalized L1 block is initialized before checking the block number.
-	if s.finalizedL1 == (eth.L1BlockRef{}) {
+	if s.FinalizedL1 == (eth.L1BlockRef{}) {
 		s.Log.Error("Finalized L1 block not initialized")
 		return BatchDrop, 0
 	}
 	origin := (batch).L1Origin()
-	if origin.Number > s.finalizedL1.Number {
+	if origin.Number > s.FinalizedL1.Number {
 		// Signal to resync to wait for the L1 finality.
-		s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.finalizedL1.Number, "origin number", origin.Number)
+		s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.FinalizedL1.Number, "origin number", origin.Number)
 		return BatchUndecided, 0
 	}
 
@@ -303,7 +302,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 				continue
 
 			case BatchAccept:
-				s.Log.Info("Recovered batch, inserting")
+				s.Log.Info("Inserting accepted batch")
 
 			case BatchFuture:
 				s.Log.Info("Inserting batch for future processing")
