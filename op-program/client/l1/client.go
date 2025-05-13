@@ -81,8 +81,3 @@ func (o *OracleL1Client) InfoAndTxsByHash(ctx context.Context, hash common.Hash)
 	info, txs := o.oracle.TransactionsByBlockHash(hash)
 	return info, txs, nil
 }
-
-func (o *OracleL1Client) L1FinalizedBlock() (eth.L1BlockRef, error) {
-	// Since this is for the fault proof program, we can consider the head block as finalized
-	return o.L1BlockRefByHash(context.Background(), o.head.Hash)
-}
