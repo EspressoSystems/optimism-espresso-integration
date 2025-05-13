@@ -93,7 +93,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 	numIterations := 10
 	attackRoundEspresso := 5 // the round where we send transaction directly to Espresso outside of the batcher
-	// Sishan TODO: attackRoundL1 := 7       // the round where we send transaction directly to L1 without going through the batcher
+	attackRoundL1 := 7       // the round where we send transaction directly to batch inbox
 	// Compare states between nodes for multiple latest blocks
 	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
 	for i := 0; i < numIterations; i++ {
@@ -152,6 +152,22 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			if have, want := err.Error(), "invalid signer"; have != want {
 				t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
+		} else if i == attackRoundL1 {
+			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &geth_types.DynamicFeeTx{
+				ChainID:   system.Cfg.L1ChainIDBig(),
+				Nonce:     1,
+				GasTipCap: big.NewInt(1),
+				GasFeeCap: big.NewInt(10),
+				Gas:       22_000,
+				To:        &system.RollupConfig.BatchInboxAddress,
+				Value:     big.NewInt(0),
+				Data:      []byte("0x00"),
+			})
+			// Send a transaction directly to L1
+			err = l1Client.SendTransaction(ctx, tx)
+			if have, want := err, error(nil); have != want {
+				t.Fatalf("Sending L1 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
 		}
 
 		// Get latest safe blocks from caff node first
@@ -175,6 +191,8 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	}
 
 }
+
+
 
 // forgeBatcherPrivateKey is a helper function that forge a batcher private key
 func forgeBatcherPrivateKey() (*ecdsa.PrivateKey, error) {
