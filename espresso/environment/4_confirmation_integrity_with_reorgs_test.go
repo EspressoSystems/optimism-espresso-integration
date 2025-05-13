@@ -77,8 +77,7 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 
 	nonce := uint64(0)
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-
-	require.NoError(t, err)
+	
 	for (l1Height - l1HeightStart) < system.Cfg.L1FinalizedDistance {
 		height := uint64(i) + unsafeL2BlockNumber
 
@@ -93,7 +92,7 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 
 		l2Head, err := geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(height), l2Verif, 10*time.Second)
 		require.NoError(t, err)
-		
+
 		if err != nil {
 			continue
 		} else { // Insert new batch in the list
