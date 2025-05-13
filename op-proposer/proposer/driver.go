@@ -311,6 +311,7 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (uint64
 	}
 
 	// Use either the finalized or safe head depending on the config. Finalized head is default & safer.
+	l.Log.Info("Proposer config for finality", "AllowNonFinalized", l.Cfg.AllowNonFinalized)
 	if l.Cfg.AllowNonFinalized {
 		return status.SafeL2.Number, nil
 	}
