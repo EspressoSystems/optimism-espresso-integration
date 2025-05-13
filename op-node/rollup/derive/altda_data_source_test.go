@@ -117,12 +117,11 @@ func TestAltDADataSource(t *testing.T) {
 		}
 		l1Refs = append(l1Refs, ref)
 		logger.Info("new l1 block", "ref", ref)
-		// called for each l1 block to sync challenges
-		l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 
 		// pick a random number of commitments to include in the l1 block
 		c := rng.Intn(4)
 		var txs []*types.Transaction
+		var receipts types.Receipts
 
 		for j := 0; j < c; j++ {
 			// mock input commitments in l1 transactions
@@ -146,9 +145,17 @@ func TestAltDADataSource(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			receipt := types.Receipt{
+				TxHash: tx.Hash(),
+				Status: types.ReceiptStatusSuccessful,
+			}
+
 			txs = append(txs, tx)
+			receipts = append(receipts, &receipt)
 
 		}
+		l1F.SetFetchReceipts(ref.Hash, testutils.RandomBlockInfo(rng), receipts, nil)
+
 		logger.Info("included commitments", "count", c)
 		l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 		// called once per derivation
@@ -220,12 +227,11 @@ func TestAltDADataSource(t *testing.T) {
 			}
 			l1Refs = append(l1Refs, ref)
 			logger.Info("new l1 block", "ref", ref)
-			// called for each l1 block to sync challenges
-			l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 
 			// pick a random number of commitments to include in the l1 block
 			c := rng.Intn(4)
 			var txs []*types.Transaction
+			var receipts []*types.Receipt
 
 			for j := 0; j < c; j++ {
 				// mock input commitments in l1 transactions
@@ -248,11 +254,18 @@ func TestAltDADataSource(t *testing.T) {
 				})
 				require.NoError(t, err)
 
+				receipt := &types.Receipt{
+					TxHash: tx.Hash(),
+					Status: types.ReceiptStatusSuccessful,
+				}
+
 				txs = append(txs, tx)
+				receipts = append(receipts, receipt)
 
 			}
 			logger.Info("included commitments", "count", c)
 			l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+			l1F.SetFetchReceipts(ref.Hash, testutils.RandomBlockInfo(rng), receipts, nil)
 		}
 
 		// create a new data source for each block
@@ -350,7 +363,6 @@ func TestAltDADataSourceStall(t *testing.T) {
 		ParentHash: parent.Hash,
 		Time:       parent.Time + l1Time,
 	}
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 	// mock input commitments in l1 transactions
 	input := testutils.RandomData(rng, 2000)
 	comm, _ := storage.SetInput(ctx, input)
@@ -368,7 +380,9 @@ func TestAltDADataSourceStall(t *testing.T) {
 	require.NoError(t, err)
 
 	txs := []*types.Transaction{tx}
+	receipts := types.Receipts{&types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful}}
 
+	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 
 	// delete the input from the DA provider so it returns not found
@@ -472,7 +486,6 @@ func TestAltDADataSourceInvalidData(t *testing.T) {
 		ParentHash: parent.Hash,
 		Time:       parent.Time + l1Time,
 	}
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 	// mock input commitments in l1 transactions with an oversized input
 	input := testutils.RandomData(rng, altda.MaxInputSize+1)
 	comm, _ := storage.SetInput(ctx, input)
@@ -519,7 +532,12 @@ func TestAltDADataSourceInvalidData(t *testing.T) {
 	require.NoError(t, err)
 
 	txs := []*types.Transaction{tx1, tx2, tx3}
+	receipts := types.Receipts{
+		&types.Receipt{TxHash: tx1.Hash(), Status: types.ReceiptStatusSuccessful},
+		&types.Receipt{TxHash: tx2.Hash(), Status: types.ReceiptStatusSuccessful},
+		&types.Receipt{TxHash: tx3.Hash(), Status: types.ReceiptStatusSuccessful}}
 
+	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 
 	src, err := factory.OpenData(ctx, ref, batcherAddr)
