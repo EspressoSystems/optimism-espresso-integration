@@ -23,6 +23,7 @@ package environment_test
 import (
 	"context"
 	crypto_rand "crypto/rand"
+	"encoding/hex"
 	"math/big"
 	"net"
 	"net/url"
@@ -35,15 +36,19 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/crypto"
+	op_crypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	op_signer "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum/go-ethereum"
 	geth_common "github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
+	geth_crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
+// messageWithTimestamp is a struct that contains an entry of type T
+// and a timestamp. It is used to store messages with their corresponding
+// timestamps.
 type messageWithTimestamp[T any] struct {
 	entry     T
 	timestamp time.Time
@@ -270,9 +275,16 @@ func verifyStreamSequenceForNextN(
 	}
 }
 
-func submitGarbageDataToSequencerNamespace(ctx context.Context, espCli esp_client.EspressoClient, namespace uint64) {
+// SUBMIT_RANDOM_DATA_INTERVAL is the interval / frequency at which we
+// will attempt to submit random data to the Espresso using the
+// sequencer's namespace.
+const SUBMIT_RANDOM_DATA_INTERVAL = 500 * time.Millisecond
+
+// submitRandomDataToSequencerNamespace is a function that submits
+// random data to the sequencer namespace at a specified interval.
+func submitRandomDataToSequencerNamespace(ctx context.Context, espCli esp_client.EspressoClient, namespace uint64) {
 	// We only want to submit garbage data to the sequencer so quickly
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(SUBMIT_RANDOM_DATA_INTERVAL)
 	buffer := make([]byte, 1024*3)
 	for {
 		select {
@@ -316,69 +328,86 @@ func (f *FakeBlockType) IsMigratedChain() bool {
 
 var _ geth_types.BlockType = (*FakeBlockType)(nil)
 
+// createMaliciousEspressoBatch creates a malicious Espresso batch by
+// constructing a block with a deposit transaction. It uses the latest
+// block from the sequencer to create a new block with a deposit
+// transaction. The block is then converted to an Espresso batch using
+// the derive.BlockToEspressoBatch function.
+func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, rollupCfg *rollup.Config, hasher geth_types.TrieHasher) (*derive.EspressoBatch, error) {
+	// / Determine what the latest block in the sequencer is, so we can
+	// hope to create a valid transaction, to get something out of it.
+	latestBlock, err := cli.BlockByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	latestHeader := latestBlock.Header()
+	body := &geth_types.Body{
+		Transactions: []*geth_types.Transaction{
+			geth_types.NewTx(
+				&geth_types.DepositTx{
+					Value: big.NewInt(1000),
+				},
+			),
+		},
+	}
+
+	return derive.BlockToEspressoBatch(
+		rollupCfg,
+		geth_types.NewBlock(
+			&geth_types.Header{
+				ParentHash: latestBlock.Hash(),
+				UncleHash:  latestHeader.UncleHash,
+				Coinbase:   latestHeader.Coinbase,
+				Root:       latestHeader.Root,
+				Bloom:      latestHeader.Bloom,
+				Difficulty: latestHeader.Difficulty,
+				Number:     new(big.Int).Add(latestBlock.Number(), big.NewInt(1)),
+				GasLimit:   latestHeader.GasLimit,
+				GasUsed:    latestHeader.GasUsed,
+				Time:       latestHeader.Time + 1,
+				Extra:      latestHeader.Extra,
+				MixDigest:  latestHeader.MixDigest,
+				Nonce:      latestHeader.Nonce,
+			},
+			body,
+			nil,
+			hasher,
+			&FakeBlockType{},
+		),
+	)
+}
+
+// SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL is the interval / frequency
+// at which we will attempt to submit valid data with the wrong signature to the
+// Espresso using the sequencer's namespace.
+const SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL = 500 * time.Millisecond
+
 // Attack Espresso Integrity by Submitting Valid Data with the wrong
 // Signature to the Sequencer's namespace.
 func submitValidDataWithWrongSignature(ctx context.Context, rollupCfg *rollup.Config, l2Seq *ethclient.Client, espCli esp_client.EspressoClient, namespace uint64) {
 	// We only want to submit garbage data to the sequencer so quickly
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL)
 	stackTrie := trie.NewStackTrie(func(path []byte, hash geth_common.Hash, blob []byte) {})
-	privateKeyString := "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690e"
-	factory, _, err := crypto.ChainSignerFactoryFromConfig(nil, privateKeyString, "", "", op_signer.CLIConfig{})
-	if err != nil {
-		return
-	}
 
-	randomChainSigner := factory(big.NewInt(int64(namespace)), geth_common.Address{})
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
-
-		// Determine what the latest block in the sequencer is, so we can
-		// hope to create a valid transaction, to get something out of it.
-		latestBlock, err := l2Seq.BlockByNumber(ctx, nil)
+		privateKey, err := geth_crypto.GenerateKey()
 		if err != nil {
-			// Skip
 			continue
 		}
-
-		latestHeader := latestBlock.Header()
-		body := &geth_types.Body{
-			Transactions: []*geth_types.Transaction{
-				geth_types.NewTx(
-					&geth_types.DepositTx{
-						Value: big.NewInt(1000),
-					},
-				),
-			},
+		privateKeyString := hex.EncodeToString(geth_crypto.FromECDSA(privateKey))
+		factory, _, err := op_crypto.ChainSignerFactoryFromConfig(nil, privateKeyString, "", "", op_signer.CLIConfig{})
+		if err != nil {
+			continue
 		}
+		randomChainSigner := factory(big.NewInt(int64(namespace)), geth_common.Address{})
 
-		batch, err := derive.BlockToEspressoBatch(
-			rollupCfg,
-			geth_types.NewBlock(
-				&geth_types.Header{
-					ParentHash: latestBlock.Hash(),
-					UncleHash:  latestHeader.UncleHash,
-					Coinbase:   latestHeader.Coinbase,
-					Root:       latestHeader.Root,
-					Bloom:      latestHeader.Bloom,
-					Difficulty: latestHeader.Difficulty,
-					Number:     new(big.Int).Add(latestBlock.Number(), big.NewInt(1)),
-					GasLimit:   latestHeader.GasLimit,
-					GasUsed:    latestHeader.GasUsed,
-					Time:       latestHeader.Time + 1,
-					Extra:      latestHeader.Extra,
-					MixDigest:  latestHeader.MixDigest,
-					Nonce:      latestHeader.Nonce,
-				},
-				body,
-				nil,
-				stackTrie,
-				&FakeBlockType{},
-			),
-		)
+		batch, err := createMaliciousEspressoBatch(ctx, l2Seq, rollupCfg, stackTrie)
 
 		if err != nil {
 			// Skip
@@ -396,11 +425,76 @@ func submitValidDataWithWrongSignature(ctx context.Context, rollupCfg *rollup.Co
 	}
 }
 
+// fakeChainSigner is a fake implementation of the ChainSigner interface.
+// It will create fake signatures for the transaction.
+type fakeChainSigner struct{}
+
+var _ op_crypto.ChainSigner = (*fakeChainSigner)(nil)
+
+// Sign implements crypto.ChainSigner.
+func (f *fakeChainSigner) Sign(ctx context.Context, hash []byte) ([]byte, error) {
+	sig := make([]byte, geth_crypto.SignatureLength)
+	_, err := crypto_rand.Read(sig)
+	if err != nil {
+		return nil, err
+	}
+	return sig, nil
+}
+
+// SignTransaction implements crypto.ChainSigner.
+func (f *fakeChainSigner) SignTransaction(
+	ctx context.Context,
+	addr geth_common.Address,
+	tx *geth_types.Transaction,
+) (*geth_types.Transaction, error) {
+	// This is a fake implementation, and we're not expecting this method to be
+	// called in this test, so this should be safe.
+	panic("unimplemented")
+}
+
+// SUBMIT_VALID_DATA_WITH_RANDOM_SIGNATURE_INTERVAL is the interval / frequency
+// at which we will attempt to submit valid data with a random signature to the
+// Espresso using the sequencer's namespace.
+const SUBMIT_VALID_DATA_WITH_RANDOM_SIGNATURE_INTERVAL = 100 * time.Millisecond
+
 // Attack Espresso Integrity by Submitting A properly formatted
 // transaction, with a random signature value to the Sequencer's
 // namespace
-func submitValidDataWithRandomSignature(ctx context.Context, l2Seq *ethclient.Client, espCli esp_client.EspressoClient, namespace uint64) {
+func submitValidDataWithRandomSignature(
+	ctx context.Context,
+	rollupCfg *rollup.Config,
+	l2Seq *ethclient.Client,
+	espCli esp_client.EspressoClient,
+	namespace uint64,
+) {
+	// We only want to submit garbage data to the sequencer so quickly
+	ticker := time.NewTicker(SUBMIT_VALID_DATA_WITH_RANDOM_SIGNATURE_INTERVAL)
+	stackTrie := trie.NewStackTrie(func(path []byte, hash geth_common.Hash, blob []byte) {})
+	signer := new(fakeChainSigner)
 
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		batch, err := createMaliciousEspressoBatch(ctx, l2Seq, rollupCfg, stackTrie)
+
+		if err != nil {
+			// Skip
+			continue
+		}
+
+		txn, err := batch.ToEspressoTransaction(ctx, namespace, signer)
+		if err != nil {
+			// Skip
+			continue
+		}
+
+		// Submit garbage data to the sequencer namespace
+		_, _ = espCli.SubmitTransaction(ctx, *txn)
+	}
 }
 
 // TestSequencerFeedConsistency is a test that ensures that the sequence of
@@ -457,7 +551,6 @@ func TestSequencerFeedConsistency(t *testing.T) {
 
 	// Let's verify that these streams are producing the same blocks
 	// in the same order. We will do this by waiting for a few blocks to
-
 	verifyStreamSequenceForNextN(ctx, t, seqStream, verifStream, caffStream, 100)
 }
 
@@ -516,7 +609,7 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 
 	// Attack Espresso Integrity by Submitting Garbage Data to the Same
 	// namespace as the Sequencer's namespace.
-	go submitGarbageDataToSequencerNamespace(ctx, espCli, namespace)
+	go submitRandomDataToSequencerNamespace(ctx, espCli, namespace)
 
 	// Attack Espresso Integrity by Submitting Valid Data with the wrong
 	// Signature to the Sequencer's namespace.
@@ -525,7 +618,7 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	// Attack Espresso Integrity by Submitting A properly formatted
 	// transaction, with a random signature value to the Sequencer's
 	// namespace
-	go submitValidDataWithRandomSignature(ctx, l2Seq, espCli, namespace)
+	go submitValidDataWithRandomSignature(ctx, system.RollupConfig, l2Seq, espCli, namespace)
 
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	caff := system.NodeClient(env.RoleCaffNode)
@@ -535,18 +628,9 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	defer verifStream.sub.Unsubscribe()
 	defer caffStream.sub.Unsubscribe()
 
-	// We need to sync these streams up.  We created them at different points
-	// in their life times. so we need to wait for them all to be at the same
-	// block height before we start comparing them.
-	//
-	// It is most likely going to be the case that the sequencer is ahead of
-	// the verifier and the caff node.  We would expect the caff node to be
-	// ahead of the verifier, but we will play it safe, and just make no
-	// assumptions by grabbing the largest block
+	// Sync the Streams to the same block height
 	ensureStreamsAreSynced(ctx, seqStream, verifStream, caffStream)
 
-	// Let's verify that these streams are producing the same blocks
-	// in the same order. We will do this by waiting for a few blocks to
-
+	// Verify the sequence of blocks being produced.
 	verifyStreamSequenceForNextN(ctx, t, seqStream, verifStream, caffStream, 100)
 }
