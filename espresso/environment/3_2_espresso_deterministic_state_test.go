@@ -92,7 +92,8 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	}
 
 	numIterations := 10
-	attackRound := 5
+	attackRoundEspresso := 5 // the round where we send transaction directly to Espresso outside of the batcher
+	// Sishan TODO: attackRoundL1 := 7       // the round where we send transaction directly to L1 without going through the batcher
 	// Compare states between nodes for multiple latest blocks
 	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
 	for i := 0; i < numIterations; i++ {
@@ -119,7 +120,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 		// When it is the attack round, try to send some invalid Espresso transactions (but looks valid) directly to Espresso, outside of the batcher.
 		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through.
-		if i == attackRound {
+		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
 			fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
 			if err != nil {
