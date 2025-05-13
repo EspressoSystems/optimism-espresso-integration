@@ -156,9 +156,7 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 
 	// Wait for batcher to start advancing L2 head
 	_, err := geth.WaitForBlockToBeSafe(big.NewInt(2), l2Seq, 2*time.Minute)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("L2 isn't progressing:\nhave:\n\t%v\nwant:\n\t%v", have, want)
-	}
+	require.NoError(t, err, "L2 isn't progressing as expected")
 
 	t.Log("L2 is progressing")
 
