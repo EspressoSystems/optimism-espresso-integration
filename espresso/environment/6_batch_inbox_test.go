@@ -14,17 +14,29 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
 
-const MOCK_AUTHENTICATOR_ADDR = "0xBAD8ae8e955D24D64D0b21b839ceF63075757Bc7"
-
-// TestE2eDevNetWithInvalidAttestation verifies that the batcher correctly fails to register
-// when provided with an invalid attestation. This test ensures that the batch inbox contract
-// properly validates attestations
+// TestE2eDevNetWithoutAuthenticatingBatches verifies BatchInboxContract behaviour when batches
+// aren't attested before being posted to batch inbox. To do this, we substitute BatchAuthenticatorAddress
+// in batcher config with a zero address, which will never revert as it has no contract deployed.
+// This way we trick batcher into posting unauthenticated batches to batch inbox.
+// We then verify that these batches aren't accepted by the batch inbox contract and derivation pipeline.
+//
+// The test is defined as follows
+// Arrange:
+//
+//	Deploy a mock BatchAuthenticator.
+//	Configure batcher to use said authenticator instead of the real one.
+//	Start sequencer, batcher in Espresso mode and OP node.
+//
+// Assert:
+//
+//	Assert that transaction submitting the batch was reverted by
+//	batch inbox contract
+//	Assert that derivation pipeline doesn't progress
 func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -34,9 +46,6 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 	system, _, err :=
 		launcher.StartDevNet(ctx, t, 0,
 			env.Config(func(cfg *e2esys.SystemConfig) {
-				cfg.L1Allocs[common.HexToAddress(MOCK_AUTHENTICATOR_ADDR)] = types.Account{
-					Code: hexutil.MustDecode("0x6080604052348015600e575f5ffd5b00fea26469706673582212202ea613f61d0ebf0addf2d722c3c06a3a613dd4932a28ed1c2e9aca8ca656808964736f6c634300081e0033"),
-				}
 				cfg.DisableBatcher = true
 			}),
 		)
@@ -50,7 +59,8 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 	batchDriver.BatchSubmitter.RollupConfig.BatchAuthenticatorAddress = common.Address{}
 
 	// Substitute batcher's transaction manager with one that always sends transactions, even
-	// if they don't succeed
+	// if they won't succeed. Otherwise batcher wouldn't submit transactions that would revert to
+	// batch inbox
 	txMgrCliConfig := setuputils.NewTxMgrConfig(system.NodeEndpoint(e2esys.RoleL1), system.Cfg.Secrets.Batcher)
 	txMgrConfig, err := txmgr.NewConfig(txMgrCliConfig, log.Root())
 	require.NoError(t, err)
@@ -93,7 +103,7 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 
 	require.Equal(t, receipt.Status, types.ReceiptStatusFailed, "transaction should've been rejected by BatchInbox contract")
 
-	_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(1), system.NodeClient(e2esys.RoleVerif), time.Minute*1)
+	_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(1), system.NodeClient(e2esys.RoleVerif), time.Minute)
 	require.Error(t, err)
 }
 
