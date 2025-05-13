@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
+	"io"
 	"log/slog"
 	"math/big"
 	"testing"
@@ -37,7 +38,7 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -75,7 +76,7 @@ func TestPipelineEnhancement(t *testing.T) {
 	l1RefClient, err := sources.NewL1Client(l1ClientFetching, l, nil, sources.L1ClientDefaultConfig(system.RollupConfig, true, sources.RPCKindStandard))
 
 	system.RollupConfig.EcotoneTime = nil
-	factory := derive.NewDataSourceFactory(nil, system.RollupConfig, l1RefClient, nil, nil)
+	factory := derive.NewDataSourceFactory(l, system.RollupConfig, l1RefClient, nil, nil)
 
 	batcherAddress := crypto.PubkeyToAddress(*system.BatchSubmitter.BatcherPublicKey)
 	l1Block, err := l1Client.BlockByNumber(ctx, receipt.BlockNumber)
@@ -86,8 +87,10 @@ func TestPipelineEnhancement(t *testing.T) {
 		ParentHash: l1Block.ParentHash(),
 		Time:       l1Block.Time(),
 	}
-	dataIter, err := factory.OpenData(ctx, l1BlockRef, batcherAddress)
+	datas, err := factory.OpenData(ctx, l1BlockRef, batcherAddress)
 	require.NoError(t, err)
-	log.Info("dataIter", "val", dataIter)
 
+	data, err := datas.Next(ctx)
+	require.Equal(t, data, eth.Data(nil))
+	require.Equal(t, err, io.EOF)
 }
