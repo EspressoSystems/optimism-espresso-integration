@@ -117,41 +117,39 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
+		// When it is the attack round, try to send some invalid Espresso transactions (but looks valid) directly to Espresso, outside of the batcher.
+		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through.
 		if i == attackRound {
-			// Try to send some invalid Espresso transactions (but looks valid) directly to Espresso, outside of the batcher.
-			// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through
-			{
-				// Create a fake Espresso transaction
-				fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
-				if err != nil {
-					t.Fatalf("Failed to get fake batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-				}
-				fakeEspressoTransaction, err := createEspressoTransaction(system.Cfg.L2ChainIDBig(), fakeBatcherPrivateKey)
-				if err != nil {
-					t.Fatalf("Failed to create fake Espresso transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-				}
+			// Create a fake Espresso transaction
+			fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
+			if err != nil {
+				t.Fatalf("Failed to get fake batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+			}
+			fakeEspressoTransaction, err := createEspressoTransaction(system.Cfg.L2ChainIDBig(), fakeBatcherPrivateKey)
+			if err != nil {
+				t.Fatalf("Failed to create fake Espresso transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+			}
 
-				// Send transaction directly to Espresso to bypass the batcher
-				_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
-				if err != nil {
-					t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-				}
+			// Send transaction directly to Espresso to bypass the batcher
+			_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
+			if err != nil {
+				t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+			}
 
-				// Make sure the transaction won't make it through to caff node by checking the unmarshal will fail
-				// This check will help eliminate the test waiting time
-				// And the check also directly reflect whether the transaction is valid or not
-				caffStreamer := caffNode.OpNode.EspressoStreamer()
-				_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
-				if have, want := err.Error(), "invalid signer"; have != want {
-					t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-				}
+			// Make sure the transaction won't make it through to caff node by checking the unmarshal will fail
+			// This check will help eliminate the test waiting time
+			// And the check also directly reflect whether the transaction is valid
+			caffStreamer := caffNode.OpNode.EspressoStreamer()
+			_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
+			if have, want := err.Error(), "invalid signer"; have != want {
+				t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
 
-				// Make sure the transaction will go through to op node by checking it will fail to go through batch submitter's streamer
-				batchSubmitter := system.BatchSubmitter
-				_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
-				if have, want := err.Error(), "invalid signer"; have != want {
-					t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-				}
+			// Make sure the transaction won't go through to op node by checking it will fail to go through batch submitter's streamer
+			batchSubmitter := system.BatchSubmitter
+			_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
+			if have, want := err.Error(), "invalid signer"; have != want {
+				t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 		}
 
@@ -188,7 +186,7 @@ func realBatcherPrivateKey(system *e2esys.System) (*ecdsa.PrivateKey, error) {
 
 // createEspressoTransaction creates a Espresso transaction with a FAKE or REAL batcher private key
 func createEspressoTransaction(chainID *big.Int, batcherKey *ecdsa.PrivateKey) (*espressoCommon.Transaction, error) {
-	// This is the genesis Espresso transaction that created by honest batcher
+	// This is the genesis Espresso transaction that created by honest sequencer
 	bufData, err := hexutil.Decode("0xf90388f9023da00d68b82fa254b7d23a8584bcaa67be241a269c86aac05a2a6fc805a672bb910ea01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347944200000000000000000000000000000000000011a0d6cc9c002bc6a8d1c8501c57301b6b2f037494e1e0f61e417411e17f4e80b5afa028881bc4fc4c5fa67f26462837f88937961b6667ae4af043218a0c1b72a5f53ca0d8056577b8ef8e580c0ebc96def906b3699ddc8d91e15abf9c7a7e7bb4f85c96b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080018401c9c380830272ca84681d98b780a0000000000000000000000000000000000000000000000000000000000000000088000000000000000001a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218080a00000000000000000000000000000000000000000000000000000000000000000f849a00d68b82fa254b7d23a8584bcaa67be241a269c86aac05a2a6fc805a672bb910e80a0d7d069186bed40982ca7e7747d61c78718d0dda165d74e62164c1bba165001f784681d98b7c0b8fb7ef8f8a07a2aa57f213dfe5e61ceaebcd45c61252157b4e3c1e82e1ec0dca455b1173ad894deaddeaddeaddeaddeaddeaddeaddeaddead00019442000000000000000000000000000000000000158080830f424080b8a4440a5e20000f424000000000000000000000000100000000681d98b60000000000000000000000000000000000000000000000000000000000000000000000003b9aca000000000000000000000000000000000000000000000000000000000000000001d7d069186bed40982ca7e7747d61c78718d0dda165d74e62164c1bba165001f70000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc")
 	if err != nil {
 		log.Error("failed to decode Espresso transaction in the test", "error", err)
