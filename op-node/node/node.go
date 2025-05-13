@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -535,6 +537,10 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) (err error) {
 	// p2pSigner may still be nil, the signer setup may not create any signer, the signer is optional
 	n.p2pSigner, err = cfg.P2PSigner.SetupSigner(ctx)
 	return
+}
+
+func (n *OpNode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
 }
 
 func (n *OpNode) Start(ctx context.Context) error {

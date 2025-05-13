@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/services"
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
@@ -17,6 +18,14 @@ import (
 
 type Opnode struct {
 	node *rollupNode.OpNode
+}
+
+// Get the Espresso streamer.
+//
+// Note: This function should be used carefully to avoid a stall, since it is a getter and does not
+// create a new instance, which means the caller may deprive the node of the batches.
+func (o *Opnode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return o.node.EspressoStreamer()
 }
 
 func (o *Opnode) InteropRPC() (endpoint string, jwtSecret eth.Bytes32) {
