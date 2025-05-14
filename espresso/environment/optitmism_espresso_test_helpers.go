@@ -19,15 +19,22 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient"
 	gethNode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -669,4 +676,25 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 	}
 
 	t.Fatalf("unable to determine how to stop the given node")
+}
+
+// Similar to SendDepositTx but do not wait for the receipt.
+func SendDepositTxNoReceipt(t *testing.T, cfg e2esys.SystemConfig, l1Client *ethclient.Client, l2Client *ethclient.Client, l1Opts *bind.TransactOpts, applyL2Opts helpers.DepositTxOptsFn) {
+	l2Opts := helpers.DefaultDepositTxOpts(l1Opts)
+	if applyL2Opts != nil {
+		applyL2Opts(l2Opts)
+	}
+
+	// Find deposit contract
+	depositContract, err := bindings.NewOptimismPortal(cfg.L1Deployments.OptimismPortalProxy, l1Client)
+	require.NoError(t, err)
+
+	// Finally send TX
+	// Add 10% padding for the L1 gas limit because the estimation process can be affected by the 1559 style cost scale
+	// for buying L2 gas in the portal contracts.
+	tx, err := transactions.PadGasEstimate(l1Opts, 1.1, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		return depositContract.DepositTransaction(opts, l2Opts.ToAddr, l2Opts.Value, l2Opts.GasLimit, l2Opts.IsCreation, l2Opts.Data)
+	})
+	require.NoError(t, err, "with deposit tx")
+	t.Logf("SendDepositTx: transaction sent: %v", tx.Hash())
 }
