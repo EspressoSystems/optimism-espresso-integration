@@ -234,12 +234,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	i := start
 
 	for i <= currentBlockHeight {
-		s.Log.Info("Remaining list before", "Size", len(s.RemainingBatches))
 
 		// Process the remaining batches
 		s.processRemainingBatches(ctx)
 
-		s.Log.Info("Remaining list after", "Size", len(s.RemainingBatches))
 		// Process the new batches fetched from Espresso
 		if err := s.processHotShotRange(ctx, i, finish); err != nil {
 			return fmt.Errorf("failed to process hotshot range: %w", err)
