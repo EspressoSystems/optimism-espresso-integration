@@ -255,7 +255,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	// once this StartDevNet returns, we have a running Espresso Dev Node
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
