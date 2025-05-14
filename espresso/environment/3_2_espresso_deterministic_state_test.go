@@ -181,7 +181,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				GasFeeCap: big.NewInt(200),
 				Gas:       21_000,
 			})
-			// Send a transaction directly to L1 (not batch inbox)
+			// Send a transaction directly to L1
 			err = l1ClientComp.SendTransaction(ctx, tx)
 			if have, want := err, error(nil); have != want {
 				t.Fatalf("failed to send transaction directly to L1:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
