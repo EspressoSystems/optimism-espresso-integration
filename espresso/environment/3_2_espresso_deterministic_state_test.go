@@ -21,6 +21,7 @@ import (
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // TestDeterministicDerivationExecutionStateWithInvalidTransaction is a test that
@@ -144,14 +145,20 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				Nonce:     1,
 				To:        &system.RollupConfig.BatchInboxAddress,
 				Value:     big.NewInt(1),
-				GasTipCap: big.NewInt(10),
-				GasFeeCap: big.NewInt(200),
-				Gas:       21_000,
+				GasTipCap: big.NewInt(1 * params.GWei),
+				GasFeeCap: big.NewInt(10 * params.GWei),
+				Gas:       5_000_000,
 			})
 			// Send a transaction directly to L1
 			err = l1Client.SendTransaction(ctx, tx)
 			if have, want := err, error(nil); have != want {
 				t.Fatalf("failed to send transaction directly to L1:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
+
+			// Wait for the receipt to fail
+			_, err = wait.ForReceiptFail(ctx, l1Client, tx.Hash())
+			if have, want := err, error(nil); have != want {
+				t.Fatalf("failed to get receipt for transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 		}
 
