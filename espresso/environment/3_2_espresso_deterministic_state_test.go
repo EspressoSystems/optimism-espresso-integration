@@ -15,19 +15,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/dial"
-	"github.com/ethereum-optimism/optimism/op-service/endpoint"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/metrics"
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/stretchr/testify/require"
 )
 
 // TestDeterministicDerivationExecutionStateWithInvalidTransaction is a test that
@@ -81,17 +74,6 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
-	// Setup for later directly sending to L1
-	rpcClient := endpoint.DialRPC(endpoint.PreferAnyRPC, system.NodeEndpoint(e2esys.RoleL1), func(v string) *rpc.Client {
-		logger := testlog.Logger(t, log.LevelInfo).New("node", e2esys.RoleL1)
-		cl, err := dial.DialRPCClientWithTimeout(context.Background(), 30*time.Second, logger, v)
-		require.NoError(t, err, "failed to dial eth node instance %s", e2esys.RoleL1)
-		return cl
-	})
-
-	metricsFactory := metrics.With(metrics.NewRegistry())
-	metricsClient := metrics.MakeRPCClientMetrics("test", metricsFactory)
-	l1ClientComp := client.NewInstrumentedClient(rpcClient, &metricsClient)
 
 	// We want to send some transactions from Bob to Alice
 	{
@@ -182,7 +164,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				Gas:       21_000,
 			})
 			// Send a transaction directly to L1
-			err = l1ClientComp.SendTransaction(ctx, tx)
+			err = l1Client.SendTransaction(ctx, tx)
 			if have, want := err, error(nil); have != want {
 				t.Fatalf("failed to send transaction directly to L1:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
