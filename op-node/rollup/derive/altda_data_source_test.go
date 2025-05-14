@@ -622,7 +622,7 @@ func TestAltDADataSourceL1FetcherErrors(t *testing.T) {
 		ParentHash: parent.Hash,
 		Time:       parent.Time + l1Time,
 	}
-	// mock input commitments in l1 transactions with an oversized input
+	// mock input to include in l1 transaction
 	input := testutils.RandomData(rng, 200)
 	comm, _ := storage.SetInput(ctx, input)
 
