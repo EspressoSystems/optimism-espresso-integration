@@ -10,7 +10,6 @@ import (
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
@@ -75,10 +74,7 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
-
-	// caffVerif := system.NodeClient(env.RoleCaffNode)
-	// Get caffNodeL2Client from caff node's engine state
-	caffNodeL2Client := caffNode.OpNode.EngineState()
+	caffVerif := system.NodeClient(env.RoleCaffNode)
 
 	// We want to send some transactions from Bob to Alice
 	{
@@ -108,11 +104,9 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 		t.Fatalf("Failed to get initial l2Seq header: %v", err)
 	}
 
-	lastCaffHead, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Finalized)
+	lastCaffHead, err := caffVerif.BlockByNumber(ctx, nil)
 	if err != nil {
-		system.Cfg.Loggers["verifier"].Error("Failed to get initial caffNodeL2Client header", "err", err)
-	} else {
-		system.Cfg.Loggers["verifier"].Info("In the test", "lastCaffHead", lastCaffHead.Number)
+		t.Fatalf("Failed to get initial caffVerif header: %v", err)
 	}
 
 	for {
@@ -132,27 +126,27 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 			lastHead = newHead
 			system.Cfg.Loggers["verifier"].Info("In the test", "lastHead", lastHead.Number)
 
-			newCaff, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Finalized)
+			newCaff, err := caffVerif.BlockByNumber(ctx, nil)
 			if err != nil {
-				system.Cfg.Loggers["verifier"].Error("Failed to get new caffNodeL2Client header", "err", err)
+				t.Fatalf("Failed to get new caffVerif header: %v", err)
 			} else {
 				// Skip the warm-up period and check for new block by comparing the latest hash
-				if newCaff.Number != 0 && newCaff.Number == lastCaffHead.Number {
+				if newCaff.Number().Cmp(big.NewInt(0)) != 0 && newCaff.Hash() == lastCaffHead.Hash() {
 					// we only report an error here, but not return a failure
-					system.Cfg.Loggers["verifier"].Error("No new block for caff-node after 2 seconds: current number %v", newCaff.Number)
+					system.Cfg.Loggers["verifier"].Error("No new block for caff-node RPC after 2 seconds: current number %v", newCaff.Number())
 				} else {
 					// instead, we check block timestamps
-					lastBlockTime := lastCaffHead.Time
-					for j := lastCaffHead.Number + 1; j <= newCaff.Number; j++ {
-						block, err := caffNodeL2Client.L2BlockRefByNumber(ctx, j)
+					lastBlockTime := lastCaffHead.Time()
+					for j := new(big.Int).Add(lastCaffHead.Number(), big.NewInt(1)); j.Cmp(newCaff.Number()) <= 0; j.Add(j, big.NewInt(1)) {
+						block, err := caffVerif.BlockByNumber(ctx, j)
 						if err != nil {
-							t.Fatalf("Failed to get block from caffNodeL2Client: %v", err)
+							t.Fatalf("Failed to get block from caffVerif: %v", err)
 						}
 						// check the block timestamp
-						if have, want := block.Time, lastBlockTime+1; have != want {
+						if have, want := block.Time(), lastBlockTime+uint64(1); have != want {
 							t.Fatalf("Block timestamp mismatch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 						}
-						lastBlockTime = block.Time
+						lastBlockTime = block.Time()
 					}
 				}
 				lastCaffHead = newCaff
