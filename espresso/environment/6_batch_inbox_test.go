@@ -44,7 +44,7 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	system, _, err :=
-		launcher.StartDevNet(ctx, t, 0,
+		launcher.StartDevNet(ctx, t,
 			env.Config(func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
 			}),
