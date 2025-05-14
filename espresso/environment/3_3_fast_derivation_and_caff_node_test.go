@@ -96,8 +96,8 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 		})
 	}
 
-	// Initialize ticker to fire every 4 seconds
-	ticker := time.NewTicker(4 * time.Second)
+	// Initialize ticker to fire every 2 seconds
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	finishticker := time.NewTicker(20 * time.Second)
@@ -108,11 +108,6 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 		t.Fatalf("Failed to get initial l2Seq header: %v", err)
 	}
 
-	// lastCaffHead, err := caffVerif.HeaderByNumber(ctx, nil)
-	// if err != nil {
-	// 	t.Fatalf("Failed to get initial caffVerif header: %v", err)
-	// }
-	// system.Cfg.Loggers["verifier"].Info("In the test", "lastCaffHead", lastCaffHead.Number)
 	lastCaffHead, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Finalized)
 	if err != nil {
 		system.Cfg.Loggers["verifier"].Error("Failed to get initial caffNodeL2Client header", "err", err)
@@ -137,26 +132,28 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 			lastHead = newHead
 			system.Cfg.Loggers["verifier"].Info("In the test", "lastHead", lastHead.Number)
 
-			// Check for new block of caff-node
-			// newCaffHead, err := caffVerif.HeaderByNumber(ctx, nil)
-			// if err != nil {
-			// 	t.Fatalf("Failed to get new caffVerif header: %v", err)
-			// }
-			// // Skip the warm-up period and check for new block by comparing the latest hash
-			// if newCaffHead.Number.Cmp(big.NewInt(0)) != 0 && newCaffHead.Hash() == lastCaffHead.Hash() {
-			// 	t.Fatalf("No new block for caff-node after 2 seconds: current hash %v", newCaffHead.Hash())
-			// }
-			// lastCaffHead = newCaffHead
-			// system.Cfg.Loggers["verifier"].Info("In the test", "lastCaffHead", lastCaffHead.Number)
-
 			newCaff, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Finalized)
 			if err != nil {
 				system.Cfg.Loggers["verifier"].Error("Failed to get new caffNodeL2Client header", "err", err)
 			} else {
 				// Skip the warm-up period and check for new block by comparing the latest hash
-				if newCaff.Number != 0 && newCaff.Number != lastCaffHead.Number {
-					// system.Cfg.Loggers["verifier"].Info("In the test", "lastCaffHead", lastCaffHead.Number)
-					// t.Fatalf("No new block for caff-node after 2 seconds: current number %v", newCaff.Number)
+				if newCaff.Number != 0 && newCaff.Number == lastCaffHead.Number {
+					// we only report an error here, but not return a failure
+					system.Cfg.Loggers["verifier"].Error("No new block for caff-node after 2 seconds: current number %v", newCaff.Number)
+				} else {
+					// instead, we check block timestamps
+					lastBlockTime := lastCaffHead.Time
+					for j := lastCaffHead.Number + 1; j <= newCaff.Number; j++ {
+						block, err := caffNodeL2Client.L2BlockRefByNumber(ctx, j)
+						if err != nil {
+							t.Fatalf("Failed to get block from caffNodeL2Client: %v", err)
+						}
+						// check the block timestamp
+						if have, want := block.Time, lastBlockTime+1; have != want {
+							t.Fatalf("Block timestamp mismatch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+						}
+						lastBlockTime = block.Time
+					}
 				}
 				lastCaffHead = newCaff
 				system.Cfg.Loggers["verifier"].Info("In the test", "lastCaffHead", lastCaffHead.Number)
