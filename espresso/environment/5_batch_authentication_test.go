@@ -28,7 +28,7 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 	}
 
 	system, _, err :=
-		launcher.StartDevNet(ctx, t, 0,
+		launcher.StartDevNet(ctx, t,
 			env.SetBatcherKey(*privateKey),
 			env.Config(func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
@@ -69,7 +69,7 @@ func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
 	}
 
 	system, _, err :=
-		launcher.StartDevNet(ctx, t, 0,
+		launcher.StartDevNet(ctx, t,
 			env.SetBatcherKey(*privateKey),
 		)
 	if have, want := err, error(nil); have != want {

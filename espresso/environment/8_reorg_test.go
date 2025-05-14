@@ -6,13 +6,189 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	rpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
+
+// TestBatcherWaitForFinality is a test that attempts to make sure that the batcher waits for the
+// derived L1 block to be finalized before submitting a new block.
+//
+// This tests is designed to evaluate Test 8.1.1 as outlined within the Espresso Celo Integration
+// plan. It has stated task definition as follows:
+//
+//	Arrange:
+//		Run the sequencer and the batcher in Espresso mode.
+//	Act:
+//		Wait until a new block is finalized.
+//	Assert:
+//		The batcher doesn't submit a block without finalized L1 origin to the L1.
+//		After the L1 origin is finalized, the batcher submits the block.
+func TestBatcherWaitForFinality(t *testing.T) {
+	// Basic test setup.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	launcher := new(env.EspressoDevNodeLauncherDocker)
+
+	// Set NonFinalizedProposals to true and SequencerUseFinalized to false, to make sure we are
+	// testing how the batcher handles the finality.
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+	defer env.Stop(t, system)
+	defer env.Stop(t, espressoDevNode)
+
+	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+	defer env.Stop(t, caffNode)
+
+	rollupClient := system.RollupClient(e2esys.RoleVerif)
+
+	initialStatus, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
+	initialSafeL1Number := initialStatus.SafeL1.Number
+
+	// Wait for new blocks to be finalized, which will enable the batcher to submit more blocks to
+	// to the L1.
+	tickerFinality := time.NewTicker(1 * time.Second)
+	defer tickerFinality.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "Timeout: Finalized L1 number not increased by 10")
+		case <-tickerFinality.C:
+			// Verify that the batcher waits for the L1 origin to be finalized before submitting a new
+			// block to the L1.
+			statusAfterWait, err := rollupClient.SyncStatus(context.Background())
+			require.NoError(t, err)
+			require.LessOrEqual(t, statusAfterWait.SafeL2.L1Origin.Number, statusAfterWait.FinalizedL1.Number, "L1 origin not finalized before submission")
+
+			// Exit the test if there are 10 new safe blocks on the L1.
+			if statusAfterWait.SafeL1.Number >= initialSafeL1Number+10 {
+				return
+			}
+		}
+	}
+}
+
+// VerifyL1OriginFinalized checks whether every batch in the batch buffer has a finalized L1
+// origin.
+func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
+	batch := streamer.BatchBuffer.Pop()
+	for batch != nil {
+		origin := (batch).L1Origin()
+		finalizedL1, err := l1Client.BlockByNumber(context.Background(), big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+		if err != nil {
+			return false
+		}
+
+		// Use the finalized L1 number from the Espresso streamer instead of the rollup client, in
+		// case they update their states at different times.
+		if origin.Number > finalizedL1.NumberU64() {
+			t.Log("L1 origin not finalized", "origin", origin.Number, "FinalizedL1", finalizedL1.NumberU64())
+			return false
+		}
+		batch = streamer.BatchBuffer.Pop()
+	}
+	return true
+}
+
+// VerifyBatchBufferUpdated checks whether the batch buffer is updated before the timeout.
+func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) bool {
+	tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
+	defer tickerBufferInsert.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-tickerBufferInsert.C:
+			if streamer.BatchBuffer.Len() > 0 {
+				return true
+			}
+		}
+	}
+}
+
+// TestCaffNodeWaitForFinality is a test that attempts to make sure that the Caff node waits for
+// the derived L1 block to be finalized before updating its record.
+//
+// This tests is designed to evaluate Test 8.2.1 as outlined within the Espresso Celo Integration
+// plan. It has stated task definition as follows:
+//
+//	Arrange:
+//		Run the sequencer and the Caff node in Espresso mode.
+//	Act:
+//		Wait until the Caff node's batch buffer is empty.
+//	Assert:
+//		The Caff node doesn't insert a batch without finalized L1 origin to the batch buffer.
+//		After the L1 origin is finalized, the Caff node inserts the batch.
+func TestCaffNodeWaitForFinality(t *testing.T) {
+	// Basic test setup.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	launcher := new(env.EspressoDevNodeLauncherDocker)
+
+	// Set L1FinalizedDistance to nonzero, NonFinalizedProposals to true, and SequencerUseFinalized
+	// to false, to make sure we are testing how the Caff node handles the finality.
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+	defer env.Stop(t, system)
+	defer env.Stop(t, espressoDevNode)
+
+	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+	defer env.Stop(t, caffNode)
+
+	l1Client := system.NodeClient(e2esys.RoleL1)
+	rollupClient := system.RollupClient(e2esys.RoleVerif)
+	streamer := caffNode.OpNode.EspressoStreamer()
+
+	initialStatus, err := rollupClient.SyncStatus(context.Background())
+	require.NoError(t, err)
+
+	// Wait for the batch buffer to be empty which will trigger the Caff node to sync the status
+	// and insert more batches to the buffer.
+	for {
+		if streamer.BatchBuffer.Len() == 0 {
+			// Wait for the finalized L1 number and the batch buffer to be updated.
+			for {
+				if streamer.BatchBuffer.Len() > 0 {
+					// Verify that any batch inserted into the batch buffer has a finalized L1
+					// origin.
+					if !VerifyL1OriginFinalized(t, streamer, l1Client) {
+						require.FailNow(t, "Timeout: L1 origin not finalized")
+					}
+				} else {
+					statusAfterWait, err := rollupClient.SyncStatus(context.Background())
+					require.NoError(t, err)
+					if statusAfterWait.FinalizedL1.Number > initialStatus.FinalizedL1.Number {
+						// Verify that eventually the batch buffer will be updated.
+						if !VerifyBatchBufferUpdated(ctx, streamer) {
+							require.FailNow(t, "Timeout: Batch buffer not updated")
+						}
+						return
+					}
+				}
+			}
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+}
 
 func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -73,7 +249,8 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 // Specifically, it focuses on cases where unsafe L2 chain contains blocks that
 // reference unfinalized L1 blocks as their origin.
 //
-// The test is defined as follows
+// This tests is designed to evaluate Test 8.1.2 and 8.2.2 as outlined within the Espresso Celo
+// Integration plan. The test is defined as follows:
 // Arrange:
 //
 //	Running Sequencer, Batcher in Espresso mode, Caff node & OP node.
@@ -93,7 +270,7 @@ func TestE2eDevNetWithL1Reorg(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, devNode, err := launcher.StartDevNet(ctx, t, 16)
+	system, devNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(16))
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
