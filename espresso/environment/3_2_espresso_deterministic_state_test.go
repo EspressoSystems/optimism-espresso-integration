@@ -15,12 +15,19 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/dial"
+	"github.com/ethereum-optimism/optimism/op-service/endpoint"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/metrics"
+	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDeterministicDerivationExecutionStateWithInvalidTransaction is a test that
@@ -35,7 +42,7 @@ import (
 //	Act:
 //		Send some transactions from Bob to Alice and some regular L2 transactions.
 //		While you send normal L2 tx to the sequencer and monitor the OP node as well as the Caff node,
-//		you also send transactions to Espresso using an invalid batcher address.
+//		you also send transactions to Espresso using an invalid batcher address, and transactions directly to L1 (e.g. transactions that were not previously posted to Espresso).
 //	Assert:
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 //		Query the executive machine state when Caff node is on
@@ -74,6 +81,17 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	// Setup for later directly sending to L1
+	rpcClient := endpoint.DialRPC(endpoint.PreferAnyRPC, system.NodeEndpoint(e2esys.RoleL1), func(v string) *rpc.Client {
+		logger := testlog.Logger(t, log.LevelInfo).New("node", e2esys.RoleL1)
+		cl, err := dial.DialRPCClientWithTimeout(context.Background(), 30*time.Second, logger, v)
+		require.NoError(t, err, "failed to dial eth node instance %s", e2esys.RoleL1)
+		return cl
+	})
+
+	metricsFactory := metrics.With(metrics.NewRegistry())
+	metricsClient := metrics.MakeRPCClientMetrics("test", metricsFactory)
+	l1ClientComp := client.NewInstrumentedClient(rpcClient, &metricsClient)
 
 	// We want to send some transactions from Bob to Alice
 	{
@@ -153,20 +171,20 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 		} else if i == attackRoundL1 {
+			// create a transaction
 			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &geth_types.DynamicFeeTx{
 				ChainID:   system.Cfg.L1ChainIDBig(),
 				Nonce:     1,
-				GasTipCap: big.NewInt(1),
-				GasFeeCap: big.NewInt(10),
-				Gas:       22_000,
 				To:        &system.RollupConfig.BatchInboxAddress,
-				Value:     big.NewInt(0),
-				Data:      []byte("0x00"),
+				Value:     big.NewInt(1),
+				GasTipCap: big.NewInt(10),
+				GasFeeCap: big.NewInt(200),
+				Gas:       21_000,
 			})
-			// Send a transaction directly to L1
-			err = l1Client.SendTransaction(ctx, tx)
+			// Send a transaction directly to L1 (not batch inbox)
+			err = l1ClientComp.SendTransaction(ctx, tx)
 			if have, want := err, error(nil); have != want {
-				t.Fatalf("Sending L1 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+				t.Fatalf("failed to send transaction directly to L1:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 		}
 
@@ -191,8 +209,6 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	}
 
 }
-
-
 
 // forgeBatcherPrivateKey is a helper function that forge a batcher private key
 func forgeBatcherPrivateKey() (*ecdsa.PrivateKey, error) {
