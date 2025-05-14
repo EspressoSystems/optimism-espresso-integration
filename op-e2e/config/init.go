@@ -51,11 +51,12 @@ const (
 type AllocType string
 
 const (
-	AllocTypeStandard AllocType = "standard"
-	AllocTypeAltDA    AllocType = "alt-da"
-	AllocTypeL2OO     AllocType = "l2oo"
-	AllocTypeMTCannon AllocType = "mt-cannon"
-	AllocTypeEspresso AllocType = "espresso"
+	AllocTypeStandard        AllocType = "standard"
+	AllocTypeAltDA           AllocType = "alt-da"
+	AllocTypeL2OO            AllocType = "l2oo"
+	AllocTypeMTCannon        AllocType = "mt-cannon"
+	AllocTypeEspresso        AllocType = "espresso"
+	AllocTypeEspressoEnclave AllocType = "espresso-enclave"
 
 	DefaultAllocType = AllocTypeStandard
 )
@@ -69,14 +70,14 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeAltDA, AllocTypeEspresso:
+	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeAltDA, AllocTypeEspresso, AllocTypeEspressoEnclave:
 		return true
 	default:
 		return false
 	}
 }
 
-var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspresso}
+var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspresso, AllocTypeEspressoEnclave}
 
 var (
 	// All of the following variables are set in the init function
@@ -288,6 +289,10 @@ func initAllocType(root string, allocType AllocType) {
 				}
 				intent.Chains[0].EspressoEnabled = true
 				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
+			}
+
+			if allocType == AllocTypeEspressoEnclave {
+				intent.Chains[0].EspressoEnabled = true
 			}
 
 			baseUpgradeSchedule := map[string]any{

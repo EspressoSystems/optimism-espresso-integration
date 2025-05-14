@@ -138,7 +138,9 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 
 // EspressoDevNodeLauncherDocker is an implementation of EspressoDevNodeLauncher
 // that uses Docker to launch the Espresso Dev Node
-type EspressoDevNodeLauncherDocker struct{}
+type EspressoDevNodeLauncherDocker struct {
+	EnclaveBatcher bool
+}
 
 var _ EspressoDevNetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
 
@@ -244,7 +246,14 @@ var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to det
 func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 	originalCtx := ctx
 
-	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeEspresso))
+	var allocOpt e2esys.SystemConfigOpt
+	if l.EnclaveBatcher {
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoEnclave)
+	} else {
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspresso)
+	}
+
+	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2
@@ -268,6 +277,10 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	initialOptions := []DevNetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
 		launchEspressoDevNodeDocker(),
+	}
+
+	if l.EnclaveBatcher {
+		initialOptions = append(initialOptions, launchBatcherInEnclave())
 	}
 
 	launchContext := DevNetLauncherContext{
@@ -306,6 +319,7 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 		startOptions...,
 	)
+	launchContext.System = system
 
 	if err != nil {
 		if system != nil {
@@ -421,7 +435,7 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 			StartOptions: []e2esys.StartOption{
 				{
 					Role: "set-batcher-key",
-					BatcherMod: func(c *batcher.CLIConfig) {
+					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 						c.TestingEspressoBatcherPrivateKey = hexutil.Encode(crypto.FromECDSA(&privateKey))
 					},
 				},
@@ -476,7 +490,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 			StartOptions: []e2esys.StartOption{
 				{
 					Role: "launch-espresso-dev-node",
-					BatcherMod: func(c *batcher.CLIConfig) {
+					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 						if ct.Error != nil {
 							// Early Return if we already have an Error set
 							return

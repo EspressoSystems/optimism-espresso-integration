@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -45,6 +46,11 @@ type DockerContainerConfig struct {
 
 	Network string
 	AutoRM  bool
+}
+
+type DockerBuildArg struct {
+	Name  string
+	Value string
 }
 
 // DockerCli is a simple implementation of a Docker Client that is used to
@@ -367,4 +373,25 @@ func (d *DockerCli) Logs(ctx context.Context, containerID string) (io.Reader, er
 	}(logsCmd)
 
 	return reader, err
+}
+
+func (d *DockerCli) Build(ctx context.Context, tag string, dockerfile string, target string, context string, buildArgs ...DockerBuildArg) error {
+	args := []string{
+		"build",
+		"--tag",
+		tag,
+		"--file",
+		dockerfile,
+		"--target",
+		target,
+	}
+	for _, arg := range buildArgs {
+		args = append(args, "--build-arg", arg.Name+"="+arg.Value)
+	}
+	args = append(args, context)
+
+	build := exec.CommandContext(ctx, "docker", args...)
+	build.Stdout = os.Stdout
+	build.Stderr = os.Stderr
+	return build.Run()
 }

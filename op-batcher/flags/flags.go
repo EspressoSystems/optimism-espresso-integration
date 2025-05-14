@@ -248,6 +248,8 @@ var optionalFlags = []cli.Flag{
 	PreferLocalSafeL2Flag,
 	EspressoUrlFlag,
 	EspressoLCAddrFlag,
+	EspressoPollIntervalFlag,
+	TestingEspressoBatcherPrivateKeyFlag,
 }
 
 func init() {

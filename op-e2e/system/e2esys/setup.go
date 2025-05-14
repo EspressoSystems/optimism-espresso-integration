@@ -554,7 +554,7 @@ type StartOption struct {
 	Action SystemConfigHook
 
 	// Batcher CLIConfig modifications to apply before starting the batcher.
-	BatcherMod func(*bss.CLIConfig)
+	BatcherMod func(*bss.CLIConfig, *System)
 }
 
 type startOptions struct {
@@ -577,7 +577,7 @@ func parseStartOptions(_opts []StartOption) (startOptions, error) {
 
 func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 	return StartOption{
-		BatcherMod: func(cfg *bss.CLIConfig) {
+		BatcherMod: func(cfg *bss.CLIConfig, sys *System) {
 			cfg.CompressionAlgo = ca
 		},
 	}
@@ -585,7 +585,7 @@ func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 
 func WithBatcherThrottling(interval time.Duration, threshold, txSize, blockSize uint64) StartOption {
 	return StartOption{
-		BatcherMod: func(cfg *bss.CLIConfig) {
+		BatcherMod: func(cfg *bss.CLIConfig, sys *System) {
 			cfg.ThrottleThreshold = threshold
 			cfg.ThrottleTxSize = txSize
 			cfg.ThrottleBlockSize = blockSize
@@ -1035,7 +1035,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// Apply batcher cli modifications
 	for _, opt := range startOpts {
 		if opt.BatcherMod != nil {
-			opt.BatcherMod(batcherCLIConfig)
+			opt.BatcherMod(batcherCLIConfig, sys)
 		}
 	}
 
