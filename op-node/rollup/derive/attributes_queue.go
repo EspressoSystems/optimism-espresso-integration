@@ -9,10 +9,13 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	lightclient "github.com/EspressoSystems/espresso-network-go/light-client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -80,13 +83,23 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 	}
 
 	// Create an adapter that implements espresso.L1Client
-	l1Client := NewL1BlockRefClient(l1Fetcher.L1FinalizedBlock, l1Fetcher.L1BlockRefByNumber)
+	l1BlockRefClient := NewL1BlockRefClient(l1Fetcher)
+
+	l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.L1EthRpc)
+	if err != nil {
+		return nil
+	}
+
+	lightClient, err := lightclient.NewLightclientCaller(common.HexToAddress(cfg.CaffNodeConfig.EspressoLightClientAddr), l1Client)
+	if err != nil {
+		return nil
+	}
 
 	streamer := espresso.NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
-		l1Client,
+		l1BlockRefClient,
 		espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
-		nil, // TODO(AG)
+		lightClient,
 		log,
 		func(data []byte) (*EspressoBatch, error) {
 			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
@@ -124,14 +137,15 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 // - CaffNextBatch obtains sync state differently from the batcher, it treated parent.Number() as the latest safe batch number.
 // - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
-func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*SingularBatch, bool, error) {
-	// Refresh the sync status
-	finalizedL1Block, err := l1Finalized()
+func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
+	// Get the L1 finalized block
+	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
 	if err != nil {
 		s.Log.Error("failed to get the L1 finalized block", "err", err)
 		return nil, false, err
 	}
-	if _, err := s.Refresh(ctx, finalizedL1Block, parent.Number); err != nil {
+	// Refresh the sync status
+	if _, err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
 		return nil, false, err
 	}
 
@@ -186,14 +200,14 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 	return batch, concluding, nil
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Finalized func() (eth.L1BlockRef, error), l1BlockRefByNumber func(context.Context, uint64) (eth.L1BlockRef, error)) (*AttributesWithParent, error) {
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Fetcher L1Fetcher) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
 		var batch *SingularBatch
 		var concluding bool
 		var err error
 		if aq.isCaffNode {
-			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Finalized, l1BlockRefByNumber)
+			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Fetcher)
 		} else {
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
 		}

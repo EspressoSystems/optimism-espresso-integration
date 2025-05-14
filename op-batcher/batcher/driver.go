@@ -103,7 +103,7 @@ type DriverSetup struct {
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
 	Espresso            *espressoClient.Client
-	EspressoLightClient *espressoLightClient.LightClientReader
+	EspressoLightClient *espressoLightClient.LightclientCaller
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
 	Attestation         []byte
@@ -766,6 +766,9 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
+			if l.Config.UseEspresso {
+				l.streamer.Reset()
+			}
 			return true
 		}
 	}
