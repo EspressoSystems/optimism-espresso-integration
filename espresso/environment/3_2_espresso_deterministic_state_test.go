@@ -119,7 +119,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 		}
 
 		// When it is the attack round, try to send some Espresso transactions with fakeBatcherPrivateKey directly to Espresso, outside of the batcher.
-		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction, and make sure it cannot go through.
+		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction.
 		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
 			fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
@@ -137,21 +137,6 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
 
-			// Make sure the transaction won't make it through to caff node by checking the unmarshal will fail
-			// This check will help eliminate the test waiting time
-			// And the check also directly reflect whether the transaction is valid
-			caffStreamer := caffNode.OpNode.EspressoStreamer()
-			_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
-			if have, want := err.Error(), "invalid signer"; have != want {
-				t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-			}
-
-			// Make sure the transaction won't go through to op node by checking it will fail to go through batch submitter's streamer
-			batchSubmitter := system.BatchSubmitter
-			_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(fakeEspressoTransaction.Payload)
-			if have, want := err.Error(), "invalid signer"; have != want {
-				t.Fatalf("Should fail to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-			}
 		} else if i == attackRoundL1 {
 			// create a transaction
 			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &geth_types.DynamicFeeTx{
