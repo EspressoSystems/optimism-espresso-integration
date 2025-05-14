@@ -589,7 +589,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							c.EspressoUrl = "http://" + hostPort
+							c.EspressoUrls = []string{"http://" + hostPort}
 							c.LogConfig.Level = slog.LevelDebug
 							c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
 						}

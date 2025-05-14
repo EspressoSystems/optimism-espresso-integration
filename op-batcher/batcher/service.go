@@ -139,10 +139,8 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	}
 	opts = append(optsFromRPC, opts...)
 
-	if cfg.EspressoUrl != "" {
-		var espressoUrls []string
-		espressoUrls = append(espressoUrls, cfg.EspressoUrl)
-		bs.Espresso = espresso.NewMultipleNodesClient(espressoUrls)
+	if len(cfg.EspressoUrls) > 0 {
+		bs.Espresso = espresso.NewMultipleNodesClient(cfg.EspressoUrls)
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
