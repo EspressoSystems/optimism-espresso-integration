@@ -2,6 +2,7 @@ package derive
 
 import (
 	"context"
+	"errors"
 	"io"
 	"math/big"
 	"math/rand"
@@ -552,6 +553,122 @@ func TestAltDADataSourceInvalidData(t *testing.T) {
 	data, err = src.Next(ctx)
 	require.NoError(t, err)
 	require.Equal(t, hexutil.Bytes(input3), data)
+
+	_, err = src.Next(ctx)
+	require.ErrorIs(t, err, io.EOF)
+
+	l1F.AssertExpectations(t)
+}
+
+// TestAltDADataSourceL1FetcherErrors tests that the pipeline handles intermittent errors in
+// L1Source correctly.
+func TestAltDADataSourceL1FetcherErrors(t *testing.T) {
+	logger := testlog.Logger(t, log.LevelDebug)
+	ctx := context.Background()
+
+	rng := rand.New(rand.NewSource(1234))
+
+	l1F := &testutils.MockL1Source{}
+
+	storage := altda.NewMockDAClient(logger)
+
+	pcfg := altda.Config{
+		ChallengeWindow: 90, ResolveWindow: 90,
+	}
+
+	da := altda.NewAltDAWithStorage(logger, pcfg, storage, &altda.NoopMetrics{})
+
+	// Create rollup genesis and config
+	l1Time := uint64(2)
+	refA := testutils.RandomBlockRef(rng)
+	refA.Number = 1
+	l1Refs := []eth.L1BlockRef{refA}
+	refA0 := eth.L2BlockRef{
+		Hash:           testutils.RandomHash(rng),
+		Number:         0,
+		ParentHash:     common.Hash{},
+		Time:           refA.Time,
+		L1Origin:       refA.ID(),
+		SequenceNumber: 0,
+	}
+	batcherPriv := testutils.RandomKey()
+	batcherAddr := crypto.PubkeyToAddress(batcherPriv.PublicKey)
+	batcherInbox := common.Address{42}
+	cfg := &rollup.Config{
+		Genesis: rollup.Genesis{
+			L1:     refA.ID(),
+			L2:     refA0.ID(),
+			L2Time: refA0.Time,
+		},
+		BlockTime:         1,
+		SeqWindowSize:     20,
+		BatchInboxAddress: batcherInbox,
+		AltDAConfig: &rollup.AltDAConfig{
+			DAChallengeWindow: pcfg.ChallengeWindow,
+			DAResolveWindow:   pcfg.ResolveWindow,
+			CommitmentType:    altda.KeccakCommitmentString,
+		},
+	}
+
+	signer := cfg.L1Signer()
+
+	factory := NewDataSourceFactory(logger, cfg, l1F, nil, da)
+
+	parent := l1Refs[0]
+	// create a new mock l1 ref
+	ref := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     parent.Number + 1,
+		ParentHash: parent.Hash,
+		Time:       parent.Time + l1Time,
+	}
+	// mock input commitments in l1 transactions with an oversized input
+	input := testutils.RandomData(rng, 200)
+	comm, _ := storage.SetInput(ctx, input)
+
+	tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
+		ChainID:   signer.ChainID(),
+		Nonce:     0,
+		GasTipCap: big.NewInt(2 * params.GWei),
+		GasFeeCap: big.NewInt(30 * params.GWei),
+		Gas:       100_000,
+		To:        &batcherInbox,
+		Value:     big.NewInt(int64(0)),
+		Data:      comm.TxData(),
+	})
+	require.NoError(t, err)
+
+	txs := []*types.Transaction{tx}
+	receipts := types.Receipts{&types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful}}
+
+	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+
+	src, err := factory.OpenData(ctx, ref, batcherAddr)
+	// Data source should still be opened correctly and attempt to fetch receipts
+	require.NoError(t, err)
+
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
+
+	// Should fail because receipts are still not delivered
+	_, err = src.Next(ctx)
+	require.Error(t, err)
+
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
+
+	// Should fail because receipts do not match the transactions
+	_, err = src.Next(ctx)
+	require.Error(t, err)
+
+	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
+
+	// regular input is passed through
+	data, err := src.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, hexutil.Bytes(input), data)
 
 	_, err = src.Next(ctx)
 	require.ErrorIs(t, err, io.EOF)
