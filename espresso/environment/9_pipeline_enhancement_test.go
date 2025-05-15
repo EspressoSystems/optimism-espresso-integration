@@ -91,6 +91,8 @@ func TestPipelineEnhancement(t *testing.T) {
 	require.NoError(t, err)
 
 	data, err := datas.Next(ctx)
+
+	// The L1 data collected by the derivation pipeline is empty because the batch information has been discarded
 	require.Equal(t, data, eth.Data(nil))
 	require.Equal(t, err, io.EOF)
 }
