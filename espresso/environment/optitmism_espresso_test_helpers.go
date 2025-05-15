@@ -415,6 +415,32 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 	}
 }
 
+func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLauncherOption {
+	return func(ct *DevNetLauncherContext) E2eSystemOption {
+
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					BatcherMod: func(c *batcher.CLIConfig) {
+
+						goodUrl := c.EspressoUrls[0]
+						var urls []string
+
+						for i := 0; i < numGood; i++ {
+							urls = append(urls, goodUrl)
+						}
+
+						for i := 0; i < numBad; i++ {
+							urls = append(urls, badServerUrl)
+						}
+						c.EspressoUrls = urls
+					},
+				},
+			},
+		}
+	}
+}
+
 func Config(fn func(*e2esys.SystemConfig)) DevNetLauncherOption {
 	return func(ct *DevNetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
