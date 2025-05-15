@@ -15,8 +15,10 @@ import (
 
 const DUMMY_SERVER_HOST = "localhost"
 const DUMMY_SERVER_PORT = "8888"
+const ERROR_EXPECTED = true
+const NO_ERROR_EXPECTED = false
 
-// This dummy Espresso node return "hello" to all requests
+// This dummy Espresso Query Service node returns "hello" to all requests
 func startServer() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello")
@@ -30,6 +32,7 @@ func startServer() {
 	}()
 }
 
+// A small test to ensure the dummy server runs properly
 func TestHelloServer(t *testing.T) {
 	startServer()
 	time.Sleep(100 * time.Millisecond) // Let server start
@@ -46,7 +49,15 @@ func TestHelloServer(t *testing.T) {
 	}
 }
 
-func launch(t *testing.T, numGoodUrls int, numBadUrls int, badServerUrl string, expectedError bool) {
+// runWithMultiClient spins up the sequencer, L2 verifier and batcher in Espresso mode.
+// Moreover, a dummy Espresso Query Service (EQS) is run on port DUMMY_SERVER_PORT.
+// The batcher is initialized with M good Espresso urls and N bad ones (using the dummy EQS url)
+// @param numGoodUrls M as mentioned in the above description
+// @param numBadUrls N as mentioned in the above description
+// @param expectedError if set to true, we expect a timeout error as the L2 cannot make progress. Otherwise, we expect no error at all.
+func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedError bool) {
+
+	badServerUrl := fmt.Sprintf("http://%s:%s", DUMMY_SERVER_HOST, DUMMY_SERVER_PORT)
 	startServer()
 	time.Sleep(100 * time.Millisecond) // Let server start
 
@@ -81,13 +92,25 @@ func launch(t *testing.T, numGoodUrls int, numBadUrls int, badServerUrl string, 
 
 }
 
-// TestEnforceMajorityRule
+// TestEnforceMajorityRule allows to check that the batcher uses the multiclient for fetching information from Espresso and that this multiclient enforces the majority rule.
+// This test is designed to evaluate Test 12 as outlined within the Espresso Celo Integration plan.
+// Its concrete description is as follows:
+// Arrange:
+//
+//	Running Sequencer, Batcher in Espresso mode and OP node.
+//	Set up the batcher with a list of M "good" urls and N "bad" urls
+//
+// Act:
+//
+//	Just wait for the batcher to submits batches and the L2 to make progress.
+//
+// Assert:
+//
+//	If M>N, the chain should make progress, otherwise it should not.
 func TestEnforceMajorityRule(t *testing.T) {
 
-	badServerUrl := fmt.Sprintf("http://%s:%s", DUMMY_SERVER_HOST, DUMMY_SERVER_PORT)
-
-	launch(t, 1, 0, badServerUrl, false)
-	launch(t, 2, 1, badServerUrl, false)
-	launch(t, 0, 2, badServerUrl, true)
-	launch(t, 1, 1, badServerUrl, true)
+	runWithMultiClient(t, 1, 0, NO_ERROR_EXPECTED)
+	runWithMultiClient(t, 2, 1, NO_ERROR_EXPECTED)
+	runWithMultiClient(t, 0, 2, ERROR_EXPECTED)
+	runWithMultiClient(t, 1, 1, ERROR_EXPECTED)
 }

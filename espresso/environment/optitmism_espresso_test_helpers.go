@@ -415,6 +415,9 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 	}
 }
 
+// SetEspressoUrls allows to set the list of urls for the Espresso client in such a way that N of them are "good" and M of them are "bad".
+// Good urls are the urls defined by this test framework repeated M times. The bad url is provided to the function
+// This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
 func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLauncherOption {
 	return func(ct *DevNetLauncherContext) E2eSystemOption {
 
