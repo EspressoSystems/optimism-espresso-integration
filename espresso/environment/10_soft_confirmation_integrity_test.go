@@ -256,6 +256,12 @@ func verifyStreamSequenceForNextN(
 
 		// Alright, we should have all three next headers now.
 		// Let's compare them to make sure they are the same.
+		select {
+		case <-ctx.Done():
+			t.Errorf("test was canceled by context while waiting to verify sequence entry %d", i)
+			return
+		default:
+		}
 
 		if have, want := seqHeader.entry.Hash(), verifHeader.entry.Hash(); have.Cmp(want) != 0 {
 			t.Fatalf("Sequencer and Verifier headers do not match:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -508,7 +514,7 @@ func submitValidDataWithRandomSignature(
 // L1. All of these should yield the same blocks in the same order (but at
 // different times).
 func TestSequencerFeedConsistency(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
@@ -570,7 +576,7 @@ func TestSequencerFeedConsistency(t *testing.T) {
 // to Espresso. Such attacks should not cause Espresso to finalize something
 // different than the sequencer feed.
 func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
