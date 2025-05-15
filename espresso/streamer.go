@@ -236,17 +236,23 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 		return err
 	}
 
-	for {
+	for i := 0; ; i++ {
 		// Fetch more batches from HotShot if available.
 		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
-		if start >= finish {
+		if start > finish || (start == finish && i > 0) {
 			// If start is equal to our finish, then that means we have
 			// already processed all of the blocks available to us.  We
 			// should break out of the loop.  Sadly, this means that we
 			// likely do not have any batches to process.
 			//
 			// NOTE: this also likely means that the following is true:
-			// start == finish == currentBlockHeight
+			// start == finish + 1 == currentBlockHeight + 1
+			//
+			// NOTE: there is an edge case here if the only block available is
+			// the initial block of Espresso, then we get stuck in a loop
+			// repeatedly processing it again and again.   So to catch
+			// this case, we check to see if start is equal to finish, after
+			// an initial iteration.
 			break
 		}
 
