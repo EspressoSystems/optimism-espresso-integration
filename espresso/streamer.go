@@ -346,8 +346,6 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 			continue
 		}
 
-		s.Log.Info("Inserting batch into buffer", "batch", batch)
-
 		validity, pos := s.CheckBatch(ctx, *batch)
 
 		switch validity {
