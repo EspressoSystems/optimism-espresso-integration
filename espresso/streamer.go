@@ -203,6 +203,11 @@ const HOTSHOT_BLOCK_LOAD_LIMIT = 100
 // is smaller.
 func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64) (start uint64, finish uint64) {
 	start = s.hotShotPos
+	if start > 0 {
+		// We've already processed the block in hotShotPos.  In order to avoid
+		// reprocessing the same block, we want to start from the next block.
+		start++
+	}
 	finish = min(start+HOTSHOT_BLOCK_LOAD_LIMIT, currentBlockHeight)
 
 	return start, finish
@@ -223,28 +228,36 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeigh
 //	there are no more HotShot blocks to process currently, or if an error
 //	occurs when communicating with HotShot.
 func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
+	// Retrieve the current block height from Espresso.  We grab this reference
+	// so we don't have to keep fetching it in a loop, and it informs us of
+	// the current block height available to process.
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Fetch more batches from HotShot if available.
-	start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
-	s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
-	i := start
-
-	for i <= currentBlockHeight {
+	for {
+		// Fetch more batches from HotShot if available.
+		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
+		if start >= finish {
+			// If start is equal to our finish, then that means we have
+			// already processed all of the blocks available to us.  We
+			// should break out of the loop.  Sadly, this means that we
+			// likely do not have any batches to process.
+			//
+			// NOTE: this also likely means that the following is true:
+			// start == finish == currentBlockHeight
+			break
+		}
 
 		// Process the remaining batches
 		s.processRemainingBatches(ctx)
 
+		s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
 		// Process the new batches fetched from Espresso
-		if err := s.processHotShotRange(ctx, i, finish); err != nil {
+		if err := s.processHotShotRange(ctx, start, finish); err != nil {
 			return fmt.Errorf("failed to process hotshot range: %w", err)
 		}
-		// Our position has advanced to the block following the finish block
-		// we just passed.
-		i = finish + 1
 
 		if s.HasNext(ctx) {
 			// If we have a batch ready to be processed, we can exit the loop,
@@ -254,12 +267,10 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 			// The goal here is to try and provide our best effort to ensure
 			// that we have the next batch available for processing.  We should
 			// only fail to do this if there currently is no next batch
-			// currently available.
+			// currently available (or if we error while attempting to retrieve
+			// transactions from HotShot).
 			break
 		}
-
-		// move the finish line to the next block range
-		_, finish = s.computeEspressoBlockHeightsRange(currentBlockHeight)
 	}
 
 	return nil
@@ -272,30 +283,29 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 // to effectively keep track of the last block we have successfully fetched,
 // and therefore processed from Hotshot.
 func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, finish uint64) error {
-	i := start
 	// Process the new batches fetched from Espresso
-	for ; i <= finish; i++ {
-		s.Log.Trace("Fetching HotShot block", "block", i)
+	for height := start; height <= finish; height++ {
+		s.Log.Trace("Fetching HotShot block", "block", height)
 
-		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, i, s.Namespace)
+		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, height, s.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to fetch transactions in block: %w", err)
 		}
 
-		s.Log.Trace("Fetched HotShot block", "block", i, "txns", len(txns.Transactions))
+		s.Log.Trace("Fetched HotShot block", "block", height, "txns", len(txns.Transactions))
 
 		// We want to keep track of the latest block we have processed.
 		// This is essential for ensuring we don't unnecessarily keep
 		// refetching the same blocks that we have already processed.
 		// This should ensure that we keep moving forward and consuming
 		// from the Espresso Blocks without missing any blocks.
-		s.hotShotPos = i
+		s.hotShotPos = height
 		if len(txns.Transactions) == 0 {
-			s.Log.Trace("No transactions in hotshot block", "block", i)
+			s.Log.Trace("No transactions in hotshot block", "block", height)
 			continue
 		}
 
-		s.processEspressoTransactions(ctx, i, txns)
+		s.processEspressoTransactions(ctx, height, txns)
 	}
 
 	return nil
