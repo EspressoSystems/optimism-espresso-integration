@@ -185,7 +185,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 }
 
 // forgeBatcherPrivateKey is a helper function that forge a batcher private key
-func forgeBatcherPrivateKey() (*ecdsa.PrivateKey, error) {
+func forgedBatcherPrivateKey() (*ecdsa.PrivateKey, error) {
 	return crypto.GenerateKey()
 }
 
