@@ -443,13 +443,3 @@ func (s *EthClient) BlockRefByHash(ctx context.Context, hash common.Hash) (eth.B
 	return ref, nil
 }
 
-func (s *EthClient) FinalizedBlock() (eth.L1BlockRef, error) {
-	var block *RPCBlock
-	err := s.client.CallContext(context.Background(), &block, "eth_getBlockByNumber", "finalized", true)
-	if err != nil {
-		return eth.L1BlockRef{}, fmt.Errorf("failed to fetch finalized block: %w", err)
-	}
-
-	num := uint64(block.Number)
-	return s.BlockRefByNumber(context.Background(), num)
-}

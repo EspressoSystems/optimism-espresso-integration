@@ -17,6 +17,10 @@ run-test9: compile-contracts
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
+run-test4: compile-contracts
+ go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
+
+
 espresso-tests: compile-contracts
  go test ./espresso/environment
 

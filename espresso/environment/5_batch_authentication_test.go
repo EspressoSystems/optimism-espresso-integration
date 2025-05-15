@@ -29,7 +29,6 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 
 	system, _, err :=
 		launcher.StartDevNet(ctx, t,
-			env.WithL1FinalizedDistance(0),
 			env.SetBatcherKey(*privateKey),
 			env.Config(func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
@@ -54,8 +53,6 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 	if !strings.Contains(errMsg, expectedMsg) {
 		t.Fatalf("error message does not contain expected message %q:\ngot: %q", expectedMsg, errMsg)
 	}
-
-	cancel()
 }
 
 // TestE2eDevNetWithUnattestedBatcherKey verifies that when a batcher key is not properly
@@ -73,7 +70,6 @@ func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
 
 	system, _, err :=
 		launcher.StartDevNet(ctx, t,
-			env.WithL1FinalizedDistance(0),
 			env.SetBatcherKey(*privateKey),
 		)
 	if have, want := err, error(nil); have != want {
@@ -95,7 +91,4 @@ func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
 	}
 
 	_ = system
-
-	// Signal the testnet to shut down
-	cancel()
 }
