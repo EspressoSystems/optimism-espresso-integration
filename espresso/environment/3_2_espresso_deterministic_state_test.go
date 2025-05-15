@@ -123,7 +123,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction.
 		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
-			fakeBatcherPrivateKey, err := forgeBatcherPrivateKey()
+			fakeBatcherPrivateKey, err := forgedBatcherPrivateKey()
 			if err != nil {
 				t.Fatalf("Failed to get fake batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
@@ -279,14 +279,14 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		ticker := time.NewTicker(transactionFetchInterval)
 		defer ticker.Stop()
 
-	fetchLoop:
-		for {
+		transactionFound := false
+		for !transactionFound {
 			select {
 			case <-ticker.C:
 				_, err := espressoClient.FetchTransactionByHash(ctx, txHash)
 				if err == nil {
 					// test pass
-					break fetchLoop
+					transactionFound = true
 				}
 			case <-timer.C:
 				t.Fatalf("Failed to fetch transaction by hash after multiple attempts")
