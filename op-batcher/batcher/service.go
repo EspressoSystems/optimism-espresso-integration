@@ -75,7 +75,7 @@ type BatcherService struct {
 	EndpointProvider    dial.L2EndpointProvider
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
-	Espresso            *espresso.Client
+	Espresso            *espresso.MultipleNodesClient
 	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
