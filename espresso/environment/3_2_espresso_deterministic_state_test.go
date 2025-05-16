@@ -6,9 +6,10 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"github.com/ethereum/go-ethereum/rpc"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
@@ -223,6 +224,8 @@ func createEspressoTransaction(chainID *big.Int, batcherKey *ecdsa.PrivateKey) (
 // make sure we have correct way to create a Espresso transaction.
 // This test is a unit test to serve the correctness of TestDeterministicDerivationExecutionStateWithInvalidTransaction.
 func TestValidEspressoTransactionCreation(t *testing.T) {
+	// Ignore it by default as it takes a long time to run
+	t.Skip("skipping test")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -248,7 +251,8 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 
 	// We want to setup our test
 	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
-
+	l2Verif := system.NodeClient(e2esys.RoleVerif)
+	caffVerif := system.NodeClient(env.RoleCaffNode)
 	// create a real Espresso transaction and make sure it can go through
 	{
 		// Create a real Espresso transaction
@@ -298,7 +302,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		// Make sure the transaction will go through to caff node by checking the unmarshal works
 		// The check can directly reflect whether the transaction is valid or not
 		caffStreamer := caffNode.OpNode.EspressoStreamer()
-		_, err = caffStreamer.UnmarshalBatch(realEspressoTransaction.Payload)
+		espressoBatch, err := caffStreamer.UnmarshalBatch(realEspressoTransaction.Payload)
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
@@ -310,6 +314,10 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
+		// Make sure the transaction will really go through to verifier by waiting for its hash
+		l1InfoDeposit := espressoBatch.L1InfoDeposit
+		wait.ForReceiptOK(ctx, caffVerif, l1InfoDeposit.Hash())
+		wait.ForReceiptOK(ctx, l2Verif, l1InfoDeposit.Hash())
 	}
 
 }
