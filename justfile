@@ -10,7 +10,11 @@ golint:
 
 
 run-test7: compile-contracts
-  go test ./espresso/environment/7_stateless_batcher_test.go -v > logs.txt
+  go test ./espresso/environment/7_stateless_batcher_test.go -v
+
+run-test12: compile-contracts
+  go test ./espresso/environment/12_enforce_majority_rule_test.go
+
 
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
