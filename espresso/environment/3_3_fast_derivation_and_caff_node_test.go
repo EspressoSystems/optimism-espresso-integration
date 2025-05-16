@@ -22,10 +22,6 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 		return nil, fmt.Errorf("Failed to get new %s block: %v", nodeName, err)
 	}
 
-	// Skip the warm-up period
-	if newBlock.Number().Cmp(big.NewInt(0)) == 0 {
-		return newBlock, nil
-	}
 	// Make sure newBlock comes after previousBlock
 	if have, want := newBlock.Number(), previousBlock.Number(); have.Cmp(want) <= 0 {
 		return nil, fmt.Errorf("No new block for %s after %s\nhave:\n\t\"%v\"\nwant:\n\t> \"%v\"\n", nodeName, tickerDuration, have, want)
