@@ -19,7 +19,7 @@ import (
 
 // TestStatelessBatcher is a test that verifies a batcher can operate (especially restart) correctly and efficiently without persistent storage.
 //
-// This tests is designed to evaluate Test 7 as outlined within the
+// This test is designed to evaluate Test 7 as outlined within the
 // Espresso Celo Integration plan.  It has stated task definition as follows:
 // Run the rollup and randomly restart the batcher. Check the liveness of the rollup, and the consistency of Espresso confirmations and L1 confirmations.
 // We don't need to clear persistent storage because the original Optimism code isn't and our integration work shouldn't use any.
