@@ -45,6 +45,8 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
+	l2Verif := system.NodeClient(e2esys.RoleVerif)
+
 	// Shut down the Caff Node
 	defer env.Stop(t, caffNode)
 
@@ -53,6 +55,13 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 	// Wait for batcher to start advancing L2 head
 	_, err = geth.WaitForBlockToBeSafe(big.NewInt(2), caffClient, 30*time.Second)
 
+	if expectedError {
+		require.Error(t, err, "The L2 should not be progressing")
+	} else {
+		require.NoError(t, err, "The L2 should be progressing")
+	}
+
+	_, err = geth.WaitForBlockToBeSafe(big.NewInt(2), l2Verif, 30*time.Second)
 	if expectedError {
 		require.Error(t, err, "The L2 should not be progressing")
 	} else {
