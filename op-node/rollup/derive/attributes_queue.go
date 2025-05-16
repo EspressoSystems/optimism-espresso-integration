@@ -98,7 +98,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 	streamer := espresso.NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
 		l1BlockRefClient,
-		espressoClient.NewClient(cfg.CaffNodeConfig.HotShotUrls[0]),
+		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
 		lightClient,
 		log,
 		func(data []byte) (*EspressoBatch, error) {
