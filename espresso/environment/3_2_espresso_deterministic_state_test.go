@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"github.com/ethereum/go-ethereum/rpc"
 	"testing"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
@@ -49,7 +49,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -162,23 +162,23 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			}
 		}
 
-		// Get latest safe blocks from caff node first
-		// as caff node usually lags behind the sequencer node on safe blocks due to submitting additionally to Espresso.
-		// We use l2BlockRefByLabel to get the states as the engine state will be reflected in the block.
-		caffBlock, err := caffNodeL2Client.L2BlockRefByLabel(ctx, eth.Safe)
+		// Get latest safe blocks from op node first as op node usually lags behind.
+		// We use BlockByNumber to get the states as the engine state will be reflected in the block.
+		opBlock, err := l2Verif.BlockByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+		if err != nil {
+			t.Fatalf("failed to get block from opBlock: %v", err)
+		}
+
+		// Get the corresponding safe blocks from caff node
+		// We use L2BlockRefByLabel to get the states as the engine state will be reflected in the block.
+		caffBlock, err := caffNodeL2Client.L2BlockRefByNumber(ctx, opBlock.Number().Uint64())
 		if err != nil {
 			t.Fatalf("failed to get block from caff node: %v", err)
 		}
 
-		// Get the corresponding block from sequencer
-		seqBlock, err := l2Seq.BlockByNumber(ctx, big.NewInt(0).SetUint64(caffBlock.Number))
-		if err != nil {
-			t.Fatalf("failed to get block from l2Seq: %v", err)
-		}
-
 		// Compare block states
-		if have, want := caffBlock.Hash, seqBlock.Hash(); have != want {
-			t.Errorf("block hash mismatch between sequencer and caff node at block %v\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", seqBlock.Number(), have, want)
+		if have, want := caffBlock.Hash, opBlock.Hash(); have != want {
+			t.Errorf("block hash mismatch between sequencer and caff node at block %v\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", opBlock.Number(), have, want)
 		}
 	}
 
