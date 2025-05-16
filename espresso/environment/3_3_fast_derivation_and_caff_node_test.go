@@ -60,7 +60,7 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, 0)
+	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
