@@ -22,9 +22,13 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 		return nil, fmt.Errorf("Failed to get new %s block: %v", nodeName, err)
 	}
 
-	// Skip the warm-up period and check for new block by comparing the latest hash
-	if newBlock.Number().Cmp(big.NewInt(0)) != 0 && newBlock.Hash() == previousBlock.Hash() {
-		return nil, fmt.Errorf("No new block for %s after %s\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", nodeName, tickerDuration, newBlock.Number(), previousBlock.Number())
+	// Skip the warm-up period
+	if newBlock.Number().Cmp(big.NewInt(0)) == 0 {
+		return newBlock, nil
+	}
+	// Make sure newBlock comes after previousBlock
+	if have, want := newBlock.Number(), previousBlock.Number(); have.Cmp(want) <= 0 {
+		return nil, fmt.Errorf("No new block for %s after %s\nhave:\n\t\"%v\"\nwant:\n\t> \"%v\"\n", nodeName, tickerDuration, have, want)
 	}
 	return newBlock, nil
 }
@@ -35,7 +39,7 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 // The criteria for this test is as follows:
 //
 //	Requirement:
-//	   Make sure the node's RPC can be queried with update every 2-4 seconds. [Attention: It can only pass when we query it every 10 seconds]
+//	   Make sure the node's RPC can be queried with update every 2-4 seconds.
 //
 // Arrange:
 //
@@ -47,7 +51,7 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 //
 // Assert:
 //
-//	We should be able to query op-node and caff node with update every 2-4 seconds. [Attention: It can only pass when we query it every 10 seconds]
+//	We should be able to query op-node and caff node with update every 2-4 seconds.  We use ticker to query the node every 4 seconds.
 //
 // checkNewBlocks checks for new blocks and verifies their timestamps
 func TestFastDerivationAndCaffNode(t *testing.T) {
@@ -95,8 +99,8 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 		})
 	}
 
-	// Initialize ticker to fire every 10 seconds
-	tickerDuration := 10 * time.Second
+	// Initialize ticker to fire every 4 seconds
+	tickerDuration := 4 * time.Second
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 
