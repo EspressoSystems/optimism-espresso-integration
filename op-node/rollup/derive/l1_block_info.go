@@ -8,8 +8,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -237,6 +239,7 @@ func (info *L1BlockInfo) unmarshalBinaryInterop(data []byte) error {
 
 func unmarshalBinaryWithSignatureAndData(info *L1BlockInfo, signature []byte, data []byte) error {
 	if len(data) != L1InfoEcotoneLen {
+		log.Info("unmarshalBinaryWithSignatureAndData: unexpected data length", "len", len(data), "expected", L1InfoEcotoneLen)
 		return fmt.Errorf("data is unexpected length: %d", len(data))
 	}
 	r := bytes.NewReader(data)
@@ -303,6 +306,7 @@ func L1BlockInfoFromBytes(rollupCfg *rollup.Config, l2BlockTime uint64, data []b
 		return &info, info.unmarshalBinaryInterop(data)
 	}
 	if isEcotoneButNotFirstBlock(rollupCfg, l2BlockTime) {
+		log.Info("L1BlockInfoFromBytes: Ecotone", "data", hexutil.Encode(data))
 		return &info, info.unmarshalBinaryEcotone(data)
 	}
 	return &info, info.unmarshalBinaryBedrock(data)

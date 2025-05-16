@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/params"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -239,6 +240,7 @@ func BlockToSingularBatch(rollupCfg *rollup.Config, block *types.Block) (*Singul
 	if l1InfoTx.Type() != types.DepositTxType {
 		return nil, nil, ErrNotDepositTx
 	}
+	log.Info("BlockToSingularBatch", "data", hexutil.Encode(l1InfoTx.Data()), "l1InfoTx", l1InfoTx)
 	l1Info, err := L1BlockInfoFromBytes(rollupCfg, block.Time(), l1InfoTx.Data())
 	if err != nil {
 		return nil, l1Info, fmt.Errorf("could not parse the L1 Info deposit: %w", err)
