@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"math/big"
 	_ "net/http/pprof"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espresso "github.com/ethereum-optimism/optimism/espresso"
 
 	"golang.org/x/sync/errgroup"
 
@@ -106,7 +106,7 @@ type DriverSetup struct {
 	AltDA               AltDAClient
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
-	Espresso            *espressoClient.Client
+	Espresso            *espressoClient.MultipleNodesClient
 	EspressoLightClient *espressoLightClient.LightclientCaller
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
