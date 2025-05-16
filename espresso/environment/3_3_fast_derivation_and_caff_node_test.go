@@ -15,6 +15,20 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+// checkNewBlocks is a helper function for TestFastDerivationAndCaffNode to check for new blocks by comparing the hash of new block and previous block
+func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock *types.Block, nodeName string, tickerDuration time.Duration) (*types.Block, error) {
+	newBlock, err := client.BlockByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get new %s block: %v", nodeName, err)
+	}
+
+	// Skip the warm-up period and check for new block by comparing the latest hash
+	if newBlock.Number().Cmp(big.NewInt(0)) != 0 && newBlock.Hash() == previousBlock.Hash() {
+		return nil, fmt.Errorf("No new block for %s after %s\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", nodeName, tickerDuration, newBlock.Number(), previousBlock.Number())
+	}
+	return newBlock, nil
+}
+
 // TestFastDerivationAndCaffNode is a test that
 // checks the derivation pipeline is fast and the Caff node is working properly with the happy path.
 //
@@ -36,19 +50,6 @@ import (
 //	We should be able to query op-node and caff node with update every 2-4 seconds. [Attention: It can only pass when we query it every 10 seconds]
 //
 // checkNewBlocks checks for new blocks and verifies their timestamps
-func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock *types.Block, nodeName string, tickerDuration time.Duration) (*types.Block, error) {
-	newBlock, err := client.BlockByNumber(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get new %s block: %v", nodeName, err)
-	}
-
-	// Skip the warm-up period and check for new block by comparing the latest hash
-	if newBlock.Number().Cmp(big.NewInt(0)) != 0 && newBlock.Hash() == previousBlock.Hash() {
-		return nil, fmt.Errorf("No new block for %s after %s\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", nodeName, tickerDuration, newBlock.Number(), previousBlock.Number())
-	}
-	return newBlock, nil
-}
-
 func TestFastDerivationAndCaffNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
