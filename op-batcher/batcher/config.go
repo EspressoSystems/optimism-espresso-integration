@@ -122,7 +122,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoUrl                      string
+	EspressoUrls                     []string
 	EspressoLightClientAddr          string
 	TestingEspressoBatcherPrivateKey string
 }
@@ -220,7 +220,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		ThrottleBlockSize:                ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
 		ThrottleAlwaysBlockSize:          ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
 		PreferLocalSafeL2:                ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
-		EspressoUrl:                      ctx.String(flags.EspressoUrlFlag.Name),
+		EspressoUrls:                     ctx.StringSlice(flags.EspressoUrlFlag.Name),
 		EspressoLightClientAddr:          ctx.String(flags.EspressoLCAddrFlag.Name),
 		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
 	}

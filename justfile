@@ -14,6 +14,9 @@ run-test7: compile-contracts
 run-test9: compile-contracts
   go test ./espresso/environment/9_pipeline_enhancement_test.go -v
 
+run-test12: compile-contracts
+  go test ./espresso/environment/12_enforce_majority_rule_test.go -v
+
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
