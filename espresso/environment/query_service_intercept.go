@@ -336,14 +336,14 @@ func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNod
 			return
 		}
 
-		if cfg.EspressoUrl == "" {
+		if len(cfg.EspressoUrls) == 0 {
 			// This should be being called after the Espresso
 			// Dev Node is Already Live.
 			// Without an Espresso URL, we cannot proceed.
 			return
 		}
 
-		u, err := url.Parse(cfg.EspressoUrl)
+		u, err := url.Parse(cfg.EspressoUrls[0])
 		if err != nil || u == nil {
 			// We encountered an error
 			ctx.Error = err
@@ -353,7 +353,7 @@ func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNod
 		// Set the proxy
 		proxy.u = *u
 		// Replace the Espresso URL with the proxy URL
-		cfg.EspressoUrl = server.URL
+		cfg.EspressoUrls = []string{server.URL}
 	}
 }
 
