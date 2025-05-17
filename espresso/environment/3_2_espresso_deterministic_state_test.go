@@ -75,7 +75,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 	// We want to setup our test
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
+	espressoClient := espressoClient.NewMultipleNodesClient(espressoDevNode.EspressoUrls())
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -132,7 +132,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			if err != nil {
 				t.Fatalf("Failed to get fake batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
-			fakeEspressoTransaction, err := createEspressoTransaction(system.Cfg.L2ChainIDBig(), fakeBatcherPrivateKey)
+			fakeEspressoTransaction, err := createEspressoTransaction(TEST_ESPRESSO_TRANSACTION, system.Cfg.L2ChainIDBig(), fakeBatcherPrivateKey)
 			if err != nil {
 				t.Fatalf("Failed to create fake Espresso transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
@@ -151,12 +151,19 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			}
 
 			// Assume it is unmarshalled, extract the transaction content
-			l1InfoDeposit, err := espressoTransactionDataSkippingUnmarshal()
+			l1InfoDeposit, err := espressoTransactionDataSkippingUnmarshal(TEST_ESPRESSO_TRANSACTION)
 			if err != nil {
 				t.Fatalf("Failed to get valid Espresso batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
-			wait.ForReceiptFail(ctx, caffVerif, l1InfoDeposit.Hash())
-			wait.ForReceiptFail(ctx, l2Verif, l1InfoDeposit.Hash())
+			_, err = wait.ForReceiptOK(ctx, caffVerif, l1InfoDeposit.Hash())
+			if err == nil {
+				t.Fatalf("Should fail to get receipt for transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+			}
+			_, err = wait.ForReceiptOK(ctx, l2Verif, l1InfoDeposit.Hash())
+			if err == nil {
+				t.Fatalf("Should fail to get receipt for transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+			}
+
 		} else if i == attackRoundL1 {
 			// create a transaction
 			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &geth_types.DynamicFeeTx{
@@ -215,9 +222,9 @@ func realBatcherPrivateKey(system *e2esys.System) (*ecdsa.PrivateKey, error) {
 const TEST_ESPRESSO_TRANSACTION = "0xf90388f9023da00d68b82fa254b7d23a8584bcaa67be241a269c86aac05a2a6fc805a672bb910ea01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347944200000000000000000000000000000000000011a0d6cc9c002bc6a8d1c8501c57301b6b2f037494e1e0f61e417411e17f4e80b5afa028881bc4fc4c5fa67f26462837f88937961b6667ae4af043218a0c1b72a5f53ca0d8056577b8ef8e580c0ebc96def906b3699ddc8d91e15abf9c7a7e7bb4f85c96b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080018401c9c380830272ca84681d98b780a0000000000000000000000000000000000000000000000000000000000000000088000000000000000001a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218080a00000000000000000000000000000000000000000000000000000000000000000f849a00d68b82fa254b7d23a8584bcaa67be241a269c86aac05a2a6fc805a672bb910e80a0d7d069186bed40982ca7e7747d61c78718d0dda165d74e62164c1bba165001f784681d98b7c0b8fb7ef8f8a07a2aa57f213dfe5e61ceaebcd45c61252157b4e3c1e82e1ec0dca455b1173ad894deaddeaddeaddeaddeaddeaddeaddeaddead00019442000000000000000000000000000000000000158080830f424080b8a4440a5e20000f424000000000000000000000000100000000681d98b60000000000000000000000000000000000000000000000000000000000000000000000003b9aca000000000000000000000000000000000000000000000000000000000000000001d7d069186bed40982ca7e7747d61c78718d0dda165d74e62164c1bba165001f70000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 
 // createEspressoTransaction creates a Espresso transaction with a FAKE or REAL batcher private key
-func createEspressoTransaction(chainID *big.Int, batcherKey *ecdsa.PrivateKey) (*espressoCommon.Transaction, error) {
+func createEspressoTransaction(transactionString string, chainID *big.Int, batcherKey *ecdsa.PrivateKey) (*espressoCommon.Transaction, error) {
 	// This is the genesis Espresso transaction that created by honest sequencer
-	bufData, err := hexutil.Decode(TEST_ESPRESSO_TRANSACTION)
+	bufData, err := hexutil.Decode(transactionString)
 	if err != nil {
 		log.Error("failed to decode Espresso transaction in the test", "error", err)
 		return nil, err
@@ -241,9 +248,9 @@ func createEspressoTransaction(chainID *big.Int, batcherKey *ecdsa.PrivateKey) (
 }
 
 // espressoTransactionDataSkippingUnmarshal extract the L1 info deposit from Espresso transaction without checking whether the unmarshal could work
-func espressoTransactionDataSkippingUnmarshal() (*types.Transaction, error) {
+func espressoTransactionDataSkippingUnmarshal(transactionString string) (*types.Transaction, error) {
 
-	bufData, err := hexutil.Decode(TEST_ESPRESSO_TRANSACTION)
+	bufData, err := hexutil.Decode(transactionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode Espresso transaction in the test: %w", err)
 	}
@@ -289,7 +296,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	// We want to setup our test
-	espressoClient := espressoClient.NewClient(espressoDevNode.EspressoUrl())
+	espressoClient := espressoClient.NewMultipleNodesClient(espressoDevNode.EspressoUrls())
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	caffVerif := system.NodeClient(env.RoleCaffNode)
 	// create a real Espresso transaction and make sure it can go through
@@ -299,7 +306,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get real batcher private key:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}
-		realEspressoTransaction, err := createEspressoTransaction(system.Cfg.L2ChainIDBig(), realBatcherPrivateKey)
+		realEspressoTransaction, err := createEspressoTransaction(TEST_ESPRESSO_TRANSACTION, system.Cfg.L2ChainIDBig(), realBatcherPrivateKey)
 		if err != nil {
 			t.Fatalf("Failed to create real Espresso transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}
@@ -354,7 +361,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		}
 
 		// Extract L1 info deposit transaction from Espresso transaction
-		l1InfoDeposit, err := espressoTransactionDataSkippingUnmarshal()
+		l1InfoDeposit, err := espressoTransactionDataSkippingUnmarshal(TEST_ESPRESSO_TRANSACTION)
 		if err != nil {
 			t.Fatalf("Failed to get L1 info deposit:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 		}

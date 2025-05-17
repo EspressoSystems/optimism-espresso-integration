@@ -185,12 +185,12 @@ func (e EspressoNodeFailedToBecomeReady) Error() string {
 
 type EspressoDevNodeContainerInfo struct {
 	ContainerInfo DockerContainerInfo
-	espressoUrl   string
+	espressoUrls []string
 }
 
 // EspressoUrl returns the URL of the Espresso node
-func (e *EspressoDevNodeContainerInfo) EspressoUrl() string {
-	return e.espressoUrl
+func (e *EspressoDevNodeContainerInfo) EspressoUrls() []string {
+	return e.espressoUrls
 }
 
 var _ EspressoDevNode = (*EspressoDevNodeContainerInfo)(nil)
@@ -336,12 +336,12 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 // and provides the relevant port information for the sequencer API and
 type EspressoDevNodeDockerContainerInfo struct {
 	DockerContainerInfo
-	espressoUrl string
+	espressoUrls []string
 }
 
 // EspressoUrl returns the URL of the Espresso node
-func (e *EspressoDevNodeDockerContainerInfo) EspressoUrl() string {
-	return e.espressoUrl
+func (e *EspressoDevNodeDockerContainerInfo) EspressoUrls() []string {
+	return e.espressoUrls
 }
 
 var _ EspressoDevNode = (*EspressoDevNodeDockerContainerInfo)(nil)
@@ -420,6 +420,35 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 					Role: "set-batcher-key",
 					BatcherMod: func(c *batcher.CLIConfig) {
 						c.TestingEspressoBatcherPrivateKey = hexutil.Encode(crypto.FromECDSA(&privateKey))
+					},
+				},
+			},
+		}
+	}
+}
+
+// SetEspressoUrls allows to set the list of urls for the Espresso client in such a way that N of them are "good" and M of them are "bad".
+// Good urls are the urls defined by this test framework repeated M times. The bad url is provided to the function
+// This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
+func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLauncherOption {
+	return func(ct *DevNetLauncherContext) E2eSystemOption {
+
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					BatcherMod: func(c *batcher.CLIConfig) {
+
+						goodUrl := c.EspressoUrls[0]
+						var urls []string
+
+						for i := 0; i < numGood; i++ {
+							urls = append(urls, goodUrl)
+						}
+
+						for i := 0; i < numBad; i++ {
+							urls = append(urls, badServerUrl)
+						}
+						c.EspressoUrls = urls
 					},
 				},
 			},
@@ -601,10 +630,10 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
 								DockerContainerInfo: espressoDevNodeContainerInfo,
-								espressoUrl:         "http://" + hostPort,
+								espressoUrls:        []string{"http://" + hostPort},
 							}
 							ct.EspressoDevNode = espressoDevNode
-							c.EspressoUrl = espressoDevNode.EspressoUrl()
+							c.EspressoUrls = espressoDevNode.espressoUrls
 							c.LogConfig.Level = slog.LevelDebug
 							c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
 						}

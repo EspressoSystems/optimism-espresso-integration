@@ -75,7 +75,7 @@ type BatcherService struct {
 	EndpointProvider    dial.L2EndpointProvider
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
-	Espresso            *espresso.Client
+	Espresso            *espresso.MultipleNodesClient
 	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
@@ -145,8 +145,8 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	}
 	opts = append(optsFromRPC, opts...)
 
-	if cfg.EspressoUrl != "" {
-		bs.Espresso = espresso.NewClient(cfg.EspressoUrl)
+	if len(cfg.EspressoUrls) > 0 {
+		bs.Espresso = espresso.NewMultipleNodesClient(cfg.EspressoUrls)
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
