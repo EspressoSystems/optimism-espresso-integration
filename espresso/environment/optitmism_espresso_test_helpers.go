@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math/big"
@@ -185,7 +187,7 @@ func (e EspressoNodeFailedToBecomeReady) Error() string {
 
 type EspressoDevNodeContainerInfo struct {
 	ContainerInfo DockerContainerInfo
-	espressoUrls []string
+	espressoUrls  []string
 }
 
 // EspressoUrl returns the URL of the Espresso node
@@ -713,4 +715,32 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 	}
 
 	t.Fatalf("unable to determine how to stop the given node")
+}
+
+// Waits for an Espresso transaction to be confirmed using its hash.
+func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
+
+	const transactionFetchTimeout = 4 * time.Second
+	const transactionFetchInterval = 100 * time.Millisecond
+
+	timer := time.NewTimer(transactionFetchTimeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(transactionFetchInterval)
+	defer ticker.Stop()
+
+	var err error
+	for {
+		select {
+		case <-ticker.C:
+			_, err := espressoClient.FetchTransactionByHash(ctx, txHash)
+			if err == nil {
+				return nil
+			}
+		case <-timer.C:
+			return fmt.Errorf("failed to fetch transaction by hash: %w", err)
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
