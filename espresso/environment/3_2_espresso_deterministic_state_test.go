@@ -70,9 +70,6 @@ func waitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64,
 //		you also send transactions to Espresso using an invalid batcher address, and transactions directly to L1 (e.g. transactions that were not previously posted to Espresso).
 //	Assert:
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
-//		Query the executive machine state when Caff node is on
-//		Query the executive machine state when OP node is on
-//		Make sure the states are the same
 
 func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
