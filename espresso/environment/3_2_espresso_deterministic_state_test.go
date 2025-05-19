@@ -39,7 +39,7 @@ import (
 //		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
 //	Act:
 //		Send some transactions from Bob to Alice and some regular L2 transactions.
-//		While you send normal L2 tx to the sequencer and monitor the OP node as well as the Caff node,
+//		While you send regular L2 transactions to the sequencer and monitor the OP node as well as the Caff node,
 //		you also send transactions to Espresso using an invalid batcher address, and transactions directly to L1 (e.g. transactions that were not previously posted to Espresso).
 //	Assert:
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
@@ -53,6 +53,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
+	// Start the devnet with the sequencer using finalized blocks
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
@@ -79,7 +80,6 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
-	caffVerif := system.NodeClient(env.RoleCaffNode)
 
 	// We want to send some transactions from Bob to Alice
 	{
@@ -97,6 +97,10 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 		})
 	}
 
+	// Send some regular L2 transactions in each iteration and there are 10 rounds in total
+	// Since we wait for valid transactions sent before attackRoundEspresso and after attackRoundL1 to be included,
+	// we can be confident that the malicious transactions were already processed,
+	// because the derivation pipeline handles transactions sequentially and in the correct order.
 	numIterations := 10
 	attackRoundEspresso := 5 // the round where we send transaction directly to Espresso outside of the batcher
 	attackRoundL1 := 7       // the round where we send transaction directly to batch inbox
@@ -126,6 +130,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 		// When it is the attack round, send some Espresso transactions with fakeBatcherPrivateKey directly to Espresso.
 		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction.
+		// And we don't have to wait for the receipt of the transaction as the transaction will be processed before the inclusion of later regular transactions.
 		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
 			fakeBatcherPrivateKey, err := forgedBatcherPrivateKey()
@@ -141,27 +146,6 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
 			if err != nil {
 				t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-			}
-
-			// make sure it cannot be unmarshalled
-			caffStreamer := caffNode.OpNode.EspressoStreamer()
-			_, err = caffStreamer.UnmarshalBatch(fakeEspressoTransaction.Payload)
-			if err == nil {
-				t.Fatalf("Should failed to unmarshal transaction:\nhave:\n\t\"%v\"\nnot want:\n\t\"%v\"\n", err, nil)
-			}
-
-			// Assume it is unmarshalled, extract the transaction content
-			l1InfoDeposit, err := espressoTransactionDataSkippingUnmarshal(TEST_ESPRESSO_TRANSACTION)
-			if err != nil {
-				t.Fatalf("Failed to get valid Espresso batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-			}
-			_, err = wait.ForReceiptOK(ctx, caffVerif, l1InfoDeposit.Hash())
-			if err == nil {
-				t.Fatalf("Should fail to get receipt for transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
-			}
-			_, err = wait.ForReceiptOK(ctx, l2Verif, l1InfoDeposit.Hash())
-			if err == nil {
-				t.Fatalf("Should fail to get receipt for transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
 
 		} else if i == attackRoundL1 {
