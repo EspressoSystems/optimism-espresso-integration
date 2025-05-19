@@ -103,7 +103,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	// The reason is that the iterations of the test are executed sequentially.
 	numIterations := 10
 	attackRoundEspresso := 5 // the round where we send transaction directly to Espresso outside of the batcher
-	attackRoundL1 := 7       // the round where we send transaction directly to batch inbox
+	attackRoundL1 := 7       // the round where we send transaction directly to the batch inbox contract.
 	// Compare states between nodes for multiple latest blocks
 	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
 	for i := 0; i < numIterations; i++ {
