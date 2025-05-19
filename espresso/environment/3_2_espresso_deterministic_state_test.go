@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+// Waits for an Espresso transaction to be confirmed using its hash.
 func waitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
 
 	const transactionFetchTimeout = 4 * time.Second
@@ -66,8 +67,7 @@ func waitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64,
 //		Running Sequencer, Batcher in Espresso mode, Caff node, and OP node.
 //	Act:
 //		Send some transactions from Bob to Alice and some regular L2 transactions.
-//		While you send regular L2 transactions to the sequencer and monitor the OP node as well as the Caff node,
-//		you also send transactions to Espresso using an invalid batcher address, and transactions directly to L1 (e.g. transactions that were not previously posted to Espresso).
+//		While sending regular L2 transactions to the sequencer also send transactions to Espresso using an invalid batcher address, and transactions directly to L1 (e.g. transactions that were not previously posted to Espresso).
 //	Assert:
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 
