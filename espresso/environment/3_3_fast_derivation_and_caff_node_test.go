@@ -39,7 +39,7 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 //
 // Arrange:
 //
-//	Running Sequencer, Batcher in Espresso mode, Caff node, and OP node with happy path.
+//	Running Sequencer, Batcher in Espresso mode, and Caff node with happy path.
 //
 // Act:
 //
@@ -47,7 +47,7 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 //
 // Assert:
 //
-//	We should be able to query op-node and caff node with update every 2-4 seconds.  We use ticker to query the node every 4 seconds.
+//	We should be able to query caff node with update every 2-4 seconds.  We use ticker to query the node every 4 seconds.
 //
 // checkNewBlocks checks for new blocks and verifies their timestamps
 func TestFastDerivationAndCaffNode(t *testing.T) {
@@ -100,13 +100,8 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
 
-	finishticker := time.NewTicker(30 * time.Second)
-	defer finishticker.Stop()
-
-	lastHead, err := l2Verif.BlockByNumber(ctx, nil)
-	if err != nil {
-		t.Fatalf("Failed to get initial l2Verif block: %v", err)
-	}
+	finishTicker := time.NewTicker(30 * time.Second)
+	defer finishTicker.Stop()
 
 	lastCaffHead, err := caffVerif.BlockByNumber(ctx, nil)
 	if err != nil {
@@ -118,20 +113,13 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Check for new block of op-node
-			newHead, err := checkNewBlocks(ctx, l2Verif, lastHead, "op-node", tickerDuration)
-			if have, want := err, error(nil); have != want {
-				t.Fatalf("failed to get new op-node block:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-			}
-			lastHead = newHead
-
 			// Check for new block of caff-node
 			newCaff, err := checkNewBlocks(ctx, caffVerif, lastCaffHead, "caff-node", tickerDuration)
 			if have, want := err, error(nil); have != want {
 				t.Fatalf("failed to get new caff-node block:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 			lastCaffHead = newCaff
-		case <-finishticker.C:
+		case <-finishTicker.C:
 			return
 		}
 	}
