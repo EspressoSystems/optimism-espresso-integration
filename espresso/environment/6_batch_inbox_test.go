@@ -107,10 +107,17 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 	require.Error(t, err)
 }
 
-// This ETHBackend wraps a real ETHBackend and forwards all
-// calls to it, except EstimateGas and CallContract calls, which always succeeds
-// Wrapping Txmgr's backend with it ensures that Txmgr will always send
-// transactions, even if they would be reverted.
+// A wrapper for testing that proxies all calls to ETHBackend unchanged,
+// except EstimateGas and CallContract calls, which always "succeed"
+// without making any actual RPC calls.
+//
+// Wrapping SimpleTxManager's backend with it ensures that SimpleTxManager will always send
+// transactions, even if they would be reverted. The reason for this behaviour is
+// that SimpleTxManager will check whether transaction will be executed successfully
+// before submitting it, either by calling CallContract if transaction request had
+// set the gas cap, or by checking EstimateGas return value if transaction request
+// doesn't have the gas cap set. Mocking these two methods to always succeed thus
+// makes SimpleTxManager submit even invalid transactions, which it wouldn't normally do.
 type AlwaysSendingETHBackend struct {
 	inner txmgr.ETHBackend
 }
