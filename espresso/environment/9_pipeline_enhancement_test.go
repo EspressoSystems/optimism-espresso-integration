@@ -40,9 +40,7 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
 	// Signal the testnet to shut down
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
+	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
