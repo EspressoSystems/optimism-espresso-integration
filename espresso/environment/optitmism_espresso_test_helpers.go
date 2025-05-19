@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math/big"
@@ -185,6 +187,12 @@ func (e EspressoNodeFailedToBecomeReady) Error() string {
 
 type EspressoDevNodeContainerInfo struct {
 	ContainerInfo DockerContainerInfo
+	espressoUrls  []string
+}
+
+// EspressoUrl returns the URL of the Espresso node
+func (e *EspressoDevNodeContainerInfo) EspressoUrls() []string {
+	return e.espressoUrls
 }
 
 var _ EspressoDevNode = (*EspressoDevNodeContainerInfo)(nil)
@@ -328,10 +336,16 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 // EspressoDevNodeDockerContainerInfo is an implementation of
 // EspressoDevNode that uses a Docker container to run the Espresso Dev Node
 // and provides the relevant port information for the sequencer API and
-type EspressoDevNodeDockerContainerInfo DockerContainerInfo
+type EspressoDevNodeDockerContainerInfo struct {
+	DockerContainerInfo
+	espressoUrls []string
+}
 
-// EspressoDevNodeDockerContainerInfo is an implementation of
-// EspressoDevNode.
+// EspressoUrl returns the URL of the Espresso node
+func (e *EspressoDevNodeDockerContainerInfo) EspressoUrls() []string {
+	return e.espressoUrls
+}
+
 var _ EspressoDevNode = (*EspressoDevNodeDockerContainerInfo)(nil)
 
 // SequencerPort implements EspressoDevNode
@@ -562,8 +576,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							ct.EspressoDevNode = EspressoDevNodeDockerContainerInfo(espressoDevNodeContainerInfo)
-
 							if isRunningOnLinux {
 								for portKey, portValue := range portRemapping {
 									// We copy the port mapping information
@@ -618,7 +630,12 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							c.EspressoUrls = []string{"http://" + hostPort}
+							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
+								DockerContainerInfo: espressoDevNodeContainerInfo,
+								espressoUrls:        []string{"http://" + hostPort},
+							}
+							ct.EspressoDevNode = espressoDevNode
+							c.EspressoUrls = espressoDevNode.espressoUrls
 							c.LogConfig.Level = slog.LevelDebug
 							c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
 						}
@@ -698,4 +715,32 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 	}
 
 	t.Fatalf("unable to determine how to stop the given node")
+}
+
+// Waits for an Espresso transaction to be confirmed using its hash.
+func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
+
+	const transactionFetchTimeout = 4 * time.Second
+	const transactionFetchInterval = 100 * time.Millisecond
+
+	timer := time.NewTimer(transactionFetchTimeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(transactionFetchInterval)
+	defer ticker.Stop()
+
+	var err error
+	for {
+		select {
+		case <-ticker.C:
+			_, err := espressoClient.FetchTransactionByHash(ctx, txHash)
+			if err == nil {
+				return nil
+			}
+		case <-timer.C:
+			return fmt.Errorf("failed to fetch transaction by hash: %w", err)
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
