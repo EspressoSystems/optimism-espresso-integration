@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -73,7 +72,6 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 		sysConfig.DeployConfig.SequencerWindowSize = sequencer_window_size(withSmallSequencerWindow)
 		sysConfig.DeployConfig.FinalizationPeriodSeconds = 1
 		sysConfig.DeployConfig.MaxSequencerDrift = 1
-		sysConfig.DeployConfig.L1BlockTime = 1
 		sysConfig.DeployConfig.L2BlockTime = 1
 		sysConfig.L1FinalizedDistance = 0
 		system, err = sysConfig.Start(t)
