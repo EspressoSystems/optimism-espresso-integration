@@ -28,6 +28,33 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+func waitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
+
+	const transactionFetchTimeout = 4 * time.Second
+	const transactionFetchInterval = 100 * time.Millisecond
+
+	timer := time.NewTimer(transactionFetchTimeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(transactionFetchInterval)
+	defer ticker.Stop()
+
+	var err error
+	for {
+		select {
+		case <-ticker.C:
+			_, err := espressoClient.FetchTransactionByHash(ctx, txHash)
+			if err == nil {
+				return nil
+			}
+		case <-timer.C:
+			return fmt.Errorf("failed to fetch transaction by hash: %w", err)
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
 // TestDeterministicDerivationExecutionStateWithInvalidTransaction is a test that
 // attempts to make sure that the caff node can derive the same state as the
 // original op-node (non caffeinated).
@@ -130,7 +157,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 		// When it is the attack round, send some Espresso transactions using fakeBatcherPrivateKey directly to Espresso.
 		// The L2 batch embedded in the Espresso transaction is well formed but will be ignored as the  transaction is not signed by the batcher and the batch information is not authenticated to the batch authentication contract either.
-		// And we don't have to wait for the receipt of the transaction as the transaction will be processed before the inclusion of later regular transactions.
+
 		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
 			fakeBatcherPrivateKey, err := forgedBatcherPrivateKey()
@@ -143,10 +170,12 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			}
 
 			// Send transaction directly to Espresso to bypass the batcher
-			_, err = espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
+			txHash, err := espressoClient.SubmitTransaction(ctx, *fakeEspressoTransaction)
 			if err != nil {
 				t.Fatalf("Failed to submit transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
+
+			err = waitForEspressoTx(ctx, txHash, espressoClient)
 
 		} else if i == attackRoundL1 {
 			// create a transaction
