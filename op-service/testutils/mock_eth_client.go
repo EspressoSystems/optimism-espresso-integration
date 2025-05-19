@@ -112,6 +112,10 @@ func (m *MockEthClient) ExpectFetchReceipts(hash common.Hash, info eth.BlockInfo
 	m.Mock.On("FetchReceipts", hash).Once().Return(&info, receipts, err)
 }
 
+func (m *MockEthClient) SetFetchReceipts(hash common.Hash, info eth.BlockInfo, receipts types.Receipts, err error) {
+	m.Mock.On("FetchReceipts", hash).Return(&info, receipts, err)
+}
+
 func (m *MockEthClient) GetProof(ctx context.Context, address common.Address, storage []common.Hash, blockTag string) (*eth.AccountResult, error) {
 	out := m.Mock.Called(address, storage, blockTag)
 	return out.Get(0).(*eth.AccountResult), out.Error(1)
