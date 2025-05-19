@@ -145,6 +145,9 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			}
 
 			err = env.WaitForEspressoTx(ctx, txHash, espressoClient)
+			if err != nil {
+				t.Fatalf("Espresso transaction failed to be confirmed:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
+			}
 
 		} else if i == attackRoundL1 {
 			// create a transaction
