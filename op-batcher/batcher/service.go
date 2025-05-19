@@ -103,6 +103,10 @@ type BatcherService struct {
 	Attestation         *nitrite.Result
 }
 
+func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
+	return &bs.driver.streamer
+}
+
 type DriverSetupOption func(setup *DriverSetup)
 
 // BatcherServiceFromCLIConfig creates a new BatcherService from a CLIConfig.

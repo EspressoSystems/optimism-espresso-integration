@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math"
