@@ -12,6 +12,8 @@ import (
 
 	espresso "github.com/EspressoSystems/espresso-network-go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
+	espressoLocal "github.com/ethereum-optimism/optimism/espresso"
+	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -96,6 +98,10 @@ type BatcherService struct {
 	NotSubmittingOnStart bool
 
 	Attestation []byte
+}
+
+func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
+	return &bs.driver.streamer
 }
 
 type DriverSetupOption func(setup *DriverSetup)
