@@ -124,7 +124,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 			t.Fatalf("Waiting for L2 tx:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
-		// When it is the attack round, try to send some Espresso transactions with fakeBatcherPrivateKey directly to Espresso, outside of the batcher.
+		// When it is the attack round, send some Espresso transactions with fakeBatcherPrivateKey directly to Espresso.
 		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction.
 		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
