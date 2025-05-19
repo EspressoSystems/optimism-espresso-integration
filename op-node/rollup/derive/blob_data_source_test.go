@@ -1,7 +1,10 @@
 package derive
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"errors"
+	"io"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -9,12 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -44,8 +51,13 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		Data:     testutils.RandomData(rng, rng.Intn(1000)),
 	}
 	calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
+	calldataReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: calldataTx.Hash(),
+	}
 	txs := types.Transactions{calldataTx}
-	data, blobHashes := dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts := types.Receipts{calldataReceipt}
+	data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -59,23 +71,34 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		BlobHashes: []common.Hash{blobHash},
 	}
 	blobTx, _ := types.SignNewTx(privateKey, signer, blobTxData)
+	blobReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
 	txs = types.Transactions{blobTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.Nil(t, data[0].calldata)
 
 	// try again with both the blob & calldata transactions and make sure both are picked up
 	txs = types.Transactions{blobTx, calldataTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt, calldataReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 2, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.NotNil(t, data[1].calldata)
 
 	// make sure blob tx to the batch inbox is ignored if not signed by the batcher
 	blobTx, _ = types.SignNewTx(testutils.RandomKey(), signer, blobTxData)
+	blobReceipt = &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
 	txs = types.Transactions{blobTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -83,8 +106,13 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	// signature is valid.
 	blobTxData.To = testutils.RandomAddress(rng)
 	blobTx, _ = types.SignNewTx(privateKey, signer, blobTxData)
+	blobReceipt = &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
 	txs = types.Transactions{blobTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{blobReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -96,9 +124,14 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		Data:  testutils.RandomData(rng, rng.Intn(1000)),
 	}
 	setCodeTx, err := types.SignNewTx(privateKey, signer, setCodeTxData)
+	setCodeReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: setCodeTx.Hash(),
+	}
 	require.NoError(t, err)
 	txs = types.Transactions{setCodeTx}
-	data, blobHashes = dataAndHashesFromTxs(txs, &config, batcherAddr, logger)
+	receipts = types.Receipts{setCodeReceipt}
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 }
@@ -151,4 +184,135 @@ func TestFillBlobPointers(t *testing.T) {
 		require.Equal(t, blobLen, blobCount)
 		require.Equal(t, calldataLen, calldataCount)
 	}
+}
+
+// TestBlobDataSourceL1FetcherErrors tests that BlobDataSource handles intermittent errors in
+// L1Source correctly.
+func TestBlobDataSourceL1FetcherErrors(t *testing.T) {
+	logger := testlog.Logger(t, log.LevelDebug)
+	ctx := context.Background()
+
+	rng := rand.New(rand.NewSource(1234))
+
+	l1F := &testutils.MockL1Source{}
+	blobF := &testutils.MockBlobsFetcher{}
+
+	// Create rollup genesis and config
+	l1Time := uint64(2)
+	refA := testutils.RandomBlockRef(rng)
+	refA.Number = 1
+	l1Refs := []eth.L1BlockRef{refA}
+	refA0 := eth.L2BlockRef{
+		Hash:           testutils.RandomHash(rng),
+		Number:         0,
+		ParentHash:     common.Hash{},
+		Time:           refA.Time,
+		L1Origin:       refA.ID(),
+		SequenceNumber: 0,
+	}
+	batcherPriv := testutils.RandomKey()
+	batcherAddr := crypto.PubkeyToAddress(batcherPriv.PublicKey)
+	batcherInbox := common.Address{42}
+	cfg := &rollup.Config{
+		Genesis: rollup.Genesis{
+			L1:     refA.ID(),
+			L2:     refA0.ID(),
+			L2Time: refA0.Time,
+		},
+		BlockTime:         1,
+		SeqWindowSize:     20,
+		BatchInboxAddress: batcherInbox,
+		EcotoneTime:       new(uint64),
+	}
+
+	signer := cfg.L1Signer()
+
+	factory := NewDataSourceFactory(logger, cfg, l1F, blobF, nil)
+
+	parent := l1Refs[0]
+	// create a new mock l1 ref
+	ref := eth.L1BlockRef{
+		Hash:       testutils.RandomHash(rng),
+		Number:     parent.Number + 1,
+		ParentHash: parent.Hash,
+		Time:       parent.Time + l1Time,
+	}
+
+	input := testutils.RandomData(rng, 200)
+	tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
+		ChainID:   signer.ChainID(),
+		Nonce:     0,
+		GasTipCap: big.NewInt(2 * params.GWei),
+		GasFeeCap: big.NewInt(30 * params.GWei),
+		Gas:       100_000,
+		To:        &batcherInbox,
+		Value:     big.NewInt(int64(0)),
+		Data:      input,
+	})
+	require.NoError(t, err)
+	txReceipt := &types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful}
+
+	blobInput := testutils.RandomData(rng, 1024)
+	blob := new(eth.Blob)
+	err = blob.FromData(blobInput)
+	require.NoError(t, err)
+	_, blobHashes, err := txmgr.MakeSidecar([]*eth.Blob{blob})
+	require.NoError(t, err)
+	blobTxData := &types.BlobTx{
+		Nonce:      rng.Uint64(),
+		Gas:        2_000_000,
+		To:         batcherInbox,
+		Data:       testutils.RandomData(rng, rng.Intn(1000)),
+		BlobHashes: blobHashes,
+	}
+	blobTx, _ := types.SignNewTx(batcherPriv, signer, blobTxData)
+	blobReceipt := &types.Receipt{
+		Status: types.ReceiptStatusSuccessful,
+		TxHash: blobTx.Hash(),
+	}
+
+	txs := []*types.Transaction{tx, blobTx}
+	receipts := types.Receipts{txReceipt, blobReceipt}
+
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+
+	src, err := factory.OpenData(ctx, ref, batcherAddr)
+	require.IsType(t, &BlobDataSource{}, src, src)
+	// Data source should still be opened correctly and attempt to fetch receipts
+	require.NoError(t, err)
+
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
+
+	// Should fail because receipts are still not delivered
+	_, err = src.Next(ctx)
+	require.Error(t, err)
+
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
+
+	// Should fail because receipts do not match the transactions
+	_, err = src.Next(ctx)
+	require.Error(t, err)
+
+	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
+	blobF.ExpectOnGetBlobs(ctx, ref, []eth.IndexedBlobHash{eth.IndexedBlobHash{
+		Index: 0,
+		Hash:  blobHashes[0],
+	}}, []*eth.Blob{(*eth.Blob)(blob)}, nil)
+
+	// calldata input is passed through
+	data, err := src.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, hexutil.Bytes(input), data)
+
+	// blob input is passed through
+	data, err = src.Next(ctx)
+	require.NoError(t, err)
+	require.Equal(t, hexutil.Bytes(blobInput), data)
+
+	_, err = src.Next(ctx)
+	require.ErrorIs(t, err, io.EOF)
+
+	l1F.AssertExpectations(t)
 }
