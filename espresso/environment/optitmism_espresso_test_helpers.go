@@ -696,5 +696,5 @@ func SendDepositTxNoReceipt(t *testing.T, cfg e2esys.SystemConfig, l1Client *eth
 		return depositContract.DepositTransaction(opts, l2Opts.ToAddr, l2Opts.Value, l2Opts.GasLimit, l2Opts.IsCreation, l2Opts.Data)
 	})
 	require.NoError(t, err, "with deposit tx")
-	t.Logf("SendDepositTx: transaction sent: %v", tx.Hash())
+	t.Logf("SendDepositTxNoReceipt: transaction sent: %v", tx.Hash())
 }

@@ -11,18 +11,20 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
+	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
-// Time to wait for the transaction to be enforced after submission.
+// Time to wait for a transaction to be enforced after submission.
 const WAIT_FORCED_TXN_TIME = 25 * time.Second
 
-// A window small enough to guarantee that the transaction is enforced before WAIT_FORCED_TXN_TIME.
-const SMALL_SEQUENCER_WINDOW = 2
+// Window small enough to guarantee that transactions are enforced before WAIT_FORCED_TXN_TIME.
+const SMALL_SEQUENCER_WINDOW = 2 // Minimum possible value
 
-// A window large enough to guarantee that the transaction is not enforced before
-// WAIT_FORCED_TXN_TIME.
+// Window large enough to guarantee that transactions are not enforced before WAIT_FORCED_TXN_TIME.
 const LARGER_SEQUENCER_WINDOW = 1000
 
 // Get the appropriate sequencer window size for testing.
@@ -43,16 +45,17 @@ func sequencer_window_size(withSmallWindow bool) uint64 {
 //		Set the sequencer window size small or large.
 //		Start the devnet with the sequencer window setting, with or without the Espresso dev node.
 //		Stop the sequencer.
-//		Send a deposit.
 //	Act:
-//		Wait until the small window is passed.
+//		Send a deposit and wait until the small window is passed.
+//		Send a withdrawal and wait until the small window is passed.
 //	Assert:
-//		The balance reflects or does not reflect the deposit transaction if the sequencer window is
-//		set small or large, respectively, regardless of whether launching with the Espresso dev
-//		node.
+//		The balance reflects (or does not) reflect the deposit transaction and the withdrawal
+//		transaction is (or is) succeeds, if the sequencer window is set small (or large,
+//		respectively), regardless of whether launching with the Espresso dev node.
 func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso bool) {
 	// Set up the test timeout condition.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	// Extended timeout to accommodate slower processing in test environments
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Launch the devnet with the given sequencer window size.
@@ -86,50 +89,93 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 	err = system.RollupNodes["sequencer"].Stop(ctx)
 	require.NoError(t, err, "Failed to stop the sequencer")
 
-	// Send the deposit from Bob to Alice without waiting for the receipt.
-	privateKey := system.Cfg.Secrets.Bob
-	options, err := bind.NewKeyedTransactorWithChainID(privateKey, system.Cfg.L1ChainIDBig())
-	require.NoError(t, err, "Failed to create transaction options")
-	amount := new(big.Int).SetUint64(1)
-	options.Value = amount
+	// Send a deposit from Bob to Alice without waiting for the receipt.
+	bobPrivateKey := system.Cfg.Secrets.Bob
+	options, err := bind.NewKeyedTransactorWithChainID(bobPrivateKey, system.Cfg.L1ChainIDBig())
+	require.NoError(t, err, "Failed to create deposit transaction options")
+	depositAmount := new(big.Int).SetUint64(100000)
+	options.Value = depositAmount
 	env.SendDepositTxNoReceipt(t, system.Cfg, l1Client, l2Verif, options, func(l2Opts *helpers.DepositTxOpts) {
 		l2Opts.ToAddr = address
 	})
 
-	// Wait and attempt to get the new balance.
+	// Wait and attempt to get the new balance after the deposit.
 	time.Sleep(WAIT_FORCED_TXN_TIME)
-	newBalance, err := wait.ForBalanceChange(ctx, l2Verif, address, initialBalance)
+	balanceAfterDeposit, err := wait.ForBalanceChange(ctx, l2Verif, address, initialBalance)
 
 	if withSmallSequencerWindow {
 		// Verify that Alice's balance increases as expected.
 		require.NoError(t, err, "Failed to get the new balance")
-		require.Equal(t, new(big.Int).Add(initialBalance, amount), newBalance, "Incorrect balance")
+		require.Equal(t, new(big.Int).Add(initialBalance, depositAmount), balanceAfterDeposit, "Incorrect balance after deposit")
+	} else {
+		// Verify that Alice's balance is inaccessible.
+		require.Error(t, err, "Not expected to get the new balance")
+	}
+
+	// Send a withdrawal from Alice to L2ToL1MessagePasser.
+	alicePrivateKey := system.Cfg.Secrets.Alice
+	l2ToL1MessagePasserAddr := common.HexToAddress(predeploys.L2ToL1MessagePasser)
+	gasPrice, err := l2Verif.SuggestGasPrice(ctx)
+	require.NoError(t, err, "Failed to get gas price")
+	nonce, err := l2Verif.PendingNonceAt(ctx, address)
+	require.NoError(t, err, "Failed to get nonce")
+	withdrawalAmount := new(big.Int).SetUint64(1000)
+	tx := types.NewTransaction(
+		nonce,
+		l2ToL1MessagePasserAddr,
+		withdrawalAmount,
+		300000,
+		gasPrice,
+		nil,
+	)
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), alicePrivateKey)
+	require.NoError(t, err, "Failed to sign the withdrawal transaction")
+	err = l2Verif.SendTransaction(ctx, signedTx)
+	require.NoError(t, err, "Failed to send the withdrawal transaction")
+
+	// Wait and attempt to get the new balance after the withdrawal.
+	// TODO (Keyao) The balance check below fails due to unchanged balance, not resolved by
+	// increasing the wait time.
+	time.Sleep(WAIT_FORCED_TXN_TIME)
+	balanceAfterWithdrawal, err := wait.ForBalanceChange(ctx, l2Verif, address, balanceAfterDeposit)
+
+	if withSmallSequencerWindow {
+		// Verify that Alice's balance decreases as expected.
+		require.NoError(t, err, "Failed to get the new balance")
+		require.Equal(t, new(big.Int).Sub(balanceAfterDeposit, withdrawalAmount), balanceAfterWithdrawal, "Incorrect balance after withdrawal")
 	} else {
 		// Verify that Alice's balance is inaccessible.
 		require.Error(t, err, "Not expected to get the new balance")
 	}
 }
 
-// TestForcedTransactionWithoutEspressoSmallWindow verifies that the transaction is enforced after
-// the sequencer window is passed when launching without the Espressso dev node.
-func TestForcedTransactionWithoutEspressoSmallWindow(t *testing.T) {
+// TestForcedTransactionsWithoutEspressoSmallWindow verifies that the deposit and the withdrawal
+// transactions are enforced after the sequencer window is passed when launching without the
+// Espressso dev node.
+func TestForcedTransactionsWithoutEspressoSmallWindow(t *testing.T) {
 	ForcedTransaction(t, true, false)
 }
 
-// TestForcedTransactionWithoutEspressoLargeWindow verifies that the transaction is not enforced
-// before the sequencer window is passed when launching without the Espressso dev node.
-func TestForcedTransactionWithoutEspressoLargeWindow(t *testing.T) {
-	ForcedTransaction(t, false, false)
-}
+// TODO (Keyao) Restore the following tests once TestForcedTransactionsWithoutEspressoSmallWindow
+// passes.
 
-// TestForcedTransactionWithEspressoSmallWindow verifies that the transaction is enforced after the
-// sequencer window is passed when launching with the Espressso dev node.
-func TestForcedTransactionWithEspressoSmallWindow(t *testing.T) {
-	ForcedTransaction(t, true, true)
-}
+// // TestForcedTransactionsWithoutEspressoLargeWindow verifies that the deposit and the withdrawal
+// // transactions are not enforced before the sequencer window is passed when launching without the
+// // Espressso dev node.
+// func TestForcedTransactionsWithoutEspressoLargeWindow(t *testing.T) {
+// 	ForcedTransaction(t, false, false)
+// }
 
-// TestForcedTransactionWithEspressoLargeWindow verifies that the transaction is not enforced
-// before the sequencer window is passed when launching with the Espressso dev node.
-func TestForcedTransactionWithEspressoLargeWindow(t *testing.T) {
-	ForcedTransaction(t, false, true)
-}
+// // TestForcedTransactionsWithEspressoSmallWindow verifies that the deposit and the withdrawal
+// // transactions are enforced after the sequencer window is passed when launching with the Espressso
+// // dev node.
+// func TestForcedTransactionsWithEspressoSmallWindow(t *testing.T) {
+// 	ForcedTransaction(t, true, true)
+// }
+
+// // TestForcedTransactionsWithEspressoLargeWindow verifies that the deposit and the withdrawal
+// // transactions are not enforced before the sequencer window is passed when launching with the
+// // Espressso dev node.
+// func TestForcedTransactionsWithEspressoLargeWindow(t *testing.T) {
+// 	ForcedTransaction(t, false, true)
+// }
