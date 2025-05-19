@@ -129,7 +129,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 		}
 
 		// When it is the attack round, send some Espresso transactions using fakeBatcherPrivateKey directly to Espresso.
-		// Use the same way as creating a real transaction but a fake batcher private key to create a fake Espresso transaction.
+		// The L2 batch embedded in the Espresso transaction is well formed but will be ignored as the  transaction is not signed by the batcher and the batch information is not authenticated to the batch authentication contract either.
 		// And we don't have to wait for the receipt of the transaction as the transaction will be processed before the inclusion of later regular transactions.
 		if i == attackRoundEspresso {
 			// Create a fake Espresso transaction
