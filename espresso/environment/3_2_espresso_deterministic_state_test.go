@@ -100,7 +100,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	// Send some regular L2 transactions in each iteration and there are 10 rounds in total
 	// Since we wait for valid transactions sent before attackRoundEspresso and after attackRoundL1 to be included,
 	// we can be confident that the malicious transactions were already processed,
-	// because the derivation pipeline handles transactions sequentially and in the correct order.
+	// The reason is that the iterations of the test are executed sequentially.
 	numIterations := 10
 	attackRoundEspresso := 5 // the round where we send transaction directly to Espresso outside of the batcher
 	attackRoundL1 := 7       // the round where we send transaction directly to batch inbox
