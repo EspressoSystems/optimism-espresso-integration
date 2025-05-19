@@ -86,7 +86,19 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
 
-	data, hashes := dataAndHashesFromTxs(txs, &ds.dsCfg, ds.batcherAddr, ds.log)
+	_, receipts, err := ds.fetcher.FetchReceipts(ctx, ds.ref.Hash)
+	if err != nil {
+		if errors.Is(err, ethereum.NotFound) {
+			return nil, NewResetError(fmt.Errorf("failed to open blob data source: %w", err))
+		}
+		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
+	}
+
+	if len(receipts) != len(txs) {
+		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: L1 fetcher provided inconsistent number of receipts"))
+	}
+
+	data, hashes := dataAndHashesFromTxs(txs, receipts, &ds.dsCfg, ds.batcherAddr, ds.log)
 
 	if len(hashes) == 0 {
 		// there are no blobs to fetch so we can return immediately
