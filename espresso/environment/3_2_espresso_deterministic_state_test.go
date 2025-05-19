@@ -102,7 +102,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	// we can be confident that the malicious transactions are included on L1/Espresso while the L2 chain is making progress.
 	// The reason is that the iterations of the test are executed sequentially.
 	numIterations := 10
-	attackRoundEspresso := 5 // the round where we send transaction directly to Espresso outside of the batcher
+	attackRoundEspresso := 5 // the round where we send transactions directly to Espresso outside without running the batcher code.
 	attackRoundL1 := 7       // the round where we send transaction directly to the batch inbox contract.
 	// Compare states between nodes for multiple latest blocks
 	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
