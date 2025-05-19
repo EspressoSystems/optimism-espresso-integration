@@ -143,6 +143,11 @@ type BatchSubmitter struct {
 	publishSignal chan pubInfo
 }
 
+// EspressoStreamer returns the batch submitter's Espresso streamer instance
+func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return &l.streamer
+}
+
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
 func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	state := NewChannelManager(setup.Log, setup.Metr, setup.ChannelConfig, setup.RollupConfig)
