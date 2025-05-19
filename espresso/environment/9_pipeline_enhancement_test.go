@@ -39,7 +39,6 @@ func TestPipelineEnhancement(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
-	// Signal the testnet to shut down
 	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
