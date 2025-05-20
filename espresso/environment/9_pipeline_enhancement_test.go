@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum-optimism/optimism/op-service/sources/mocks"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -76,8 +77,12 @@ func TestPipelineEnhancement(t *testing.T) {
 	l1ClientFetching, _ := client.NewRPC(ctx, nil, system.NodeEndpoint(e2esys.RoleL1).RPC())
 	l1RefClient, err := sources.NewL1Client(l1ClientFetching, l, nil, sources.L1ClientDefaultConfig(system.RollupConfig, true, sources.RPCKindStandard))
 
-	system.RollupConfig.EcotoneTime = nil
-	factory := derive.NewDataSourceFactory(l, system.RollupConfig, l1RefClient, nil, nil)
+	// Mock the L1 Beacon client as by default system.RollupConfig.EcotoneTime = 0
+	p := mocks.NewBeaconClient(t)
+	f := mocks.NewBlobSideCarsFetcher(t)
+	c := sources.NewL1BeaconClient(p, sources.L1BeaconClientConfig{}, f)
+
+	factory := derive.NewDataSourceFactory(l, system.RollupConfig, l1RefClient, c, nil)
 
 	batcherAddress := crypto.PubkeyToAddress(*system.BatchSubmitter.BatcherPublicKey)
 	l1Block, err := l1Client.BlockByNumber(ctx, receipt.BlockNumber)
