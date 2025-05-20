@@ -67,6 +67,7 @@ func TestPipelineEnhancement(t *testing.T) {
 	require.NoError(t, err)
 
 	receipt, err := wait.ForReceiptFail(ctx, l1Client, tx.Hash())
+	require.Equal(t, receipt.Status, gethTypes.ReceiptStatusFailed)
 	require.NoError(t, err, "Waiting for receipt on transaction", tx)
 
 	l1ClientFetching, _ := client.NewRPC(ctx, nil, system.NodeEndpoint(e2esys.RoleL1).RPC())
