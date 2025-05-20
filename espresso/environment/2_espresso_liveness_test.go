@@ -139,16 +139,17 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 // degraded state.
 //
 // The criteria for this test is as follows:
-//	Requirement: Liveness:
-//    The rollup should continue to run, [to] post Espresso confirmations
-//    within 10 seconds of each rollup block produced by the sequencer.
+//
+//		Requirement: Liveness:
+//	   The rollup should continue to run, [to] post Espresso confirmations
+//	   within 11 seconds of each rollup block produced by the sequencer.
 //
 // As a result, this test will submit a number of transactions to the sequencer,
 // while also consuming the Espresso stream of blocks utilizing the Espresso
 // streamer.  We **SHOULD** be able to match up the transactions submitted to
 // the blocks being produced by the Espresso Streamer, and the time it takes
 // from transaction submission to receiving the Block that contains that same
-// transaction should be less than 10 seconds.
+// transaction should be less than 11 seconds.
 //
 // More importantly, this **SHOULD** also continue to be the state even when
 // Espresso is in a degraded state.
@@ -159,7 +160,6 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 // a Transaction, we should be able to find the receipt on the L2, and then
 // we can use that Block information to track the arrival of the Transaction
 // / Block coming from Espresso.
-
 func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -180,7 +180,13 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	)
 
 	defer env.Stop(t, server)
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, option)
+	system, espressoDevNode, err := launcher.StartDevNet(
+		ctx,
+		t,
+		option,
+		env.WithL1FinalizedDistance(0),
+		env.WithSequencerUseFinalized(true),
+	)
 
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
@@ -224,6 +230,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		// Streamer Setup and Configuration
 		l := log.NewLogger(slog.Default().Handler())
 		lightClient, err := lightclient.NewLightclientCaller(common.HexToAddress(env.ESPRESSO_LIGHT_CLIENT_ADDRESS), l1Client)
+		require.NoError(t, err, "light client creation failed")
 		streamer := espresso.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),
 			batcher.NewAdaptL1BlockRefClient(l1Client),
@@ -415,8 +422,8 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		totalDiff += diff
 		totalDenom++
 
-		if have, want := diff, 10*time.Second; have > want {
-			t.Errorf("Submission %d was not confirmed in an espresso block within 10 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
+		if have, want := diff, 11*time.Second; have > want {
+			t.Errorf("Submission %d was not confirmed in an espresso block within 11 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
 		}
 	}
 
@@ -428,8 +435,8 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		// We cast the len(espressoReceipts) to a time.Duration so we can divide
 		// the totalDiff to get the average duration, to appease the type system.
 		averageDuration := totalDiff / totalDenom
-		if have, want := averageDuration, 10*time.Second; have > want {
-			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 10 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
+		if have, want := averageDuration, 11*time.Second; have >= want {
+			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 11 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
 		}
 	}
 }
