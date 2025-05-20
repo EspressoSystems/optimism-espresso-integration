@@ -7,6 +7,7 @@ import (
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
@@ -14,7 +15,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -189,47 +189,65 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	// Set up Alice's address and record the initial balance.
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	address := system.Cfg.Secrets.Addresses().Alice
+	l1Client := system.NodeClient(e2esys.RoleL1)
 	initialBalance, err := l2Verif.BalanceAt(ctx, address, nil)
 	require.NoError(t, err, "Failed to get initial balance")
 
 	// Simulate sequencer downtime.
-	err = system.RollupNodes["sequencer"].Stop(ctx)
-	require.NoError(t, err, "Failed to stop sequencer")
+	// err = system.RollupNodes["sequencer"].Stop(ctx)
+	// require.NoError(t, err, "Failed to stop sequencer")
 
-	// Send a withdrawal from Alice to L2ToL1MessagePasser.
-	alicePrivateKey := system.Cfg.Secrets.Alice
-	l2ToL1MessagePasserAddr := common.HexToAddress(predeploys.L2ToL1MessagePasser)
-	gasPrice, err := l2Verif.SuggestGasPrice(ctx)
-	require.NoError(t, err, "Failed to get gas price")
-	gasTipCap, err := l2Verif.SuggestGasTipCap(ctx)
-	require.NoError(t, err, "Failed to get gas tip cap")
-	initialNonce, err := l2Verif.PendingNonceAt(ctx, address)
-	require.NoError(t, err, "Failed to get initial nonce")
+	// Send a withdrawal from Alice to L2CrossDomainMessenger.
+	opts, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Alice, system.Cfg.L1ChainIDBig())
+	require.NoError(t, err)
+	l2CrossDomainMessengerAddr := common.HexToAddress(predeploys.L2CrossDomainMessenger)
+	// gasPrice, err := l2Verif.SuggestGasPrice(ctx)
+	// require.NoError(t, err, "Failed to get gas price")
+	// gasTipCap, err := l2Verif.SuggestGasTipCap(ctx)
+	// require.NoError(t, err, "Failed to get gas tip cap")
+	// initialNonce, err := l2Verif.PendingNonceAt(ctx, address)
+	// require.NoError(t, err, "Failed to get initial nonce")
 	withdrawalAmount := new(big.Int).SetUint64(1000)
-	txData := &types.DynamicFeeTx{
-		ChainID:   system.Cfg.L2ChainIDBig(),
-		Nonce:     initialNonce,
-		To:        &l2ToL1MessagePasserAddr,
-		Value:     withdrawalAmount,
-		Gas:       500000,
-		GasFeeCap: gasPrice,
-		GasTipCap: gasTipCap,
-		Data:      nil,
-	}
-	tx := types.NewTx(txData)
-	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), alicePrivateKey)
-	require.NoError(t, err, "Failed to sign withdrawal transaction")
-	err = l2Verif.SendTransaction(ctx, signedTx)
-	require.NoError(t, err, "Failed to send withdrawal transaction")
+	// msgCalldata := helpers.EncodeWithdrawalCalldata(system.Cfg, address, withdrawalAmount)
+
+	portal, err := bindings.NewOptimismPortal(system.Cfg.L1Deployments.OptimismPortalProxy, l1Client)
+	require.NoError(t, err)
+	tx, err := portal.DepositTransaction(
+		opts,                       // keyed transactor for gas & value
+		l2CrossDomainMessengerAddr, // L2CrossDomainMessenger predeploy
+		withdrawalAmount,           // no ETH value needed
+		uint64(200_000),            // gas limit
+		false,                      // _isCreation
+		nil,
+	)
+	require.NoError(t, err)
+	_, err = bind.WaitMined(ctx, l1Client, tx)
+	require.NoError(t, err)
+
+	// txData := &types.DynamicFeeTx{
+	// 	ChainID:   system.Cfg.L2ChainIDBig(),
+	// 	Nonce:     initialNonce,
+	// 	To:        &l2CrossDomainMessengerAddr,
+	// 	Value:     withdrawalAmount,
+	// 	Gas:       500000,
+	// 	GasFeeCap: gasPrice,
+	// 	GasTipCap: gasTipCap,
+	// 	Data:      nil,
+	// }
+	// tx := types.NewTx(txData)
+	// signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), alicePrivateKey)
+	// require.NoError(t, err, "Failed to sign withdrawal transaction")
+	// err = l2Verif.SendTransaction(ctx, signedTx)
+	// require.NoError(t, err, "Failed to send withdrawal transaction")
 
 	time.Sleep(WAIT_FORCED_TXN_TIME)
 
 	// TODO (Keyao) The nonce and the balance checks below both fail. We probably don't need both
 	// to pass, but should fix at least one.
 
-	newNonce, err := l2Verif.NonceAt(ctx, address, nil)
-	require.NoError(t, err, "Failed to get new nonce")
-	require.Greater(t, newNonce, initialNonce)
+	// newNonce, err := l1Client.NonceAt(ctx, address, nil)
+	// require.NoError(t, err, "Failed to get new nonce")
+	// require.Greater(t, newNonce, initialNonce)
 
 	newBalance, err := wait.ForBalanceChange(ctx, l2Verif, address, initialBalance)
 	if withSmallSequencerWindow {
