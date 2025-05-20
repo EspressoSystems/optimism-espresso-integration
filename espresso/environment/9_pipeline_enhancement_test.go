@@ -41,6 +41,10 @@ func TestPipelineEnhancement(t *testing.T) {
 	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
 	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
+	// Stop the batcher to ensure no valid batch is posted to L1.
+	driver := system.BatchSubmitter.TestDriver()
+	driver.StopBatchSubmitting(ctx)
+
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
 	defer env.Stop(t, system)
@@ -48,7 +52,6 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	// Send a transaction not signed by the batcher to the inbox contract
 	// Create the transaction
-
 	txData := []byte("42424242424242424242")
 
 	tx := gethTypes.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &gethTypes.DynamicFeeTx{
