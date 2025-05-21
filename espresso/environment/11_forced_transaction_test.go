@@ -163,8 +163,6 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	var err error
 	if withEspresso {
 		launcher := new(env.EspressoDevNodeLauncherDocker)
-		// TODO (Keyao) Once the tests without Espresso are fixed, update the config parameters
-		// similarily here.
 		systemWithEspresso, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithSequencerWindowSize(sequencer_window_size(withSmallSequencerWindow)))
 		system = systemWithEspresso
 		require.NoError(t, err, "Failed to launch with the Espresso dev node")
@@ -173,14 +171,6 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	} else {
 		sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
 		sysConfig.DeployConfig.SequencerWindowSize = sequencer_window_size(withSmallSequencerWindow)
-		// TODO (Keyao) Once the tests without Espresso are fixed, remove unnecessary config
-		// parameters below.
-		sysConfig.DeployConfig.FinalizationPeriodSeconds = 1
-		sysConfig.DeployConfig.MaxSequencerDrift = 1
-		sysConfig.DeployConfig.L2BlockTime = 1
-		sysConfig.L1FinalizedDistance = 0
-		sysConfig.DeployConfig.L2OutputOracleSubmissionInterval = 1
-		sysConfig.DeployConfig.L2OutputOracleStartingTimestamp = 0
 		system, err = sysConfig.Start(t)
 		require.NoError(t, err, "failed to launch without Espresso dev node")
 		defer env.Stop(t, system)
@@ -197,37 +187,29 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	err = system.RollupNodes["sequencer"].Stop(ctx)
 	require.NoError(t, err, "Failed to stop sequencer")
 
-	// Initiate a withdrawal from Alice.
-	opts, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Alice, system.Cfg.L1ChainIDBig())
-	require.NoError(t, err)
-
-	withdrawalAmount := new(big.Int).SetUint64(1000)
-
-	// Initiate a withdrawal from L1 following https://docs.unichain.org/docs/technical-information/submitting-transactions-from-l1#initiating-a-withdrawal-from-l1
+	// Initiate a withdrawal from Alice to the L1 following
+	// https://docs.unichain.org/docs/technical-information/submitting-transactions-from-l1#initiating-a-withdrawal-from-l1.
 	portal, err := bindings.NewOptimismPortal(system.Cfg.L1Deployments.OptimismPortalProxy, l1Client)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to create Optimism portal")
+	opts, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Alice, system.Cfg.L1ChainIDBig())
+	require.NoError(t, err, "Failed to create withdrawal transaction options")
+	withdrawalAmount := new(big.Int).SetUint64(1000)
 	tx, err := portal.DepositTransaction(
-		opts, // keyed transactor for gas & value
-		common.HexToAddress(predeploys.L2ToL1MessagePasser), // L2ToL1MessagePasser predeploy
-		withdrawalAmount, // withdrawal amount
-		uint64(300_000),  // gas limit
-		false,            // _isCreation
-		nil,              // _extraData
+		opts,
+		common.HexToAddress(predeploys.L2ToL1MessagePasser),
+		withdrawalAmount,
+		uint64(300_000),
+		false,
+		nil,
 	)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to create transaction")
 	_, err = bind.WaitMined(ctx, l1Client, tx)
-	require.NoError(t, err)
+	require.NoError(t, err, "Transaction not minted")
 
+	// Wait and attempt to get the new balance after the deposit.
 	time.Sleep(WAIT_FORCED_TXN_TIME)
-
-	// TODO (Keyao) The nonce and the balance checks below both fail. We probably don't need both
-	// to pass, but should fix at least one.
-
-	// newNonce, err := l2Verif.NonceAt(ctx, address, nil)
-	// require.NoError(t, err, "Failed to get new nonce")
-	// require.Greater(t, newNonce, initialNonce)
-
 	newBalance, err := wait.ForBalanceChange(ctx, l2Verif, address, initialBalance)
+
 	if withSmallSequencerWindow {
 		// Verify that Alice's balance decreases as expected.
 		require.NoError(t, err, "Failed to get new balance")
@@ -243,9 +225,6 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 func TestForcedWithdrawalWithoutEspressoSmallWindow(t *testing.T) {
 	ForcedWithdrawal(t, true, false)
 }
-
-// TODO (Keyao) Restore the following tests once TestForcedWithdrawalWithoutEspressoSmallWindow
-// passes.
 
 // TestForcedWithdrawalWithoutEspressoLargeWindow verifies that the withdrawal transaction is not
 // enforced before the sequencer window is passed when launching without the Espressso dev node.
