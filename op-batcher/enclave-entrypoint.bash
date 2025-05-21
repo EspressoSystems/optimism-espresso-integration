@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-set -x
+
+# Entrypoint for op-batcher running in enclaver image.
+# Main goal of the script is to rewrite the URLs passed to the batcher to use the Odyn proxy
+# and recover batcher's CLI arguments from ENCLAVE_BATCHER_ARGS env variable (there's no way
+# to directly pass commandline arguments when starting EIF images)
 
 # We will need to start a proxy for each of those urls
 URL_ARG="^(--altda\.da-server|--espresso-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)$"

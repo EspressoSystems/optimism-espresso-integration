@@ -48,6 +48,8 @@ type DockerContainerConfig struct {
 	AutoRM  bool
 }
 
+// DockerBuildArg is a configuration struct that is used to pass
+// 'ARG' parameters when building a Docker Image
 type DockerBuildArg struct {
 	Name  string
 	Value string
@@ -375,6 +377,7 @@ func (d *DockerCli) Logs(ctx context.Context, containerID string) (io.Reader, er
 	return reader, err
 }
 
+// Build builds a Docker Image with the given tag, dockerfile, target, context, and build arguments.
 func (d *DockerCli) Build(ctx context.Context, tag string, dockerfile string, target string, context string, buildArgs ...DockerBuildArg) error {
 	args := []string{
 		"build",

@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math"
@@ -20,6 +18,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
@@ -139,6 +140,7 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 // EspressoDevNodeLauncherDocker is an implementation of EspressoDevNodeLauncher
 // that uses Docker to launch the Espresso Dev Node
 type EspressoDevNodeLauncherDocker struct {
+	// Whether to run batcher in enclave.
 	EnclaveBatcher bool
 }
 
@@ -280,7 +282,7 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	}
 
 	if l.EnclaveBatcher {
-		initialOptions = append(initialOptions, launchBatcherInEnclave())
+		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
 	}
 
 	launchContext := DevNetLauncherContext{
@@ -453,7 +455,7 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLaunche
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				{
-					BatcherMod: func(c *batcher.CLIConfig) {
+					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 
 						goodUrl := c.EspressoUrls[0]
 						var urls []string

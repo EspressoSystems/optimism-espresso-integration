@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 
@@ -36,6 +37,7 @@ const ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
 const ENCLAVE_IMAGE_TAG = "op-batcher-enclaver:tests"
 const ESPRESSO_ENABLE_ENCLAVE_TESTS = "ESPRESSO_RUN_ENCLAVE_TESTS"
 
+// Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
 func RunOnlyWithEnclave(t *testing.T) {
 	_, doRun := os.LookupEnv(ESPRESSO_ENABLE_ENCLAVE_TESTS)
 	if !doRun {
@@ -43,6 +45,10 @@ func RunOnlyWithEnclave(t *testing.T) {
 	}
 }
 
+// Formats a configuration flag name and it's value for use in commandline,
+// then adds to the args slice.
+// Example: appendArg(&args, "people", []{"Alice", "Bob"}) will append
+// {'--people', 'Alice,Bob'} to args
 func appendArg(args *[]string, flagName string, value any) {
 	boolValue, isBool := value.(bool)
 	if isBool {
@@ -52,18 +58,27 @@ func appendArg(args *[]string, flagName string, value any) {
 		return
 	}
 
+	strSliceValue, isStrSlice := value.([]string)
+	if isStrSlice {
+		*args = append(*args, fmt.Sprintf("--%s", flagName), strings.Join(strSliceValue, ","))
+	}
+
 	formattedValue := fmt.Sprintf("%v", value)
 	if formattedValue != "" {
 		*args = append(*args, fmt.Sprintf("--%s", flagName), formattedValue)
 	}
 }
 
-func launchBatcherInEnclave() DevNetLauncherOption {
+func LaunchBatcherInEnclave() DevNetLauncherOption {
 	return func(ct *DevNetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
-				// TODO(AG):
+				// TODO(AG): currently op-batcher calls `registerSigner` directly,
+				// which on the first run results in verifying the full certificate
+				// chain in a single transaction, which runs over gas limit. This is
+				// a workaround for the issue, real solution will invole verifying
+				// each cerficiate separately before calling `registerSigner`
 				cfg.DeployConfig.L1GenesisBlockGasLimit = 90_000_000
 			},
 			StartOptions: []e2esys.StartOption{
@@ -71,10 +86,10 @@ func launchBatcherInEnclave() DevNetLauncherOption {
 					Role: "launch-batcher-in-enclave",
 
 					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
-						cli := new(EnclaverCli)
+						// We will manually convert CLIConfig back to commandline arguments
 						var args []string
 
-						// We don't want to stop this one
+						// We don't want to stop this batcher
 						appendArg(&args, flags.StoppedFlag.Name, false)
 
 						// These flags require separate handling: we want to use HTTP endpoints,
@@ -110,7 +125,7 @@ func launchBatcherInEnclave() DevNetLauncherOption {
 						appendArg(&args, flags.ThrottleThresholdFlag.Name, c.ThrottleThreshold)
 						appendArg(&args, flags.ThrottleTxSizeFlag.Name, c.ThrottleTxSize)
 						appendArg(&args, flags.WaitNodeSyncFlag.Name, c.WaitNodeSync)
-						appendArg(&args, flags.EspressoUrlFlag.Name, c.EspressoUrl)
+						appendArg(&args, flags.EspressoUrlFlag.Name, c.EspressoUrls)
 						appendArg(&args, flags.EspressoLCAddrFlag.Name, c.EspressoLightClientAddr)
 						appendArg(&args, flags.TestingEspressoBatcherPrivateKeyFlag.Name, c.TestingEspressoBatcherPrivateKey)
 
@@ -168,6 +183,7 @@ func launchBatcherInEnclave() DevNetLauncherOption {
 							panic(fmt.Sprintf("failed to setup enclaver: %v", err))
 						}
 
+						cli := new(EnclaverCli)
 						cli.RunEnclave(ct.Ctx, ENCLAVE_IMAGE_TAG)
 					},
 				},
@@ -176,6 +192,9 @@ func launchBatcherInEnclave() DevNetLauncherOption {
 	}
 }
 
+// Builds docker and enclaver EIF image for op-batcher and registers EIF's PCR0 with
+// EspressoNitroTEEVerifier. args... are command-line arguments to op-batcher
+// to be baked into the image.
 func SetupEnclaver(ctx context.Context, sys *e2esys.System, args ...string) error {
 	// Build underlying batcher docker image with baked-in arguments
 	dockerCli := new(DockerCli)
@@ -189,24 +208,25 @@ func SetupEnclaver(ctx context.Context, sys *e2esys.System, args ...string) erro
 			Value: strings.Join(args, " "),
 		})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build docker image: %w", err)
 	}
 
 	// Build EIF image based on the docker image we just built
 	enclaverCli := new(EnclaverCli)
 	manifest := DefaultManifest("op-batcher", ENCLAVE_IMAGE_TAG, ENCLAVE_INTERMEDIATE_IMAGE_TAG)
-	pcr0, err := enclaverCli.BuildEnclave(ctx, manifest)
+	measurements, err := enclaverCli.BuildEnclave(ctx, manifest)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build enclave image: %w", err)
 	}
-	pcr0Bytes, err := hexutil.Decode("0x" + pcr0)
+	pcr0Bytes, err := hexutil.Decode("0x" + measurements.PCR0)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to decode PCR0: %w", err)
 	}
 
 	return RegisterEnclaveHash(ctx, sys, pcr0Bytes)
 }
 
+// RegisterEnclaveHash registers the enclave PCR0 hash with the EspressoNitroTEEVerifier.
 func RegisterEnclaveHash(ctx context.Context, sys *e2esys.System, pcr0Bytes []byte) error {
 	l1Client := sys.NodeClient(e2esys.RoleL1)
 	authenticator, err := bindings.NewBatchAuthenticator(sys.RollupConfig.BatchAuthenticatorAddress, l1Client)
@@ -308,25 +328,29 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 	}
 }
 
+type EnclaveMeasurements struct {
+	PCR0 string `json:"PCR0"`
+	PCR1 string `json:"PCR1"`
+	PCR2 string `json:"PCR2"`
+}
+
 type EnclaverBuildOutput struct {
-	Measurements struct {
-		PCR0 string `json:"PCR0"`
-		PCR1 string `json:"PCR1"`
-		PCR2 string `json:"PCR2"`
-	} `json:"Measurements"`
+	Measurements EnclaveMeasurements `json:"Measurements"`
 }
 
 type EnclaverCli struct{}
 
-func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest) (string, error) {
+// BuildEnclave builds an enclaver EIF image using the provided manifest. If build is successful,
+// it returns the image's Measurements.
+func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest) (*EnclaveMeasurements, error) {
 	tempfile, err := os.CreateTemp("", "enclaver-manifest")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer os.Remove(tempfile.Name())
 
 	if err := yaml.NewEncoder(tempfile).Encode(manifest); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var stdout bytes.Buffer
@@ -342,25 +366,29 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 
 	err = cmd.Run()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Find measurements in the output
 	re := regexp.MustCompile(`\{[\s\S]*"Measurements"[\s\S]*\}`)
 	jsonMatch := re.Find(stdout.Bytes())
 	if jsonMatch == nil {
-		return "", fmt.Errorf("could not find measurements JSON in output")
+		return nil, fmt.Errorf("could not find measurements JSON in output")
 	}
 
 	var output EnclaverBuildOutput
 	if err := json.Unmarshal(jsonMatch, &output); err != nil {
-		return "", fmt.Errorf("failed to parse measurements JSON: %v", err)
+		return nil, fmt.Errorf("failed to parse measurements JSON: %v", err)
 	}
 
-	return output.Measurements.PCR0, nil
+	return &output.Measurements, nil
 }
 
+// RunEnclave runs an enclaver EIF image `name`. Stdout and stderr are redirected to the parent process.
 func (*EnclaverCli) RunEnclave(ctx context.Context, name string) {
+	// We'll append this to container name to avoid conflicts
+	nameSuffix := uuid.New().String()[:8]
+
 	// We don't use 'enclaver run' here, because it doesn't
 	// support --net=host, which is required for Odyn to
 	// correctly resolve 'host' to parent machine's localhost
@@ -371,7 +399,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string) {
 		"--rm",
 		"--privileged",
 		"--net=host",
-		"--name=batcher-enclaver",
+		fmt.Sprintf("--name=batcher-enclaver-%s", nameSuffix),
 		"--device=/dev/nitro_enclaves",
 		name,
 	)
@@ -381,7 +409,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string) {
 	go func() {
 		err := cmd.Run()
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("enclave exited with an error: %w", err))
 		}
 	}()
 }
