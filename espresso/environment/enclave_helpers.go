@@ -61,6 +61,7 @@ func appendArg(args *[]string, flagName string, value any) {
 	strSliceValue, isStrSlice := value.([]string)
 	if isStrSlice {
 		*args = append(*args, fmt.Sprintf("--%s", flagName), strings.Join(strSliceValue, ","))
+		return
 	}
 
 	formattedValue := fmt.Sprintf("%v", value)
