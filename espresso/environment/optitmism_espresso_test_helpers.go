@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math/big"
@@ -192,6 +194,12 @@ func (e EspressoNodeFailedToBecomeReady) Error() string {
 
 type EspressoDevNodeContainerInfo struct {
 	ContainerInfo DockerContainerInfo
+	espressoUrls  []string
+}
+
+// EspressoUrl returns the URL of the Espresso node
+func (e *EspressoDevNodeContainerInfo) EspressoUrls() []string {
+	return e.espressoUrls
 }
 
 var _ EspressoDevNode = (*EspressoDevNodeContainerInfo)(nil)
@@ -335,10 +343,16 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 // EspressoDevNodeDockerContainerInfo is an implementation of
 // EspressoDevNode that uses a Docker container to run the Espresso Dev Node
 // and provides the relevant port information for the sequencer API and
-type EspressoDevNodeDockerContainerInfo DockerContainerInfo
+type EspressoDevNodeDockerContainerInfo struct {
+	DockerContainerInfo
+	espressoUrls []string
+}
 
-// EspressoDevNodeDockerContainerInfo is an implementation of
-// EspressoDevNode.
+// EspressoUrl returns the URL of the Espresso node
+func (e *EspressoDevNodeDockerContainerInfo) EspressoUrls() []string {
+	return e.espressoUrls
+}
+
 var _ EspressoDevNode = (*EspressoDevNodeDockerContainerInfo)(nil)
 
 // SequencerPort implements EspressoDevNode
@@ -415,6 +429,35 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 					Role: "set-batcher-key",
 					BatcherMod: func(c *batcher.CLIConfig) {
 						c.TestingEspressoBatcherPrivateKey = hexutil.Encode(crypto.FromECDSA(&privateKey))
+					},
+				},
+			},
+		}
+	}
+}
+
+// SetEspressoUrls allows to set the list of urls for the Espresso client in such a way that N of them are "good" and M of them are "bad".
+// Good urls are the urls defined by this test framework repeated M times. The bad url is provided to the function
+// This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
+func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLauncherOption {
+	return func(ct *DevNetLauncherContext) E2eSystemOption {
+
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					BatcherMod: func(c *batcher.CLIConfig) {
+
+						goodUrl := c.EspressoUrls[0]
+						var urls []string
+
+						for i := 0; i < numGood; i++ {
+							urls = append(urls, goodUrl)
+						}
+
+						for i := 0; i < numBad; i++ {
+							urls = append(urls, badServerUrl)
+						}
+						c.EspressoUrls = urls
 					},
 				},
 			},
@@ -540,8 +583,6 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							ct.EspressoDevNode = EspressoDevNodeDockerContainerInfo(espressoDevNodeContainerInfo)
-
 							if isRunningOnLinux {
 								for portKey, portValue := range portRemapping {
 									// We copy the port mapping information
@@ -596,7 +637,12 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 								return
 							}
 
-							c.EspressoUrl = "http://" + hostPort
+							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
+								DockerContainerInfo: espressoDevNodeContainerInfo,
+								espressoUrls:        []string{"http://" + hostPort},
+							}
+							ct.EspressoDevNode = espressoDevNode
+							c.EspressoUrls = espressoDevNode.espressoUrls
 							c.LogConfig.Level = slog.LevelDebug
 							c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
 						}
@@ -697,4 +743,32 @@ func SendDepositTxNoReceipt(t *testing.T, cfg e2esys.SystemConfig, l1Client *eth
 	})
 	require.NoError(t, err, "with deposit tx")
 	t.Logf("SendDepositTxNoReceipt: transaction sent: %v", tx.Hash())
+}
+
+// Waits for an Espresso transaction to be confirmed using its hash.
+func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
+
+	const transactionFetchTimeout = 4 * time.Second
+	const transactionFetchInterval = 100 * time.Millisecond
+
+	timer := time.NewTimer(transactionFetchTimeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(transactionFetchInterval)
+	defer ticker.Stop()
+
+	var err error
+	for {
+		select {
+		case <-ticker.C:
+			_, err := espressoClient.FetchTransactionByHash(ctx, txHash)
+			if err == nil {
+				return nil
+			}
+		case <-timer.C:
+			return fmt.Errorf("failed to fetch transaction by hash: %w", err)
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }

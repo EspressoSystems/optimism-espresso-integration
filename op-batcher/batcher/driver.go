@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/espresso"
 	"io"
 	"math"
 	"math/big"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espresso "github.com/ethereum-optimism/optimism/espresso"
 
 	"golang.org/x/sync/errgroup"
 
@@ -102,7 +102,7 @@ type DriverSetup struct {
 	AltDA               *altda.DAClient
 	ChannelOutFactory   ChannelOutFactory
 	ActiveSeqChanged    chan struct{} // optional
-	Espresso            *espressoClient.Client
+	Espresso            *espressoClient.MultipleNodesClient
 	EspressoLightClient *espressoLightClient.LightclientCaller
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
@@ -129,6 +129,11 @@ type BatchSubmitter struct {
 	channelMgrMutex sync.Mutex // guards channelMgr and prevCurrentL1
 	channelMgr      *channelManager
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
+}
+
+// EspressoStreamer returns the batch submitter's Espresso streamer instance
+func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return &l.streamer
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
