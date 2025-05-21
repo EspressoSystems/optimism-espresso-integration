@@ -126,7 +126,7 @@ func LaunchBatcherInEnclave() DevNetLauncherOption {
 						appendArg(&args, flags.ThrottleThresholdFlag.Name, c.ThrottleThreshold)
 						appendArg(&args, flags.ThrottleTxSizeFlag.Name, c.ThrottleTxSize)
 						appendArg(&args, flags.WaitNodeSyncFlag.Name, c.WaitNodeSync)
-						appendArg(&args, flags.EspressoUrlFlag.Name, c.EspressoUrls)
+						appendArg(&args, flags.EspressoUrlsFlag.Name, c.EspressoUrls)
 						appendArg(&args, flags.EspressoLCAddrFlag.Name, c.EspressoLightClientAddr)
 						appendArg(&args, flags.TestingEspressoBatcherPrivateKeyFlag.Name, c.TestingEspressoBatcherPrivateKey)
 

@@ -194,10 +194,9 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("PREFER_LOCAL_SAFE_L2"),
 	}
-	EspressoUrlFlag = &cli.StringFlag{
+	EspressoUrlsFlag = &cli.StringSliceFlag{
 		Name:    "espresso-url",
 		Usage:   "URL of Espresso query service",
-		Value:   "",
 		EnvVars: prefixEnvVars("ESPRESSO_URL"),
 	}
 
@@ -246,7 +245,7 @@ var optionalFlags = []cli.Flag{
 	ThrottleBlockSizeFlag,
 	ThrottleAlwaysBlockSizeFlag,
 	PreferLocalSafeL2Flag,
-	EspressoUrlFlag,
+	EspressoUrlsFlag,
 	EspressoLCAddrFlag,
 	EspressoPollIntervalFlag,
 	TestingEspressoBatcherPrivateKeyFlag,
