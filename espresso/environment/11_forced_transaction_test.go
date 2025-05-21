@@ -197,7 +197,7 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	err = system.RollupNodes["sequencer"].Stop(ctx)
 	require.NoError(t, err, "Failed to stop sequencer")
 
-	// Send a withdrawal from Alice to L2CrossDomainMessenger.
+	// Send a withdrawal from Alice to L2ToL1MessagePasser.
 	opts, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Alice, system.Cfg.L1ChainIDBig())
 	require.NoError(t, err)
 
