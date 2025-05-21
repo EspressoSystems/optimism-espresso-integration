@@ -187,28 +187,29 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	}
 
 	// Set up Alice's address and record the initial balance.
-	// l2Verif := system.NodeClient(e2esys.RoleVerif)
+	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	address := system.Cfg.Secrets.Addresses().Alice
 	l1Client := system.NodeClient(e2esys.RoleL1)
-	initialBalance, err := l1Client.BalanceAt(ctx, address, nil)
+	initialBalance, err := l2Verif.BalanceAt(ctx, address, nil)
 	require.NoError(t, err, "Failed to get initial balance")
 
 	// Simulate sequencer downtime.
 	err = system.RollupNodes["sequencer"].Stop(ctx)
 	require.NoError(t, err, "Failed to stop sequencer")
 
-	// Send a withdrawal from Alice to L2ToL1MessagePasser.
+	// Initiate a withdrawal from Alice.
 	opts, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Alice, system.Cfg.L1ChainIDBig())
 	require.NoError(t, err)
 
 	withdrawalAmount := new(big.Int).SetUint64(1000)
 
+	// Initiate a withdrawal from L1 following https://docs.unichain.org/docs/technical-information/submitting-transactions-from-l1#initiating-a-withdrawal-from-l1
 	portal, err := bindings.NewOptimismPortal(system.Cfg.L1Deployments.OptimismPortalProxy, l1Client)
 	require.NoError(t, err)
 	tx, err := portal.DepositTransaction(
 		opts, // keyed transactor for gas & value
-		common.HexToAddress(predeploys.L2ToL1MessagePasser), // L2CrossDomainMessenger predeploy
-		withdrawalAmount, // no ETH value needed
+		common.HexToAddress(predeploys.L2ToL1MessagePasser), // L2ToL1MessagePasser predeploy
+		withdrawalAmount, // withdrawal amount
 		uint64(300_000),  // gas limit
 		false,            // _isCreation
 		nil,              // _extraData
@@ -222,11 +223,11 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	// TODO (Keyao) The nonce and the balance checks below both fail. We probably don't need both
 	// to pass, but should fix at least one.
 
-	// newNonce, err := l1Client.NonceAt(ctx, address, nil)
+	// newNonce, err := l2Verif.NonceAt(ctx, address, nil)
 	// require.NoError(t, err, "Failed to get new nonce")
 	// require.Greater(t, newNonce, initialNonce)
 
-	newBalance, err := wait.ForBalanceChange(ctx, l1Client, address, initialBalance)
+	newBalance, err := wait.ForBalanceChange(ctx, l2Verif, address, initialBalance)
 	if withSmallSequencerWindow {
 		// Verify that Alice's balance decreases as expected.
 		require.NoError(t, err, "Failed to get new balance")
@@ -246,20 +247,20 @@ func TestForcedWithdrawalWithoutEspressoSmallWindow(t *testing.T) {
 // TODO (Keyao) Restore the following tests once TestForcedWithdrawalWithoutEspressoSmallWindow
 // passes.
 
-// // TestForcedWithdrawalWithoutEspressoLargeWindow verifies that the withdrawal transaction is not
-// // enforced before the sequencer window is passed when launching without the Espressso dev node.
-// func TestForcedWithdrawalWithoutEspressoLargeWindow(t *testing.T) {
-// 	ForcedWithdrawal(t, false, false)
-// }
+// TestForcedWithdrawalWithoutEspressoLargeWindow verifies that the withdrawal transaction is not
+// enforced before the sequencer window is passed when launching without the Espressso dev node.
+func TestForcedWithdrawalWithoutEspressoLargeWindow(t *testing.T) {
+	ForcedWithdrawal(t, false, false)
+}
 
-// // TestForcedWithdrawalWithEspressoSmallWindow verifies that the withdrawal transaction is enforced
-// // after the sequencer window is passed when launching with the Espressso dev node.
-// func TestForcedWithdrawalWithEspressoSmallWindow(t *testing.T) {
-// 	ForcedWithdrawal(t, true, true)
-// }
+// TestForcedWithdrawalWithEspressoSmallWindow verifies that the withdrawal transaction is enforced
+// after the sequencer window is passed when launching with the Espressso dev node.
+func TestForcedWithdrawalWithEspressoSmallWindow(t *testing.T) {
+	ForcedWithdrawal(t, true, true)
+}
 
-// // TestForcedWithdrawalWithEspressoLargeWindow verifies that the withdrawal transaction is not
-// // enforced before the sequencer window is passed when launching with the Espressso dev node.
-// func TestForcedWithdrawalWithEspressoLargeWindow(t *testing.T) {
-// 	ForcedWithdrawal(t, false, false)
-// }
+// TestForcedWithdrawalWithEspressoLargeWindow verifies that the withdrawal transaction is not
+// enforced before the sequencer window is passed when launching with the Espressso dev node.
+func TestForcedWithdrawalWithEspressoLargeWindow(t *testing.T) {
+	ForcedWithdrawal(t, false, false)
+}
