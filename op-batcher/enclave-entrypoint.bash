@@ -105,7 +105,7 @@ while [ $# -gt 0 ]; do
             exit 1
         fi
         echo "Rewritten: $new_url"
-        url_args+=("$flag=$new_url")
+        url_args+=("$flag" "$new_url")
 
         ((SOCAT_PORT++))
     else
