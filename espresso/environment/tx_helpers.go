@@ -18,7 +18,13 @@ import (
 
 // runSimpleL2Transfer runs a simple L2 burn transaction and verifies it on the
 // L2 Verifier.
-func RunSimpleL2Transfer(ctx context.Context, t *testing.T, system *e2esys.System, nonce uint64, amount big.Int, l2Seq *ethclient.Client, l2Verif *ethclient.Client) {
+func RunSimpleL2Transfer(
+	ctx context.Context,
+	t *testing.T,
+	system *e2esys.System,
+	nonce uint64,
+	amount big.Int,
+	l2Seq *ethclient.Client) common.Hash {
 	_, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
@@ -28,21 +34,20 @@ func RunSimpleL2Transfer(ctx context.Context, t *testing.T, system *e2esys.Syste
 
 	destAddress := system.Cfg.Secrets.Addresses().Alice
 
-	receipt := helpers.SendL2Tx(
-		t,
-		system.Cfg,
-		l2Seq,
-		privateKey,
-		L2TxWithOptions(
-			L2TxWithAmount(&amount),
-			L2TxWithNonce(nonce),
-			L2TxWithToAddress(&destAddress),
-			L2TxWithVerifyOnClients(l2Verif),
-		),
-	)
+	receipt := helpers.SendL2TxWithID(t, system.Cfg.L2ChainIDBig(), l2Seq, privateKey, func(opts *helpers.TxOpts) {
+		opts.Nonce = nonce
+		opts.ToAddr = &destAddress
+		opts.Value = &amount
+	})
+
 	t.Log("Receipt", receipt)
 
 	cancel()
+
+	txHash := receipt.TxHash
+
+	return txHash
+
 }
 
 // runSimpleL1TransferAndVerifier runs a simple L1 transfer and verifies it on
