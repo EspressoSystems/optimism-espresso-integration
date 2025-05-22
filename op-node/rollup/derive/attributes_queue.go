@@ -182,18 +182,6 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 			s.Log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
 			return nil, false, ErrTemporary
 		}
-
-		// // We can do this check earlier, but it's a more intensive one, so we do this last.
-		// for i, txBytes := range batch.Transactions {
-		// 	if len(txBytes) == 0 { // covered by ToBlock(), will return err `errShortTypedTx`
-		// 		s.Log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
-		// 		return nil, false, ErrTemporary
-		// 	}
-		// 	if txBytes[0] == types.DepositTxType { // will be filtered out by 'BlockToSingularBatch'
-		// 		s.Log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
-		// 		return nil, false, ErrTemporary
-		// 	}
-		// }
 	}
 	// For caff node, when we get a batch, we assign concluding to true to drive progress
 	concluding := true
