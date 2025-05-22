@@ -3,6 +3,7 @@ package environment_test
 import (
 	"context"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"math/rand/v2"
 	"testing"
