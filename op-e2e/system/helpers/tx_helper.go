@@ -27,7 +27,7 @@ import (
 // Will verify that the transaction is included with the expected status on L1 and L2
 // Returns the receipt of the L2 transaction
 func SendDepositTx(t *testing.T, cfg e2esys.SystemConfig, l1Client *ethclient.Client, l2Client *ethclient.Client, l1Opts *bind.TransactOpts, applyL2Opts DepositTxOptsFn) *types.Receipt {
-	l2Opts := DefaultDepositTxOpts(l1Opts)
+	l2Opts := defaultDepositTxOpts(l1Opts)
 	if applyL2Opts != nil {
 		applyL2Opts(l2Opts)
 	}
@@ -73,7 +73,7 @@ type DepositTxOpts struct {
 	ExpectedStatus uint64
 }
 
-func DefaultDepositTxOpts(opts *bind.TransactOpts) *DepositTxOpts {
+func defaultDepositTxOpts(opts *bind.TransactOpts) *DepositTxOpts {
 	return &DepositTxOpts{
 		ToAddr:         opts.From,
 		Value:          opts.Value,
