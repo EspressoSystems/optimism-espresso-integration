@@ -51,12 +51,12 @@ const (
 type AllocType string
 
 const (
-	AllocTypeStandard        AllocType = "standard"
-	AllocTypeAltDA           AllocType = "alt-da"
-	AllocTypeL2OO            AllocType = "l2oo"
-	AllocTypeMTCannon        AllocType = "mt-cannon"
-	AllocTypeEspresso        AllocType = "espresso"
-	AllocTypeEspressoEnclave AllocType = "espresso-enclave"
+	AllocTypeStandard               AllocType = "standard"
+	AllocTypeAltDA                  AllocType = "alt-da"
+	AllocTypeL2OO                   AllocType = "l2oo"
+	AllocTypeMTCannon               AllocType = "mt-cannon"
+	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
+	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
 
 	DefaultAllocType = AllocTypeStandard
 )
@@ -70,14 +70,14 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeAltDA, AllocTypeEspresso, AllocTypeEspressoEnclave:
+	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeAltDA, AllocTypeEspressoWithoutEnclave, AllocTypeEspressoWithEnclave:
 		return true
 	default:
 		return false
 	}
 }
 
-var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspresso, AllocTypeEspressoEnclave}
+var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspressoWithoutEnclave, AllocTypeEspressoWithEnclave}
 
 var (
 	// All of the following variables are set in the init function
@@ -282,7 +282,7 @@ func initAllocType(root string, allocType AllocType) {
 				}
 			}
 
-			if allocType == AllocTypeEspresso {
+			if allocType == AllocTypeEspressoWithoutEnclave {
 				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
@@ -291,7 +291,7 @@ func initAllocType(root string, allocType AllocType) {
 				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
 			}
 
-			if allocType == AllocTypeEspressoEnclave {
+			if allocType == AllocTypeEspressoWithEnclave {
 				intent.Chains[0].EspressoEnabled = true
 			}
 

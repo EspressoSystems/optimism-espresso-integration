@@ -250,9 +250,9 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	var allocOpt e2esys.SystemConfigOpt
 	if l.EnclaveBatcher {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoEnclave)
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
 	} else {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspresso)
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
 	}
 
 	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
