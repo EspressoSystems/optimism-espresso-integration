@@ -88,3 +88,15 @@ func WithL1FinalizedDistance(distance uint64) DevNetLauncherOption {
 		}
 	}
 }
+
+// WithSeqWindowSize is a DevNetLauncherOption that configures the deployment's
+// `SequencerWindowSize` option to the provided value.
+func WithSequencerWindowSize(size uint64) DevNetLauncherOption {
+	return func(c *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+				cfg.DeployConfig.SequencerWindowSize = size
+			},
+		}
+	}
+}
