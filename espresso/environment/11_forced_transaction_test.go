@@ -213,7 +213,8 @@ func ForcedWithdrawal(t *testing.T, withSmallSequencerWindow bool, withEspresso 
 	if withSmallSequencerWindow {
 		// Verify that Alice's balance decreases as expected.
 		require.NoError(t, err, "Failed to get new balance")
-		require.Less(t, newBalance.Uint64(), initialBalance.Uint64(), "Balance not decreased")
+		require.LessOrEqualf(t, newBalance.Uint64(), initialBalance.Uint64()-withdrawalAmount.Uint64(), "Balance not decreased")
+
 	} else {
 		// Verify that Alice's balance is inaccessible.
 		require.Error(t, err, "Not expected to get new balance")
