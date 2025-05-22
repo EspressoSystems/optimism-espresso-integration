@@ -62,7 +62,7 @@ var (
 		Name:    "espresso-poll-interval",
 		Usage:   "How frequently to poll Espresso for new batches",
 		Value:   6 * time.Second,
-		EnvVars: prefixEnvVars("POLL_INTERVAL"),
+		EnvVars: prefixEnvVars("ESPRESSO_POLL_INTERVAL"),
 	}
 	MaxPendingTransactionsFlag = &cli.Uint64Flag{
 		Name:    "max-pending-tx",
