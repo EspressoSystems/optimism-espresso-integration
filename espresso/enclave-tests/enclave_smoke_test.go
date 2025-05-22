@@ -1,3 +1,14 @@
+// Steps to run these tests on a Nitro-enabled EC2 machine:
+//
+//   - Run `just op-batcher-enclave-image` in kurtosis-devnet/ folder
+//     This is just to warm up the docker build cache, otherwise
+//     tests may time out building the batcher image from scratch
+//
+//   - `export ESPRESSO_RUN_ENCLAVE_TESTS=true`
+//     Enclave tests are skipped by default
+//
+//   - `go test ./espresso/enclave-tests/...`
+//     Run the tests
 package enclave_tests
 
 import (
