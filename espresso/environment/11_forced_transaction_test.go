@@ -82,7 +82,7 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 	require.NoError(t, err, "Failed to get initial balance")
 
 	// Simulate sequencer downtime.
-	err = system.RollupNodes["sequencer"].Stop(ctx)
+	err = system.RollupNodes[e2esys.RoleSeq].Stop(ctx)
 	require.NoError(t, err, "Failed to stop sequencer")
 
 	// Initiate a withdrawal from Alice to the L1 following
