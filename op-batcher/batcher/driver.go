@@ -216,7 +216,11 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
 		}
 
-		l.submitter = NewEspressoTransactionSubmitter(WithEspressoClient(l.Espresso))
+		l.submitter = NewEspressoTransactionSubmitter(
+			WithContext(l.shutdownCtx),
+			WithWaitGroup(l.wg),
+			WithEspressoClient(l.Espresso),
+		)
 		l.submitter.SpawnWorkers(4, 4)
 		l.submitter.Start()
 

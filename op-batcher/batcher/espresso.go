@@ -87,9 +87,7 @@ type espressoVerifyReceiptJobAttempt struct {
 // without spawning arbitrarily many goroutines.
 type espressoTransactionSubmitter struct {
 	ctx                      context.Context
-	workersCtx               context.Context
-	workersCancel            context.CancelFunc
-	wg                       sync.WaitGroup
+	wg                       *sync.WaitGroup
 	submitJobQueue           chan espressoSubmitTransactionJob
 	submitRespQueue          chan espressoSubmitTransactionJobResponse
 	submitWorkerQueue        chan chan espressoTransactionJobAttempt
@@ -105,6 +103,7 @@ type espressoTransactionSubmitter struct {
 type EspressoTransactionSubmitterConfig struct {
 	Ctx                                context.Context
 	EspressoClient                     espressoClient.EspressoClient
+	Wg                                 *sync.WaitGroup
 	SubmitJobQueueCapacity             int
 	SubmitResponseQueueCapacity        int
 	VerifyReceiptJobQueueCapacity      int
@@ -131,11 +130,20 @@ func WithEspressoClient(client espressoClient.EspressoClient) EspressoTransactio
 	}
 }
 
+// WithWaitGroup is an option that can be used to set the wait group
+// for the EspressoTransactionSubmitterConfig.
+func WithWaitGroup(wg *sync.WaitGroup) EspressoTransactionSubmitterOption {
+	return func(config *EspressoTransactionSubmitterConfig) {
+		config.Wg = wg
+	}
+}
+
 // NewEspressoTransactionSubmitter creates a new EspressoTransactionSubmitter
 // with the given context and espresso client.  It will create a new
 func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOption) *espressoTransactionSubmitter {
 	config := EspressoTransactionSubmitterConfig{
 		Ctx:                                context.Background(),
+		Wg:                                 new(sync.WaitGroup),
 		SubmitJobQueueCapacity:             1024,
 		SubmitResponseQueueCapacity:        10,
 		VerifyReceiptJobQueueCapacity:      1024,
@@ -152,6 +160,7 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 
 	return &espressoTransactionSubmitter{
 		ctx:                      config.Ctx,
+		wg:                       config.Wg,
 		submitJobQueue:           make(chan espressoSubmitTransactionJob, config.SubmitJobQueueCapacity),
 		submitRespQueue:          make(chan espressoSubmitTransactionJobResponse, config.SubmitResponseQueueCapacity),
 		submitWorkerQueue:        make(chan chan espressoTransactionJobAttempt),
@@ -223,6 +232,10 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 // VERIFY_RECEIPT_TIMEOUT is the amount of time we will wait for a receipt to
 // be verified before we requeue the job for another attempt.
 const VERIFY_RECEIPT_TIMEOUT = 4 * time.Second
+
+// VERIFY_RECEIPT_RETRY_DELAY is the amount of time we will wait before
+// retrying a job that failed to verify the receipt.
+const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 
 // handleVerifyReceiptJobResponse is a function that is meant to be run in a
 // goroutine.
@@ -448,11 +461,6 @@ func espressoSubmitTransactionWorker(
 // attempt to verify the transaction contained within to espresso using the
 // given espresso client. It will submit the response back to the channel
 // contained within the job attempt it received.
-//
-// TODO: There is a case where we might continually receive the same job over
-// and over again, and we should delay the requests to Espresso to limit
-// how much we spam it. This was originally set to 100ms in the original
-// implementation.
 func espressoVerifyTransactionWorker(
 	ctx context.Context,
 	wg *sync.WaitGroup,
@@ -487,6 +495,13 @@ func espressoVerifyTransactionWorker(
 			}
 		}
 
+		if jobAttempt.job.attempts > 0 {
+			// We have already attempted this job, so we will wait a bit
+			// NOTE: this prevents this worker from being able to process
+			// other jobs while we wait for this delay.
+			time.Sleep(VERIFY_RECEIPT_RETRY_DELAY)
+		}
+
 		_, err := cli.FetchTransactionByHash(ctx, jobAttempt.job.hash)
 
 		jobAttempt.job.attempts++
@@ -507,23 +522,16 @@ func espressoVerifyTransactionWorker(
 // SpawnWorkers spawns the given number of workers to process the
 // submit transaction jobs and verify receipt jobs.
 func (s *espressoTransactionSubmitter) SpawnWorkers(numSubmitTransactionWorkers, numVerifyReceiptWorkers int) {
-	if s.workersCtx != nil {
-		// Workers already spawned...
-		// TODO: Handle this case
-	}
-
-	workersCtx, workersCancel := context.WithCancel(s.ctx)
-	s.workersCtx = workersCtx
-	s.workersCancel = workersCancel
+	workersCtx := s.ctx
 
 	for i := 0; i < numSubmitTransactionWorkers; i++ {
 		s.wg.Add(1)
-		go espressoSubmitTransactionWorker(workersCtx, &s.wg, s.espresso, s.submitWorkerQueue)
+		go espressoSubmitTransactionWorker(workersCtx, s.wg, s.espresso, s.submitWorkerQueue)
 	}
 
 	for i := 0; i < numVerifyReceiptWorkers; i++ {
 		s.wg.Add(1)
-		go espressoVerifyTransactionWorker(workersCtx, &s.wg, s.espresso, s.verifyReceiptWorkerQueue)
+		go espressoVerifyTransactionWorker(workersCtx, s.wg, s.espresso, s.verifyReceiptWorkerQueue)
 	}
 }
 
@@ -535,22 +543,6 @@ func (s *espressoTransactionSubmitter) Start() {
 	// Verify Receipt Jobs
 	go s.scheduleVerifyReceiptsJobs()
 	go s.handleVerifyReceiptJobResponse()
-}
-
-func (s *espressoTransactionSubmitter) StopWorkers() {
-	// Stop the worker queue
-	if s.workersCancel == nil {
-		// This is an error.
-		// TODO: Handle this case
-		return
-	}
-
-	s.workersCancel()
-	s.workersCancel = nil
-	s.workersCtx = nil
-
-	// Wait for all workers to finish
-	s.wg.Wait()
 }
 
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
