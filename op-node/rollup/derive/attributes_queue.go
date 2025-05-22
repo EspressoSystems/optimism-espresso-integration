@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -167,7 +166,8 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 	batch := &espressoBatch.Batch
 	s.Log.Info("espressoBatch", "batch", espressoBatch.Batch)
 
-	// Sishan TODO: figure out whether we still need these checks with test3.2 stricter test on deterministic derivation https://app.asana.com/1/1208976916964769/project/1209393353274209/task/1210102553354106?focus=true
+	// We keep these batch checks as they will not introduce too much latency, it costs O(1) for each batch.
+	// and these checks will only be useful when the streamer does not give out batch properly, which should not be the case unless there's a bug.
 	{
 		// check the batch is valid regarding given parent
 		nextTimestamp := parent.Time + blockTime
@@ -183,17 +183,17 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 			return nil, false, ErrTemporary
 		}
 
-		// We can do this check earlier, but it's a more intensive one, so we do this last.
-		for i, txBytes := range batch.Transactions {
-			if len(txBytes) == 0 {
-				s.Log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
-				return nil, false, ErrTemporary
-			}
-			if txBytes[0] == types.DepositTxType {
-				s.Log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
-				return nil, false, ErrTemporary
-			}
-		}
+		// // We can do this check earlier, but it's a more intensive one, so we do this last.
+		// for i, txBytes := range batch.Transactions {
+		// 	if len(txBytes) == 0 { // covered by ToBlock(), will return err `errShortTypedTx`
+		// 		s.Log.Warn("transaction data must not be empty, but found empty tx", "tx_index", i)
+		// 		return nil, false, ErrTemporary
+		// 	}
+		// 	if txBytes[0] == types.DepositTxType { // will be filtered out by 'BlockToSingularBatch'
+		// 		s.Log.Warn("sequencers may not embed any deposits into batch data, but found tx that has one", "tx_index", i)
+		// 		return nil, false, ErrTemporary
+		// 	}
+		// }
 	}
 	// For caff node, when we get a batch, we assign concluding to true to drive progress
 	concluding := true
