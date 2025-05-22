@@ -3,6 +3,7 @@ package environment_test
 import (
 	"context"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"math/rand/v2"
 	"testing"
@@ -89,6 +90,8 @@ func TestStatelessBatcher(t *testing.T) {
 
 	numIterations := 8
 
+	var txHashes []common.Hash
+
 	// We select a range of iterations when the batcher is turned off.
 	restartIteration := 1 + rand.IntN(numIterations-1)
 	for i := 0; i < numIterations; i++ {
@@ -99,6 +102,8 @@ func TestStatelessBatcher(t *testing.T) {
 		t.Log("******************* Iteration: ", i)
 		//Let us stop the batcher
 		if i == restartIteration {
+
+			t.Log("+++++++++++++++++ Iteration with batcher restart: ", i)
 			// Stop the batcher
 			err = driver.StopBatchSubmitting(ctx)
 			require.NoError(t, err)
@@ -145,7 +150,8 @@ func TestStatelessBatcher(t *testing.T) {
 
 		} else {
 			// The batcher is up, we can send coins
-			env.RunSimpleL2Transfer(ctx, t, system, nonce, *amount, l2Seq, l2Verif)
+			txHash := env.RunSimpleL2Transfer(ctx, t, system, nonce, *amount, l2Seq)
+			txHashes = append(txHashes, txHash)
 		}
 
 		// There should be a transfer for each iteration
@@ -156,6 +162,12 @@ func TestStatelessBatcher(t *testing.T) {
 	numDepositsBigInt.SetInt64(int64(numTransfers))
 
 	expectedAmount := new(big.Int).Mul(new(big.Int).Add(balanceAliceInitial, &numDepositsBigInt), amount)
+
+	// Wait for the transfers to be processed
+	for _, hash := range txHashes {
+		_, err := wait.ForReceiptOK(ctx, l2Verif, hash)
+		require.NoError(t, err)
+	}
 
 	caffBalanceNew, _ = caffVerif.BalanceAt(ctx, addressAlice, nil)
 	l2BalanceNew, _ := l2Verif.BalanceAt(ctx, addressAlice, nil)
