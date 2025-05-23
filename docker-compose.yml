@@ -1,0 +1,74 @@
+# Espresso OP Integration Docker Setup
+
+services:
+  l1:
+    build:
+      context: ./ops/docker/deployment-utils
+    image: l1-geth:espresso
+    ports:
+      - "8545:8545" # L1 RPC
+    networks:
+      - opnet
+
+  op-node:
+    build:
+      context: .
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+    image: op-node:espresso
+    depends_on:
+      - l1
+    ports:
+      - "9003:9003"
+    networks:
+      - opnet
+
+  op-batcher:
+    build:
+      context: .
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-batcher-target
+    image: op-batcher:espresso
+    depends_on:
+      - op-node
+    environment:
+      L1_RPC: http://l1:8545
+    networks:
+      - opnet
+
+  op-proposer:
+    build:
+      context: .
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-proposer-target
+    image: op-proposer:espresso
+    depends_on:
+      - op-node
+    networks:
+      - opnet
+
+  op-deployer:
+    build:
+      context: .
+      dockerfile: ./op-deployer/Dockerfile.default
+    image: op-deployer:espresso
+    depends_on:
+      - l1
+    command: ["op-deployer", "deploy", "--network", "devnet"]
+    networks:
+      - opnet
+    restart: "no"
+
+  espresso-dev-node:
+    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
+    ports:
+      - "24000:24000" # Espresso sequencer
+      - "24002:24002" # Espresso dev node
+      - "31003:31003" # Espresso builder
+    networks:
+      - opnet
+    environment:
+      RUST_LOG: info
+
+networks:
+  opnet:
