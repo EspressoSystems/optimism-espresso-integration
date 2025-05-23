@@ -45,7 +45,8 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	// Stop the batcher to ensure no valid batch is posted to L1.
 	driver := system.BatchSubmitter.TestDriver()
-	driver.StopBatchSubmitting(ctx)
+	err = driver.StopBatchSubmitting(ctx)
+	require.NoError(t, err, "failed to stop batch submitter")
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
@@ -75,8 +76,10 @@ func TestPipelineEnhancement(t *testing.T) {
 	require.Equal(t, receipt.Status, gethTypes.ReceiptStatusFailed)
 	require.NoError(t, err, "Waiting for receipt on transaction", tx)
 
-	l1ClientFetching, _ := client.NewRPC(ctx, nil, system.NodeEndpoint(e2esys.RoleL1).RPC())
+	l1ClientFetching, err := client.NewRPC(ctx, nil, system.NodeEndpoint(e2esys.RoleL1).RPC())
+	require.NoError(t, err)
 	l1RefClient, err := sources.NewL1Client(l1ClientFetching, l, nil, sources.L1ClientDefaultConfig(system.RollupConfig, true, sources.RPCKindStandard))
+	require.NoError(t, err)
 
 	// Mock the L1 Beacon client as by default system.RollupConfig.EcotoneTime = 0
 	p := mocks.NewBeaconClient(t)

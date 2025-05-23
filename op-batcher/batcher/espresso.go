@@ -705,7 +705,6 @@ func (l *BlockLoader) reset(ctx context.Context) {
 	l.prevSyncStatus = nil
 	l.queuedBlocks = nil
 	l.batcher.clearState(ctx)
-	l.batcher.safeL1Origin(ctx)
 }
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {

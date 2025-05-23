@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math"
@@ -21,11 +19,12 @@ import (
 	"testing"
 	"time"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
