@@ -25,7 +25,7 @@ run-test4: compile-contracts
 
 
 espresso-tests: compile-contracts
- go test -timeout=30m ./espresso/environment
+ go test -timeout=30m -p=1 -count=1 ./espresso/environment
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
