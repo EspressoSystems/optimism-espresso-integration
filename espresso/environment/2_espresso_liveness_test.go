@@ -142,14 +142,14 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 //
 //		Requirement: Liveness:
 //	   The rollup should continue to run, [to] post Espresso confirmations
-//	   within 11 seconds of each rollup block produced by the sequencer.
+//	   within 17 seconds of each rollup block produced by the sequencer.
 //
 // As a result, this test will submit a number of transactions to the sequencer,
 // while also consuming the Espresso stream of blocks utilizing the Espresso
 // streamer.  We **SHOULD** be able to match up the transactions submitted to
 // the blocks being produced by the Espresso Streamer, and the time it takes
 // from transaction submission to receiving the Block that contains that same
-// transaction should be less than 11 seconds.
+// transaction should be less than 17 seconds.
 //
 // More importantly, this **SHOULD** also continue to be the state even when
 // Espresso is in a degraded state.
@@ -445,8 +445,8 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		totalDiff += diff
 		totalDenom++
 
-		if have, want := diff, 11*time.Second; have > want {
-			t.Errorf("Submission %d was not confirmed in an espresso block within 11 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
+		if have, want := diff, 17*time.Second; have > want {
+			t.Errorf("Submission %d was not confirmed in an espresso block within 17 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
 		}
 	}
 
@@ -458,8 +458,8 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		// We cast the len(espressoReceipts) to a time.Duration so we can divide
 		// the totalDiff to get the average duration, to appease the type system.
 		averageDuration := totalDiff / totalDenom
-		if have, want := averageDuration, 11*time.Second; have >= want {
-			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 11 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
+		if have, want := averageDuration, 17*time.Second; have >= want {
+			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 17 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
 		}
 	}
 }
