@@ -20,6 +20,12 @@ services:
       - l1
     environment:
       L1_RPC: http://l1:8545
+    volumes:
+      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-node
+      - --l1=http://l1:8545
+      - --rollup.config=/config/op-node/rollup_devnet.json
     networks:
       - opnet
 
@@ -33,6 +39,13 @@ services:
       - op-node
     environment:
       L1_RPC: http://l1:8545
+    volumes:
+      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-batcher
+      - --l1-eth-rpc=http://l1:8545
+      - --rollup-rpc=http://op-node:8545
+      - --rollup.config=/config/op-node/rollup_devnet.json
     networks:
       - opnet
 
@@ -44,8 +57,13 @@ services:
     image: op-proposer:espresso
     depends_on:
       - op-node
-    environment:
-      L1_RPC: http://l1:8545
+    volumes:
+      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-proposer
+      - --l1-eth-rpc=http://l1:8545
+      - --rollup-rpc=http://op-node:8545
+      - --rollup.config=/config/op-node/rollup_devnet.json
     networks:
       - opnet
 
@@ -56,12 +74,12 @@ services:
     image: op-deployer:espresso
     depends_on:
       - l1
-    environment:
-      L1_RPC: http://l1:8545
-    command: ["op-deployer", "deploy", "--network", "devnet"]
+    command: ["apply", "--network", "devnet"]
+    volumes:
+      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    restart: "no"
     networks:
       - opnet
-    restart: "no"
 
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
@@ -69,10 +87,16 @@ services:
       - "24000:24000" # Espresso sequencer
       - "24002:24002" # Espresso dev node
       - "31003:31003" # Espresso builder
+    volumes:
+      - espresso-data:/data
     networks:
       - opnet
     environment:
       RUST_LOG: info
+      ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
 
 networks:
   opnet:
+
+volumes:
+  espresso-data:
