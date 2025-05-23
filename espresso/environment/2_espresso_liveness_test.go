@@ -223,6 +223,30 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 
 	espressoReceipts := map[common.Hash]espressoReceived{}
 
+	// The number of transaction we want to submit to the L2.
+	// This will also correspond to the number of batches we expect to receive
+	// from the Espresso streamer.
+	const N = 10
+	transactions := make([]*geth_types.Transaction, 0, N)
+	for i := 0; i < N; i++ {
+		// Create the transaction
+		tx := geth_types.MustSignNewTx(
+			system.Cfg.Secrets.Bob,
+			geth_types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()),
+			&geth_types.DynamicFeeTx{
+				ChainID:   system.Cfg.L2ChainIDBig(),
+				Nonce:     uint64(i),
+				To:        &addressAlice,
+				Value:     big.NewInt(1),
+				GasTipCap: big.NewInt(10),
+				GasFeeCap: big.NewInt(200),
+				Gas:       21_000,
+			},
+		)
+
+		transactions = append(transactions, tx)
+	}
+
 	streamBlocksCtx, streamBlocksCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 	defer streamBlocksCancel()
@@ -255,6 +279,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		finalizedL1BlockRef, err := l1RefClient.L1BlockRefByLabel(streamBlocksCtx, eth.Finalized)
 		require.NoError(t, err, "failed to get finalized L1 block ref")
 		streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number, l2BlockRef.L1Origin)
+		lastTransaction := transactions[N-1]
 
 		// Start consuming Batches from the Streamer
 		// We cannot guarantee that we will receive only the batches that
@@ -296,6 +321,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 						// Try again after a short delay if we we fail to
 						// update the streamer.
 						time.Sleep(50 * time.Millisecond)
+						continue
 					}
 				}
 
@@ -311,6 +337,16 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 						block:    block,
 						received: time.Now(),
 					}
+
+					txns := block.Transactions()
+					for _, tx := range txns {
+						if tx.Hash() == lastTransaction.Hash() {
+							// We've encountered the last transaction we
+							// were looking for, and now we can stop
+							// consuming batches.
+							return
+						}
+					}
 				}
 			}
 		})(streamBlocksCtx, &wg, streamer)
@@ -324,22 +360,8 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	}
 	var submissions []submission
 
-	// The number of transaction we want to submit to the L2.
-	// This will also correspond to the number of batches we expect to receive
-	// from the Espresso streamer.
-	const N = 10
 	{
-		for i := 0; i < N; i++ {
-			// Create the transaction
-			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, geth_types.LatestSignerForChainID(system.Cfg.L2ChainIDBig()), &geth_types.DynamicFeeTx{
-				ChainID:   system.Cfg.L2ChainIDBig(),
-				Nonce:     uint64(i),
-				To:        &addressAlice,
-				Value:     big.NewInt(1),
-				GasTipCap: big.NewInt(10),
-				GasFeeCap: big.NewInt(200),
-				Gas:       21_000,
-			})
+		for _, tx := range transactions {
 			created := time.Now()
 
 			// Send the transaction
@@ -400,9 +422,10 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		}
 	}
 
+	// Wait for the Streamer to get all of the batches it was waiting for
+	wg.Wait()
 	// Tell the Streamer to stop streaming.
 	streamBlocksCancel()
-	wg.Wait()
 
 	if have, want := len(espressoReceipts), N; have < want {
 		t.Fatalf("Expected to received at least many batches as submissions:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
