@@ -142,14 +142,14 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 //
 //		Requirement: Liveness:
 //	   The rollup should continue to run, [to] post Espresso confirmations
-//	   within 12 seconds of each rollup block produced by the sequencer.
+//	   within 11 seconds of each rollup block produced by the sequencer.
 //
 // As a result, this test will submit a number of transactions to the sequencer,
 // while also consuming the Espresso stream of blocks utilizing the Espresso
 // streamer.  We **SHOULD** be able to match up the transactions submitted to
 // the blocks being produced by the Espresso Streamer, and the time it takes
 // from transaction submission to receiving the Block that contains that same
-// transaction should be less than 12 seconds.
+// transaction should be less than 11 seconds.
 //
 // More importantly, this **SHOULD** also continue to be the state even when
 // Espresso is in a degraded state.
@@ -414,10 +414,6 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	for i, submission := range submissions {
 		espressoReceived, ok := espressoReceipts[submission.receipt.BlockHash]
 		if have, want := ok, true; have != want {
-			if i == (N - 1) {
-				// Last submission might not be included in a batch
-				continue
-			}
 			t.Errorf("Failed to find batch for submission %d:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, have, want)
 			continue
 		}
@@ -426,21 +422,21 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		totalDiff += diff
 		totalDenom++
 
-		if have, want := diff, 12*time.Second; have > want {
-			t.Errorf("Submission %d was not confirmed in an espresso block within 12 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
+		if have, want := diff, 11*time.Second; have > want {
+			t.Errorf("Submission %d was not confirmed in an espresso block within 11 seconds of submission:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", i, diff, want)
 		}
 	}
 
-	// if have, want := int(totalDenom), N; have != want {
-	// 	t.Errorf("Expected to have a total of %d submissions:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", want, have, want)
-	// }
+	if have, want := int(totalDenom), N; have != want {
+		t.Errorf("Expected to have a total of %d submissions:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", want, have, want)
+	}
 
 	if totalDenom > 0 {
 		// We cast the len(espressoReceipts) to a time.Duration so we can divide
 		// the totalDiff to get the average duration, to appease the type system.
 		averageDuration := totalDiff / totalDenom
-		if have, want := averageDuration, 12*time.Second; have >= want {
-			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 12 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
+		if have, want := averageDuration, 11*time.Second; have >= want {
+			t.Errorf("Average time to confirm transactions in espresso blocks exceeded 11 seconds:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", averageDuration, want)
 		}
 	}
 }
