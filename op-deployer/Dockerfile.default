@@ -6,11 +6,11 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /op-deployer ./op-deployer/cmd/op-deployer
 
 FROM debian:bookworm-20240812-slim
-ENTRYPOINT ["/op-deployer"]
-COPY --from=builder /op-deployer /op-deployer
 
 # Install ca-certificates so that HTTPS requests work
 RUN apt-get update && apt-get install -y ca-certificates
 
-# Symlink onto the PATH
+COPY --from=builder /op-deployer /op-deployer
 RUN ln -s /op-deployer /usr/local/bin/op-deployer
+
+ENTRYPOINT ["/op-deployer"]
