@@ -174,13 +174,13 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		nextTimestamp := parent.Time + blockTime
 
 		if batch.Timestamp != nextTimestamp {
-			s.Log.Warn("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+			s.Log.Error("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
 			return nil, false, ErrTemporary
 		}
 
 		// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
 		if batch.ParentHash != parent.Hash {
-			s.Log.Warn("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+			s.Log.Error("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
 			return nil, false, ErrTemporary
 		}
 	}
