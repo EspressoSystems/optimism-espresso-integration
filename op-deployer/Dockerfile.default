@@ -1,6 +1,19 @@
+FROM golang:1.22-bookworm AS builder
+
+WORKDIR /app
+
+# Copy the entire repo (assumes Docker build context is root of repo)
+COPY . .
+
+# Optional: set the correct module path if using go.work or go.mod in root
+# ENV GO111MODULE=on
+
+# Build the op-deployer binary
+RUN CGO_ENABLED=0 go build -o /op-deployer ./op-deployer/cmd/op-deployer
+
 FROM debian:bookworm-20240812-slim
 ENTRYPOINT ["/op-deployer"]
-COPY op-deployer /op-deployer
+COPY --from=builder /op-deployer /op-deployer
 
 # Install ca-certificates so that HTTPS requests work
 RUN apt-get update && apt-get install -y ca-certificates
