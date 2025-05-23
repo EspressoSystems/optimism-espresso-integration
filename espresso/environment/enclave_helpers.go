@@ -75,12 +75,6 @@ func LaunchBatcherInEnclave() DevNetLauncherOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
-				// TODO(AG): currently op-batcher calls `registerSigner` directly,
-				// which on the first run results in verifying the full certificate
-				// chain in a single transaction, which runs over gas limit. This is
-				// a workaround for the issue, real solution will invole verifying
-				// each cerficiate separately before calling `registerSigner`
-				cfg.DeployConfig.L1GenesisBlockGasLimit = 90_000_000
 			},
 			StartOptions: []e2esys.StartOption{
 				{

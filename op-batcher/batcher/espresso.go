@@ -10,6 +10,7 @@ import (
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -889,6 +890,20 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
+func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, parentCertHash common.Hash) ([]byte, error) {
+	certHash := crypto.Keccak256Hash(cert)
+	verified, err := certManager.Verified(nil, certHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(verified) != 0 {
+		return nil, nil
+	}
+
+	return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
+}
+
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -897,13 +912,69 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
-		return fmt.Errorf("failed to create batch authenticator contract bindings: %w", err)
+		return fmt.Errorf("failed to create BatchAuthenticator contract bindings: %w", err)
 	}
 
-	// Decode the attestation off-chain to conserve gas
-	attestationTbs, signature, err := batchAuthenticator.DecodeAttestationTbs(&bind.CallOpts{}, l.Attestation)
+	verifierAddress, err := batchAuthenticator.EspressoTEEVerifier(&bind.CallOpts{})
 	if err != nil {
-		return fmt.Errorf("failed to decode attestation: %w", err)
+		return fmt.Errorf("failed to get EspressoTEEVerifier address from BatchAuthenticator contract: %w", err)
+	}
+
+	espressoTEEVerifier, err := bindings.NewEspressoTEEVerifierCaller(verifierAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create EspressoTEEVerifier contract bindings: %w", err)
+	}
+
+	nitroVerifierAddress, err := espressoTEEVerifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
+	if err != nil {
+		return fmt.Errorf("failed to get EspressoNitroTEEVerifier address from verifier contract: %w", err)
+	}
+
+	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifierCaller(nitroVerifierAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create EspressoNitroTEEVerifier contract bindings: %w", err)
+	}
+
+	certManagerAddress, err := nitroVerifier.CertManager(&bind.CallOpts{})
+	if err != nil {
+		return fmt.Errorf("failed to get CertManager address from EspressoNitroTEEVerifier contract: %w", err)
+	}
+
+	certManager, err := bindings.NewCertManagerCaller(certManagerAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
+	}
+
+	certManagerAbi, err := bindings.CertManagerMetaData.GetAbi()
+	if err != nil {
+		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
+	}
+
+	// Verify all CA certiciates in the chain in an individual transaction. This avoids running into block gas limit
+	// that could happen if CertManager verifies the whole certificate chain in one transaction.
+	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
+	for i := 0; i < len(l.Attestation.Document.CABundle); i++ {
+		cert := l.Attestation.Document.CABundle[i]
+		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, parentCertHash)
+		if err != nil {
+			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
+		}
+
+		parentCertHash = crypto.Keccak256Hash(cert)
+
+		if txData == nil {
+			// Certificate already verified
+			continue
+		}
+
+		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+			TxData: txData,
+			To:     &certManagerAddress,
+		})
+
+		if err != nil {
+			return fmt.Errorf("verify certificate transaction failed: %w", err)
+		}
 	}
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
@@ -911,7 +982,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	txData, err := abi.Pack("registerSigner", attestationTbs, signature)
+	txData, err := abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
