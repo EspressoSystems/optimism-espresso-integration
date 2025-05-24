@@ -213,3 +213,42 @@ We currently use Circle CI but this is temporary. In order to run the go linter 
 ```
 just golint
 ```
+
+### Guide: Setting Up an Enclave-Enabled Nitro EC2 Instance
+
+This guide explains how to prepare an enclave-enabled parent EC2 instance.
+
+You can follow the official AWS Enclaves setup guide: https://docs.aws.amazon.com/enclaves/latest/user/getting-started.html.
+
+
+#### Step-by-Step Instructions
+
+##### 1. Launch the EC2 Instance
+
+Use the AWS Management Console or AWS CLI to launch a new EC2 instance.
+
+Make sure to:
+
+- **Enable Enclaves**
+  - In the CLI: set the `--enclave-options` flag to `true`
+  - In the Console: select `Enabled` under the **Enclave** section
+
+- **Use the following configuration:**
+  - **Architecture:** x86_64
+  - **AMI:** Amazon Linux 2023
+  - **Instance Type:** `m6a.2xlarge`
+  - **Volume Size:** 100 GB
+
+
+##### 2. Connect to the Instance
+
+Once the instance is running, connect to it via the AWS Console or CLI.
+
+
+##### 3. Build the Enclave Image
+
+Inside the instance, navigate to the project directory and build the enclave image:
+
+```bash
+cd kurtosis-devnet/
+just op-batcher-enclave-image
