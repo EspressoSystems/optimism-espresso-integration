@@ -2,6 +2,7 @@ package environment
 
 import (
 	"math/big"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
@@ -96,6 +97,36 @@ func WithSequencerWindowSize(size uint64) DevNetLauncherOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.SequencerWindowSize = size
+			},
+		}
+	}
+}
+
+// WithL1BlockTime is a DevNetLauncherOption that configures the system's
+// `L1BlockTime` option to the provided value.
+//
+// The passed block time should be on the order of seconds.  Any sub-second
+// resolution will be lost.  The value **MUST** be at least 1 second or greater.
+func WithL1BlockTime(blockTime time.Duration) DevNetLauncherOption {
+	return func(c *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+				cfg.DeployConfig.L1BlockTime = uint64(blockTime / time.Second)
+			},
+		}
+	}
+}
+
+// WithL2BlockTime is a DevNetLauncherOption that configures the system's
+// `L2BlockTime` option to the provided value.
+//
+// The passed block time should be on the order of seconds.  Any sub-second
+// resolution will be lost.  The value **MUST** be at least 1 second or greater.
+func WithL2BlockTime(blockTime time.Duration) DevNetLauncherOption {
+	return func(c *DevNetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)
 			},
 		}
 	}
