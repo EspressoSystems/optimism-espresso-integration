@@ -114,7 +114,7 @@ type EspressoTransactionSubmitterConfig struct {
 // configure the EspressoTransactionSubmitterConfig.
 type EspressoTransactionSubmitterOption func(*EspressoTransactionSubmitterConfig)
 
-// WithEspressoClient is an option that can be used to set the Espresso client
+// WithContext is an option that can be used to set the Espresso client
 // for the EspressoTransactionSubmitterConfig.
 func WithContext(ctx context.Context) EspressoTransactionSubmitterOption {
 	return func(config *EspressoTransactionSubmitterConfig) {
@@ -139,7 +139,15 @@ func WithWaitGroup(wg *sync.WaitGroup) EspressoTransactionSubmitterOption {
 }
 
 // NewEspressoTransactionSubmitter creates a new EspressoTransactionSubmitter
-// with the given context and espresso client.  It will create a new
+// with the given context and espresso client.  It will create a new transaction
+// submitter with some default options, and apply those options to the
+// configuration.
+//
+// The resulting instance should reflect the given configuration.
+// After returning, the caller should call SpawnWorkers to start the workers,
+// and Start to start the job scheduling and response handling portions of the
+// transaction submitter. After that, the user should be able to submit
+// transactions to the submitter via the SubmitTransaction method.
 func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOption) *espressoTransactionSubmitter {
 	config := EspressoTransactionSubmitterConfig{
 		Ctx:                                context.Background(),
@@ -439,10 +447,6 @@ func espressoSubmitTransactionWorker(
 			job:  jobAttempt.job,
 			hash: hash,
 			err:  err,
-		}
-
-		if jobAttempt.job.attempts > 3 {
-			// We have submitted this job quite a bit.
 		}
 
 		select {
