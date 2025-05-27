@@ -528,7 +528,7 @@ func TestSequencerFeedConsistency(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -590,7 +590,7 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
