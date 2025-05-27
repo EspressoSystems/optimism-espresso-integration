@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // WorkerSignTransaction is a function that is meant to be run as a goroutine.
@@ -144,8 +145,7 @@ func WorkerProcessL2Receipt(
 
 		receipt, err := wait.ForReceiptOK(ctx, client, txHash.Value)
 		if err != nil {
-			// TODO: record transaction submission failure for
-			// later analysis
+			log.Error("Failed to get receipt", "err", err)
 			continue
 		}
 
