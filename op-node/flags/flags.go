@@ -278,7 +278,10 @@ var (
 		Name:     "sequencer.use-finalized",
 		Usage:    "Enable use of only finalized L1 blocks as L1 origin. Overwrites the value of 'sequencer.l1-confs'.",
 		EnvVars:  prefixEnvVars("SEQUENCER_USE_FINALIZED"),
-		Value:    false, // Sishan TODO: So Celo set it to false by default? Do we want to change to true if deriving from caff node?
+		// It's set to false by default, but setting it to true would improve the performance on
+		// the batcher and the Caff node sides because they would no longer need extra time to wait
+		// for the L1 finality.
+		Value:    false,
 		Category: SequencerCategory,
 	}
 	L1EpochPollIntervalFlag = &cli.DurationFlag{
