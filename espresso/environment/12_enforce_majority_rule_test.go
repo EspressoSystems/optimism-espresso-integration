@@ -2,15 +2,16 @@ package environment_test
 
 import (
 	"context"
-	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/stretchr/testify/require"
 )
 
 const ERROR_EXPECTED = true
@@ -40,7 +41,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	caffNode, err := env.LaunchDecaffNode(t, system, devNode)
+	caffNode, err := env.LaunchCaffNode(t, system, devNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
