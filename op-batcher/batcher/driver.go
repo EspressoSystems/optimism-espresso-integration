@@ -126,6 +126,7 @@ type BatchSubmitter struct {
 	mutex   sync.Mutex
 	running bool
 
+	submitter         *espressoTransactionSubmitter
 	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
