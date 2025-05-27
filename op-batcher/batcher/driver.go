@@ -119,6 +119,7 @@ type BatchSubmitter struct {
 	mutex   sync.Mutex
 	running bool
 
+	submitter         *espressoTransactionSubmitter
 	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
@@ -212,6 +213,14 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
 		}
+
+		l.submitter = NewEspressoTransactionSubmitter(
+			WithContext(l.shutdownCtx),
+			WithWaitGroup(l.wg),
+			WithEspressoClient(l.Espresso),
+		)
+		l.submitter.SpawnWorkers(4, 4)
+		l.submitter.Start()
 
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
