@@ -610,3 +610,79 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 		t.Fatalf("unexpected number of batches in state:\nhave:\n\t%v\nwant:\n\t%v\n", have, want)
 	}
 }
+
+// TestEspressoStreamerDuplicationHandling tests the behavior of the EspressoStreamer
+// when the duplicat batch is received.
+//
+// The Streamer is expected to skip the duplicated batch and only return once for each batch.
+func TestEspressoStreamerDuplicationHandling(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	namespace := uint64(42)
+	chainID := big.NewInt(int64(namespace))
+	privateKeyString := "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+	chainSignerFactory, signerAddress, _ := crypto.ChainSignerFactoryFromConfig(&NoOpLogger{}, privateKeyString, "", "", opsigner.CLIConfig{})
+	chainSigner := chainSignerFactory(chainID, common.Address{})
+
+	state, streamer := setupStreamerTesting(namespace, signerAddress)
+	rng := rand.New(rand.NewSource(0))
+
+	// update the state of our streamer
+	syncStatus := state.SyncStatus()
+	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+
+	const N = 1000
+	for i := 0; i < N; i++ {
+		batch, _, _, espTxnInBlock := state.CreateEspressoTxnData(
+			ctx,
+			namespace,
+			rng,
+			chainID,
+			uint64(i)+1,
+			chainSigner,
+		)
+
+		// duplicate the batch
+		for j := 0; j < 2; j++ {
+			// update the state of our streamer
+			syncStatus := state.SyncStatus()
+			_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+
+			if have, want := err, error(nil); have != want {
+				t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
+
+			// add the batch to the state, and make sure duplicate batches are also added with a different height
+			state.AddEspressoTransactionData(uint64(5*i+j), namespace, espTxnInBlock)
+
+			// Update the state of our streamer
+			if have, want := streamer.Update(ctx), error(nil); !errors.Is(have, want) {
+				t.Fatalf("failed to update streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+			}
+		}
+
+		batchFromEsp := streamer.Next(ctx)
+		require.NotNil(t, batchFromEsp, "unexpectedly did not receive a batch from streamer")
+
+		// This batch ** should ** match the one we created above.
+		// If the duplicate one is NOT skipped, this will FAIL.
+		if have, want := batchFromEsp.Batch.GetEpochNum(), batch.GetEpochNum(); have != want {
+			t.Fatalf("batch epoch number does not match:\nhave:\n\t%v\ndo not want:\n\t%v\n", have, want)
+		}
+
+		state.AdvanceSafeL2()
+		state.AdvanceFinalizedL1()
+
+	}
+
+	// Check that the state has the correct number of duplicated batches
+	if have, want := len(state.EspTransactionData), 2*N; have != want {
+		t.Fatalf("unexpected number of batches in state:\nhave:\n\t%v\nwant:\n\t%v\n", have, want)
+	}
+
+}
