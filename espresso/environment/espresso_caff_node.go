@@ -77,9 +77,9 @@ func (c *CaffNodeInstance) Close(ctx context.Context) error {
 	return errors.Join(c.OpNode.Stop(ctx), c.Geth.Close())
 }
 
-// LaunchDecaffNode launches a caff node in the given system. It will
+// LaunchCaffNode launches a caff node in the given system. It will
 // configure the caff node to connect to the given espresso dev node.
-func LaunchDecaffNode(t *testing.T, system *e2esys.System, espressoDevNode EspressoDevNode) (*CaffNodeInstance, error) {
+func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode EspressoDevNode) (*CaffNodeInstance, error) {
 	sequencerHostAndPort := espressoDevNode.SequencerPort()
 	_, sequencerPort, err := net.SplitHostPort(sequencerHostAndPort)
 	if have, want := err, error(nil); have != want {
