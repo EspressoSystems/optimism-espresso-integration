@@ -84,8 +84,8 @@ func TestBatcherWaitForFinality(t *testing.T) {
 // VerifyL1OriginFinalized checks whether every batch in the batch buffer has a finalized L1
 // origin.
 func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
-	batch := streamer.BatchBuffer.Pop()
-	for batch != nil {
+	for i := 0; i < streamer.BatchBuffer.Len(); i++ {
+		batch := streamer.BatchBuffer.Get(i)
 		origin := (batch).L1Origin()
 		finalizedL1, err := l1Client.BlockByNumber(context.Background(), big.NewInt(rpc.FinalizedBlockNumber.Int64()))
 		if err != nil {
@@ -98,7 +98,6 @@ func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[d
 			t.Log("L1 origin not finalized", "origin", origin.Number, "FinalizedL1", finalizedL1.NumberU64())
 			return false
 		}
-		batch = streamer.BatchBuffer.Pop()
 	}
 	return true
 }
