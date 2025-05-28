@@ -279,20 +279,8 @@ touch /etc/nitro_enclaves/allocator.yaml
 In the file `/etc/nitro_enclaves/allocator.yaml` put the following content:
 ```
 ---
-# Enclave configuration file.
-#
-# How much memory to allocate for enclaves (in MiB).
 memory_mib: 4096
-#
-# How many CPUs to reserve for enclaves.
 cpu_count: 2
-#
-# Alternatively, the exact CPUs to be reserved for the enclave can be explicitly
-# configured by using `cpu_pool` (like below), instead of `cpu_count`.
-# Note: cpu_count and cpu_pool conflict with each other. Only use exactly one of them.
-# Example of reserving CPUs 2, 3, and 6 through 9:
-# cpu_pool: 2,3,6-9
-[ec2-user@ip-172-31
 ```
 
 Restart the enclave service
