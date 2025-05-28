@@ -264,10 +264,11 @@ source ~/.bashrc
 ```
  sudo yum update
  sudo yum install git
- sudo dnf install aws-nitro-enclaves-cli -y
  sudo usermod -a -G docker ec2-user
  sudo chown ec2-user /var/run/docker.sock
  sudo service docker start
+ sudo dnf install aws-nitro-enclaves-cli -y
+ sudo systemctl start nitro-enclaves-allocator.service
 ```
 
 * Clone repository and update submodules

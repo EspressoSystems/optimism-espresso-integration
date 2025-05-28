@@ -19,12 +19,12 @@ contract BatchInbox {
                 currentBlob++;
             }
             bytes32 hash = keccak256(concatenatedHashes);
-            if (!batchAuthenticator.validBatches(hash)) {
+            if (!batchAuthenticator.validBatchInfo(hash)) {
                 revert("Invalid blob batch");
             }
         } else {
             bytes32 hash = keccak256(msg.data);
-            if (!batchAuthenticator.validBatches(hash)) {
+            if (!batchAuthenticator.validBatchInfo(hash)) {
                 revert("Invalid calldata batch");
             }
         }
