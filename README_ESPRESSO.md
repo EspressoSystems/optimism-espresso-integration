@@ -243,12 +243,72 @@ Make sure to:
 ##### 2. Connect to the Instance
 
 Once the instance is running, connect to it via the AWS Console or CLI.
+In practice, you will be provided a key.pem file and you can connect like this:
+```shell
+ssh -i "key.pem" ec2-user@<aws_instance_dns>
+```
+
+Note that the command above can be found in the AWS by selecting the instance and clicking on the button "Connect".
 
 
-##### 3. Build the Enclave Image
+##### 3. Install dependencies
 
-Inside the instance, navigate to the project directory and build the enclave image:
+* Nix
+`sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon`
 
-```bash
-cd kurtosis-devnet/
-just op-batcher-enclave-image
+* Git, Nitro
+```
+ sudo yum update
+ sudo yum install git
+ sudo dnf install aws-nitro-enclaves-cli -y
+```
+
+* Clone repository and update submodules
+```
+git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
+cd optimism-espresso-integration
+git submodule update --init --recursive
+```
+
+* Configure enclave
+```
+sudo mkdir /etc/nitro_enclaves
+touch /etc/nitro_enclaves/allocator.yaml
+```
+
+In the file `/etc/nitro_enclaves/allocator.yaml` put the following content:
+```
+---
+# Enclave configuration file.
+#
+# How much memory to allocate for enclaves (in MiB).
+memory_mib: 4096
+#
+# How many CPUs to reserve for enclaves.
+cpu_count: 2
+#
+# Alternatively, the exact CPUs to be reserved for the enclave can be explicitly
+# configured by using `cpu_pool` (like below), instead of `cpu_count`.
+# Note: cpu_count and cpu_pool conflict with each other. Only use exactly one of them.
+# Example of reserving CPUs 2, 3, and 6 through 9:
+# cpu_pool: 2,3,6-9
+[ec2-user@ip-172-31
+```
+
+Restart the enclave service
+```
+sudo systemctl start nitro-enclaves-allocator.service
+```
+
+* Enter the nix shell and run the enclave tests
+```
+cd optimism-espresso-integration
+nix --extra-experimental-features "nix-command flakes" develop
+just espresso-enclave-tests
+```
+
+
+
+
+
+
