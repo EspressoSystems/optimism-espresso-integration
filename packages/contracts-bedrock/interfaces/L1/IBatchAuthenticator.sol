@@ -8,7 +8,7 @@ interface IBatchAuthenticator {
         address indexed newOwner
     );
 
-    function authenticateBatch(
+    function authenticateBatchInfo(
         bytes32 commitment,
         bytes memory _signature
     ) external;
@@ -34,7 +34,7 @@ interface IBatchAuthenticator {
 
     function transferOwnership(address newOwner) external;
 
-    function validBatches(bytes32) external view returns (bool);
+    function validBatchInfo(bytes32) external view returns (bool);
 
     function __constructor__(
         address _espressoTEEVerifier,
