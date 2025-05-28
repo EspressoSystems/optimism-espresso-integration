@@ -4,6 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"math/big"
+	"strconv"
+	"testing"
+	"time"
+
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
@@ -13,10 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"strconv"
-	"testing"
-	"time"
 )
 
 // Computes the hash of the content of a batch. Introduced for testing purposes only.
@@ -94,7 +95,7 @@ func collectBatchesPublishedOnUnfinalizedL1Blocks(ctx context.Context, t *testin
 		require.NoError(t, err)
 
 		if err == nil { // Insert new batch in the list
-			
+
 			batch, l2HeadL1Info, err := derive.BlockToSingularBatch(system.RollupCfg(), l2Head)
 			require.NoError(t, err)
 			log.Info("l2HeadL1Info", "value", l2HeadL1Info)

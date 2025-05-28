@@ -120,25 +120,25 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 }
 
 // TestForcedTransactionWithoutEspressoSmallWindow verifies that the withdrawal transaction is
-// enforced after the sequencer window is passed when launching without the Espressso dev node.
+// enforced after the sequencer window is passed when launching without the Espresso dev node.
 func TestForcedTransactionWithoutEspressoSmallWindow(t *testing.T) {
 	ForcedTransaction(t, true, false)
 }
 
 // TestForcedTransactionWithoutEspressoLargeWindow verifies that the withdrawal transaction is not
-// enforced before the sequencer window is passed when launching without the Espressso dev node.
+// enforced before the sequencer window is passed when launching without the Espresso dev node.
 func TestForcedTransactionWithoutEspressoLargeWindow(t *testing.T) {
 	ForcedTransaction(t, false, false)
 }
 
 // TestForcedTransactionWithEspressoSmallWindow verifies that the withdrawal transaction is
-// enforced after the sequencer window is passed when launching with the Espressso dev node.
+// enforced after the sequencer window is passed when launching with the Espresso dev node.
 func TestForcedTransactionWithEspressoSmallWindow(t *testing.T) {
 	ForcedTransaction(t, true, true)
 }
 
 // TestForcedTransactionWithEspressoLargeWindow verifies that the withdrawal transaction is not
-// enforced before the sequencer window is passed when launching with the Espressso dev node.
+// enforced before the sequencer window is passed when launching with the Espresso dev node.
 func TestForcedTransactionWithEspressoLargeWindow(t *testing.T) {
 	ForcedTransaction(t, false, false)
 }
