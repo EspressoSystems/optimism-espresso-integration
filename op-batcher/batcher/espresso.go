@@ -890,7 +890,7 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
-func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, parentCertHash common.Hash) ([]byte, error) {
+func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
 	certHash := crypto.Keccak256Hash(cert)
 	verified, err := certManager.Verified(nil, certHash)
 	if err != nil {
@@ -901,7 +901,11 @@ func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certMa
 		return nil, nil
 	}
 
-	return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
+	if isCa {
+		return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
+	} else {
+		return certManagerAbi.Pack("verifyClientCert", cert, parentCertHash)
+	}
 }
 
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
@@ -953,9 +957,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	// Verify all CA certiciates in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for i := 0; i < len(l.Attestation.Document.CABundle); i++ {
-		cert := l.Attestation.Document.CABundle[i]
-		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, parentCertHash)
+	for _, cert := range l.Attestation.Document.CABundle {
+		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 		if err != nil {
 			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
 		}
@@ -977,12 +980,27 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		}
 	}
 
+	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
+	if err != nil {
+		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
+	}
+	if txData != nil {
+		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+			TxData: txData,
+			To:     &certManagerAddress,
+		})
+
+		if err != nil {
+			return fmt.Errorf("verify client certificate transaction failed: %w", err)
+		}
+	}
+
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	txData, err := abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
+	txData, err = abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
