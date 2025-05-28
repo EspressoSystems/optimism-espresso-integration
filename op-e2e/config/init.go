@@ -51,12 +51,13 @@ const (
 type AllocType string
 
 const (
-	AllocTypeStandard     AllocType = "standard"
-	AllocTypeAltDA        AllocType = "alt-da"
-	AllocTypeAltDAGeneric AllocType = "alt-da-generic"
-	AllocTypeL2OO         AllocType = "l2oo"
-	AllocTypeMTCannon     AllocType = "mt-cannon"
-	AllocTypeEspresso     AllocType = "espresso"
+	AllocTypeStandard               AllocType = "standard"
+	AllocTypeAltDA                  AllocType = "alt-da"
+	AllocTypeAltDAGeneric           AllocType = "alt-da-generic"
+	AllocTypeL2OO                   AllocType = "l2oo"
+	AllocTypeMTCannon               AllocType = "mt-cannon"
+	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
+	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
 
 	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
 	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"

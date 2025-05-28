@@ -410,6 +410,7 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 		startOptions...,
 	)
+	launchContext.System = system
 
 	if err != nil {
 		if system != nil {
