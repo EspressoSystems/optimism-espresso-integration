@@ -36,6 +36,13 @@ IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:rele
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 
+forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
+bindings_dir:="op-batcher/bindings"
+gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
+gen-bindings:
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > ./{{bindings_dir}}/batch_inbox.go
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
+
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
