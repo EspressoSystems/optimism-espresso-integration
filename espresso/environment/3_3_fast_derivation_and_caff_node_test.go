@@ -19,7 +19,7 @@ import (
 func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock *types.Block, nodeName string, tickerDuration time.Duration) (*types.Block, error) {
 	newBlock, err := client.BlockByNumber(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get new %s block: %v", nodeName, err)
+		return nil, fmt.Errorf("Failed to get new %s block: %w", nodeName, err)
 	}
 
 	// Make sure newBlock comes after previousBlock
