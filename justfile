@@ -20,12 +20,17 @@ run-test12: compile-contracts
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
+build-batcher-enclave-image:
+ (cd kurtosis-devnet && just op-batcher-enclave-image)
+
 run-test4: compile-contracts
  go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
 
-
 espresso-tests: compile-contracts
  go test -timeout=30m -p=1 -count=1 ./espresso/environment
+
+espresso-enclave-tests: compile-contracts build-batcher-enclave-image
+ ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout=30m -p=1 -count=1 ./espresso/enclave_tests/...
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
