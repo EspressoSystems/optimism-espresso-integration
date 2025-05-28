@@ -243,8 +243,9 @@ Make sure to:
 ##### 2. Connect to the Instance
 
 Once the instance is running, connect to it via the AWS Console or CLI.
-In practice, you will be provided a key.pem file and you can connect like this:
+In practice, you will be provided a `key.pem` file and you can connect like this:
 ```shell
+chmod 400 key.pem
 ssh -i "key.pem" ec2-user@<aws_instance_dns>
 ```
 
