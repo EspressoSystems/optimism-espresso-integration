@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
 
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
@@ -352,8 +353,10 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		}
 
 		// Make sure the transaction will really go through to verifier by waiting for its hash
-		wait.ForReceiptOK(ctx, caffVerif, l1InfoDeposit.Hash())
-		wait.ForReceiptOK(ctx, l2Verif, l1InfoDeposit.Hash())
+		_, err = wait.ForReceiptOK(ctx, caffVerif, l1InfoDeposit.Hash())
+		require.NoError(t, err, "deposit didn't arrive on Caff node")
+		_, err = wait.ForReceiptOK(ctx, l2Verif, l1InfoDeposit.Hash())
+		require.NoError(t, err, "deposit didn't arrive on Decaf node")
 	}
 
 }
