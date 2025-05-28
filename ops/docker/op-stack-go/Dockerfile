@@ -147,7 +147,7 @@ ARG OP_DISPUTE_MON_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-dispute-mon && make op-dispute-mon  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_DISPUTE_MON_VERSION"
 
-FROM op-cgo-builder as op-batcher-builder
+FROM op-cgo-builder AS op-batcher-builder
 WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE  VERSION="$OP_BATCHER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
@@ -232,6 +232,19 @@ ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
+
+FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-target
+ARG ENCLAVE_BATCHER_ARGS=""
+# CGO dependencies
+RUN apk add gcc
+# enclave-entrypoint dependencies
+RUN apk add socat bash trurl curl
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
+COPY --chmod=555 ./op-batcher/enclave-entrypoint.bash /entrypoint.bash
+ENV ENCLAVE_BATCHER_ARGS=$ENCLAVE_BATCHER_ARGS
+CMD ["/entrypoint.bash"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/

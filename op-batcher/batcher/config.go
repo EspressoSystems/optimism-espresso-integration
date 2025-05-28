@@ -226,7 +226,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		ThrottleBlockSize:                ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
 		ThrottleAlwaysBlockSize:          ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
 		PreferLocalSafeL2:                ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
-		EspressoUrls:                     ctx.StringSlice(flags.EspressoUrlFlag.Name),
+		EspressoUrls:                     ctx.StringSlice(flags.EspressoUrlsFlag.Name),
 		EspressoLightClientAddr:          ctx.String(flags.EspressoLCAddrFlag.Name),
 		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
 	}
