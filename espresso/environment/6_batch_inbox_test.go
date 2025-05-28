@@ -73,6 +73,7 @@ func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
 
 	// Start the batcher
 	err = batchDriver.StartBatchSubmitting()
+	require.NoError(t, err, "Couldn't start batcher")
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
 	// Wait for batcher to submit a transaction to BatchInbox
