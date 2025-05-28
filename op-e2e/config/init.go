@@ -59,6 +59,8 @@ const (
 	AllocTypeMTCannon     AllocType = "mt-cannon"
 	AllocTypeMTCannonNext AllocType = "mt-cannon-next"
 	AllocTypeEspresso     AllocType = "espresso"
+	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
+	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
 
 	DefaultAllocType = AllocTypeMTCannon
 )
@@ -72,14 +74,14 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspresso:
+	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspresso, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave:
 		return true
 	default:
 		return false
 	}
 }
 
-var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspresso, AllocTypeMTCannonNext}
+var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeEspresso, AllocTypeMTCannonNext, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave}
 
 var (
 	// All of the following variables are set in the init function
@@ -285,13 +287,17 @@ func initAllocType(root string, allocType AllocType) {
 				}
 			}
 
-			if allocType == AllocTypeEspresso {
+			if allocType == AllocTypeEspressoWithoutEnclave {
 				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
 				}
 				intent.Chains[0].EspressoEnabled = true
 				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
+			}
+
+			if allocType == AllocTypeEspressoWithEnclave {
+				intent.Chains[0].EspressoEnabled = true
 			}
 
 			baseUpgradeSchedule := map[string]any{
