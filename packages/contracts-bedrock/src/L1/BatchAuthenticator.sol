@@ -37,7 +37,7 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
         return nitroValidator.decodeAttestationTbs(attestation);
     }
 
-    function authenticateBatchInformation(bytes32 commitment, bytes calldata _signature) external {
+    function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
         uint8 v = uint8(signature[64]);

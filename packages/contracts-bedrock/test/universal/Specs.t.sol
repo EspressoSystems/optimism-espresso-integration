@@ -918,7 +918,7 @@ contract Specification_Test is CommonTest {
         _addSpec({ _name: "StandardValidator", _sel: _getSel("withdrawalDelaySeconds()") });
 
         // BatchAuthenticator
-        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("authenticateBatchInformation(bytes32,bytes)") });
+        _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("authenticateBatchInfo(bytes32,bytes)") });
         _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("decodeAttestationTbs(bytes)") });
         _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("espressoTEEVerifier()") });
         _addSpec({ _name: "BatchAuthenticator", _sel: _getSel("nitroValidator()") });

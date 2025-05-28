@@ -8,7 +8,7 @@ interface IBatchAuthenticator {
         address indexed newOwner
     );
 
-    function authenticateBatchInformation(
+    function authenticateBatchInfo(
         bytes32 commitment,
         bytes memory _signature
     ) external;
