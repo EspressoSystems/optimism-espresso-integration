@@ -330,8 +330,8 @@ func (e *EspressoDevNodeIntercept) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 // createEspressoProxyOption will return a Batch CLIConfig option that will
 // replace the Espresso URL with the URL of the proxy server.
-func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNodeIntercept, server *httptest.Server) func(*batcher.CLIConfig) {
-	return func(cfg *batcher.CLIConfig) {
+func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNodeIntercept, server *httptest.Server) func(*batcher.CLIConfig, *e2esys.System) {
+	return func(cfg *batcher.CLIConfig, sys *e2esys.System) {
 		if ctx.Error != nil {
 			return
 		}
