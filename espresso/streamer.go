@@ -72,7 +72,7 @@ type EspressoStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
-	L1Client                      L1Client // TODO Philippe apparently not used yet
+	L1Client                      L1Client
 	EspressoClient                EspressoClient
 	EspressoLightClient           LightClientCallerInterface
 	Log                           log.Logger
@@ -394,7 +394,6 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 	}
 }
 
-// TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {

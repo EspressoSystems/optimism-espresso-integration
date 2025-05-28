@@ -561,12 +561,13 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 									"ESPRESSO_DEV_NODE_PORT":          portRemapping[ESPRESSO_DEV_NODE_PORT],
 									"ESPRESSO_DEV_NODE_L1_DEPLOYMENT": "skip",
 
-									// TODO(AG): this is a workaround for devnode not picking up stake table
-									// initial state when it's baked into the genesis block. This results in
-									// HotShot stalling when transitioning to epoch 3, where staking reward
-									// distribution starts. Setting epoch height to a very big number ensures
-									// we don't run into this stalling problem during our tests, as we'll never
-									// reach epoch 3.
+									// This is a workaround for devnode not picking up stake table
+									// initial state when it's baked into the genesis block. This
+									// results in HotShot stalling when transitioning to epoch 3,
+									// where staking reward distribution starts. Setting epoch
+									// height to a very big number ensures we don't run into this
+									// stalling problem during our tests, as we'll never reach
+									// epoch 3.
 									"ESPRESSO_DEV_NODE_EPOCH_HEIGHT": fmt.Sprint(uint64(math.MaxUint64)),
 								},
 								Ports: []string{
