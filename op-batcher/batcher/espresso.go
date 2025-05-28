@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"context"
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -192,6 +194,49 @@ func (s *espressoTransactionSubmitter) SubmitTransaction(job *espressoCommon.Tra
 	}
 }
 
+// Evaluation result for a job.
+type JobEvaluation int
+
+const (
+	// Continue handling the current job.
+	Handle JobEvaluation = iota
+	// Retry the submission.
+	RetrySubmission
+	// Retry the verification.
+	RetryVerification
+	// Skip the current job and proceed to the next one.
+	Skip
+)
+
+// Evaluate the submission job.
+func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluation {
+	err := jobResp.err
+
+	// If there's no error, continue handling the submission.
+	if err == nil {
+		return Handle
+	}
+
+	msg := err.Error()
+
+	// If the transaction is invalid, skip the submission.
+	if strings.Contains(msg, "json:") {
+		log.Warn("json.Marshal fails, skipping", "msg", msg)
+		return Skip
+	}
+
+	// If the request is invalid, skip the submission.
+	if strings.Contains(msg, "net/http: nil Context") ||
+		strings.Contains(msg, "net/http: invalid method") ||
+		strings.HasPrefix(msg, "parse ") {
+		log.Warn("NewRequestWithContext fails, skipping", "msg", msg)
+		return Skip
+	}
+
+	// Otherwise, retry the submission.
+	return RetrySubmission
+}
+
 // handleTransactionSubmitJobResponse is a function that is meant to be run in a
 // goroutine.
 //
@@ -215,10 +260,10 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 			}
 		}
 
-		// TODO: Evaluate the specific error type, and determine if we
-		// should retry
-		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
-		if jobResp.err != nil {
+		switch evaluation := evaluateSubmission(jobResp); evaluation {
+		case Skip:
+			continue
+		case RetrySubmission:
 			s.submitJobQueue <- jobResp.job
 			continue
 		}
@@ -246,6 +291,30 @@ const VERIFY_RECEIPT_TIMEOUT = 4 * time.Second
 // retrying a job that failed to verify the receipt.
 const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 
+// Evaluate the verification job.
+func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluation {
+	err := jobResp.err
+
+	// If there's no error, continue handling the verification.
+	if err == nil {
+		return Handle
+	}
+
+	// If the hash is invalid, skip the verification.
+	if strings.Contains(err.Error(), "hash is nil") {
+		log.Warn("Hash is nil, skipping")
+		return Skip
+	}
+
+	// If the verifcation times out, degrade to the submission phase and try again.
+	if have := time.Now(); have.Sub(jobResp.job.start) > VERIFY_RECEIPT_TIMEOUT {
+		return RetrySubmission
+	}
+
+	// Otherwise, retry the verification.
+	return RetryVerification
+}
+
 // handleVerifyReceiptJobResponse is a function that is meant to be run in a
 // goroutine.
 //
@@ -259,10 +328,6 @@ const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 //
 // NOTE: This function currently will loop forever if the transaction is
 // never going to be available.
-//
-// TODO: we need to put some sensible limits on the number of times we will
-// retry a job, depending on the type of the error we received.
-// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 	for {
 		var jobResp espressoVerifyReceiptJobResponse
@@ -278,26 +343,13 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 			}
 		}
 
-		// TODO: Evaluate the specific error type, and determine if we
-		// should retry
-		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
-		if jobResp.err != nil {
-
-			// Let's check our timeout
-			if have := time.Now(); have.Sub(jobResp.job.start) > VERIFY_RECEIPT_TIMEOUT {
-				// We were not able to verify the receipt in time.  So we will
-				// degrade this transaction back to the submit transaction phase
-				// and try again.
-				submitJob := jobResp.job.transaction
-				select {
-				case <-s.ctx.Done():
-					return
-				case s.submitJobQueue <- submitJob:
-				}
-
-				continue
-			}
-
+		switch evaluation := evaluateVerification(jobResp); evaluation {
+		case Skip:
+			continue
+		case RetrySubmission:
+			s.submitJobQueue <- jobResp.job.transaction
+			continue
+		case RetryVerification:
 			s.verifyReceiptJobQueue <- jobResp.job
 			continue
 		}
