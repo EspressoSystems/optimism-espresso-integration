@@ -62,7 +62,7 @@ var (
 		Name:    "espresso-poll-interval",
 		Usage:   "How frequently to poll Espresso for new batches",
 		Value:   6 * time.Second,
-		EnvVars: prefixEnvVars("POLL_INTERVAL"),
+		EnvVars: prefixEnvVars("ESPRESSO_POLL_INTERVAL"),
 	}
 	MaxPendingTransactionsFlag = &cli.Uint64Flag{
 		Name:    "max-pending-tx",
@@ -194,10 +194,9 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("PREFER_LOCAL_SAFE_L2"),
 	}
-	EspressoUrlFlag = &cli.StringFlag{
+	EspressoUrlsFlag = &cli.StringSliceFlag{
 		Name:    "espresso-url",
 		Usage:   "URL of Espresso query service",
-		Value:   "",
 		EnvVars: prefixEnvVars("ESPRESSO_URL"),
 	}
 
@@ -246,8 +245,10 @@ var optionalFlags = []cli.Flag{
 	ThrottleBlockSizeFlag,
 	ThrottleAlwaysBlockSizeFlag,
 	PreferLocalSafeL2Flag,
-	EspressoUrlFlag,
+	EspressoUrlsFlag,
 	EspressoLCAddrFlag,
+	EspressoPollIntervalFlag,
+	TestingEspressoBatcherPrivateKeyFlag,
 }
 
 func init() {
