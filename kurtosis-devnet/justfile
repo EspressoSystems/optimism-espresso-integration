@@ -46,8 +46,6 @@ op-interop-mon-image TAG='op-interop-mon:devnet': (_docker_build_stack TAG "op-i
 op-program-builder-image TAG='op-program-builder:devnet': _prerequisites
     just op-program-svc/op-program-svc {{TAG}}
 
-KURTOSIS_PACKAGE := "github.com/ethpandaops/optimism-package"
-
 # Devnet template recipe
 devnet TEMPLATE_FILE DATA_FILE="" NAME="" PACKAGE=KURTOSIS_PACKAGE: _prerequisites
     #!/usr/bin/env bash
