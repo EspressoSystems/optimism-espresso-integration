@@ -255,13 +255,19 @@ Note that the command above can be found in the AWS by selecting the instance an
 ##### 3. Install dependencies
 
 * Nix
-`sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon`
+```
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon`
+source ~/.bashrc
+```
 
-* Git, Nitro
+* Git, Nitro, Docker
 ```
  sudo yum update
  sudo yum install git
  sudo dnf install aws-nitro-enclaves-cli -y
+ sudo usermod -a -G docker ec2-user
+ sudo chown ec2-user /var/run/docker.sock
+ sudo service docker start
 ```
 
 * Clone repository and update submodules
@@ -271,23 +277,6 @@ cd optimism-espresso-integration
 git submodule update --init --recursive
 ```
 
-* Configure enclave
-```
-sudo mkdir /etc/nitro_enclaves
-touch /etc/nitro_enclaves/allocator.yaml
-```
-
-In the file `/etc/nitro_enclaves/allocator.yaml` put the following content:
-```
----
-memory_mib: 4096
-cpu_count: 2
-```
-
-Restart the enclave service
-```
-sudo systemctl start nitro-enclaves-allocator.service
-```
 
 * Enter the nix shell and run the enclave tests
 ```
