@@ -30,7 +30,7 @@ espresso-tests: compile-contracts
  go test -timeout=30m -p=1 -count=1 ./espresso/environment
 
 espresso-enclave-tests: compile-contracts build-batcher-enclave-image
- ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout=30m -p=1 -count=1 ./espresso/enclave_tests/...
+ ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout=30m -p=1 -count=1 ./espresso/enclave-tests/...
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
