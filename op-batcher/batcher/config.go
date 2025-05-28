@@ -271,7 +271,16 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 			PidOutputMax:        ctx.Float64(flags.ThrottlePidOutputMaxFlag.Name),
 			PidSampleTime:       ctx.Duration(flags.ThrottlePidSampleTimeFlag.Name),
 		},
-		EspressoUrl:                     ctx.String(flags.EspressoUrlFlag.Name),
+		EspressoUrls:                     espressoUrlsFromFlag(ctx.String(flags.EspressoUrlFlag.Name)),
+		EspressoLightClientAddr:          ctx.String(flags.EspressoLCAddrFlag.Name),
 		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
 	}
+}
+
+// espressoUrlsFromFlag returns a single-element slice if url is non-empty, else nil.
+func espressoUrlsFromFlag(url string) []string {
+	if url == "" {
+		return nil
+	}
+	return []string{url}
 }
