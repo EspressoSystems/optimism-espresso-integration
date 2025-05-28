@@ -373,7 +373,7 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 
 	var output EnclaverBuildOutput
 	if err := json.Unmarshal(jsonMatch, &output); err != nil {
-		return nil, fmt.Errorf("failed to parse measurements JSON: %v", err)
+		return nil, fmt.Errorf("failed to parse measurements JSON: %w", err)
 	}
 
 	return &output.Measurements, nil
