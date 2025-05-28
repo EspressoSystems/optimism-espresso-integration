@@ -715,13 +715,13 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
-		for _, txn := range block.Transactions() {
-			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
-		}
-
 		if err != nil {
 			l.batcher.Log.Warn("Failed to fetch block", "err", err)
 			break
+		}
+
+		for _, txn := range block.Transactions() {
+			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
 		}
 
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
@@ -907,20 +907,19 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to decode attestation: %w", err)
 	}
 
-	txOpts, err := bind.NewKeyedTransactorWithChainID(l.Config.BatcherPrivateKey, l.RollupConfig.L1ChainID)
+	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
-		return fmt.Errorf("failed to create transactor: %w", err)
+		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	// Submit decoded attestation to batch inbox contract
-	tx, err := batchAuthenticator.RegisterSigner(txOpts, attestationTbs, signature)
+	txData, err := abi.Pack("registerSigner", attestationTbs, signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
 
 	candidate := txmgr.TxCandidate{
-		TxData: tx.Data(),
-		To:     tx.To(),
+		TxData: txData,
+		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
 	_, err = l.Txmgr.Send(ctx, candidate)
