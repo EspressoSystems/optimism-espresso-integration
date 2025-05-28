@@ -38,19 +38,10 @@ remove-espresso-containers:
 
 forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
 bindings_dir:="op-batcher/bindings"
+gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
 gen-bindings:
-  cd packages/contracts-bedrock/ && forge build
-  jq -r '.abi' {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > Contract.abi
-  jq -r '.bytecode.object' {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > Contract.bin
-  abigen --type=BatchInbox --abi=Contract.abi --bin=Contract.bin --pkg=bindings --out ./{{bindings_dir}}/batch_inbox.go
-
-  jq -r '.abi' {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > Contract.abi
-  jq -r '.bytecode.object' {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > Contract.bin
-  abigen --type=BatchAuthenticator --abi=Contract.abi --bin=Contract.bin --pkg=bindings --out ./{{bindings_dir}}/batch_authenticator.go
-
-  rm Contract.*
-
-
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > ./{{bindings_dir}}/batch_inbox.go
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
 
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
