@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum/go-ethereum/common"
+
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -50,7 +53,7 @@ func TestStatelessBatcher(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}

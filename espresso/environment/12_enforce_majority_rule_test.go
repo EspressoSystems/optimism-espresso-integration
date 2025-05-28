@@ -41,7 +41,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	caffNode, err := env.LaunchDecaffNode(t, system, devNode)
+	caffNode, err := env.LaunchCaffNode(t, system, devNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}

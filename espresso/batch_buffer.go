@@ -63,6 +63,14 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
 
 }
 
+func (b *BatchBuffer[B]) Get(i int) *B {
+	if i < b.Len() {
+		return &b.batches[i]
+	} else {
+		return nil
+	}
+}
+
 func (b *BatchBuffer[B]) Peek() *B {
 	if len(b.batches) == 0 {
 		return nil

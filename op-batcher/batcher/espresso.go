@@ -217,6 +217,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 
 		// TODO: Evaluate the specific error type, and determine if we
 		// should retry
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 		if jobResp.err != nil {
 			s.submitJobQueue <- jobResp.job
 			continue
@@ -261,6 +262,7 @@ const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 //
 // TODO: we need to put some sensible limits on the number of times we will
 // retry a job, depending on the type of the error we received.
+// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 	for {
 		var jobResp espressoVerifyReceiptJobResponse
@@ -278,6 +280,7 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 
 		// TODO: Evaluate the specific error type, and determine if we
 		// should retry
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 		if jobResp.err != nil {
 
 			// Let's check our timeout

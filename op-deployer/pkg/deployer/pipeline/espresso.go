@@ -29,7 +29,6 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	lgr.Info("deploying espresso contracts")
 	var nvo opcm.DeployAWSNitroVerifierOutput
 	nvo, err = opcm.DeployAWSNitroVerifier(env.L1ScriptHost, opcm.DeployAWSNitroVerifierInput{
-		// TODO: get real PCR0
 		EnclaveHash: [32]byte{},
 	})
 	if err != nil {
