@@ -40,15 +40,15 @@ forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
 bindings_dir:="op-batcher/bindings"
 gen-bindings:
   cd packages/contracts-bedrock/ && forge build
-  jq -r '.abi' {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > BatchInbox.abi
-  jq -r '.bytecode.object' {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > BatchInbox.bin
-  abigen --abi=BatchInbox.abi --bin=BatchInbox.bin --pkg=bindings --out ./{{bindings_dir}}/batch_inbox.go
+  jq -r '.abi' {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > Contract.abi
+  jq -r '.bytecode.object' {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > Contract.bin
+  abigen --type=BatchInbox --abi=Contract.abi --bin=Contract.bin --pkg=bindings --out ./{{bindings_dir}}/batch_inbox.go
 
-  jq -r '.abi' {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > BatchInbox.abi
-  jq -r '.bytecode.object' {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > BatchInbox.bin
-  abigen --abi=BatchInbox.abi --bin=BatchInbox.bin --pkg=bindings --out ./{{bindings_dir}}/batch_authenticator.go
+  jq -r '.abi' {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > Contract.abi
+  jq -r '.bytecode.object' {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > Contract.bin
+  abigen --type=BatchAuthenticator --abi=Contract.abi --bin=Contract.bin --pkg=bindings --out ./{{bindings_dir}}/batch_authenticator.go
 
-  rm BatchInbox.*
+  rm Contract.*
 
 
 
