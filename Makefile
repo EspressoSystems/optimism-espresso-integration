@@ -21,12 +21,13 @@ build-contracts:
 .PHONY: build-contracts
 
 lint-go: ## Lints Go code with specific linters
-	golangci-lint run ./...
+	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./...
+	golangci-lint run -E err113 --timeout 5m -e "errors.As" -e "errors.Is" ./op-program/client/...
 	go mod tidy -diff
 .PHONY: lint-go
 
 lint-go-fix: ## Lints Go code with specific linters and fixes reported issues
-	golangci-lint run ./... --fix
+	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./... --fix
 .PHONY: lint-go-fix
 
 golang-docker: ## Builds Docker images for Go components using buildx

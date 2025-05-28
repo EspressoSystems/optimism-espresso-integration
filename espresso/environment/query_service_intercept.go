@@ -182,7 +182,7 @@ func (fakeSubmitTransactionSuccess) ServeHTTP(w http.ResponseWriter, r *http.Req
 
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(contents)
+	_, _ = w.Write(contents)
 }
 
 // reportServerUnreachable is a simple HTTP handler that simulates a load
