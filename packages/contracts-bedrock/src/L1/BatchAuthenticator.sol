@@ -20,7 +20,7 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
     string public constant version = "1.0.0";
 
     /// @notice Mapping of batches verified by this contract
-    mapping(bytes32 => bool) public validBatches;
+    mapping(bytes32 => bool) public validBatchInfo;
 
     address public immutable preApprovedBatcher;
 
@@ -37,7 +37,7 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
         return nitroValidator.decodeAttestationTbs(attestation);
     }
 
-    function authenticateBatch(bytes32 commitment, bytes calldata _signature) external {
+    function authenticateBatchInformation(bytes32 commitment, bytes calldata _signature) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
         uint8 v = uint8(signature[64]);
@@ -55,7 +55,7 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
             revert("Invalid signer");
         }
 
-        validBatches[commitment] = true;
+        validBatchInfo[commitment] = true;
     }
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
