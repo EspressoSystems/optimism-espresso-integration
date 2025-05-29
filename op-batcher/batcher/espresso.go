@@ -210,7 +210,16 @@ const (
 
 // TODO (Keyao) Update the espresso-network-go repo for better error handling.
 // <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210405729138484?focus=true>
+//
 // Evaluate the submission job.
+//
+// Returns
+//
+// * If there is no error: Handle.
+//
+// * If there is an issue on our side: Skip.
+//
+// * Otherwise: RetrySubmission.
 func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluation {
 	err := jobResp.err
 
@@ -300,7 +309,18 @@ const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 
 // TODO (Keyao) Update the espresso-network-go repo for better error handling.
 // <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210405729138484?focus=true>
+//
 // Evaluate the verification job.
+//
+// Returns
+//
+// * If there is no error: Handle.
+//
+// * If there is an issue on our side: Skip.
+//
+// * If the verification times out: RetrySubmission.
+//
+// * Otherwise: RetryVerification.
 func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluation {
 	err := jobResp.err
 
