@@ -19,7 +19,6 @@
 
            src = pkgs.fetchurl {
              url = "https://go.dev/dl/go1.22.7.src.tar.gz";
-             # temporarily set to zero hash to get the expected hash
              sha256 = "sha256-ZkMth9heDPrD7f/mN9WTD8Td9XkzE/4R5KDzMwI8h58=";
            };
          });
