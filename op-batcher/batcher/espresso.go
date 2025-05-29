@@ -208,6 +208,8 @@ const (
 	Skip
 )
 
+// TODO (Keyao) Update the espresso-network-go repo for better error handling.
+// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210405729138484?focus=true>
 // Evaluate the submission job.
 func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluation {
 	err := jobResp.err
@@ -219,8 +221,13 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 
 	msg := err.Error()
 
-	// If the transaction is invalid, skip the submission.
-	if strings.Contains(msg, "json:") {
+	// If the transaction is invalid due to a JSON error, skip the submission.
+	if strings.Contains(msg, "json: unsupported type:") ||
+		strings.Contains(msg, "json: unsupported value:") ||
+		strings.Contains(msg, "json: error calling") ||
+		strings.Contains(msg, "json: invalid UTF-8 in string") ||
+		strings.Contains(msg, "json: invalid number literal") ||
+		strings.Contains(msg, "json: encoding error for type") {
 		log.Warn("json.Marshal fails, skipping", "msg", msg)
 		return Skip
 	}
@@ -291,6 +298,8 @@ const VERIFY_RECEIPT_TIMEOUT = 4 * time.Second
 // retrying a job that failed to verify the receipt.
 const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 
+// TODO (Keyao) Update the espresso-network-go repo for better error handling.
+// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210405729138484?focus=true>
 // Evaluate the verification job.
 func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluation {
 	err := jobResp.err
