@@ -143,6 +143,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.0 // indirect
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.7 // indirect
 	github.com/hashicorp/raft-boltdb v0.0.0-20231211162105-6c830fa4535e // indirect
+	github.com/hf/nitrite v0.0.0-20241225144000-c2d5d3c4f303 // indirect
 	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
