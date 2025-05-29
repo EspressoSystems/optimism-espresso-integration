@@ -890,6 +890,8 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
+// createVerifyCertTransaction creates transactiondata to verify a certificate `cert` against provided certManager.
+// Returns (nil, nil) in case `cert` is already verified.
 func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
 	certHash := crypto.Keccak256Hash(cert)
 	verified, err := certManager.Verified(nil, certHash)
@@ -954,7 +956,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
 	}
 
-	// Verify all CA certiciates in the chain in an individual transaction. This avoids running into block gas limit
+	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
 	for _, cert := range l.Attestation.Document.CABundle {
@@ -965,8 +967,9 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 
 		parentCertHash = crypto.Keccak256Hash(cert)
 
+		// If createVerifyCertTransaction returned nil, certificate is already verified
+		// and there's no need to send a verification transaction for this certificate
 		if txData == nil {
-			// Certificate already verified
 			continue
 		}
 
