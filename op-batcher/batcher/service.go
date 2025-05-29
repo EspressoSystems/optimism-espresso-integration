@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/hf/nitrite"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/config"
@@ -106,7 +107,7 @@ type BatcherService struct {
 	blobTipOracle *bgpo.BlobTipOracle
 	oracleStopCh  chan struct{}
 
-	Attestation []byte
+	Attestation *nitrite.Result
 }
 
 func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
@@ -211,8 +212,8 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
 
-		// try to generate attestation on public key when start batcher
-		attestation, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
+		// try to generate attestationBytes on public key when start batcher
+		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
 			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
 
@@ -232,8 +233,12 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 			bs.BatcherPublicKey = publicKeyECDSA
 		} else {
 			// output length of attestation
-			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestation))
-			bs.Attestation = attestation
+			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
+			result, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
+			if err != nil {
+				return fmt.Errorf("Couldn't verify attestation: %w", err)
+			}
+			bs.Attestation = result
 		}
 	}
 
