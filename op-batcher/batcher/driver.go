@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -103,7 +104,7 @@ type DriverSetup struct {
 	EspressoLightClient *espressoLightClient.LightclientCaller
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
-	Attestation         []byte
+	Attestation         *nitrite.Result
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
