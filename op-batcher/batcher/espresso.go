@@ -225,7 +225,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 		return Skip
 	}
 
-	// If the request is invalid, skip the submission.
+	// If the request is invalid (likely due to API change), skip the submission.
 	if strings.Contains(msg, "net/http: nil Context") ||
 		strings.Contains(msg, "net/http: invalid method") ||
 		strings.HasPrefix(msg, "parse ") {
@@ -306,7 +306,7 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 		return Skip
 	}
 
-	// If the verifcation times out, degrade to the submission phase and try again.
+	// If the verification times out, degrade to the submission phase and try again.
 	if have := time.Now(); have.Sub(jobResp.job.start) > VERIFY_RECEIPT_TIMEOUT {
 		return RetrySubmission
 	}
