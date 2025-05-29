@@ -15,7 +15,7 @@
 
 * Enter the nix shell of this project
 
-> nix develop
+> nix develop .
 
 
 ## Docker
