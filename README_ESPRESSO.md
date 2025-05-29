@@ -51,12 +51,6 @@ To run a subset of the tests above (fast):
 
 > just fast-tests
 
-
-
-If in the Nix environment, any `just` command fails with a tool version mismatch error such as
-`version "go1.22.7" does not match go tool version "go1.22.12"`, use
-`export GOROOT="$(dirname $(dirname $(which go)))/share/go"` to set the expected Go version.
-
 ### Run the Kurtosis devnet
 
 - Install tools.
