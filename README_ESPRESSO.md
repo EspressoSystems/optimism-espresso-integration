@@ -51,12 +51,6 @@ To run a subset of the tests above (fast):
 
 > just fast-tests
 
-
-
-If in the Nix environment, any `just` command fails with a tool version mismatch error such as
-`version "go1.22.7" does not match go tool version "go1.22.12"`, use
-`export GOROOT="$(dirname $(dirname $(which go)))/share/go"` to set the expected Go version.
-
 ### Run the Kurtosis devnet
 
 - Install tools.
@@ -177,7 +171,7 @@ sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source ~/.bashrc
 ```
 
-* Git, Nitro, Docker
+* Git, Docker
 ```
  sudo yum update
  sudo yum install git
@@ -185,9 +179,21 @@ source ~/.bashrc
  sudo usermod -a -G docker ec2-user
  sudo service docker start
  sudo chown ec2-user /var/run/docker.sock
- sudo dnf install aws-nitro-enclaves-cli -y
- sudo systemctl start nitro-enclaves-allocator.service
 ```
+
+* Nitro
+
+These commands install the dependencies for, start the service related to and configures the enclave.
+
+```
+sudo dnf install aws-nitro-enclaves-cli -y
+sudo systemctl start nitro-enclaves-allocator.service
+sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
+```
+
+
+
+/etc/nitro_enclaves/allocator.yaml
 
 * Clone repository and update submodules
 ```
