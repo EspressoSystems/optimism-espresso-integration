@@ -173,7 +173,7 @@ Note that the command above can be found in the AWS Console by selecting the ins
 
 * Nix
 ```
-sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon`
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source ~/.bashrc
 ```
 
@@ -181,9 +181,10 @@ source ~/.bashrc
 ```
  sudo yum update
  sudo yum install git
+ sudo yum install docker
  sudo usermod -a -G docker ec2-user
- sudo chown ec2-user /var/run/docker.sock
  sudo service docker start
+ sudo chown ec2-user /var/run/docker.sock
  sudo dnf install aws-nitro-enclaves-cli -y
  sudo systemctl start nitro-enclaves-allocator.service
 ```
@@ -198,7 +199,6 @@ git submodule update --init --recursive
 
 * Enter the nix shell and run the enclave tests
 ```
-cd optimism-espresso-integration
 nix --extra-experimental-features "nix-command flakes" develop
 just espresso-enclave-tests
 ```
