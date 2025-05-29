@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/hf/nitrite"
 )
 
 // TestE2eDevNetWithInvalidAttestation verifies that the batcher correctly fails to register
@@ -40,7 +41,11 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 	}
 
 	batchDriver := system.BatchSubmitter.TestDriver()
-	batchDriver.Attestation = []byte{1}
+	batchDriver.Attestation = &nitrite.Result{
+		Document: &nitrite.Document{
+			CABundle: [][]byte{[]byte{1, 2, 3, 4}},
+		},
+	}
 	err = batchDriver.StartBatchSubmitting()
 
 	if err == nil {
