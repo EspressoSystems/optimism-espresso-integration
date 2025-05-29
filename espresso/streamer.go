@@ -72,7 +72,7 @@ type EspressoStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
-	L1Client                      L1Client // TODO Philippe apparently not used yet
+	L1Client                      L1Client
 	EspressoClient                EspressoClient
 	EspressoLightClient           LightClientCallerInterface
 	Log                           log.Logger
@@ -343,7 +343,8 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 			s.Log.Info("Remaining list", "Recovered batch, inserting batch", batch)
 
 		case BatchFuture:
-			s.Log.Info("Remaining list", "Inserting batch for future processing", batch)
+			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
+			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
 		}
 
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
@@ -386,7 +387,8 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 			s.Log.Info("Inserting accepted batch")
 
 		case BatchFuture:
-			s.Log.Info("Inserting batch for future processing")
+			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
+			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
 		}
 
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
@@ -394,7 +396,6 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 	}
 }
 
-// TODO this logic might be slightly different between batcher and derivation
 func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {

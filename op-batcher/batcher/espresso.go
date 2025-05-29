@@ -217,6 +217,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 
 		// TODO: Evaluate the specific error type, and determine if we
 		// should retry
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 		if jobResp.err != nil {
 			s.submitJobQueue <- jobResp.job
 			continue
@@ -261,6 +262,7 @@ const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 //
 // TODO: we need to put some sensible limits on the number of times we will
 // retry a job, depending on the type of the error we received.
+// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 	for {
 		var jobResp espressoVerifyReceiptJobResponse
@@ -278,6 +280,7 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 
 		// TODO: Evaluate the specific error type, and determine if we
 		// should retry
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210393341996675?focus=true>
 		if jobResp.err != nil {
 
 			// Let's check our timeout
@@ -705,20 +708,19 @@ func (l *BlockLoader) reset(ctx context.Context) {
 	l.prevSyncStatus = nil
 	l.queuedBlocks = nil
 	l.batcher.clearState(ctx)
-	l.batcher.safeL1Origin(ctx)
 }
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
 	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
-		for _, txn := range block.Transactions() {
-			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
-		}
-
 		if err != nil {
 			l.batcher.Log.Warn("Failed to fetch block", "err", err)
 			break
+		}
+
+		for _, txn := range block.Transactions() {
+			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
 		}
 
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
@@ -904,20 +906,19 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to decode attestation: %w", err)
 	}
 
-	txOpts, err := bind.NewKeyedTransactorWithChainID(l.Config.BatcherPrivateKey, l.RollupConfig.L1ChainID)
+	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
-		return fmt.Errorf("failed to create transactor: %w", err)
+		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	// Submit decoded attestation to batch inbox contract
-	tx, err := batchAuthenticator.RegisterSigner(txOpts, attestationTbs, signature)
+	txData, err := abi.Pack("registerSigner", attestationTbs, signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
 
 	candidate := txmgr.TxCandidate{
-		TxData: tx.Data(),
-		To:     tx.To(),
+		TxData: txData,
+		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
 	_, err = l.Txmgr.Send(ctx, candidate)
@@ -977,7 +978,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 		return
 	}
 
-	authenticateBatchCalldata, err := batchAuthenticatorAbi.Pack("authenticateBatch", commitment, signature)
+	authenticateBatchCalldata, err := batchAuthenticatorAbi.Pack("authenticateBatchInfo", commitment, signature)
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,

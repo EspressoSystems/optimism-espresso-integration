@@ -87,7 +87,12 @@ func TestE2eDevNetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 	}
 
 	defer system.Close()
-	defer espressoDevNode.Stop()
+	defer func() {
+		err = espressoDevNode.Stop()
+		if err != nil {
+			t.Fatalf("failed to stop espresso dev node: %v", err)
+		}
+	}()
 
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
 
@@ -196,7 +201,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -278,7 +283,8 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		require.NoError(t, err, "failed to get safe L2 block ref")
 		finalizedL1BlockRef, err := l1RefClient.L1BlockRefByLabel(streamBlocksCtx, eth.Finalized)
 		require.NoError(t, err, "failed to get finalized L1 block ref")
-		streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number, l2BlockRef.L1Origin)
+		_, err = streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number, l2BlockRef.L1Origin)
+		require.NoError(t, err, "failed to refresh streamer")
 		lastTransaction := transactions[N-1]
 
 		// Start consuming Batches from the Streamer

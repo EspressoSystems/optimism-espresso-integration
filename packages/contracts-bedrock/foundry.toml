@@ -13,13 +13,7 @@ allow_internal_expect_revert = true      # workaround described in https://githu
 
 optimizer = true
 optimizer_runs = 999999
-use_literal_content = true
 
-# IMPORTANT:
-# When adding any new compiler profiles or compilation restrictions, you must
-# also update the restrictions in the "LITE" profile to match. This guarantees
-# that builds will fully overwrite one another without needing to clean the
-# entire build directory.
 additional_compiler_profiles = [
   { name = "dispute", optimizer_runs = 5000 },
   { name = "via-ir", via_ir = true },
@@ -28,8 +22,6 @@ compilation_restrictions = [
   { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 5000 },
   { paths = "src/dispute/PermissionedDisputeGame.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
   { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
   { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
 ]
@@ -59,18 +51,18 @@ remappings = [
 ]
 
 fs_permissions = [
-  { access='read-write', path='./.resource-metering.csv' },
-  { access='read-write', path='./snapshots/' },
-  { access='read-write', path='./deployments/' },
-  { access='read', path='./deploy-config/' },
-  { access='read', path='./deploy-config-periphery/' },
-  { access='read', path='./broadcast/' },
-  { access='read', path = './forge-artifacts/' },
-  { access='read-write', path='./.testdata/' },
-  { access='read', path='./kout-deployment' },
-  { access='read', path='./test/fixtures' },
-  { access='read', path='./lib/superchain-registry/superchain/configs/' },
-  { access='read', path='./lib/superchain-registry/validation/standard/' },
+  { access = 'read-write', path = './.resource-metering.csv' },
+  { access = 'read-write', path = './snapshots/' },
+  { access = 'read-write', path = './deployments/' },
+  { access = 'read', path = './deploy-config/' },
+  { access = 'read', path = './deploy-config-periphery/' },
+  { access = 'read', path = './broadcast/' },
+  { access = 'read', path = './forge-artifacts/' },
+  { access = 'read-write', path = './.testdata/' },
+  { access = 'read', path = './kout-deployment' },
+  { access = 'read', path = './test/fixtures' },
+  { access = 'read', path = './lib/superchain-registry/superchain/configs/' },
+  { access = 'read-write', path = '../../op-chain-ops/cmd/celo-migrate/testdata/' },
 ]
 
 # 5159 error code is selfdestruct error code
@@ -143,17 +135,19 @@ optimizer = false
 # IMPORTANT:
 # See the info in the "DEFAULT" profile to understand this section.
 additional_compiler_profiles = [
-  { name = "dispute", optimizer_runs = 0 },
+  { name = "dispute", optimizer_runs = 5000 },
+  { name = "via-ir", via_ir = true },
 ]
 compilation_restrictions = [
-  { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 0 },
-  { paths = "src/dispute/PermissionedDisputeGame.sol", optimizer_runs = 0 },
-  { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 0 },
-  { paths = "src/L1/StandardValidator.sol", optimizer_runs = 0 },
-  { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 0 },
+  { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 5000 },
+  { paths = "src/dispute/PermissionedDisputeGame.sol", optimizer_runs = 5000 },
+  { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 5000 },
+  { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
+  { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
   { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
   { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
 ]
+
 
 ################################################################
 #                         PROFILE: KONTROL                     #

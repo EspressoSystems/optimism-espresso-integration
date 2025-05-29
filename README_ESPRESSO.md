@@ -213,3 +213,75 @@ We currently use Circle CI but this is temporary. In order to run the go linter 
 ```
 just golint
 ```
+
+### Guide: Setting Up an Enclave-Enabled Nitro EC2 Instance
+
+This guide explains how to prepare an enclave-enabled parent EC2 instance.
+
+You can follow the official AWS Enclaves setup guide: https://docs.aws.amazon.com/enclaves/latest/user/getting-started.html.
+
+
+#### Step-by-Step Instructions
+
+##### 1. Launch the EC2 Instance
+
+Use the AWS Management Console or AWS CLI to launch a new EC2 instance.
+
+Make sure to:
+
+- **Enable Enclaves**
+  - In the CLI: set the `--enclave-options` flag to `true`
+  - In the Console: select `Enabled` under the **Enclave** section
+
+- **Use the following configuration:**
+  - **Architecture:** x86_64
+  - **AMI:** Amazon Linux 2023
+  - **Instance Type:** `m6a.2xlarge`
+  - **Volume Size:** 100 GB
+
+
+##### 2. Connect to the Instance
+
+Once the instance is running, connect to it via the AWS Console or CLI.
+In practice, you will be provided a `key.pem` file and you can connect like this:
+```shell
+chmod 400 key.pem
+ssh -i "key.pem" ec2-user@<aws_instance_dns>
+```
+
+Note that the command above can be found in the AWS by selecting the instance and clicking on the button "Connect".
+
+
+##### 3. Install dependencies
+
+* Nix
+```
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon`
+source ~/.bashrc
+```
+
+* Git, Nitro, Docker
+```
+ sudo yum update
+ sudo yum install git
+ sudo usermod -a -G docker ec2-user
+ sudo chown ec2-user /var/run/docker.sock
+ sudo service docker start
+ sudo dnf install aws-nitro-enclaves-cli -y
+ sudo systemctl start nitro-enclaves-allocator.service
+```
+
+* Clone repository and update submodules
+```
+git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
+cd optimism-espresso-integration
+git submodule update --init --recursive
+```
+
+
+* Enter the nix shell and run the enclave tests
+```
+cd optimism-espresso-integration
+nix --extra-experimental-features "nix-command flakes" develop
+just espresso-enclave-tests
+```

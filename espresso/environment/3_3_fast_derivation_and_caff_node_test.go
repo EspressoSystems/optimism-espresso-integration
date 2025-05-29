@@ -19,7 +19,7 @@ import (
 func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock *types.Block, nodeName string, tickerDuration time.Duration) (*types.Block, error) {
 	newBlock, err := client.BlockByNumber(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get new %s block: %v", nodeName, err)
+		return nil, fmt.Errorf("Failed to get new %s block: %w", nodeName, err)
 	}
 
 	// Make sure newBlock comes after previousBlock
@@ -66,7 +66,7 @@ func TestFastDerivationAndCaffNode(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}

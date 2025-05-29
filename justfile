@@ -20,16 +20,28 @@ run-test12: compile-contracts
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
+build-batcher-enclave-image:
+ (cd kurtosis-devnet && just op-batcher-enclave-image)
+
 run-test4: compile-contracts
  go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
-
 
 espresso-tests: compile-contracts
  go test -timeout=30m -p=1 -count=1 ./espresso/environment
 
+espresso-enclave-tests: compile-contracts build-batcher-enclave-image
+ ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout=30m -p=1 -count=1 ./espresso/enclave-tests/...
+
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
+
+forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
+bindings_dir:="op-batcher/bindings"
+gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
+gen-bindings:
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > ./{{bindings_dir}}/batch_inbox.go
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
 
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v

@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"io"
 	"log/slog"
 	"math"
@@ -21,11 +19,12 @@ import (
 	"testing"
 	"time"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -138,7 +137,10 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 
 // EspressoDevNodeLauncherDocker is an implementation of EspressoDevNodeLauncher
 // that uses Docker to launch the Espresso Dev Node
-type EspressoDevNodeLauncherDocker struct{}
+type EspressoDevNodeLauncherDocker struct {
+	// Whether to run batcher in enclave.
+	EnclaveBatcher bool
+}
 
 var _ EspressoDevNetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
 
@@ -244,7 +246,14 @@ var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to det
 func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 	originalCtx := ctx
 
-	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeEspresso))
+	var allocOpt e2esys.SystemConfigOpt
+	if l.EnclaveBatcher {
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
+	} else {
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
+	}
+
+	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2
@@ -268,6 +277,10 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	initialOptions := []DevNetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
 		launchEspressoDevNodeDocker(),
+	}
+
+	if l.EnclaveBatcher {
+		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
 	}
 
 	launchContext := DevNetLauncherContext{
@@ -306,6 +319,7 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 		startOptions...,
 	)
+	launchContext.System = system
 
 	if err != nil {
 		if system != nil {
@@ -421,7 +435,7 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 			StartOptions: []e2esys.StartOption{
 				{
 					Role: "set-batcher-key",
-					BatcherMod: func(c *batcher.CLIConfig) {
+					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 						c.TestingEspressoBatcherPrivateKey = hexutil.Encode(crypto.FromECDSA(&privateKey))
 					},
 				},
@@ -439,7 +453,7 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLaunche
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				{
-					BatcherMod: func(c *batcher.CLIConfig) {
+					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 
 						goodUrl := c.EspressoUrls[0]
 						var urls []string
@@ -476,7 +490,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 			StartOptions: []e2esys.StartOption{
 				{
 					Role: "launch-espresso-dev-node",
-					BatcherMod: func(c *batcher.CLIConfig) {
+					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 						if ct.Error != nil {
 							// Early Return if we already have an Error set
 							return
@@ -545,12 +559,13 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 									"ESPRESSO_DEV_NODE_PORT":          portRemapping[ESPRESSO_DEV_NODE_PORT],
 									"ESPRESSO_DEV_NODE_L1_DEPLOYMENT": "skip",
 
-									// TODO(AG): this is a workaround for devnode not picking up stake table
-									// initial state when it's baked into the genesis block. This results in
-									// HotShot stalling when transitioning to epoch 3, where staking reward
-									// distribution starts. Setting epoch height to a very big number ensures
-									// we don't run into this stalling problem during our tests, as we'll never
-									// reach epoch 3.
+									// This is a workaround for devnode not picking up stake table
+									// initial state when it's baked into the genesis block. This
+									// results in HotShot stalling when transitioning to epoch 3,
+									// where staking reward distribution starts. Setting epoch
+									// height to a very big number ensures we don't run into this
+									// stalling problem during our tests, as we'll never reach
+									// epoch 3.
 									"ESPRESSO_DEV_NODE_EPOCH_HEIGHT": fmt.Sprint(uint64(math.MaxUint64)),
 								},
 								Ports: []string{

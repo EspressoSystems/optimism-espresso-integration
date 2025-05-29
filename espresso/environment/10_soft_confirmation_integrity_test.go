@@ -43,6 +43,7 @@ import (
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	geth_crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -65,7 +66,7 @@ func recordTimestamp[T any](entry T) messageWithTimestamp[T] {
 }
 
 // produceTimestampedStream is a helper function that is designed to be run
-// in a goroutine.  It consumes values coming from teh input channel and
+// in a goroutine.  It consumes values coming from the input channel and
 // outputs them to the output channel with a timestamp.
 func produceTimestampedStream[T any](
 	ctx context.Context,
@@ -303,10 +304,13 @@ func submitRandomDataToSequencerNamespace(ctx context.Context, espCli esp_client
 		n, _ := crypto_rand.Read(buffer)
 
 		// Submit garbage data to the sequencer namespace
-		espCli.SubmitTransaction(ctx, esp_common.Transaction{
+		_, err := espCli.SubmitTransaction(ctx, esp_common.Transaction{
 			Namespace: namespace,
 			Payload:   esp_common.Bytes(buffer[:n]),
 		})
+		if err != nil {
+			log.Error("Failed to submit random data to sequencer namespace", "namespace", namespace, "error", err)
+		}
 	}
 }
 
@@ -528,7 +532,7 @@ func TestSequencerFeedConsistency(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -590,7 +594,7 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchDecaffNode(t, system, espressoDevNode)
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
