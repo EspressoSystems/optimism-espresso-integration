@@ -192,6 +192,20 @@ echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/all
 sudo systemctl start nitro-enclaves-allocator.service
 ```
 
+* Nitro
+
+These commands install the dependencies for, start the service related to and configures the enclave.
+
+```
+sudo dnf install aws-nitro-enclaves-cli -y
+sudo systemctl start nitro-enclaves-allocator.service
+sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
+```
+
+
+
+/etc/nitro_enclaves/allocator.yaml
+
 * Clone repository and update submodules
 ```
 git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
