@@ -653,9 +653,7 @@ func TestEspressoStreamerDuplicationHandling(t *testing.T) {
 			syncStatus := state.SyncStatus()
 			_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
-			if have, want := err, error(nil); have != want {
-				t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-			}
+			require.NoError(t, err)
 
 			// add the batch to the state, and make sure duplicate batches are also added with a different height
 			state.AddEspressoTransactionData(uint64(5*i+j), namespace, espTxnInBlock)
@@ -671,9 +669,7 @@ func TestEspressoStreamerDuplicationHandling(t *testing.T) {
 
 		// This batch ** should ** match the one we created above.
 		// If the duplicate one is NOT skipped, this will FAIL.
-		if have, want := batchFromEsp.Batch.GetEpochNum(), batch.GetEpochNum(); have != want {
-			t.Fatalf("batch epoch number does not match:\nhave:\n\t%v\ndo not want:\n\t%v\n", have, want)
-		}
+		require.Equal(t, batchFromEsp.Batch.GetEpochNum(), batch.GetEpochNum())
 
 		state.AdvanceSafeL2()
 		state.AdvanceFinalizedL1()
@@ -681,8 +677,5 @@ func TestEspressoStreamerDuplicationHandling(t *testing.T) {
 	}
 
 	// Check that the state has the correct number of duplicated batches
-	if have, want := len(state.EspTransactionData), 2*N; have != want {
-		t.Fatalf("unexpected number of batches in state:\nhave:\n\t%v\nwant:\n\t%v\n", have, want)
-	}
-
+	require.Equal(t, len(state.EspTransactionData), 2*N)
 }
