@@ -214,7 +214,7 @@ const (
 //
 // Evaluate the submission job.
 //
-// Returns
+// # Returns
 //
 // * If there is no error: Handle.
 //
@@ -313,7 +313,7 @@ const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 //
 // Evaluate the verification job.
 //
-// Returns
+// # Returns
 //
 // * If there is no error: Handle.
 //
