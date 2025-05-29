@@ -17,93 +17,6 @@
 
 > nix develop .
 
-### Mises
-
-*  Install Mises
-
-Follow the instructions for your own OS: https://mise.jdx.dev/getting-started.html
-When executing the script some instruction will be printed in order to activate mises, for example in Ubuntu you will get a message like:
-```
-######################################################################## 100,0%
-mise: installed successfully to /home/leloup/.local/bin/mise
-mise: run the following to activate mise in your shell:
-echo "eval \"\$(/home/leloup/.local/bin/mise activate bash)\"" >> ~/.bashrc
-```
-
-In this case you should run
-```
-echo "eval \"\$(/home/leloup/.local/bin/mise activate bash)\"" >> ~/.bashrc
-```
-
-And then open a new terminal or type:
-```
-> source ~/.bashrc
-```
-
-Finally, install all the dependencies:
-
-```
-> mise install
-```
-
-### Install Espresso go library
-
-This step is only needed if you use Mises as Nix automatically installs the Espresso go cryptographic library.
-
-- Create a local directory for later use. Note it has to be created under the home directory by default.
-
-  ```bash
-  cd ..
-  mkdir -p ~/local-lib
-  ```
-
-- Get `libespresso_crypto_helper.a`, by either method below.
-  - Get it from the CI. See https://github.com/EspressoSystems/espresso-network-go/releases
-    - Download `libespresso_crypto_helper-x86_64-apple-darwin.a` (or the one for linux).
-    - Move the downloaded file to `local-lib`.
-
-  - Build it locally.
-    - Download the sequencer Go code via `https://github.com/EspressoSystems/espresso-network-go/archive/refs/tags/v0.0.34.tar.gz`.
-      - Replace the version number if there’s a newer one.
-    - Go to the downloaded folder.
-
-      ```bash
-      cd espresso-network-go-0.0.34
-      ```
-
-    - Build the verification code.
-      - Make sure to not run this in the nix shell. Otherwise, the generated file will be in the wrong directory, which will cause `just` to fail later.
-      - This may require `rustup update` if the Rust version is older than expected.
-
-      ```bash
-      cargo build --release --locked --manifest-path ./verification/rust/Cargo.toml
-      ```
-
-    - Copy the `libespresso_crypto_helper.a` file.
-      - Linux:
-
-        ```bash
-        sudo cp ./espresso-network-go-0.0.34/verification/rust/target/release/libespresso_crypto_helper.a ~/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
-        ```
-
-      - Mac:
-
-        ```bash
-        sudo cp ./espresso-network-go-0.0.34/verification/rust/target/release/libespresso_crypto_helper.a ~/local-lib/libespresso_crypto_helper-x86_64-apple-darwin.a
-        ```
-
-- Set the flag.
-  - Linux:
-
-      ```bash
-      export CGO_LDFLAGS="-L$HOME/local-lib -lespresso_crypto_helper-x86_64-unknown-linux-gnu"
-      ```
-
-  - Mac:
-
-      ```bash
-      export CGO_LDFLAGS="-L$HOME/local-lib -lespresso_crypto_helper-x86_64-apple-darwin -framework Foundation -framework SystemConfiguration"
-      ```
 
 ## Docker
 
@@ -120,29 +33,24 @@ Provide Docker with the PAT.
 
 ### Run the tests
 
-To run all the tests (slow):
-
-> just tests
-
-
-To run a subset of the tests (fast):
-
-> just fast-tests
-
-
 Run the Espresso smoke tests:
 
 > just smoke-tests
 
 
-Run the Espresso integration tests:
+Run the Espresso integration tests. Note, this can take up to 30min.
 
 > just espresso-tests
 
 
-If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
+To run all the standard OP stack (w/o Espresso integration) tests (slow):
 
-> just remove-containers
+> just tests
+
+To run a subset of the tests above (fast):
+
+> just fast-tests
+
 
 
 If in the Nix environment, any `just` command fails with a tool version mismatch error such as
@@ -182,7 +90,6 @@ If in the Nix environment, any `just` command fails with a tool version mismatch
     ```
     if you are using Zsh. Then restart the devnet test.
 
-
   - Kurtosis devnet can be quite slow to start, especially on the first run. Verify everything is
   running with:
     ```bash
@@ -207,12 +114,22 @@ If in the Nix environment, any `just` command fails with a tool version mismatch
     ```
 
 
-### CI environment
+### Misc commands
 
-We currently use Circle CI but this is temporary. In order to run the go linter do:
+In order to run the go linter do:
 ```
 just golint
 ```
+
+Generate the bindings for the contracts:
+```
+just gen-bindings
+```
+
+If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
+
+> just remove-containers
+
 
 ### Guide: Setting Up an Enclave-Enabled Nitro EC2 Instance
 
@@ -243,20 +160,20 @@ Make sure to:
 ##### 2. Connect to the Instance
 
 Once the instance is running, connect to it via the AWS Console or CLI.
-In practice, you will be provided a `key.pem` file and you can connect like this:
+In practice, you will be provided a `key.pem` file, and you can connect like this:
 ```shell
 chmod 400 key.pem
 ssh -i "key.pem" ec2-user@<aws_instance_dns>
 ```
 
-Note that the command above can be found in the AWS by selecting the instance and clicking on the button "Connect".
+Note that the command above can be found in the AWS Console by selecting the instance and clicking on the button "Connect".
 
 
 ##### 3. Install dependencies
 
 * Nix
 ```
-sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon`
+sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source ~/.bashrc
 ```
 
@@ -264,10 +181,12 @@ source ~/.bashrc
 ```
  sudo yum update
  sudo yum install git
- sudo dnf install aws-nitro-enclaves-cli -y
+ sudo yum install docker
  sudo usermod -a -G docker ec2-user
- sudo chown ec2-user /var/run/docker.sock
  sudo service docker start
+ sudo chown ec2-user /var/run/docker.sock
+ sudo dnf install aws-nitro-enclaves-cli -y
+ sudo systemctl start nitro-enclaves-allocator.service
 ```
 
 * Clone repository and update submodules
@@ -280,7 +199,6 @@ git submodule update --init --recursive
 
 * Enter the nix shell and run the enclave tests
 ```
-cd optimism-espresso-integration
 nix --extra-experimental-features "nix-command flakes" develop
 just espresso-enclave-tests
 ```
