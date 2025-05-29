@@ -2947,7 +2947,7 @@ workflows:
           test_timeout: 20m
           environment_overrides: |
             export PARALLEL=24
-          # op-deployer excluded as it needs sepolia keys
+          # op-deployer & op-validator excluded as they need sepolia keys
           packages: |
             op-alt-da
             op-batcher
@@ -2960,9 +2960,7 @@ workflows:
             op-program
             op-service
             op-supervisor
-            op-deployer
             op-fetcher
-            op-validator
             op-e2e/system
             op-e2e/e2eutils
             op-e2e/opgeth
