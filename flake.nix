@@ -13,6 +13,17 @@
         overlays = [
           inputs.foundry.overlay
         ];
+
+         go_1_22_7 = pkgs.go_1_22.overrideAttrs (oldAttrs: rec {
+           version = "1.22.7";
+
+           src = pkgs.fetchurl {
+             url = "https://go.dev/dl/go1.22.7.src.tar.gz";
+             # temporarily set to zero hash to get the expected hash
+             sha256 = "sha256-ZkMth9heDPrD7f/mN9WTD8Td9XkzE/4R5KDzMwI8h58=";
+           };
+         });
+
         espresso_go_lib_version = "v0.0.35";
         pkgs = import inputs.nixpkgs { inherit overlays system; };
         espressoGoLibFile =
@@ -67,8 +78,11 @@
           buildAndTestSubdir = cargoRoot;
         };
 
+
+
       in
       {
+
         formatter = pkgs.nixfmt-rfc-style;
 
         devShell = pkgs.mkShell {
@@ -81,7 +95,7 @@
             pkgs.python311
             pkgs.foundry-bin
             pkgs.just
-            pkgs.go_1_22
+            go_1_22_7
             pkgs.gotools
             pkgs.go-ethereum
             pkgs.golangci-lint
