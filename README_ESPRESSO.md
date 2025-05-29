@@ -33,29 +33,24 @@ Provide Docker with the PAT.
 
 ### Run the tests
 
-To run all the tests (slow):
-
-> just tests
-
-
-To run a subset of the tests (fast):
-
-> just fast-tests
-
-
 Run the Espresso smoke tests:
 
 > just smoke-tests
 
 
-Run the Espresso integration tests:
+Run the Espresso integration tests. Note, this can take up to 30min.
 
 > just espresso-tests
 
 
-If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
+To run all the standard OP stack (w/o Espresso integration) tests (slow):
 
-> just remove-containers
+> just tests
+
+To run a subset of the tests above (fast):
+
+> just fast-tests
+
 
 
 If in the Nix environment, any `just` command fails with a tool version mismatch error such as
@@ -95,7 +90,6 @@ If in the Nix environment, any `just` command fails with a tool version mismatch
     ```
     if you are using Zsh. Then restart the devnet test.
 
-
   - Kurtosis devnet can be quite slow to start, especially on the first run. Verify everything is
   running with:
     ```bash
@@ -120,12 +114,22 @@ If in the Nix environment, any `just` command fails with a tool version mismatch
     ```
 
 
-### CI environment
+### Misc commands
 
-We currently use Circle CI but this is temporary. In order to run the go linter do:
+In order to run the go linter do:
 ```
 just golint
 ```
+
+Generate the bindings for the contracts:
+```
+just gen-bindings
+```
+
+If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
+
+> just remove-containers
+
 
 ### Guide: Setting Up an Enclave-Enabled Nitro EC2 Instance
 
@@ -156,13 +160,13 @@ Make sure to:
 ##### 2. Connect to the Instance
 
 Once the instance is running, connect to it via the AWS Console or CLI.
-In practice, you will be provided a `key.pem` file and you can connect like this:
+In practice, you will be provided a `key.pem` file, and you can connect like this:
 ```shell
 chmod 400 key.pem
 ssh -i "key.pem" ec2-user@<aws_instance_dns>
 ```
 
-Note that the command above can be found in the AWS by selecting the instance and clicking on the button "Connect".
+Note that the command above can be found in the AWS Console by selecting the instance and clicking on the button "Connect".
 
 
 ##### 3. Install dependencies
