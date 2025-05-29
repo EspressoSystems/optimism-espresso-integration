@@ -612,7 +612,7 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 }
 
 // TestEspressoStreamerDuplicationHandling tests the behavior of the EspressoStreamer
-// when the duplicat batch is received.
+// when a duplicated batch is received.
 //
 // The Streamer is expected to skip the duplicated batch and only return once for each batch.
 func TestEspressoStreamerDuplicationHandling(t *testing.T) {
