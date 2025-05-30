@@ -275,9 +275,12 @@ var (
 		Category: SequencerCategory,
 	}
 	SequencerUseFinalizedL1Flag = &cli.BoolFlag{
-		Name:     "sequencer.use-finalized",
-		Usage:    "Enable use of only finalized L1 blocks as L1 origin. Overwrites the value of 'sequencer.l1-confs'.",
-		EnvVars:  prefixEnvVars("SEQUENCER_USE_FINALIZED"),
+		Name:    "sequencer.use-finalized",
+		Usage:   "Enable use of only finalized L1 blocks as L1 origin. Overwrites the value of 'sequencer.l1-confs'.",
+		EnvVars: prefixEnvVars("SEQUENCER_USE_FINALIZED"),
+		// It's set to false by default, but setting it to true would improve the performance on
+		// the batcher and the Caff node sides because they would no longer need extra time to wait
+		// for the L1 finality.
 		Value:    false,
 		Category: SequencerCategory,
 	}
@@ -461,6 +464,48 @@ var (
 		Category: RollupCategory,
 		Hidden:   true,
 	}
+	CaffNodeFlag = &cli.BoolFlag{
+		Name:     "caff.node",
+		Usage:    "Enable the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_NODE"),
+		Value:    false,
+		Category: OperationsCategory,
+	}
+	CaffNodeNextHotShotBlockNum = &cli.Uint64Flag{
+		Name:     "caff.next-hotshot-block-num",
+		Usage:    "Next hotshot block number for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_NEXT_HOTSHOT_BLOCK_NUM"),
+		Value:    1,
+		Category: OperationsCategory,
+	}
+	CaffNodePollingHotShotPollingInterval = &cli.DurationFlag{
+		Name:     "caff.polling-hotshot-polling-interval",
+		Usage:    "Polling interval for the hotshot block",
+		EnvVars:  prefixEnvVars("CAFF_POLLING_HOTSHOT_POLLING_INTERVAL"),
+		Value:    500 * time.Millisecond,
+		Category: OperationsCategory,
+	}
+	CaffNodeHotShotUrls = &cli.StringSliceFlag{
+		Name:     "caff.hotshot-urls",
+		Usage:    "HotShot urls for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_HOTSHOT_URLS"),
+		Value:    cli.NewStringSlice("http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000", "http://op-espresso-devnode:24000"),
+		Category: OperationsCategory,
+	}
+	CaffNodeL1EthRpc = &cli.StringFlag{
+		Name:     "caff.l1-eth-rpc",
+		Usage:    "L1 Ethereum RPC endpoint for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_L1_ETH_RPC"),
+		Value:    "http://localhost:8545",
+		Category: OperationsCategory,
+	}
+	CaffNodeEspressoLightClientAddr = &cli.StringFlag{
+		Name:     "caff.espresso-light-client-addr",
+		Usage:    "Espresso light client address for the caffeinated node",
+		EnvVars:  prefixEnvVars("CAFF_ESPRESSO_LIGHT_CLIENT_ADDR"),
+		Value:    "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
+		Category: OperationsCategory,
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -517,6 +562,10 @@ var optionalFlags = []cli.Flag{
 	InteropRPCPort,
 	InteropJWTSecret,
 	IgnoreMissingPectraBlobSchedule,
+	CaffNodeFlag,
+	CaffNodeNextHotShotBlockNum,
+	CaffNodePollingHotShotPollingInterval,
+	CaffNodeHotShotUrls,
 }
 
 var DeprecatedFlags = []cli.Flag{

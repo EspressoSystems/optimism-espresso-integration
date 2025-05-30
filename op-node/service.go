@@ -213,6 +213,9 @@ func NewRollupConfigFromCLI(log log.Logger, ctx *cli.Context) (*rollup.Config, e
 		return nil, err
 	}
 	applyOverrides(ctx, rollupConfig)
+
+	rollupConfig.CaffNodeConfig = *NewCaffNodeConfig(ctx)
+
 	return rollupConfig, nil
 }
 
@@ -307,4 +310,15 @@ func NewSyncConfig(ctx *cli.Context, log log.Logger) (*sync.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
+	return &rollup.CaffNodeConfig{
+		IsCaffNode:                    ctx.Bool(flags.CaffNodeFlag.Name),
+		NextHotShotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotShotBlockNum.Name),
+		PollingHotShotPollingInterval: ctx.Duration(flags.CaffNodePollingHotShotPollingInterval.Name),
+		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
+		L1EthRpc:                      ctx.String(flags.CaffNodeL1EthRpc.Name),
+		EspressoLightClientAddr:       ctx.String(flags.CaffNodeEspressoLightClientAddr.Name),
+	}
 }

@@ -112,6 +112,19 @@ target "op-batcher" {
   tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-batcher:${tag}"]
 }
 
+target "op-batcher-enclave" {
+  dockerfile = "ops/docker/op-stack-go/Dockerfile"
+  context = "."
+  args = {
+    GIT_COMMIT = "${GIT_COMMIT}"
+    GIT_DATE = "${GIT_DATE}"
+    OP_BATCHER_VERSION = "${OP_BATCHER_VERSION}"
+  }
+  target = "op-batcher-enclave-target"
+  platforms = split(",", PLATFORMS)
+  tags = [for tag in split(",", IMAGE_TAGS) : "${REGISTRY}/${REPOSITORY}/op-batcher-enclave:${tag}"]
+}
+
 target "op-proposer" {
   dockerfile = "ops/docker/op-stack-go/Dockerfile"
   context = "."

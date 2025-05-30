@@ -2,6 +2,7 @@ package batcher
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -9,10 +10,19 @@ import (
 	"sync/atomic"
 	"time"
 
+	espresso "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
+	espressoLocal "github.com/ethereum-optimism/optimism/espresso"
+	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/hf/nitrite"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/op-batcher/enclave"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
@@ -34,13 +44,18 @@ var ErrAlreadyStopped = errors.New("already stopped")
 type BatcherConfig struct {
 	NetworkTimeout         time.Duration
 	PollInterval           time.Duration
+	EspressoPollInterval   time.Duration
 	MaxPendingTransactions uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA bool
+	UseAltDA    bool
+	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
+	// public key and private key of the batcher
+	BatcherPublicKey  *ecdsa.PublicKey
+	BatcherPrivateKey *ecdsa.PrivateKey
 
 	WaitNodeSync        bool
 	CheckRecentTxsDepth int
@@ -55,14 +70,17 @@ type BatcherConfig struct {
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	Log              log.Logger
-	Metrics          metrics.Metricer
-	L1Client         *ethclient.Client
-	EndpointProvider dial.L2EndpointProvider
-	TxManager        txmgr.TxManager
-	AltDA            *altda.DAClient
+	Log                 log.Logger
+	Metrics             metrics.Metricer
+	L1Client            *ethclient.Client
+	EndpointProvider    dial.L2EndpointProvider
+	TxManager           txmgr.TxManager
+	AltDA               *altda.DAClient
+	Espresso            *espresso.MultipleNodesClient
+	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
+	opcrypto.ChainSigner
 
 	ChannelConfig ChannelConfigProvider
 	RollupConfig  *rollup.Config
@@ -79,6 +97,12 @@ type BatcherService struct {
 	stopped         atomic.Bool
 
 	NotSubmittingOnStart bool
+
+	Attestation *nitrite.Result
+}
+
+func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
+	return &bs.driver.streamer
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -91,6 +115,7 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
+
 	return &bs, nil
 }
 
@@ -102,6 +127,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	bs.initMetrics(cfg)
 
 	bs.PollInterval = cfg.PollInterval
+	bs.EspressoPollInterval = cfg.EspressoPollInterval
 	bs.MaxPendingTransactions = cfg.MaxPendingTransactions
 	bs.MaxConcurrentDARequests = cfg.AltDA.MaxConcurrentRequests
 	bs.NetworkTimeout = cfg.TxMgrConfig.NetworkTimeout
@@ -112,7 +138,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	bs.ThrottleTxSize = cfg.ThrottleTxSize
 	bs.ThrottleBlockSize = cfg.ThrottleBlockSize
 	bs.ThrottleAlwaysBlockSize = cfg.ThrottleAlwaysBlockSize
-
 	bs.PreferLocalSafeL2 = cfg.PreferLocalSafeL2
 
 	optsFromRPC, err := bs.initRPCClients(ctx, cfg)
@@ -120,6 +145,48 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		return err
 	}
 	opts = append(optsFromRPC, opts...)
+
+	if len(cfg.EspressoUrls) > 0 {
+		bs.Espresso = espresso.NewMultipleNodesClient(cfg.EspressoUrls)
+		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
+		if err != nil {
+			return fmt.Errorf("failed to create Espresso light client")
+		}
+		bs.EspressoLightClient = espressoLightClient
+		bs.UseEspresso = true
+		if err := bs.initKeyPair(); err != nil {
+			return fmt.Errorf("failed to create key pair for batcher: %w", err)
+		}
+
+		// try to generate attestationBytes on public key when start batcher
+		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
+		if err != nil {
+			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
+
+			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
+			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TestingEspressoBatcherPrivateKey, "0x"))
+			if err != nil {
+				return fmt.Errorf("Failed to parse batcher's private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
+			}
+
+			publicKey := privateKey.Public()
+			publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+			if !ok {
+				return fmt.Errorf("error casting public key to ECDSA")
+			}
+
+			bs.BatcherPrivateKey = privateKey
+			bs.BatcherPublicKey = publicKeyECDSA
+		} else {
+			// output length of attestation
+			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
+			result, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
+			if err != nil {
+				return fmt.Errorf("Couldn't verify attestation: %w", err)
+			}
+			bs.Attestation = result
+		}
+	}
 
 	if err := bs.initRollupConfig(ctx); err != nil {
 		return fmt.Errorf("failed to load rollup config: %w", err)
@@ -230,6 +297,16 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 	return nil
 }
 
+func (bs *BatcherService) initKeyPair() error {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
+	}
+	bs.BatcherPrivateKey = key
+	bs.BatcherPublicKey = &key.PublicKey
+	return nil
+}
+
 func (bs *BatcherService) initChannelConfig(cfg *CLIConfig) error {
 	channelTimeout := bs.RollupConfig.ChannelTimeoutBedrock
 	// Use lower channel timeout if granite is scheduled.
@@ -328,6 +405,14 @@ func (bs *BatcherService) initTxManager(cfg *CLIConfig) error {
 		return err
 	}
 	bs.TxManager = txManager
+
+	// We want to be able to access the signer
+	cast, castOk := bs.TxManager.(opcrypto.ChainSigner)
+	if !castOk {
+		return fmt.Errorf("tx manager does not implement ChainSigner")
+	}
+	bs.ChainSigner = cast
+
 	return nil
 }
 
@@ -369,15 +454,20 @@ func (bs *BatcherService) initMetricsServer(cfg *CLIConfig) error {
 
 func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 	ds := DriverSetup{
-		Log:              bs.Log,
-		Metr:             bs.Metrics,
-		RollupConfig:     bs.RollupConfig,
-		Config:           bs.BatcherConfig,
-		Txmgr:            bs.TxManager,
-		L1Client:         bs.L1Client,
-		EndpointProvider: bs.EndpointProvider,
-		ChannelConfig:    bs.ChannelConfig,
-		AltDA:            bs.AltDA,
+		Log:                 bs.Log,
+		Metr:                bs.Metrics,
+		RollupConfig:        bs.RollupConfig,
+		Config:              bs.BatcherConfig,
+		ChainSigner:         bs.ChainSigner,
+		SequencerAddress:    bs.TxManager.From(),
+		Txmgr:               bs.TxManager,
+		L1Client:            bs.L1Client,
+		EndpointProvider:    bs.EndpointProvider,
+		ChannelConfig:       bs.ChannelConfig,
+		AltDA:               bs.AltDA,
+		Espresso:            bs.Espresso,
+		EspressoLightClient: bs.EspressoLightClient,
+		Attestation:         bs.Attestation,
 	}
 	for _, opt := range opts {
 		opt(&ds)

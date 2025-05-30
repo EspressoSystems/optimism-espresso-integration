@@ -1682,7 +1682,7 @@ func (m *mockL1Node) L1BlockRefByNumber(ctx context.Context, number uint64) (eth
 	if !ok {
 		return eth.L1BlockRef{}, fmt.Errorf("block %d not found: %w", number, ethereum.NotFound)
 	}
-	return eth.L1BlockRef(block), nil
+	return block, nil
 }
 
 func (m *mockL1Node) reorg(t *testing.T, newBlock eth.BlockRef) {

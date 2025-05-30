@@ -7,14 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/holiman/uint256"
+
+	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -104,7 +105,7 @@ func SendL2TxWithID(t *testing.T, chainID *big.Int, l2Client *ethclient.Client, 
 		Gas:       opts.Gas,
 		Data:      opts.Data,
 	})
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	err := l2Client.SendTransaction(ctx, tx)
 	require.NoError(t, err, "Sending L2 tx")

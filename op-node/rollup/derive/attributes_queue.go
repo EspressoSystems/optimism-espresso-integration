@@ -7,8 +7,14 @@ import (
 	"io"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	lightclient "github.com/EspressoSystems/espresso-network-go/light-client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -57,6 +63,9 @@ type AttributesQueue struct {
 	batch       *SingularBatch
 	concluding  bool
 	lastAttribs *AttributesWithParent
+
+	isCaffNode       bool
+	espressoStreamer *espresso.EspressoStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {
@@ -66,12 +75,51 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.EspressoStreamer[EspressoBatch] {
+
+	if !cfg.CaffNodeConfig.IsCaffNode {
+		return nil
+	}
+
+	// Create an adapter that implements espresso.L1Client
+	l1BlockRefClient := NewL1BlockRefClient(l1Fetcher)
+
+	l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.L1EthRpc)
+	if err != nil {
+		return nil
+	}
+
+	lightClient, err := lightclient.NewLightclientCaller(common.HexToAddress(cfg.CaffNodeConfig.EspressoLightClientAddr), l1Client)
+	if err != nil {
+		return nil
+	}
+
+	streamer := espresso.NewEspressoStreamer(
+		cfg.L2ChainID.Uint64(),
+		l1BlockRefClient,
+		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
+		lightClient,
+		log,
+		func(data []byte) (*EspressoBatch, error) {
+			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
+		},
+		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
+	)
+
+	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
+
+	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
+	return &streamer
+}
+
+func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider, l1Fetcher L1Fetcher) *AttributesQueue {
 	return &AttributesQueue{
-		log:     log,
-		config:  cfg,
-		builder: builder,
-		prev:    prev,
+		log:              log,
+		config:           cfg,
+		builder:          builder,
+		prev:             prev,
+		isCaffNode:       cfg.CaffNodeConfig.IsCaffNode,
+		espressoStreamer: initEspressoStreamer(log, cfg, l1Fetcher),
 	}
 }
 
@@ -79,15 +127,86 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
+// CaffNextBatch fetches the next batch from the Espresso streamer for the caff node.
+//
+// It follows the flow: Refresh() -> Update() -> Next().
+//
+// This is similar to the batcher's flow: espressoBatchLoadingLoop -> getSyncStatus -> refresh -> Update -> Next,
+// but with a few key differences:
+// - CaffNextBatch obtains sync state differently from the batcher, it treated parent.Number() as the latest safe batch number.
+// - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
+// - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
+func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
+	// Get the L1 finalized block
+	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
+	if err != nil {
+		s.Log.Error("failed to get the L1 finalized block", "err", err)
+		return nil, false, err
+	}
+	// Refresh the sync status
+	if _, err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
+		return nil, false, err
+	}
+
+	// Update the streamer if needed
+	if !s.HasNext(ctx) {
+		err := s.Update(ctx)
+		if err != nil {
+			s.Log.Error("failed to update Espresso streamer", "err", err)
+		}
+	}
+
+	// Get the next batch
+	var espressoBatch = s.Next(ctx)
+
+	if espressoBatch == nil {
+		return nil, true, NotEnoughData
+	}
+
+	batch := &espressoBatch.Batch
+	s.Log.Info("espressoBatch", "batch", espressoBatch.Batch)
+
+	// These batch checks are retained because they add minimal latency (O(1) per batch).
+	// They're primarily a safeguard for cases where the streamer fails to emit batches correctly,
+	// which should only happen if there's a bug.
+	{
+		// check the batch is valid regarding given parent
+		nextTimestamp := parent.Time + blockTime
+
+		if batch.Timestamp != nextTimestamp {
+			s.Log.Error("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+			return nil, false, ErrTemporary
+		}
+
+		// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
+		if batch.ParentHash != parent.Hash {
+			s.Log.Error("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+			return nil, false, ErrTemporary
+		}
+	}
+	// For caff node, when we get a batch, we assign concluding to true to drive progress
+	concluding := true
+	return batch, concluding, nil
+}
+
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Fetcher L1Fetcher) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
-		batch, concluding, err := aq.prev.NextBatch(ctx, parent)
+		var batch *SingularBatch
+		var concluding bool
+		var err error
+		if aq.isCaffNode {
+			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Fetcher)
+		} else {
+			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
+		}
+
 		if err != nil {
 			return nil, err
 		}
 		aq.batch = batch
 		aq.concluding = concluding
+		aq.log.Info("singular batch from op-node is ", "batch", aq.batch, "concluding", concluding)
 	}
 
 	// Actually generate the next attributes

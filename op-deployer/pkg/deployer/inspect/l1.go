@@ -80,6 +80,8 @@ func (l L1Contracts) AsL1Deployments() *genesis.L1Deployments {
 		ProtocolVersionsProxy:             l.SuperchainDeployment.ProtocolVersionsProxyAddress,
 		DataAvailabilityChallenge:         l.OpChainDeployment.DataAvailabilityChallengeImplAddress,
 		DataAvailabilityChallengeProxy:    l.OpChainDeployment.DataAvailabilityChallengeProxyAddress,
+		BatchInbox:                        l.OpChainDeployment.BatchInboxAddress,
+		BatchAuthenticator:                l.OpChainDeployment.BatchAuthenticatorAddress,
 	}
 }
 
@@ -110,6 +112,8 @@ type OpChainDeployment struct {
 	// DelayedWETHPermissionlessGameProxyAddress common.Address `json:"delayedWETHPermissionlessGameProxyAddress"`
 	DataAvailabilityChallengeProxyAddress common.Address `json:"dataAvailabilityChallengeProxyAddress"`
 	DataAvailabilityChallengeImplAddress  common.Address `json:"dataAvailabilityChallengeImplAddress"`
+	BatchInboxAddress                     common.Address `json:"batchInboxAddress"`
+	BatchAuthenticatorAddress             common.Address `json:"batchAuthenticatorAddress,omitzero,omitempty"`
 }
 
 type ImplementationsDeployment struct {
@@ -181,6 +185,8 @@ func L1(globalState *state.State, chainID common.Hash) (*L1Contracts, error) {
 			DelayedWETHPermissionedGameProxyAddress:  chainState.DelayedWETHPermissionedGameProxyAddress,
 			DataAvailabilityChallengeProxyAddress:    chainState.DataAvailabilityChallengeProxyAddress,
 			DataAvailabilityChallengeImplAddress:     chainState.DataAvailabilityChallengeImplAddress,
+			BatchInboxAddress:                        chainState.BatchInboxAddress,
+			BatchAuthenticatorAddress:                chainState.BatchAuthenticatorAddress,
 			// DelayedWETHPermissionlessGameProxyAddress: chainState.DelayedWETHPermissionlessGameProxyAddress,
 		},
 		ImplementationsDeployment: ImplementationsDeployment{

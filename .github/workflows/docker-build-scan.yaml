@@ -1,13 +1,13 @@
 name: Docker Build Scan
 on:
-  pull_request:
-    branches:
-      - 'master'
-      - 'celo*'
-  push:
-    branches:
-      - 'master'
-      - 'celo*'
+  # pull_request:
+  #   branches:
+  #     - "master"
+  #     - "celo*"
+  # push:
+  #   branches:
+  #     - "master"
+  #     - "celo*"
   workflow_dispatch:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
         id: detect-files-changed
         uses: step-security/changed-files@3dbe17c78367e7d60f00d78ae6781a35be47b4a1
         with:
-          separator: ','
+          separator: ","
 
   # Build op-node op-batcher op-proposer using docker-bake
   build-op-stack:
@@ -55,8 +55,8 @@ jobs:
       - name: Login at GCP Artifact Registry
         uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
         with:
-          workload-id-provider: 'projects/1094498259535/locations/global/workloadIdentityPools/gh-optimism/providers/github-by-repos'
-          service-account: 'celo-optimism-gh@devopsre.iam.gserviceaccount.com'
+          workload-id-provider: "projects/1094498259535/locations/global/workloadIdentityPools/gh-optimism/providers/github-by-repos"
+          service-account: "celo-optimism-gh@devopsre.iam.gserviceaccount.com"
           docker-gcp-registries: us-west1-docker.pkg.dev
       # We need a custom steps as it's using docker bake
       - name: Set up Docker Buildx

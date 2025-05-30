@@ -342,7 +342,7 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		hdPath = cfg.L2OutputHDPath
 	}
 
-	signerFactory, from, err := opcrypto.SignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
+	chainSignerFactory, from, err := opcrypto.ChainSignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not init signer: %w", err)
 	}
@@ -379,11 +379,15 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		}
 	}
 
+	chainSigner := chainSignerFactory(chainID, from)
+
 	res := Config{
 		Backend: l1,
 		ChainID: chainID,
-		Signer:  signerFactory(chainID),
+		Signer:  chainSigner.SignTransaction,
 		From:    from,
+
+		ChainSigner: chainSigner,
 
 		TxSendTimeout:              cfg.TxSendTimeout,
 		TxNotInMempoolTimeout:      cfg.TxNotInMempoolTimeout,
@@ -467,6 +471,9 @@ type Config struct {
 	// Signer is used to sign transactions when the gas price is increased.
 	Signer opcrypto.SignerFn
 	From   common.Address
+
+	// ChainSigner is used to allow for easy signing of transactions and arbitrary data.
+	ChainSigner opcrypto.ChainSigner
 
 	// GasPriceEstimatorFn is used to estimate the gas price for a transaction.
 	// If nil, DefaultGasPriceEstimatorFn is used.

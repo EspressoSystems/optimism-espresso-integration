@@ -17,7 +17,7 @@ _GORACE_FLAG := if GORACE == "1" { "-race " } else { "" }
 
 [private]
 go_build BIN PKG *FLAGS:
-    env GO111MODULE=on GOOS={{TARGETOS}} GOARCH={{TARGETARCH}} CGO_ENABLED=0 go build -v {{_GORACE_FLAG}} {{FLAGS}} -o {{BIN}} {{PKG}}
+    env GO111MODULE=on GOOS={{TARGETOS}} GOARCH={{TARGETARCH}} CGO_ENABLED=1 go build -v {{_GORACE_FLAG}} {{FLAGS}} -o {{BIN}} {{PKG}}
 
 [private]
 go_test SELECTOR *FLAGS:

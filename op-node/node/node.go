@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
@@ -539,12 +542,17 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *Config) (err error) {
 	return
 }
 
+func (n *OpNode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
+}
+
 func (n *OpNode) Start(ctx context.Context) error {
 	// If n.cfg.Driver.SequencerUseFinalized is true, sequencer does not use non-finalized L1 blocks as L1 origin
 	// The OpNode periodically fetches the latest safe and finalized L1 block heights (1 epoch ≒ 6.4 minutes by default),
 	// but these values are not available immediately after startup until the first polling occurs.
 	// In some cases, this can cause the sequencer to get stuck because it fails to retrieve the next L1 block.
 	// To prevent this, fetch and initialize the latest safe and finalized L1 block references at startup.
+	log.Info("Sequencer config for finality", "SequencerUseFinalized", n.cfg.Driver.SequencerUseFinalized)
 	if n.cfg.Driver.SequencerUseFinalized {
 		reqCtx, reqCancel := context.WithTimeout(ctx, time.Second*20)
 		defer reqCancel()
@@ -570,6 +578,7 @@ func (n *OpNode) Start(ctx context.Context) error {
 			return err
 		}
 	}
+
 	n.log.Info("Starting execution engine driver")
 	// start driving engine: sync blocks by deriving them from L1 and driving them into the engine
 	if err := n.l2Driver.Start(); err != nil {
@@ -868,4 +877,9 @@ func (n *OpNode) getP2PNodeIfEnabled() *p2p.NodeP2P {
 	n.p2pMu.Lock()
 	defer n.p2pMu.Unlock()
 	return n.p2pNode
+}
+
+func (n *OpNode) EngineState() derive.L2Source {
+	// we use this as Engine State as it contains Engine interface
+	return n.l2Driver.SyncDeriver.L2
 }

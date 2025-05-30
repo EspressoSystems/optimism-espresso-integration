@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,13 +18,18 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -87,17 +93,22 @@ type AltDAClient interface {
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	Log               log.Logger
-	Metr              metrics.Metricer
-	RollupConfig      *rollup.Config
-	Config            BatcherConfig
-	Txmgr             txmgr.TxManager
-	L1Client          L1Client
-	EndpointProvider  dial.L2EndpointProvider
-	ChannelConfig     ChannelConfigProvider
-	AltDA             AltDAClient
-	ChannelOutFactory ChannelOutFactory
-	ActiveSeqChanged  chan struct{} // optional
+	Log                 log.Logger
+	Metr                metrics.Metricer
+	RollupConfig        *rollup.Config
+	Config              BatcherConfig
+	Txmgr               txmgr.TxManager
+	L1Client            *ethclient.Client
+	EndpointProvider    dial.L2EndpointProvider
+	ChannelConfig       ChannelConfigProvider
+	AltDA               AltDAClient
+	ChannelOutFactory   ChannelOutFactory
+	ActiveSeqChanged    chan struct{} // optional
+	Espresso            *espressoClient.MultipleNodesClient
+	EspressoLightClient *espressoLightClient.LightclientCaller
+	ChainSigner         opcrypto.ChainSigner
+	SequencerAddress    common.Address
+	Attestation         *nitrite.Result
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -112,6 +123,8 @@ type BatchSubmitter struct {
 	mutex   sync.Mutex
 	running bool
 
+	submitter         *espressoTransactionSubmitter
+	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
 	txpoolBlockedBlob bool
@@ -121,6 +134,11 @@ type BatchSubmitter struct {
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 }
 
+// EspressoStreamer returns the batch submitter's Espresso streamer instance
+func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return &l.streamer
+}
+
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
 func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	state := NewChannelManager(setup.Log, setup.Metr, setup.ChannelConfig, setup.RollupConfig)
@@ -128,10 +146,26 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		state.SetChannelOutFactory(setup.ChannelOutFactory)
 	}
 
-	return &BatchSubmitter{
+	batchSubmitter := &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
 	}
+
+	batchSubmitter.streamer = espresso.NewEspressoStreamer(
+		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
+		NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
+		batchSubmitter.Espresso,
+		batchSubmitter.EspressoLightClient,
+		batchSubmitter.Log,
+		func(data []byte) (*derive.EspressoBatch, error) {
+			return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
+		},
+		2*time.Second,
+	)
+
+	log.Info("Streamer started", "streamer", batchSubmitter.streamer)
+
+	return batchSubmitter
 }
 
 func (l *BatchSubmitter) StartBatchSubmitting() error {
@@ -177,10 +211,32 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.Log.Warn("Throttling loop is DISABLED due to 0 throttle-threshold. This should not be disabled in prod.")
 	}
 
-	l.wg.Add(3)
-	go l.receiptsLoop(l.wg, receiptsCh)                                            // ranges over receiptsCh channel
-	go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal)                // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
-	go l.blockLoadingLoop(l.shutdownCtx, l.wg, pendingBytesUpdated, publishSignal) // sends on pendingBytesUpdated (if throttling enabled), and publishSignal. Closes them both when done
+	if l.Config.UseEspresso {
+
+		err := l.registerBatcher(l.killCtx)
+		if err != nil {
+			return fmt.Errorf("could not register with batch inbox contract: %w", err)
+		}
+
+		l.submitter = NewEspressoTransactionSubmitter(
+			WithContext(l.shutdownCtx),
+			WithWaitGroup(l.wg),
+			WithEspressoClient(l.Espresso),
+		)
+		l.submitter.SpawnWorkers(4, 4)
+		l.submitter.Start()
+
+		l.wg.Add(4)
+		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
+		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)
+		go l.espressoBatchLoadingLoop(l.shutdownCtx, l.wg, publishSignal)
+		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal) // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
+	} else {
+		l.wg.Add(3)
+		go l.receiptsLoop(l.wg, receiptsCh)                                            // ranges over receiptsCh channel
+		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal)                // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
+		go l.blockLoadingLoop(l.shutdownCtx, l.wg, pendingBytesUpdated, publishSignal) // sends on pendingBytesUpdated (if throttling enabled), and publishSignal. Closes them both when done
+	}
 
 	l.Log.Info("Batch Submitter started")
 	return nil
@@ -721,6 +777,9 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
+			if l.Config.UseEspresso {
+				l.streamer.Reset()
+			}
 			return true
 		}
 	}
@@ -821,7 +880,7 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 		panic(err) // this error should not happen
 	}
 	l.Log.Warn("sending a cancellation transaction to unblock txpool", "blocked_blob", isBlockedBlob)
-	l.sendTx(txData{}, true, candidate, queue, receiptsCh)
+	l.sendTx(txData{}, true, candidate, queue, receiptsCh, nil)
 }
 
 // publishToAltDAAndStoreCommitment posts the txdata to the DA Provider and stores the returned commitment
@@ -905,7 +964,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 	if candidate == nil {
 		l.Log.Crit("txcandidate should have been set by one of the three branches above.")
 	}
-	l.sendTx(txdata, false, candidate, queue, receiptsCh)
+	l.sendTx(txdata, false, candidate, queue, receiptsCh, daGroup)
 	return nil
 }
 
@@ -915,7 +974,19 @@ type TxSender[T any] interface {
 
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
-func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
+func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+	if l.Config.UseEspresso && !isCancel {
+		goroutineSpawned := daGroup.TryGo(
+			func() error {
+				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
+				return nil
+			},
+		)
+		if !goroutineSpawned {
+			l.recordFailedDARequest(txdata.ID(), nil)
+		}
+		return
+	}
 	floorDataGas, err := core.FloorDataGas(candidate.TxData)
 	if err != nil {
 		// We log instead of return an error here because the txmgr will do its own gas estimation.

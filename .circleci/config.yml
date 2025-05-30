@@ -205,7 +205,7 @@ jobs:
   cannon-go-lint-and-test:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     parameters:
       skip_slow_tests:
         type: boolean
@@ -309,7 +309,7 @@ jobs:
   diff-asterisc-bytecode:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - run:
@@ -664,10 +664,9 @@ jobs:
           working_directory: packages/contracts-bedrock
 
   contracts-bedrock-tests:
-    circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     parameters:
       test_list:
         description: List of test files to run
@@ -750,10 +749,9 @@ jobs:
       - notify-failures-on-develop
 
   contracts-bedrock-coverage:
-    circleci_ip_ranges: true
     docker:
-        - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+      - image: <<pipeline.parameters.default_docker_image>>
+    resource_class: large
     parameters:
       test_flags:
         description: Additional flags to pass to the test command
@@ -826,7 +824,6 @@ jobs:
       - notify-failures-on-develop
 
   contracts-bedrock-tests-upgrade:
-    circleci_ip_ranges: true
     parameters:
       fork_op_chain:
         description: Fork OP Chain
@@ -917,7 +914,7 @@ jobs:
   contracts-bedrock-checks:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - attach_workspace: { at: "." }
@@ -985,7 +982,7 @@ jobs:
         default: false
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - check-changed:
@@ -994,8 +991,16 @@ jobs:
           at: "."
           if: ${{ uses_artifacts }}
       - run:
+          name: download espresso-network-go
+          command: |
+            ver=$(grep "github.com/EspressoSystems/espresso-network-go" go.mod | awk '{print $2}')
+            url="https://github.com/EspressoSystems/espresso-network-go/releases/download/${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a"
+            mkdir -p /home/circleci/local-lib
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+      - run:
           name: Fuzz
           command: |
+            export CGO_LDFLAGS="-L/home/circleci/local-lib"
             make fuzz
           working_directory: "<<parameters.package_name>>"
       - run:
@@ -1011,7 +1016,7 @@ jobs:
   go-lint:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - run:
@@ -1033,7 +1038,7 @@ jobs:
       resource_class:
         description: Machine resource class
         type: string
-        default: xlarge
+        default: large
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
@@ -1058,6 +1063,13 @@ jobs:
       - run:
           name: do mise install (did not work otherwise for unknown reason)
           command: /home/circleci/.local/bin/mise install
+      - run:
+          name: download espresso-network-go
+          command: |
+            ver=$(grep "github.com/EspressoSystems/espresso-network-go" go.mod | awk '{print $2}')
+            url="https://github.com/EspressoSystems/espresso-network-go/releases/download/${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a"
+            mkdir -p /home/circleci/local-lib
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
       - run:
           name: build op-program-client
           command: make op-program-client
@@ -1093,6 +1105,7 @@ jobs:
             export MAINNET_RPC_URL="$MAINNET_RPC_URL"
             export PARALLEL=$(nproc)
             export OP_TESTLOG_FILE_LOGGER_OUTDIR=$(realpath ./tmp/testlogs)
+            export CGO_LDFLAGS="-L/home/circleci/local-lib"
 
             <<parameters.environment_overrides>>
 
@@ -1258,7 +1271,7 @@ jobs:
   cannon-prestate-quick:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - restore_cache:
@@ -1299,7 +1312,7 @@ jobs:
   publish-cannon-prestates:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - attach_workspace:
@@ -1387,7 +1400,7 @@ jobs:
       SEMGREP_COMMIT: << pipeline.git.revision >>
     docker:
       - image: returntocorp/semgrep
-    resource_class: xlarge
+    resource_class: large
     steps:
       - checkout # no need to use mise here since the docker image contains the only dependency
       - unless:
@@ -1456,7 +1469,7 @@ jobs:
   op-program-compat:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - run:
@@ -1468,7 +1481,7 @@ jobs:
   check-generated-mocks-op-node:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - check-changed:
@@ -1480,7 +1493,7 @@ jobs:
   check-generated-mocks-op-service:
     docker:
       - image: cimg/base:2025.02
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - check-changed:
@@ -1492,7 +1505,7 @@ jobs:
   kontrol-tests:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - install-contracts-dependencies
@@ -1736,6 +1749,7 @@ workflows:
       - go-tests:
           environment_overrides: |
             export PARALLEL=24
+          # op-deployer & op-validator excluded as they need sepolia keys
           packages: |
             op-alt-da
             op-batcher
@@ -1748,9 +1762,7 @@ workflows:
             op-program
             op-service
             op-supervisor
-            op-deployer
             op-fetcher
-            op-validator
             op-e2e/system
             op-e2e/e2eutils
             op-e2e/opgeth
@@ -1999,7 +2011,7 @@ workflows:
           mentions: "@proofs-team"
           no_output_timeout: 60m
           test_timeout: 59m
-          resource_class: xlarge
+          resource_class: large
           environment_overrides: |
             export OP_E2E_CANNON_ENABLED="true"
             export PARALLEL=24

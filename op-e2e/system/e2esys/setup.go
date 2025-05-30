@@ -141,6 +141,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 	return SystemConfig{
 		Secrets:                secrets,
 		Premine:                premine,
+		L1Allocs:               make(map[common.Address]types.Account),
 		DeployConfig:           deployConfig,
 		L1Deployments:          l1Deployments,
 		L1InfoPredeployAddress: predeploys.L1BlockAddr,
@@ -297,6 +298,7 @@ type SystemConfig struct {
 	L1FinalizedDistance uint64
 
 	Premine     map[common.Address]*big.Int
+	L1Allocs    map[common.Address]types.Account
 	Nodes       map[string]*rollupNode.Config // Per node config. Don't use populate rollup.Config
 	Loggers     map[string]log.Logger
 	GethOptions map[string][]geth.GethOption
@@ -391,6 +393,8 @@ type System struct {
 	// clients caches lazily created L1/L2 ethclient.Client
 	// instances so they can be reused and closed
 	clients map[string]*ethclient.Client
+
+	L1 *geth.GethInstance
 }
 
 func (sys *System) PrestateVariant() challenger.PrestateVariant {
@@ -493,6 +497,10 @@ func (sys *System) L1Slot(l1Timestamp uint64) uint64 {
 		sys.Cfg.DeployConfig.L1BlockTime
 }
 
+func (sys *System) ForkL1(parentHash common.Hash) error {
+	return sys.L1.Fork(parentHash)
+}
+
 func (sys *System) Close() {
 	sys.t.Log("CLOSING")
 	if !sys.closed.CompareAndSwap(false, true) {
@@ -546,7 +554,7 @@ type StartOption struct {
 	Action SystemConfigHook
 
 	// Batcher CLIConfig modifications to apply before starting the batcher.
-	BatcherMod func(*bss.CLIConfig)
+	BatcherMod func(*bss.CLIConfig, *System)
 }
 
 type startOptions struct {
@@ -569,7 +577,7 @@ func parseStartOptions(_opts []StartOption) (startOptions, error) {
 
 func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 	return StartOption{
-		BatcherMod: func(cfg *bss.CLIConfig) {
+		BatcherMod: func(cfg *bss.CLIConfig, sys *System) {
 			cfg.CompressionAlgo = ca
 		},
 	}
@@ -577,7 +585,7 @@ func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 
 func WithBatcherThrottling(interval time.Duration, threshold, txSize, blockSize uint64) StartOption {
 	return StartOption{
-		BatcherMod: func(cfg *bss.CLIConfig) {
+		BatcherMod: func(cfg *bss.CLIConfig, sys *System) {
 			cfg.ThrottleThreshold = threshold
 			cfg.ThrottleTxSize = txSize
 			cfg.ThrottleBlockSize = blockSize
@@ -645,6 +653,13 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		}
 	}
 
+	for addr, account := range cfg.L1Allocs {
+		if _, ok := l1Genesis.Alloc[addr]; ok {
+			t.Logf("Additional L1 alloc conflicts with existing account: %v", addr)
+		}
+		l1Genesis.Alloc[addr] = account
+	}
+
 	l1Block := l1Genesis.ToBlock()
 	allocsMode := cfg.DeployConfig.AllocMode(l1Block.Time())
 
@@ -695,29 +710,30 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 				L2Time:       uint64(cfg.DeployConfig.L1GenesisBlockTimestamp),
 				SystemConfig: e2eutils.SystemConfigFromDeployConfig(cfg.DeployConfig),
 			},
-			BlockTime:               cfg.DeployConfig.L2BlockTime,
-			MaxSequencerDrift:       cfg.DeployConfig.MaxSequencerDrift,
-			SeqWindowSize:           cfg.DeployConfig.SequencerWindowSize,
-			ChannelTimeoutBedrock:   cfg.DeployConfig.ChannelTimeoutBedrock,
-			L1ChainID:               cfg.L1ChainIDBig(),
-			L2ChainID:               cfg.L2ChainIDBig(),
-			BatchInboxAddress:       cfg.DeployConfig.BatchInboxAddress,
-			DepositContractAddress:  cfg.DeployConfig.OptimismPortalProxy,
-			L1SystemConfigAddress:   cfg.DeployConfig.SystemConfigProxy,
-			RegolithTime:            cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			CanyonTime:              cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			DeltaTime:               cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			EcotoneTime:             cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			FjordTime:               cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			GraniteTime:             cfg.DeployConfig.GraniteTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			HoloceneTime:            cfg.DeployConfig.HoloceneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			PectraBlobScheduleTime:  cfg.DeployConfig.PectraBlobScheduleTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			IsthmusTime:             cfg.DeployConfig.IsthmusTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			JovianTime:              cfg.DeployConfig.JovianTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			Cel2Time:                cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
-			AltDAConfig:             rollupAltDAConfig,
+			BlockTime:                 cfg.DeployConfig.L2BlockTime,
+			MaxSequencerDrift:         cfg.DeployConfig.MaxSequencerDrift,
+			SeqWindowSize:             cfg.DeployConfig.SequencerWindowSize,
+			ChannelTimeoutBedrock:     cfg.DeployConfig.ChannelTimeoutBedrock,
+			L1ChainID:                 cfg.L1ChainIDBig(),
+			L2ChainID:                 cfg.L2ChainIDBig(),
+			BatchInboxAddress:         cfg.DeployConfig.BatchInboxAddress,
+			BatchAuthenticatorAddress: cfg.DeployConfig.BatchAuthenticatorAddress,
+			DepositContractAddress:    cfg.DeployConfig.OptimismPortalProxy,
+			L1SystemConfigAddress:     cfg.DeployConfig.SystemConfigProxy,
+			RegolithTime:              cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			CanyonTime:                cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			DeltaTime:                 cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			EcotoneTime:               cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			FjordTime:                 cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			GraniteTime:               cfg.DeployConfig.GraniteTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			HoloceneTime:              cfg.DeployConfig.HoloceneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			PectraBlobScheduleTime:    cfg.DeployConfig.PectraBlobScheduleTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			IsthmusTime:               cfg.DeployConfig.IsthmusTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			JovianTime:                cfg.DeployConfig.JovianTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			InteropTime:               cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			Cel2Time:                  cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			ProtocolVersionsAddress:   cfg.L1Deployments.ProtocolVersionsProxy,
+			AltDAConfig:               rollupAltDAConfig,
 			ChainOpConfig: &params.OptimismConfig{
 				EIP1559Elasticity:        cfg.DeployConfig.EIP1559Elasticity,
 				EIP1559Denominator:       cfg.DeployConfig.EIP1559Denominator,
@@ -750,6 +766,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, err
 	}
 	sys.EthInstances[RoleL1] = l1Geth
+	sys.L1 = l1Geth
 	err = l1Geth.Node.Start()
 	if err != nil {
 		return nil, err
@@ -1003,6 +1020,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		ApproxComprRatio:         0.4,
 		SubSafetyMargin:          4,
 		PollInterval:             50 * time.Millisecond,
+		EspressoPollInterval:     250 * time.Millisecond,
 		TxMgrConfig:              setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), cfg.Secrets.Batcher),
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
@@ -1019,7 +1037,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// Apply batcher cli modifications
 	for _, opt := range startOpts {
 		if opt.BatcherMod != nil {
-			opt.BatcherMod(batcherCLIConfig)
+			opt.BatcherMod(batcherCLIConfig, sys)
 		}
 	}
 
