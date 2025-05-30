@@ -13,12 +13,12 @@ import (
 	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -77,6 +77,7 @@ func (r txRef) string(txIDStringer func(txID) string) string {
 type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
+	bind.ContractBackend
 }
 
 type L2Client interface {
@@ -98,7 +99,7 @@ type DriverSetup struct {
 	RollupConfig        *rollup.Config
 	Config              BatcherConfig
 	Txmgr               txmgr.TxManager
-	L1Client            *ethclient.Client
+	L1Client            L1Client
 	EndpointProvider    dial.L2EndpointProvider
 	ChannelConfig       ChannelConfigProvider
 	AltDA               AltDAClient

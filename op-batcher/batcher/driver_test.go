@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -190,6 +191,47 @@ func (f *fakeL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*ty
 }
 func (f *fakeL1Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	return 0, nil
+}
+
+// Additional methods required by bind.ContractBackend
+func (f *fakeL1Client) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	return nil, nil
+}
+
+func (f *fakeL1Client) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	return nil, nil
+}
+
+func (f *fakeL1Client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	return nil, nil
+}
+
+func (f *fakeL1Client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	return 0, nil
+}
+
+func (f *fakeL1Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (f *fakeL1Client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	return 0, nil
+}
+
+func (f *fakeL1Client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	return nil
+}
+
+func (f *fakeL1Client) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	return nil, nil
+}
+
+func (f *fakeL1Client) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	return nil, nil
+}
+
+func (f *fakeL1Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(0), nil
 }
 
 func altDASetup(_ *testing.T, log log.Logger) (*BatchSubmitter, *mockL2EndpointProvider, *altda.MockDAClient, *testutils.FakeTxMgr) {
