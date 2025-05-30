@@ -21,15 +21,13 @@ services:
     environment:
       L1_RPC: http://l1:8545
     volumes:
-      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
-      - ./op-program/chainconfig/test/configs:/configs
+      - ./config:/config
     command:
       - op-node
       - --l1=http://l1:8545
-      - --l1.beacon ""
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/configs/901-rollup.json
+      - --rollup.config=/config/op-node/rollup_devnet.json
       - --sequencer.enabled=true
     networks:
       - opnet
@@ -45,16 +43,35 @@ services:
     environment:
       L1_RPC: http://l1:8545
     volumes:
-      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
-      - ./op-program/chainconfig/test/configs:/configs
+      - ./config:/config
     command:
       - op-node
       - --l1=http://l1:8545
-      - --l1.beacon ""
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/configs/901-rollup.json
-      - --verifier
+      - --rollup.config=/config/op-node/rollup_devnet.json
+    networks:
+      - opnet
+
+  caff-node:
+    build:
+      context: .
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+    image: caff-node:espresso
+    depends_on:
+      - l1
+    environment:
+      L1_RPC: http://l1:8545
+    volumes:
+      - ./config:/config
+    command:
+      - op-node
+      - --l1=http://l1:8545
+      - --l2=http://op-geth:8551
+      - --l2.jwt-secret=/config/jwt.txt
+      - --rollup.config=/config/op-node/rollup_devnet.json
+      - --caff.node=true
     networks:
       - opnet
 
@@ -73,10 +90,10 @@ services:
     command:
       - op-batcher
       - --l1-eth-rpc=http://l1:8545
+      - --l2-eth-rpc=http://op-geth:8551
       - --rollup-rpc=http://op-node-sequencer:8545
       - --espresso-url=http://espresso-dev-node:24000
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-
     networks:
       - opnet
 
@@ -94,7 +111,8 @@ services:
       - op-proposer
       - --l1-eth-rpc=http://l1:8545
       - --rollup-rpc=http://op-node-sequencer:8545
-      - --l2=http://op-node-sequencer:8545
+      - --game-factory-address=0xDC9a4dba410aaC9D98a848710Aa82601752DBd44
+      - --proposal-interval=10m
     networks:
       - opnet
 
@@ -105,7 +123,6 @@ services:
     image: op-deployer:espresso
     depends_on:
       - l1
-    command: ["apply", "--network", "devnet"]
     volumes:
       - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     restart: "no"
@@ -125,13 +142,6 @@ services:
     environment:
       RUST_LOG: info
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
-
-  caff-node:
-    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
-    networks:
-      - opnet
-    environment:
-      RUST_LOG: info
 
 networks:
   opnet:
