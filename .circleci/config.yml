@@ -1665,6 +1665,7 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - discord
       - contracts-bedrock-coverage:
+          filters: "false"
           # Generate coverage reports.
           name: contracts-bedrock-coverage
           test_timeout: 1h
@@ -1676,6 +1677,7 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - discord
       - contracts-bedrock-tests-upgrade:
+          filters: "false"
           name: contracts-bedrock-tests-upgrade
           fork_op_chain: op
           fork_base_chain: mainnet
