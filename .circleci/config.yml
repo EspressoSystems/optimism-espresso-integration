@@ -749,7 +749,6 @@ jobs:
       - notify-failures-on-develop
 
   contracts-bedrock-coverage:
-    when: false # Too large
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
     resource_class: large
@@ -825,7 +824,6 @@ jobs:
       - notify-failures-on-develop
 
   contracts-bedrock-tests-upgrade:
-    when: false # Requires RPC URL
     parameters:
       fork_op_chain:
         description: Fork OP Chain
