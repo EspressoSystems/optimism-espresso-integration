@@ -2,9 +2,23 @@
 
 services:
   l1:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 3s
+      timeout: 2s
+      retries: 40
     build:
       context: ./ops/docker/deployment-utils
     image: l1-geth:espresso
+    command:
+      - geth
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.api=eth,net,web3,personal,miner,admin
+      - --http.port=8545
+      - --nodiscover
+      - --dev
+      - --miner.etherbase=0x0000000000000000000000000000000000000000
     ports:
       - "8545:8545" # L1 RPC
     networks:
@@ -17,7 +31,8 @@ services:
       target: op-node-target
     image: op-node-sequencer:espresso
     depends_on:
-      - l1
+      l1:
+        condition: service_healthy
     environment:
       L1_RPC: http://l1:8545
     volumes:
@@ -39,7 +54,8 @@ services:
       target: op-node-target
     image: op-node-verifier:espresso
     depends_on:
-      - l1
+      l1:
+        condition: service_healthy
     environment:
       L1_RPC: http://l1:8545
     volumes:
@@ -60,7 +76,8 @@ services:
       target: op-node-target
     image: caff-node:espresso
     depends_on:
-      - l1
+      l1:
+        condition: service_healthy
     environment:
       L1_RPC: http://l1:8545
     volumes:
