@@ -1,0 +1,58 @@
+name: Run Espresso integration tests
+on:
+  pull_request:
+    branches:
+      - "celo-integration*"
+  push:
+    branches:
+      - "master"
+      - "celo-integration*"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [0, 1, 2, 3]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v30
+        with:
+          nix_conf: |
+            keep-env-derivations = true
+            keep-outputs = true
+      - name: Restore Nix cache
+        id: cache-nix-restore
+        uses: nix-community/cache-nix-action/restore@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+      - name: Set up Nix environment
+        uses: nicknovitski/nix-develop@v1
+
+      - name: Cache Go modules
+        uses: actions/setup-go@v5
+
+      - name: Compile contracts
+        run: just compile-contracts
+
+      - name: Generate test slice
+        id: test_split
+        uses: hashicorp-forge/go-test-split-action@v1
+        with:
+          index: ${{ matrix.group }}
+          total: 4
+          packages: "./espresso/..."
+      - name: Run Go tests for group ${{ matrix.group }}
+        run: |
+          go test -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
+
+      - name: Save Nix cache
+        uses: nix-community/cache-nix-action/save@v6
+        if: always() && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
+        with:
+          primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
