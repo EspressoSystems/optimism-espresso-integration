@@ -1740,6 +1740,7 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - discord
       - fuzz-golang:
+          filters: "false"
           name: op-e2e-fuzz
           package_name: op-e2e
           on_changes: op-e2e,packages/contracts-bedrock/src
