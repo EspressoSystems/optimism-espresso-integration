@@ -47,11 +47,11 @@ jobs:
           index: ${{ matrix.group }}
           total: 4
           packages: "./espresso/..."
-          # Skip liveness tests that specify # of seconds, as they're flaky on (potentially slow) CI machines
-          list: "^(?!.*(TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode|TestE2eDevNetWithEspressoFastConfirmationStability)).*$"
       - name: Run Go tests for group ${{ matrix.group }}
+        # We skip liveness tests that specify # of seconds, as they're flaky on CI machines
         run: |
-          go test -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
+          go test -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/... \
+           -skip 'TestE2eDevNetWithEspressoEspressoDegradedLiveness|TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode|TestE2eDevNetWithEspressoFastConfirmationStability'
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
