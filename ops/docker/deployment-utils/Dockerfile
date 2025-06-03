@@ -37,6 +37,7 @@ COPY --from=go-base /go/bin/dasel /usr/local/bin/dasel
 # Install geth
 RUN curl -L https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.15.11-36b2371c.tar.gz \
     -o geth.tar.gz \
+ && echo "a14a4285daedf75ea04a7a298e6caa48d566a2786c93fc5e86ec2c5998c92455  geth.tar.gz" | sha256sum -c - \
  && tar -xvf geth.tar.gz \
  && mv geth-linux-amd64-1.15.11-36b2371c/geth /usr/local/bin/geth \
  && rm -rf geth.tar.gz geth-linux-amd64-1.15.11-36b2371c
