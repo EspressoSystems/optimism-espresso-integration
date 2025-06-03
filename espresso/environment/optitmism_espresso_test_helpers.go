@@ -22,6 +22,7 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
 	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
@@ -140,6 +141,8 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 type EspressoDevNodeLauncherDocker struct {
 	// Whether to run batcher in enclave.
 	EnclaveBatcher bool
+	// Whether to enable AltDa
+	AltDa bool
 }
 
 var _ EspressoDevNetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
@@ -254,6 +257,18 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	}
 
 	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
+
+	if l.AltDa {
+		sysConfig.DeployConfig.UseAltDA = true
+		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
+		sysConfig.DeployConfig.DAChallengeWindow = 16
+		sysConfig.DeployConfig.DAResolveWindow = 16
+		sysConfig.DeployConfig.DABondSize = 1000000
+		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
+		sysConfig.BatcherMaxPendingTransactions = 0
+		sysConfig.BatcherBatchType = 0
+		sysConfig.DataAvailabilityType = flags.CalldataType
+	}
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2

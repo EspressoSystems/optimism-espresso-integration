@@ -881,12 +881,29 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// Sort strings in ascending alphabetical order
 	sort.Strings(ks)
 
+	if cfg.DeployConfig.UseAltDA {
+		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
+		if err := fakeAltDAServer.Start(); err != nil {
+			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
+		}
+		sys.FakeAltDAServer = fakeAltDAServer
+	}
+
 	for _, name := range ks {
 		nodeConfig := cfg.Nodes[name]
 		c := *nodeConfig // copy
 		c.Rollup = makeRollupConfig()
 		if err := c.LoadPersisted(cfg.Loggers[name]); err != nil {
 			return nil, err
+		}
+
+		if cfg.DeployConfig.UseAltDA {
+			c.AltDA = altda.CLIConfig{
+				VerifyOnRead: true,
+				Enabled:      true,
+				DAServerURL:  sys.FakeAltDAServer.HttpEndpoint(),
+				GenericDA:    cfg.DeployConfig.DACommitmentType == altda.GenericCommitmentString,
+			}
 		}
 
 		if p, ok := p2pNodes[name]; ok {
@@ -992,15 +1009,9 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 
 	var batcherAltDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
-		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
-		if err := fakeAltDAServer.Start(); err != nil {
-			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
-		}
-		sys.FakeAltDAServer = fakeAltDAServer
-
 		batcherAltDACLIConfig = altda.CLIConfig{
 			Enabled:               cfg.DeployConfig.UseAltDA,
-			DAServerURL:           fakeAltDAServer.HttpEndpoint(),
+			DAServerURL:           sys.FakeAltDAServer.HttpEndpoint(),
 			VerifyOnRead:          true,
 			GenericDA:             true,
 			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
