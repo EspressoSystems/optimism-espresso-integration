@@ -8,7 +8,7 @@ services:
       timeout: 2s
       retries: 40
     build:
-      context: ./ops/docker/deployment-utils
+      context: ../ops/docker/deployment-utils
     image: l1-geth:espresso
     command:
       - geth
@@ -26,7 +26,7 @@ services:
 
   op-node-sequencer:
     build:
-      context: .
+      context: ../
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-node-target
     image: op-node-sequencer:espresso
@@ -36,7 +36,7 @@ services:
     environment:
       L1_RPC: http://l1:8545
     volumes:
-      - ./config:/config
+      - ../config:/config
     command:
       - op-node
       - --l1=http://l1:8545
@@ -49,7 +49,7 @@ services:
 
   op-node-verifier:
     build:
-      context: .
+      context: ../
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-node-target
     image: op-node-verifier:espresso
@@ -59,7 +59,7 @@ services:
     environment:
       L1_RPC: http://l1:8545
     volumes:
-      - ./config:/config
+      - ../config:/config
     command:
       - op-node
       - --l1=http://l1:8545
@@ -71,7 +71,7 @@ services:
 
   caff-node:
     build:
-      context: .
+      context: ../
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-node-target
     image: caff-node:espresso
@@ -81,7 +81,7 @@ services:
     environment:
       L1_RPC: http://l1:8545
     volumes:
-      - ./config:/config
+      - ../config:/config
     command:
       - op-node
       - --l1=http://l1:8545
@@ -94,7 +94,7 @@ services:
 
   op-batcher:
     build:
-      context: .
+      context: ../
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-batcher-target
     image: op-batcher:espresso
@@ -103,7 +103,7 @@ services:
     environment:
       L1_RPC: http://l1:8545
     volumes:
-      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-batcher
       - --l1-eth-rpc=http://l1:8545
@@ -116,14 +116,14 @@ services:
 
   op-proposer:
     build:
-      context: .
+      context: ../
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
       - op-node-sequencer
     volumes:
-      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-proposer
       - --l1-eth-rpc=http://l1:8545
@@ -135,13 +135,13 @@ services:
 
   op-deployer:
     build:
-      context: .
+      context: ../
       dockerfile: ./op-deployer/Dockerfile.default
     image: op-deployer:espresso
     depends_on:
       - l1
     volumes:
-      - ./packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     restart: "no"
     networks:
       - opnet
