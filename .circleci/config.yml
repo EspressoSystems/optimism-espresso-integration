@@ -1785,6 +1785,7 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - discord
       - analyze-op-program-client:
+          filters: "false"
           context:
             - circleci-repo-readonly-authenticated-github-token
             - discord
