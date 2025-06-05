@@ -11,31 +11,30 @@ services:
       context: ../ops/docker/deployment-utils
     image: l1-geth:espresso
     volumes:
-      - ${PWD}/../config/op-node/l1_genesis_devnet.json:/l1_genesis_devnet.json
+      - ../config/op-node/l1_genesis_devnet.json:/l1_genesis_devnet.json:ro
       - l1-data:/data
     command:
       - sh
       - -c
       - |
-        if [ ! -d /data/geth ]; then
-          geth --datadir /data init /l1_genesis_devnet.json;
-        fi
-        geth --datadir /data \
+        set -e
+        rm -rf /data/geth || true
+        geth --datadir /data init /l1_genesis_devnet.json
+        exec geth --datadir /data \
           --networkid 900 \
           --http \
           --http.addr=0.0.0.0 \
-          --http.api=eth,net,web3,personal,miner,admin \
+          --http.api=eth,net,web3,admin \
           --http.port=8545 \
           --http.vhosts=* \
           --http.corsdomain=* \
           --nodiscover \
-          --miner.etherbase=0x0000000000000000000000000000000000000000 \
+          --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
           --mine \
-          --allow-insecure-unlock
+          --allow-insecure-unlock \
+          --rpc.allow-unprotected-txs
     ports:
       - "8545:8545" # L1 RPC
-    networks:
-      - opnet
 
   op-node-sequencer:
     build:
@@ -57,8 +56,6 @@ services:
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup_devnet.json
       - --sequencer.enabled=true
-    networks:
-      - opnet
 
   op-node-verifier:
     build:
@@ -79,8 +76,6 @@ services:
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup_devnet.json
-    networks:
-      - opnet
 
   caff-node:
     build:
@@ -102,8 +97,7 @@ services:
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup_devnet.json
       - --caff.node=true
-    networks:
-      - opnet
+    restart: "no"
 
   op-batcher:
     build:
@@ -124,8 +118,6 @@ services:
       - --rollup-rpc=http://op-node-sequencer:8545
       - --espresso-url=http://espresso-dev-node:24000
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-    networks:
-      - opnet
 
   op-proposer:
     build:
@@ -143,8 +135,6 @@ services:
       - --rollup-rpc=http://op-node-sequencer:8545
       - --game-factory-address=0xDC9a4dba410aaC9D98a848710Aa82601752DBd44
       - --proposal-interval=10m
-    networks:
-      - opnet
 
   op-deployer:
     build:
@@ -156,8 +146,6 @@ services:
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     restart: "no"
-    networks:
-      - opnet
 
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
@@ -167,14 +155,9 @@ services:
       - "31003:31003" # Espresso builder
     volumes:
       - espresso-data:/data
-    networks:
-      - opnet
     environment:
       RUST_LOG: info
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
-
-networks:
-  opnet:
 
 volumes:
   l1-data:

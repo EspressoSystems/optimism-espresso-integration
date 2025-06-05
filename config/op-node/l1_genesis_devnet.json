@@ -4,17 +4,20 @@
     "homesteadBlock": 0,
     "eip150Block": 0,
     "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0,
-    "berlinBlock": 0,
-    "londonBlock": 0,
-    "terminalTotalDifficulty": "0"
+    "terminalTotalDifficulty": 1000000000000000000000000
   },
-  "difficulty": "1",
-  "gasLimit": "8000000",
-  "alloc": {},
-  "ethash": {}
+  "difficulty": "0x400",
+  "gasLimit": "30000000",
+  "alloc": {
+    "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": {
+      "balance": "1000000000000000000000000000"
+    }
+  },
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "nonce": "0x0",
+  "timestamp": "0x0",
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
 }
