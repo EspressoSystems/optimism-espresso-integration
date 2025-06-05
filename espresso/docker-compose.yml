@@ -10,15 +10,28 @@ services:
     build:
       context: ../ops/docker/deployment-utils
     image: l1-geth:espresso
+    volumes:
+      - ${PWD}/../config/op-node/l1_genesis_devnet.json:/l1_genesis_devnet.json
+      - l1-data:/data
     command:
-      - geth
-      - --http
-      - --http.addr=0.0.0.0
-      - --http.api=eth,net,web3,personal,miner,admin
-      - --http.port=8545
-      - --nodiscover
-      - --dev
-      - --miner.etherbase=0x0000000000000000000000000000000000000000
+      - sh
+      - -c
+      - |
+        if [ ! -d /data/geth ]; then
+          geth --datadir /data init /l1_genesis_devnet.json;
+        fi
+        geth --datadir /data \
+          --networkid 900 \
+          --http \
+          --http.addr=0.0.0.0 \
+          --http.api=eth,net,web3,personal,miner,admin \
+          --http.port=8545 \
+          --http.vhosts=* \
+          --http.corsdomain=* \
+          --nodiscover \
+          --miner.etherbase=0x0000000000000000000000000000000000000000 \
+          --mine \
+          --allow-insecure-unlock
     ports:
       - "8545:8545" # L1 RPC
     networks:
@@ -164,4 +177,5 @@ networks:
   opnet:
 
 volumes:
+  l1-data:
   espresso-data:
