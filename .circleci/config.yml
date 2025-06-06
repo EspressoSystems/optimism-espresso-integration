@@ -1553,7 +1553,7 @@ jobs:
   analyze-op-program-client:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - setup_remote_docker
@@ -1809,6 +1809,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-coverage:
+          filters: "false"
           # Generate coverage reports.
           name: contracts-bedrock-coverage
           test_timeout: 1h
@@ -1819,6 +1820,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests-upgrade:
+          filters: "false"
           name: contracts-bedrock-tests-upgrade
           fork_op_chain: op
           fork_base_chain: mainnet
@@ -1864,6 +1866,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - fuzz-golang:
+          filters: "false"
           name: op-e2e-fuzz
           package_name: op-e2e
           on_changes: op-e2e,packages/contracts-bedrock/src
