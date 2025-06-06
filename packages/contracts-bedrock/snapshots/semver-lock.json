@@ -1,7 +1,7 @@
 {
-  "src/L1/BatchAuthenticator.sol": {
-    "initCodeHash": "0x1dd6b49695b9b272350ddc74c25c8c2f094e8e16319ab0a53900ed67a9d84996",
-    "sourceCodeHash": "0x362fbdd80ad2d98ec3dc81d377e50e0749fd67135b5aac942b3fc3cb2f58be38"
+  "src/L1/BatchAuthenticator.sol:BatchAuthenticator": {
+    "initCodeHash": "0x90f154249a328699903e02c068f01f4f99fc9b5d79bccc4104fd006fdaaec4df",
+    "sourceCodeHash": "0xb0769be04670274b46231d81eb19b7bac6f2f8d4b4989ad9dda4aea85ef6166d"
   },
   "src/L1/DataAvailabilityChallenge.sol:DataAvailabilityChallenge": {
     "initCodeHash": "0xacbae98cc7c0f7ecbf36dc44bbf7cb0a011e6e6b781e28b9dbf947e31482b30d",
@@ -28,7 +28,7 @@
     "sourceCodeHash": "0x6e228dcfb910b44b06ced59e075a450e829ccbe173992099d825fa87264f0397"
   },
   "src/L1/OptimismPortal2.sol:OptimismPortal2": {
-    "initCodeHash": "0xbc7db7b1016025228d99a40db1760290b333bb90563dff5514fd253fd91019ba",
+    "initCodeHash": "0x059e5d7ad4054097b7f6261988ff489b53b5aa048b0ebc064fbebf47e10ce3f6",
     "sourceCodeHash": "0x367e0a1c609e3c82db41a8c5e056108cbbae58d61bfeb08707449655485ba8ab"
   },
   "src/L1/ProtocolVersions.sol:ProtocolVersions": {
