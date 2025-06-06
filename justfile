@@ -51,8 +51,8 @@ gen-bindings:
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
-espresso-enclave-tests: compile-contracts build-batcher-enclave-image
- ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout=30m -p=1 -count=1 ./espresso/enclave-tests/...
+espresso-enclave-tests timeout=espresso_tests_timeout: compile-contracts build-batcher-enclave-image
+ ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
