@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum-optimism/optimism/op-e2e/faultproofs"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -257,6 +258,124 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	}
 
 	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
+
+	if l.AltDa {
+		sysConfig.DeployConfig.UseAltDA = true
+		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
+		sysConfig.DeployConfig.DAChallengeWindow = 16
+		sysConfig.DeployConfig.DAResolveWindow = 16
+		sysConfig.DeployConfig.DABondSize = 1000000
+		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
+		sysConfig.BatcherMaxPendingTransactions = 0
+		sysConfig.BatcherBatchType = 0
+		sysConfig.DataAvailabilityType = flags.CalldataType
+	}
+
+	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
+	sysConfig.DeployConfig.L1BlockTime = 2
+
+	sysConfig.DeployConfig.DeployCeloContracts = true
+
+	// Ensure that we fund the dev accounts
+	sysConfig.DeployConfig.FundDevAccounts = true
+
+	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
+	sysConfig.L1Allocs[ESPRESSO_CONTRACT_ACCOUNT] = types.Account{
+		Nonce:   100000,          // Set the nonce to avoid collisions with predeployed contracts
+		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
+	}
+
+	//Set up the L1Allocs in the system config
+	for address, account := range ESPRESSO_ALLOCS {
+		sysConfig.L1Allocs[address] = account.State
+	}
+
+	initialOptions := []DevNetLauncherOption{
+		allowHostDockerInternalVirtualHost(),
+		launchEspressoDevNodeDocker(),
+	}
+
+	if l.EnclaveBatcher {
+		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
+	}
+
+	launchContext := DevNetLauncherContext{
+		Ctx:       originalCtx,
+		SystemCfg: &sysConfig,
+	}
+
+	allOptions := append(initialOptions, options...)
+
+	// getOptions := map[string][]geth.GethOption{}
+	startOptions := []e2esys.StartOption{}
+
+	for _, opt := range allOptions {
+		options := opt(&launchContext)
+
+		if gethOption := options.GethOptions; gethOption != nil {
+			for k, v := range gethOption {
+				sysConfig.GethOptions[k] = append(sysConfig.GethOptions[k], v...)
+			}
+		}
+
+		if startOption := options.StartOptions; startOption != nil {
+			startOptions = append(startOptions, startOption...)
+		}
+
+		if sysConfigOption := options.SysConfigOption; sysConfigOption != nil {
+			sysConfigOption(&sysConfig)
+		}
+	}
+
+	// We want to run the espresso-dev-node.  But we need it to be able to
+	// access the L1 node.
+
+	system, err := sysConfig.Start(
+		t,
+
+		startOptions...,
+	)
+	launchContext.System = system
+
+	if err != nil {
+		if system != nil {
+			// We don't want the system running in a partial / incomplete
+			// state. So we'll tell it to stop here, just in case.
+			system.Close()
+		}
+
+		return system, nil, err
+	}
+
+	// Auto System Cleanup tied to the passed in context.
+	{
+		// We want to ensure that the lifecycle of the system node is tied to
+		// the context we were given, just like the espresso-dev-node.  So if
+		// the context is canceled, or otherwise closed, it will automatically
+		// clean up the system.
+		go (func(ctx context.Context) {
+			<-ctx.Done()
+
+			// The system is guaranteed to not be null here.
+			system.Close()
+		})(originalCtx)
+	}
+
+	return system, launchContext.EspressoDevNode, launchContext.Error
+}
+
+func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+
+	originalCtx := ctx
+
+	var allocOpt e2esys.SystemConfigOpt
+	if l.EnclaveBatcher {
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
+	} else {
+		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
+	}
+
+	sysConfig := faultproofs.GetFaultDisputeSystemConfig(t, []e2esys.SystemConfigOpt{allocOpt})
 
 	if l.AltDa {
 		sysConfig.DeployConfig.UseAltDA = true
