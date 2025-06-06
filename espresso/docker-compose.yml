@@ -11,30 +11,58 @@ services:
       context: ../ops/docker/deployment-utils
     image: l1-geth:espresso
     volumes:
-      - ../config/op-node/l1_genesis_devnet.json:/l1_genesis_devnet.json:ro
       - l1-data:/data
     command:
-      - sh
-      - -c
-      - |
-        set -e
-        rm -rf /data/geth || true
-        geth --datadir /data init /l1_genesis_devnet.json
-        exec geth --datadir /data \
-          --networkid 900 \
-          --http \
-          --http.addr=0.0.0.0 \
-          --http.api=eth,net,web3,admin \
-          --http.port=8545 \
-          --http.vhosts=* \
-          --http.corsdomain=* \
-          --nodiscover \
-          --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
-          --mine \
-          --allow-insecure-unlock \
-          --rpc.allow-unprotected-txs
+      - geth
+      - --datadir=/data
+      - --dev
+      - --dev.period=1
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.api=eth,net,web3,personal,miner,admin
+      - --http.port=8545
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --allow-insecure-unlock
+      - --rpc.allow-unprotected-txs
     ports:
       - "8545:8545" # L1 RPC
+
+  op-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
+    depends_on:
+      l1:
+        condition: service_healthy
+    volumes:
+      - ../config:/config
+      - op-geth-data:/data
+    environment:
+      L1_RPC: http://l1:8545
+    command:
+      - --datadir=/data
+      - --dev
+      - --dev.period=1
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,admin,txpool
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/config/jwt.txt
+      - --rollup.disabletxpoolgossip=true
+      - --rollup.sequencerhttp=http://op-node-sequencer:8545
+      - --networkid=1
+    ports:
+      - "8546:8545"  # L2 RPC
+      - "8551:8551"  # Engine API
+    healthcheck:
+      test: ["CMD-SHELL", "geth attach --exec eth.blockNumber http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   op-node-sequencer:
     build:
@@ -85,6 +113,8 @@ services:
     image: caff-node:espresso
     depends_on:
       l1:
+        condition: service_healthy
+      op-geth:
         condition: service_healthy
     environment:
       L1_RPC: http://l1:8545
@@ -161,4 +191,5 @@ services:
 
 volumes:
   l1-data:
+  op-geth-data:
   espresso-data:

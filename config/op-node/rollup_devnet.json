@@ -1,11 +1,11 @@
 {
   "genesis": {
     "l1": {
-      "hash": "0xf39446e09aeca67452545d06a6e6a6a11184575ecf421f9306cf3602febf93ba",
+      "hash": "0x4c8f0d9a4a3b74af1e659e2bec3c6cb1a47d375b96f04365bf582d4de14f1e20",
       "number": 1
     },
     "l2": {
-      "hash": "0x2a92ff72dad302d39fa80ef81522f0ccb27dc903255b618dfc4feddb22a8f80d",
+      "hash": "0x31056b16ee004e3a4fa0880aa291113ed16d278b8545f75d258a5a9dd3ed3cc1",
       "number": 0
     },
     "l2_time": 1728358574,
@@ -20,8 +20,8 @@
   "max_sequencer_drift": 300,
   "seq_window_size": 200,
   "channel_timeout": 120,
-  "l1_chain_id": 900,
-  "l2_chain_id": 901,
+  "l1_chain_id": 1337,
+  "l2_chain_id": 1,
   "batch_inbox_address": "0xff00000000000000000000000000000000000901",
   "deposit_contract_address": "0x55bdfb0bfef1070c457124920546359426153833"
 }
