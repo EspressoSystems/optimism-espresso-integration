@@ -40,8 +40,6 @@ services:
       L1_RPC: http://l1:8545
     command:
       - --datadir=/data
-      - --dev
-      - --dev.period=1
       - --http
       - --http.addr=0.0.0.0
       - --http.port=8545
@@ -58,11 +56,6 @@ services:
     ports:
       - "8546:8545"  # L2 RPC
       - "8551:8551"  # Engine API
-    healthcheck:
-      test: ["CMD-SHELL", "geth attach --exec eth.blockNumber http://localhost:8545"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
 
   op-node-sequencer:
     build:
@@ -73,6 +66,8 @@ services:
     depends_on:
       l1:
         condition: service_healthy
+      op-geth:
+        condition: service_started
     environment:
       L1_RPC: http://l1:8545
     volumes:
@@ -94,6 +89,8 @@ services:
     depends_on:
       l1:
         condition: service_healthy
+      op-geth:
+        condition: service_started
     environment:
       L1_RPC: http://l1:8545
     volumes:
@@ -115,7 +112,7 @@ services:
       l1:
         condition: service_healthy
       op-geth:
-        condition: service_healthy
+        condition: service_started
     environment:
       L1_RPC: http://l1:8545
     volumes:
