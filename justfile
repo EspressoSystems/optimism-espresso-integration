@@ -27,7 +27,7 @@ run-test4: compile-contracts
  go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
 
 espresso-tests: compile-contracts
- go test -timeout=32m -p=1 -count=1 ./espresso/environment
+ go test -timeout=35m -p=1 -count=1 ./espresso/environment
 
 espresso-enclave-tests: compile-contracts build-batcher-enclave-image
  ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout=30m -p=1 -count=1 ./espresso/enclave-tests/...

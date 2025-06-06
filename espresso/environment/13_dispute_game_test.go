@@ -15,13 +15,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Sishan TODO: add comment and description
-// Test the disput game still work as expected with Espresso
+// TestOutputAlphabetGameWithEspresso_ChallengerWins verifies that fraud proof challenges work correctly
+// with Espresso integration enabled. It ensures a challenger can successfully detect and win
+// against a malicious proposer, validating that the dispute resolution process remains intact
+// when using Espresso for transaction finalization.
+//
+// This test mirrors the logic from TestOutputAlphabetGame_ChallengerWins in the non-Espresso
+// implementation (op-e2e/faultproofs/output_alphabet_test.go), but runs with the Espresso-mode
+// batcher enabled.
+//
+// Test structure:
+//   - Setup: Initialize Sequencer and Batcher in Espresso mode
+//   - Action: Deploy fault dispute system and trigger challenger response
+//   - Assert: Verify challenger successfully wins the dispute game
 func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 	op_e2e.InitParallel(t)
 	ctx := context.Background()
 
-	/////// start of espresso code
+	// Start a Espresso Dev Node
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	// Start a Server to proxy requests to Espresso
@@ -38,9 +49,11 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 			rand.New(rand.NewSource(0)),
 		)),
 	)
-
 	defer server.Close()
+
+	// Start a Fault Dispute System with Espresso Dev Node
 	sys, espressoDevNode, err := launcher.StartDevNetWithFaultDisputeSystem(ctx, t, option)
+
 	l1Client := sys.NodeClient("l1")
 
 	// Signal the testnet to shut down
@@ -48,6 +61,7 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
+	// Close the system and stop the Espresso Dev Node
 	defer sys.Close()
 	defer func() {
 		err = espressoDevNode.Stop()
@@ -55,9 +69,8 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 			t.Fatalf("failed to stop espresso dev node: %v", err)
 		}
 	}()
-	/////// end of espresso code
 
-	// Pasted from `TestOutputAlphabetGame_ChallengerWins` in `op-e2e/faultproofs/output_alphabet_test.go`
+	// All the following testing code is pasted from `TestOutputAlphabetGame_ChallengerWins` in `op-e2e/faultproofs/output_alphabet_test.go`
 	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
 	game := disputeGameFactory.StartOutputAlphabetGame(ctx, "sequencer", 3, common.Hash{0xff})
 	correctTrace := game.CreateHonestActor(ctx, "sequencer")

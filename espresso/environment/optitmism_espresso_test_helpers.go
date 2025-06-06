@@ -247,8 +247,8 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
-func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-	originalCtx := ctx
+// GetDevNetConfig returns a configuration for a devnet
+func (l *EspressoDevNodeLauncherDocker) GetDevNetSysConfig(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) e2esys.SystemConfig {
 
 	var allocOpt e2esys.SystemConfigOpt
 	if l.EnclaveBatcher {
@@ -290,84 +290,11 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 		sysConfig.L1Allocs[address] = account.State
 	}
 
-	initialOptions := []DevNetLauncherOption{
-		allowHostDockerInternalVirtualHost(),
-		launchEspressoDevNodeDocker(),
-	}
-
-	if l.EnclaveBatcher {
-		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
-	}
-
-	launchContext := DevNetLauncherContext{
-		Ctx:       originalCtx,
-		SystemCfg: &sysConfig,
-	}
-
-	allOptions := append(initialOptions, options...)
-
-	// getOptions := map[string][]geth.GethOption{}
-	startOptions := []e2esys.StartOption{}
-
-	for _, opt := range allOptions {
-		options := opt(&launchContext)
-
-		if gethOption := options.GethOptions; gethOption != nil {
-			for k, v := range gethOption {
-				sysConfig.GethOptions[k] = append(sysConfig.GethOptions[k], v...)
-			}
-		}
-
-		if startOption := options.StartOptions; startOption != nil {
-			startOptions = append(startOptions, startOption...)
-		}
-
-		if sysConfigOption := options.SysConfigOption; sysConfigOption != nil {
-			sysConfigOption(&sysConfig)
-		}
-	}
-
-	// We want to run the espresso-dev-node.  But we need it to be able to
-	// access the L1 node.
-
-	system, err := sysConfig.Start(
-		t,
-
-		startOptions...,
-	)
-	launchContext.System = system
-
-	if err != nil {
-		if system != nil {
-			// We don't want the system running in a partial / incomplete
-			// state. So we'll tell it to stop here, just in case.
-			system.Close()
-		}
-
-		return system, nil, err
-	}
-
-	// Auto System Cleanup tied to the passed in context.
-	{
-		// We want to ensure that the lifecycle of the system node is tied to
-		// the context we were given, just like the espresso-dev-node.  So if
-		// the context is canceled, or otherwise closed, it will automatically
-		// clean up the system.
-		go (func(ctx context.Context) {
-			<-ctx.Done()
-
-			// The system is guaranteed to not be null here.
-			system.Close()
-		})(originalCtx)
-	}
-
-	return system, launchContext.EspressoDevNode, launchContext.Error
+	return sysConfig
 }
 
-func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-
-	originalCtx := ctx
-
+// GetDevNetWithFaultDisputeSysConfig returns a configuration for a devnet with a Fault Dispute System
+func (l *EspressoDevNodeLauncherDocker) GetDevNetWithFaultDisputeSysConfig(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) e2esys.SystemConfig {
 	var allocOpt e2esys.SystemConfigOpt
 	if l.EnclaveBatcher {
 		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
@@ -375,6 +302,7 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx co
 		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
 	}
 
+	// Get a Fault Dispute System configuration with Espresso Dev Node allocation
 	sysConfig := faultproofs.GetFaultDisputeSystemConfig(t, []e2esys.SystemConfigOpt{allocOpt})
 
 	if l.AltDa {
@@ -408,6 +336,11 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx co
 		sysConfig.L1Allocs[address] = account.State
 	}
 
+	return sysConfig
+}
+
+// GetDevNetStartOptions returns the start options for the devnet
+func (l *EspressoDevNodeLauncherDocker) GetDevNetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...DevNetLauncherOption) ([]e2esys.StartOption, *DevNetLauncherContext) {
 	initialOptions := []DevNetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
 		launchEspressoDevNodeDocker(),
@@ -419,12 +352,11 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx co
 
 	launchContext := DevNetLauncherContext{
 		Ctx:       originalCtx,
-		SystemCfg: &sysConfig,
+		SystemCfg: sysConfig,
 	}
 
 	allOptions := append(initialOptions, options...)
 
-	// getOptions := map[string][]geth.GethOption{}
 	startOptions := []e2esys.StartOption{}
 
 	for _, opt := range allOptions {
@@ -441,9 +373,19 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx co
 		}
 
 		if sysConfigOption := options.SysConfigOption; sysConfigOption != nil {
-			sysConfigOption(&sysConfig)
+			sysConfigOption(sysConfig)
 		}
 	}
+
+	return startOptions, &launchContext
+}
+
+func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+
+	sysConfig := l.GetDevNetSysConfig(ctx, t, options...)
+
+	originalCtx := ctx
+	startOptions, launchContext := l.GetDevNetStartOptions(originalCtx, t, &sysConfig, options...)
 
 	// We want to run the espresso-dev-node.  But we need it to be able to
 	// access the L1 node.
@@ -453,7 +395,47 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx co
 
 		startOptions...,
 	)
-	launchContext.System = system
+
+	if err != nil {
+		if system != nil {
+			// We don't want the system running in a partial / incomplete
+			// state. So we'll tell it to stop here, just in case.
+			system.Close()
+		}
+
+		return system, nil, err
+	}
+
+	// Auto System Cleanup tied to the passed in context.
+	{
+		// We want to ensure that the lifecycle of the system node is tied to
+		// the context we were given, just like the espresso-dev-node.  So if
+		// the context is canceled, or otherwise closed, it will automatically
+		// clean up the system.
+		go (func(ctx context.Context) {
+			<-ctx.Done()
+
+			// The system is guaranteed to not be null here.
+			system.Close()
+		})(originalCtx)
+	}
+
+	return system, launchContext.EspressoDevNode, launchContext.Error
+}
+
+// StartDevNetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
+func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+
+	sysConfig := l.GetDevNetWithFaultDisputeSysConfig(ctx, t, options...)
+
+	originalCtx := ctx
+	startOptions, launchContext := l.GetDevNetStartOptions(originalCtx, t, &sysConfig, options...)
+
+	system, err := sysConfig.Start(
+		t,
+
+		startOptions...,
+	)
 
 	if err != nil {
 		if system != nil {
