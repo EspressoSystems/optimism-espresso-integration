@@ -14,14 +14,14 @@
           inputs.foundry.overlay
         ];
 
-         go_1_22_7 = pkgs.go_1_22.overrideAttrs (oldAttrs: rec {
-           version = "1.22.7";
+        go_1_22_7 = pkgs.go_1_22.overrideAttrs (oldAttrs: rec {
+          version = "1.22.7";
 
-           src = pkgs.fetchurl {
-             url = "https://go.dev/dl/go1.22.7.src.tar.gz";
-             sha256 = "sha256-ZkMth9heDPrD7f/mN9WTD8Td9XkzE/4R5KDzMwI8h58=";
-           };
-         });
+          src = pkgs.fetchurl {
+            url = "https://go.dev/dl/go1.22.7.src.tar.gz";
+            sha256 = "sha256-ZkMth9heDPrD7f/mN9WTD8Td9XkzE/4R5KDzMwI8h58=";
+          };
+        });
 
         espresso_go_lib_version = "v0.0.35";
         pkgs = import inputs.nixpkgs { inherit overlays system; };
@@ -64,7 +64,7 @@
           pname = "enclaver";
           version = "0.5.0";
 
-           src = pkgs.fetchFromGitHub {
+          src = pkgs.fetchFromGitHub {
             owner = "enclaver-io";
             repo = pname;
             rev = "v${version}";
@@ -77,36 +77,36 @@
           buildAndTestSubdir = cargoRoot;
         };
 
-
-
       in
       {
 
         formatter = pkgs.nixfmt-rfc-style;
 
-        devShell = pkgs.mkShell {
-          packages = [
-            enclaver
-            pkgs.jq
-            pkgs.yq-go
-            pkgs.uv
-            pkgs.shellcheck
-            pkgs.python311
-            pkgs.foundry-bin
-            pkgs.just
-            go_1_22_7
-            pkgs.gotools
-            pkgs.go-ethereum
-            pkgs.golangci-lint
-          ];
-          shellHook = ''
-            export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
-            export DOWNLOADED_FILE_PATH=${espressoGoLibFile}
-            echo "Espresso go library ${espresso_go_lib_version} stored at $DOWNLOADED_FILE_PATH"
-            ln -sf ${espressoGoLibFile} ${target_link}
-            export CGO_LDFLAGS="${cgo_ld_flags}"
-            export MACOSX_DEPLOYMENT_TARGET=14.5
-          '';
+        devShells = {
+          default = pkgs.mkShell {
+            packages = [
+              enclaver
+              pkgs.jq
+              pkgs.yq-go
+              pkgs.uv
+              pkgs.shellcheck
+              pkgs.python311
+              pkgs.foundry-bin
+              pkgs.just
+              go_1_22_7
+              pkgs.gotools
+              pkgs.go-ethereum
+              pkgs.golangci-lint
+            ];
+            shellHook = ''
+              export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+              export DOWNLOADED_FILE_PATH=${espressoGoLibFile}
+              echo "Espresso go library ${espresso_go_lib_version} stored at $DOWNLOADED_FILE_PATH"
+              ln -sf ${espressoGoLibFile} ${target_link}
+              export CGO_LDFLAGS="${cgo_ld_flags}"
+              export MACOSX_DEPLOYMENT_TARGET=14.5
+            '';
+          };
         };
       }
     );
