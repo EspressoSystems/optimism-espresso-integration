@@ -40,6 +40,7 @@ services:
       L1_RPC: http://l1:8545
     command:
       - --datadir=/data
+      - --networkid=1
       - --http
       - --http.addr=0.0.0.0
       - --http.port=8545
@@ -52,7 +53,8 @@ services:
       - --authrpc.jwtsecret=/config/jwt.txt
       - --rollup.disabletxpoolgossip=true
       - --rollup.sequencerhttp=http://op-node-sequencer:8545
-      - --networkid=1
+      - --nodiscover
+      - --maxpeers=0
     ports:
       - "8546:8545"  # L2 RPC
       - "8551:8551"  # Engine API
@@ -64,8 +66,6 @@ services:
       target: op-node-target
     image: op-node-sequencer:espresso
     depends_on:
-      l1:
-        condition: service_healthy
       op-geth:
         condition: service_started
     environment:
@@ -87,8 +87,6 @@ services:
       target: op-node-target
     image: op-node-verifier:espresso
     depends_on:
-      l1:
-        condition: service_healthy
       op-geth:
         condition: service_started
     environment:
@@ -109,12 +107,13 @@ services:
       target: op-node-target
     image: caff-node:espresso
     depends_on:
-      l1:
-        condition: service_healthy
       op-geth:
+        condition: service_started
+      espresso-dev-node:
         condition: service_started
     environment:
       L1_RPC: http://l1:8545
+      CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
     volumes:
       - ../config:/config
     command:
@@ -124,6 +123,16 @@ services:
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup_devnet.json
       - --caff.node=true
+      - --sequencer.enabled=false
+      - --verifier.l1-confs=0
+      - --rollup.load-protocol-versions=false
+      - --rollup.halt=none
+      - --l1.trustrpc=true
+      - --rpc.enable-admin=true
+      - --caff.hotshot-urls=http://espresso-dev-node:24000
+      - --caff.next-hotshot-block-num=1
+      - --caff.polling-hotshot-polling-interval=500ms
+      - --log.level=debug
     restart: "no"
 
   op-batcher:

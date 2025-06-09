@@ -1,11 +1,11 @@
 {
   "genesis": {
     "l1": {
-      "hash": "0x6e86c41fc61b6f7082ba02ba3aaeed57fbe25336194f5bf722b0f300cbbbba2f",
+      "hash": "0x01f56292a859b15483339344a0e81cbd8357aa043eaf78e73d1a19208b6a00be",
       "number": 1
     },
     "l2": {
-      "hash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
+      "hash": "0x989d7c9b1642192d130f73d6bd1f80c0719ed3fbe15ea1219a87af85025ea0d1",
       "number": 0
     },
     "l2_time": 1728358574,
@@ -23,5 +23,16 @@
   "l1_chain_id": 1337,
   "l2_chain_id": 1,
   "batch_inbox_address": "0xff00000000000000000000000000000000000901",
-  "deposit_contract_address": "0x55bdfb0bfef1070c457124920546359426153833"
+  "deposit_contract_address": "0x55bdfb0bfef1070c457124920546359426153833",
+  "chain_op_config": {
+    "eip1559Elasticity": 6,
+    "eip1559Denominator": 50,
+    "eip1559DenominatorCanyon": 250
+  },
+  "alt_da": {
+    "da_challenge_contract_address": "0x0000000000000000000000000000000000000000",
+    "da_commitment_type": "GenericCommitment",
+    "da_challenge_window": 160,
+    "da_resolve_window": 160
+  }
 }
