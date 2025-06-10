@@ -35,24 +35,8 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 	// Start a Espresso Dev Node
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	// Start a Server to proxy requests to Espresso
-	_, server, option := env.SetupQueryServiceIntercept(
-		// This decider will randomly report successful submissions of
-		// transactions to Espresso, but will not actually submit them.
-		// This will approximately occur 10% of the time, given the
-		// criteria to roll a number 0-9 and only to occur if the rolled
-		// number is 0.
-		env.SetDecider(env.NewRandomRollFakeSubmitTransactionSuccess(
-			10,
-			0,
-			1,
-			rand.New(rand.NewSource(0)),
-		)),
-	)
-	defer server.Close()
-
 	// Start a Fault Dispute System with Espresso Dev Node
-	sys, espressoDevNode, err := launcher.StartDevNetWithFaultDisputeSystem(ctx, t, option)
+	sys, espressoDevNode, err := launcher.StartDevNetWithFaultDisputeSystem(ctx, t)
 
 	l1Client := sys.NodeClient("l1")
 
