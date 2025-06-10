@@ -688,6 +688,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 
 	var rollupAltDAConfig *rollup.AltDAConfig
 	if cfg.DeployConfig.UseAltDA {
+		log.Info("entering line 691 of setup.go")
 		rollupAltDAConfig = &rollup.AltDAConfig{
 			DAChallengeAddress: cfg.L1Deployments.DataAvailabilityChallengeProxy,
 			DAChallengeWindow:  cfg.DeployConfig.DAChallengeWindow,
@@ -877,6 +878,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// The altDACLIConfig is shared by the batcher and rollup nodes.
 	var altDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
+		log.Info("entering line 880 of setup.go")
 		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
 		if err := fakeAltDAServer.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)

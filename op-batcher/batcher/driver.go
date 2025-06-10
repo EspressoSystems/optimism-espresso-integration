@@ -823,6 +823,7 @@ func (l *BatchSubmitter) publishTxToL1(ctx context.Context, queue *txmgr.Queue[t
 	// that the daGroup has not reached the maximum number of goroutines.
 	// This is to prevent blocking the main event loop when submitting the data to the DA Provider.
 	if l.Config.UseAltDA && !daGroup.TryGo(func() error { return nil }) {
+		l.Log.Error(" 826 AltDA mode: daGroup has reached maximum number of goroutines")
 		return io.EOF
 	}
 	// Collect next transaction data. This pulls data out of the channel, so we need to make sure
@@ -928,6 +929,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 	var candidate *txmgr.TxCandidate
 	switch txdata.daType {
 	case DaTypeAltDA:
+		l.Log.Error("932 enter case DaTypeAltDA")
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}

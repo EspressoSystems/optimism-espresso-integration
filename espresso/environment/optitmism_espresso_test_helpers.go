@@ -260,12 +260,13 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	if l.AltDa {
 		sysConfig.DeployConfig.UseAltDA = true
-		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
+		sysConfig.DeployConfig.DACommitmentType = "GenericCommitment"
 		sysConfig.DeployConfig.DAChallengeWindow = 16
 		sysConfig.DeployConfig.DAResolveWindow = 16
 		sysConfig.DeployConfig.DABondSize = 1000000
 		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
-		sysConfig.BatcherMaxPendingTransactions = 0
+		sysConfig.BatcherMaxPendingTransactions = 1
+		sysConfig.BatcherMaxConcurrentDARequest = 1
 		sysConfig.BatcherBatchType = 0
 		sysConfig.DataAvailabilityType = flags.CalldataType
 	}
