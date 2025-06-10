@@ -11,20 +11,27 @@ services:
       context: ../ops/docker/deployment-utils
     image: l1-geth:espresso
     volumes:
+      - ../config/l1-genesis-devnet.json:/l1-genesis-devnet.json:ro
       - l1-data:/data
     command:
-      - geth
-      - --datadir=/data
-      - --dev
-      - --dev.period=1
-      - --http
-      - --http.addr=0.0.0.0
-      - --http.api=eth,net,web3,personal,miner,admin
-      - --http.port=8545
-      - --http.vhosts=*
-      - --http.corsdomain=*
-      - --allow-insecure-unlock
-      - --rpc.allow-unprotected-txs
+      - sh
+      - -c
+      - |
+        set -e
+        rm -rf /data/geth || true
+        geth --datadir /data init /l1-genesis-devnet.json
+        exec geth --datadir /data \
+          --http \
+          --http.addr=0.0.0.0 \
+          --http.api=eth,net,web3,admin \
+          --http.port=8545 \
+          --http.vhosts=* \
+          --http.corsdomain=* \
+          --nodiscover \
+          --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
+          --mine \
+          --allow-insecure-unlock \
+          --rpc.allow-unprotected-txs
     ports:
       - "8545:8545" # L1 RPC
 
@@ -77,7 +84,7 @@ services:
       - --l1=http://l1:8545
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup_devnet.json
+      - --rollup.config=/config/op-node/rollup-devnet.json
       - --sequencer.enabled=true
 
   op-node-verifier:
@@ -98,7 +105,7 @@ services:
       - --l1=http://l1:8545
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup_devnet.json
+      - --rollup.config=/config/op-node/rollup-devnet.json
 
   caff-node:
     build:
@@ -121,7 +128,7 @@ services:
       - --l1=http://l1:8545
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup_devnet.json
+      - --rollup.config=/config/op-node/rollup-devnet.json
       - --caff.node=true
       - --sequencer.enabled=false
       - --verifier.l1-confs=0
