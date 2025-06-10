@@ -36,7 +36,7 @@
   },
   {
     "bytes": "32",
-    "label": "validBatches",
+    "label": "validBatchInfo",
     "offset": 0,
     "slot": "101",
     "type": "mapping(bytes32 => bool)"

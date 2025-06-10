@@ -24,7 +24,7 @@ var excludeContracts = []string{
 	"IHasSuperchainConfig",
 
 	// Espresso dependencies
-	"IBatchInbox", "IBatchAuthenticator", "IEspressoNitroTEEVerifier",
+	"IBatchInbox", "IBatchAuthenticator", "IEspressoTEEVerifier", "IEspressoNitroTEEVerifier",
 	"ICertManager", "BatchAuthenticator", "INitroValidator",
 
 	// EAS
