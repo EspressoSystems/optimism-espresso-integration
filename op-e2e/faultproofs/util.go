@@ -108,8 +108,8 @@ func StartFaultDisputeSystem(t *testing.T, opts ...faultDisputeConfigOpts) (*e2e
 	return sys, sys.NodeClient("l1")
 }
 
-// GetFaultDisputeSystemConfig returns a Fault Dispute System configuration with another set of options
-func GetFaultDisputeSystemConfig(t *testing.T, original_opts []e2esys.SystemConfigOpt, opts ...faultDisputeConfigOpts) e2esys.SystemConfig {
+// GetFaultDisputeSystemConfigForEspresso returns a Fault Dispute System configuration with another set of options
+func GetFaultDisputeSystemConfigForEspresso(t *testing.T, original_opts []e2esys.SystemConfigOpt, opts ...faultDisputeConfigOpts) e2esys.SystemConfig {
 	fdc := new(faultDisputeConfig)
 	for _, opt := range opts {
 		opt(fdc)
@@ -120,7 +120,7 @@ func GetFaultDisputeSystemConfig(t *testing.T, original_opts []e2esys.SystemConf
 
 	// all the following options are specific to Fault Dispute System
 	// they're pasted from `StartFaultDisputeSystem` in `op-e2e/faultproofs/util.go`(same file)
-	delete(cfg.Nodes, "verifier")
+	// and we remove the line `delete(cfg.Nodes, "verifier")`
 	cfg.Nodes["sequencer"].SafeDBPath = t.TempDir()
 	cfg.DeployConfig.SequencerWindowSize = 30
 	cfg.DeployConfig.FinalizationPeriodSeconds = 2

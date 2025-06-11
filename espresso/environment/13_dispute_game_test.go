@@ -2,17 +2,18 @@ package environment_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
+	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/disputegame"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 )
 
 // TestOutputAlphabetGameWithEspresso_ChallengerWins verifies that fraud proof challenges work correctly
@@ -36,7 +37,7 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	// Start a Fault Dispute System with Espresso Dev Node
-	sys, espressoDevNode, err := launcher.StartDevNetWithFaultDisputeSystem(ctx, t)
+	sys, espressoDevNode, err := launcher.StartDevNetWithFaultDisputeSystem(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 
 	l1Client := sys.NodeClient("l1")
 
@@ -53,6 +54,21 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 			t.Fatalf("failed to stop espresso dev node: %v", err)
 		}
 	}()
+
+	// Launch a Caff Node and check it can still make progress
+	caffNode, err := env.LaunchCaffNode(t, sys, espressoDevNode)
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
+
+	// Shut down the Caff Node
+	defer env.Stop(t, caffNode)
+	caffClient := sys.NodeClient(env.RoleCaffNode)
+	time.Sleep(5 * time.Second)
+	caffL2Head, err := caffClient.BlockByNumber(ctx, nil)
+	require.NoError(t, err)
+	// make sure caff node still make progress
+	require.GreaterOrEqual(t, caffL2Head.Number().Int64(), int64(5))
 
 	// All the following testing code is pasted from `TestOutputAlphabetGame_ChallengerWins` in `op-e2e/faultproofs/output_alphabet_test.go`
 	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)

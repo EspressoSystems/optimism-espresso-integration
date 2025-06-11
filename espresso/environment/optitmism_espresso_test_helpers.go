@@ -303,7 +303,7 @@ func (l *EspressoDevNodeLauncherDocker) GetDevNetWithFaultDisputeSysConfig(ctx c
 	}
 
 	// Get a Fault Dispute System configuration with Espresso Dev Node allocation
-	sysConfig := faultproofs.GetFaultDisputeSystemConfig(t, []e2esys.SystemConfigOpt{allocOpt})
+	sysConfig := faultproofs.GetFaultDisputeSystemConfigForEspresso(t, []e2esys.SystemConfigOpt{allocOpt})
 
 	if l.AltDa {
 		sysConfig.DeployConfig.UseAltDA = true
