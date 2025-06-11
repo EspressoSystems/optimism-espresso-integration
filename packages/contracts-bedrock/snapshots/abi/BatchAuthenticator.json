@@ -28,7 +28,7 @@
         "type": "bytes"
       }
     ],
-    "name": "authenticateBatch",
+    "name": "authenticateBatchInfo",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -155,7 +155,7 @@
         "type": "bytes32"
       }
     ],
-    "name": "validBatches",
+    "name": "validBatchInfo",
     "outputs": [
       {
         "internalType": "bool",

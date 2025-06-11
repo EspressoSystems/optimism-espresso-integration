@@ -874,20 +874,30 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		}
 	}
 
-	// Rollup nodes
-
-	// Ensure we are looping through the nodes in alphabetical order
-	ks := maps.Keys(cfg.Nodes)
-	// Sort strings in ascending alphabetical order
-	sort.Strings(ks)
-
+	// The altDACLIConfig is shared by the batcher and rollup nodes.
+	var altDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
 		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
 		if err := fakeAltDAServer.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
 		}
 		sys.FakeAltDAServer = fakeAltDAServer
+
+		altDACLIConfig = altda.CLIConfig{
+			Enabled:               cfg.DeployConfig.UseAltDA,
+			DAServerURL:           fakeAltDAServer.HttpEndpoint(),
+			VerifyOnRead:          true,
+			GenericDA:             true,
+			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
+		}
 	}
+
+	// Rollup nodes
+
+	// Ensure we are looping through the nodes in alphabetical order
+	ks := maps.Keys(cfg.Nodes)
+	// Sort strings in ascending alphabetical order
+	sort.Strings(ks)
 
 	for _, name := range ks {
 		nodeConfig := cfg.Nodes[name]
@@ -896,16 +906,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		if err := c.LoadPersisted(cfg.Loggers[name]); err != nil {
 			return nil, err
 		}
-
-		if cfg.DeployConfig.UseAltDA {
-			c.AltDA = altda.CLIConfig{
-				VerifyOnRead: true,
-				Enabled:      true,
-				DAServerURL:  sys.FakeAltDAServer.HttpEndpoint(),
-				GenericDA:    cfg.DeployConfig.DACommitmentType == altda.GenericCommitmentString,
-			}
-		}
-
+		c.AltDA = altDACLIConfig
 		if p, ok := p2pNodes[name]; ok {
 			c.P2P = p
 
@@ -1007,16 +1008,6 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		batcherTargetNumFrames = 1
 	}
 
-	var batcherAltDACLIConfig altda.CLIConfig
-	if cfg.DeployConfig.UseAltDA {
-		batcherAltDACLIConfig = altda.CLIConfig{
-			Enabled:               cfg.DeployConfig.UseAltDA,
-			DAServerURL:           sys.FakeAltDAServer.HttpEndpoint(),
-			VerifyOnRead:          true,
-			GenericDA:             true,
-			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
-		}
-	}
 	batcherCLIConfig := &bss.CLIConfig{
 		L1EthRpc:                 sys.EthInstances[RoleL1].UserRPC().RPC(),
 		L2EthRpc:                 sys.EthInstances[RoleSeq].UserRPC().RPC(),
@@ -1040,7 +1031,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		MaxBlocksPerSpanBatch: cfg.BatcherMaxBlocksPerSpanBatch,
 		DataAvailabilityType:  sys.Cfg.DataAvailabilityType,
 		CompressionAlgo:       derive.Zlib,
-		AltDA:                 batcherAltDACLIConfig,
+		AltDA:                 altDACLIConfig,
 	}
 
 	// Apply batcher cli modifications
