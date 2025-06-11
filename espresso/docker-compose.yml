@@ -58,10 +58,8 @@ services:
       - --authrpc.port=8551
       - --authrpc.vhosts=*
       - --authrpc.jwtsecret=/config/jwt.txt
-      - --rollup.disabletxpoolgossip=true
       - --rollup.sequencerhttp=http://op-node-sequencer:8545
       - --nodiscover
-      - --maxpeers=0
     ports:
       - "8546:8545"  # L2 RPC
       - "8551:8551"  # Engine API
