@@ -220,7 +220,7 @@ docker compose down
 
 * Build and start all services in the background.
 ```
-docker compose up --build -d`
+docker compose up --build -d
 ```
 
 * Run the services and check the log.
@@ -263,5 +263,6 @@ docker run --rm \
   -v $(pwd)/../config:/config \
   -v espresso_op-geth-data:/data \
   us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3 \
-  init --datadir=/data --state.scheme=path /config/<genesis-file-name>.json
+  init --datadir=/data --state.scheme=path /config/<genesis-file>
 ```
+`<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
