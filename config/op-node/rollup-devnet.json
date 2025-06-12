@@ -1,0 +1,38 @@
+{
+  "genesis": {
+    "l1": {
+      "hash": "0xfc3c494d08d1e07af2b32ab3a4b771cdb3de9272bfe48017d7049d6af7d7e555",
+      "number": 0
+    },
+    "l2": {
+      "hash": "0x989d7c9b1642192d130f73d6bd1f80c0719ed3fbe15ea1219a87af85025ea0d1",
+      "number": 0
+    },
+    "l2_time": 1728358574,
+    "system_config": {
+      "batcherAddr": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+      "overhead": "0x0000000000000000000000000000000000000000000000000000000000000834",
+      "scalar": "0x00000000000000000000000000000000000000000000000000000000000f4240",
+      "gasLimit": 30000000
+    }
+  },
+  "block_time": 2,
+  "max_sequencer_drift": 300,
+  "seq_window_size": 200,
+  "channel_timeout": 120,
+  "l1_chain_id": 1337,
+  "l2_chain_id": 1,
+  "batch_inbox_address": "0xff00000000000000000000000000000000000901",
+  "deposit_contract_address": "0x55bdfb0bfef1070c457124920546359426153833",
+  "chain_op_config": {
+    "eip1559Elasticity": 6,
+    "eip1559Denominator": 50,
+    "eip1559DenominatorCanyon": 250
+  },
+  "alt_da": {
+    "da_challenge_contract_address": "0x0000000000000000000000000000000000000000",
+    "da_commitment_type": "GenericCommitment",
+    "da_challenge_window": 160,
+    "da_resolve_window": 160
+  }
+}
