@@ -208,3 +208,61 @@ git submodule update --init --recursive
 nix --extra-experimental-features "nix-command flakes" develop
 just espresso-enclave-tests
 ```
+
+## Docker Compose
+
+### Run Docker Compose
+
+* Shut down all containers.
+```
+docker compose down
+```
+
+* Build and start all services in the background.
+```
+docker compose up --build -d
+```
+
+* Run the services and check the log.
+```
+docker compose logs -f
+```
+
+### Investigate a Service
+
+* Shut down all containers.
+```
+docker compose down
+```
+
+* Build and start the specific service and check the log.
+```
+docker compose up <service-name>
+```
+
+### Apply a Change
+
+* In most cases, simply remove all containers and run commands as normal.
+```
+docker compose down
+```
+
+* To start the project fresh, remove containers, volumes, and network, from this project.
+```
+docker compose down -v
+```
+
+* To start the system fresh, remove all volumes.
+```
+docker volume prune -f
+```
+
+* If the genesis file is updated, initialize the chain data directory with the updated file.
+```
+docker run --rm \
+  -v $(pwd)/../config:/config \
+  -v espresso_op-geth-data:/data \
+  us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3 \
+  init --datadir=/data --state.scheme=path /config/<genesis-file>
+```
+`<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
