@@ -1,0 +1,208 @@
+# Espresso OP Integration Docker Setup
+
+services:
+  l1:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 3s
+      timeout: 2s
+      retries: 40
+    build:
+      context: ../ops/docker/deployment-utils
+    image: l1-geth:espresso
+    volumes:
+      - ../config/l1-genesis-devnet.json:/l1-genesis-devnet.json:ro
+      - l1-data:/data
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        rm -rf /data/geth || true
+        geth --datadir /data init /l1-genesis-devnet.json
+        exec geth --datadir /data \
+          --http \
+          --http.addr=0.0.0.0 \
+          --http.api=eth,net,web3,admin \
+          --http.port=8545 \
+          --http.vhosts=* \
+          --http.corsdomain=* \
+          --nodiscover \
+          --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
+          --mine \
+          --allow-insecure-unlock \
+          --rpc.allow-unprotected-txs
+    ports:
+      - "8545:8545" # L1 RPC
+
+  op-geth:
+    # If the version below is updated, update the version for `images/op-geth` in the Docker
+    # Compose section in README_ESPRESSO.md as well.
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
+    depends_on:
+      l1:
+        condition: service_healthy
+    volumes:
+      - ../config:/config
+      - op-geth-data:/data
+    environment:
+      L1_RPC: http://l1:8545
+    command:
+      - --datadir=/data
+      - --networkid=1
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,admin,txpool
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/config/jwt.txt
+      - --rollup.sequencerhttp=http://op-node-sequencer:8545
+      - --nodiscover
+    ports:
+      - "8546:8545"  # L2 RPC
+      - "8551:8551"  # Engine API
+
+  op-node-sequencer:
+    build:
+      context: ../
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+    image: op-node-sequencer:espresso
+    depends_on:
+      op-geth:
+        condition: service_started
+    environment:
+      L1_RPC: http://l1:8545
+    volumes:
+      - ../config:/config
+    command:
+      - op-node
+      - --l1=http://l1:8545
+      - --l2=http://op-geth:8551
+      - --l2.jwt-secret=/config/jwt.txt
+      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --sequencer.enabled=true
+
+  op-node-verifier:
+    build:
+      context: ../
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+    image: op-node-verifier:espresso
+    depends_on:
+      op-geth:
+        condition: service_started
+    environment:
+      L1_RPC: http://l1:8545
+    volumes:
+      - ../config:/config
+    command:
+      - op-node
+      - --l1=http://l1:8545
+      - --l2=http://op-geth:8551
+      - --l2.jwt-secret=/config/jwt.txt
+      - --rollup.config=/config/op-node/rollup-devnet.json
+
+  caff-node:
+    build:
+      context: ../
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+    image: caff-node:espresso
+    depends_on:
+      op-geth:
+        condition: service_started
+      espresso-dev-node:
+        condition: service_started
+    environment:
+      L1_RPC: http://l1:8545
+      CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+    volumes:
+      - ../config:/config
+    command:
+      - op-node
+      - --l1=http://l1:8545
+      - --l2=http://op-geth:8551
+      - --l2.jwt-secret=/config/jwt.txt
+      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --caff.node=true
+      - --sequencer.enabled=false
+      - --verifier.l1-confs=0
+      - --rollup.load-protocol-versions=false
+      - --rollup.halt=none
+      - --l1.trustrpc=true
+      - --rpc.enable-admin=true
+      - --caff.hotshot-urls=http://espresso-dev-node:24000
+      - --caff.next-hotshot-block-num=1
+      - --caff.polling-hotshot-polling-interval=500ms
+      - --log.level=debug
+    restart: "no"
+
+  op-batcher:
+    build:
+      context: ../
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-batcher-target
+    image: op-batcher:espresso
+    depends_on:
+      - op-node-sequencer
+    environment:
+      L1_RPC: http://l1:8545
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-batcher
+      - --l1-eth-rpc=http://l1:8545
+      - --l2-eth-rpc=http://op-geth:8551
+      - --rollup-rpc=http://op-node-sequencer:8545
+      - --espresso-url=http://espresso-dev-node:24000
+      - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+
+  op-proposer:
+    build:
+      context: ../
+      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      target: op-proposer-target
+    image: op-proposer:espresso
+    depends_on:
+      - op-node-sequencer
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-proposer
+      - --l1-eth-rpc=http://l1:8545
+      - --rollup-rpc=http://op-node-sequencer:8545
+      - --game-factory-address=0xDC9a4dba410aaC9D98a848710Aa82601752DBd44
+      - --proposal-interval=10m
+
+  op-deployer:
+    build:
+      context: ../
+      dockerfile: ./op-deployer/Dockerfile.default
+    image: op-deployer:espresso
+    depends_on:
+      - l1
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    restart: "no"
+
+  espresso-dev-node:
+    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
+    ports:
+      - "24000:24000" # Espresso sequencer
+      - "24002:24002" # Espresso dev node
+      - "31003:31003" # Espresso builder
+    volumes:
+      - espresso-data:/data
+    environment:
+      RUST_LOG: info
+      ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
+
+volumes:
+  l1-data:
+  op-geth-data:
+  espresso-data:
