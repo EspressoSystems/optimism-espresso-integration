@@ -58,3 +58,6 @@ gha-creds-*.json
 
 # vscode
 .vscode/
+
+# Ignore the JWT secret for devnet.
+config/jwt.txt

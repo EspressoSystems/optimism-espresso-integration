@@ -1,3 +1,10 @@
+FROM golang:1.22-bookworm AS builder
+WORKDIR /app
+COPY . .
+
+# Build the op-deployer binary
+RUN CGO_ENABLED=0 go build -o /op-deployer ./op-deployer/cmd/op-deployer
+
 FROM debian:bookworm-20240812-slim
 ENTRYPOINT ["/op-up"]
 COPY op-up /op-up

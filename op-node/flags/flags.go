@@ -577,6 +577,8 @@ var optionalFlags = []cli.Flag{
 	CaffNodeNextHotShotBlockNum,
 	CaffNodePollingHotShotPollingInterval,
 	CaffNodeHotShotUrls,
+	CaffNodeEspressoLightClientAddr,
+	CaffNodeL1EthRpc,
 }
 
 var DeprecatedFlags = []cli.Flag{
