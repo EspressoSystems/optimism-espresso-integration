@@ -58,23 +58,21 @@ jobs:
       - name: Launch EC2 Instance
         id: ec2
         run: |
+          # Amazon Linux 2023 AMI ID for us-east-1
+          AMI_ID=ami-0c2b8ca1dad447f8a
           INSTANCE_ID=$(aws ec2 run-instances \
-            --image-id ami-0c2b8ca1dad447f8a \  
-            --instance-type m6a.2xlarge \
-            --key-name github-key \
-            --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
-            --subnet-id ${{ secrets.AWS_SUBNET_ID }} \
-            --block-device-mappings '[{
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "VolumeSize": 100,
-                "VolumeType": "gp3",
-                "DeleteOnTermination": true
-              }
-            }]' \
-            --enclave-options Enabled=true \
-            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
-            --output text --query 'Instances[0].InstanceId')
+          --image-id "$AMI_ID" \
+          --count 1 \
+          --instance-type m6a.2xlarge \
+          --key-name github-key \
+          --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+          --subnet-id ${{ secrets.AWS_SUBNET_ID }} \
+          --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
+          --enclave-options Enabled=true \
+          --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
+          --output text \
+          --query 'Instances[0].InstanceId')
+
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Wait for instance to be running
