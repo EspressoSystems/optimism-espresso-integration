@@ -41,8 +41,12 @@ jobs:
           echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > github-ec2-key.pub
           aws ec2 import-key-pair --key-name github-key --public-key-material fileb://github-ec2-key.pub
 
+      - name: Get security group ID
+        id: sg
+        run: |
+          SG_ID=$(aws ec2 describe-security-groups --filters Name=group-name,Values=default --query 'SecurityGroups[0].GroupId' --output text)
+          echo "id=$SG_ID" >> $GITHUB_OUTPUT
 
-      # TODO add security group again
       - name: Launch EC2 Instance
         id: ec2
         run: |
@@ -50,7 +54,7 @@ jobs:
             --image-id ami-0c02fb55956c7d316 \
             --instance-type t2.micro \
             --key-name github-key \
-            --security-group-ids sg-0123456789abcdef0 \
+            --security-group-ids ${{ steps.sg.outputs.id }} \
             --count 1 \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubEC2}]' \
             --associate-public-ip-address \
