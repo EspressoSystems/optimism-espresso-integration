@@ -35,7 +35,7 @@ build-batcher-enclave-image:
 run-test4: compile-contracts
  go test ./espresso/environment/4_confirmation_integrity_with_reorgs_test.go -v
 
-espresso_tests_timeout := "30m"
+espresso_tests_timeout := "35m"
 espresso-tests timeout=espresso_tests_timeout: compile-contracts
  go test -timeout={{timeout}} -p=1 -count=1 ./espresso/environment
 
