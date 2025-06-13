@@ -117,6 +117,32 @@ func StartFaultDisputeSystem(t *testing.T, opts ...faultDisputeConfigOpts) (*e2e
 	return sys, sys.NodeClient("l1")
 }
 
+// GetFaultDisputeSystemConfigForEspresso returns a Fault Dispute System configuration with another set of options
+func GetFaultDisputeSystemConfigForEspresso(t *testing.T, original_opts []e2esys.SystemConfigOpt, opts ...faultDisputeConfigOpts) e2esys.SystemConfig {
+	fdc := new(faultDisputeConfig)
+	for _, opt := range opts {
+		opt(fdc)
+	}
+
+	// merge two sets of options
+	cfg := e2esys.DefaultSystemConfig(t, append(original_opts, fdc.sysOpts...)...)
+
+	// all the following options are specific to Fault Dispute System
+	// they're pasted from `StartFaultDisputeSystem` in `op-e2e/faultproofs/util.go`(same file)
+	// and we remove the line `delete(cfg.Nodes, "verifier")`
+	cfg.Nodes["sequencer"].SafeDBPath = t.TempDir()
+	cfg.DeployConfig.SequencerWindowSize = 30
+	cfg.DeployConfig.FinalizationPeriodSeconds = 2
+	cfg.SupportL1TimeTravel = true
+	// Disable proposer creating fast games automatically - required games are manually created
+	cfg.DisableProposer = true
+	for _, opt := range fdc.cfgModifiers {
+		opt(&cfg)
+	}
+
+	return cfg
+}
+
 func SendKZGPointEvaluationTx(t *testing.T, sys *e2esys.System, l2Node string, privateKey *ecdsa.PrivateKey) *types.Receipt {
 	return helpers.SendL2Tx(t, sys.Cfg, sys.NodeClient(l2Node), privateKey, func(opts *helpers.TxOpts) {
 		precompile := common.BytesToAddress([]byte{0x0a})
