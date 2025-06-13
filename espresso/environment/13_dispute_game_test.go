@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	// "time"
-
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/stretchr/testify/require"
 
