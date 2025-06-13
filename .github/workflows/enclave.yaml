@@ -26,7 +26,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # TODO fetch the public key from github
+      - name: Save public key
+        run: echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > github-ec2-key.pub
+
       - name: Upload ssh public key
         run: aws ec2 import-key-pair --key-name github-key --public-key-material fileb://github-ec2-key.pub
 
