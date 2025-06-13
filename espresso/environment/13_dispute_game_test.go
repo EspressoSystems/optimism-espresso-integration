@@ -3,7 +3,8 @@ package environment_test
 import (
 	"context"
 	"testing"
-	"time"
+
+	// "time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/stretchr/testify/require"
@@ -64,11 +65,8 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 	// Shut down the Caff Node
 	defer env.Stop(t, caffNode)
 	caffClient := sys.NodeClient(env.RoleCaffNode)
-	time.Sleep(5 * time.Second)
-	caffL2Head, err := caffClient.BlockByNumber(ctx, nil)
-	require.NoError(t, err)
-	// make sure caff node still make progress
-	require.GreaterOrEqual(t, caffL2Head.Number().Int64(), int64(5))
+	// Make sure Caff Node still make progress
+	require.NoError(t, wait.ForNextBlock(ctx, caffClient))
 
 	// All the following testing code is pasted from `TestOutputAlphabetGame_ChallengerWins` in `op-e2e/faultproofs/output_alphabet_test.go`
 	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
