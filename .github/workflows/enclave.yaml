@@ -1,0 +1,57 @@
+name: Launch & SSH EC2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  launch-and-ssh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-west-2
+
+      - name: Launch EC2 Instance
+        id: ec2
+        run: |
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ami-0c02fb55956c7d316 \
+            --count 1 \
+            --instance-type t2.micro \
+            --key-name github-key \
+            --security-groups my-sg \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubEC2}]' \
+            --query 'Instances[0].InstanceId' \
+            --output text)
+
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+
+      - name: Wait for instance to be running
+        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+      - name: Get EC2 Public DNS
+        id: dns
+        run: |
+          DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
+          echo "DNS=$DNS" >> $GITHUB_ENV
+          echo "::set-output name=dns::$DNS"
+
+      - name: Save private key
+        run: |
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: SSH into EC2 and run bootstrap script
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
+            sudo yum update -y
+            echo "Hello from GitHub Actions" > ~/hello.txt
+          EOF
