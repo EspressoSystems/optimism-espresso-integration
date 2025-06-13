@@ -53,7 +53,7 @@ jobs:
             --group-id ${{ steps.sg.outputs.id }} \
             --protocol tcp \
             --port 22 \
-            --cidr 0.0.0.0/0
+            --cidr 0.0.0.0/0 || true
 
       - name: Launch EC2 Instance
         id: ec2
