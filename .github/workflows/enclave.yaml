@@ -47,6 +47,14 @@ jobs:
           SG_ID=$(aws ec2 describe-security-groups --filters Name=group-name,Values=default --query 'SecurityGroups[0].GroupId' --output text)
           echo "id=$SG_ID" >> $GITHUB_OUTPUT
 
+      - name: Allow tcp in SG
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ steps.sg.outputs.id }} \
+            --protocol tcp \
+            --port -1 \
+            --cidr 0.0.0.0/0
+
       - name: Launch EC2 Instance
         id: ec2
         run: |
