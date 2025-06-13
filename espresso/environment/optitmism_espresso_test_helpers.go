@@ -410,7 +410,47 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 		startOptions...,
 	)
-	launchContext.System = system
+
+	if err != nil {
+		if system != nil {
+			// We don't want the system running in a partial / incomplete
+			// state. So we'll tell it to stop here, just in case.
+			system.Close()
+		}
+
+		return system, nil, err
+	}
+
+	// Auto System Cleanup tied to the passed in context.
+	{
+		// We want to ensure that the lifecycle of the system node is tied to
+		// the context we were given, just like the espresso-dev-node.  So if
+		// the context is canceled, or otherwise closed, it will automatically
+		// clean up the system.
+		go (func(ctx context.Context) {
+			<-ctx.Done()
+
+			// The system is guaranteed to not be null here.
+			system.Close()
+		})(originalCtx)
+	}
+
+	return system, launchContext.EspressoDevNode, launchContext.Error
+}
+
+// StartDevNetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
+func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+
+	sysConfig := l.GetDevNetWithFaultDisputeSysConfig(ctx, t, options...)
+
+	originalCtx := ctx
+	startOptions, launchContext := l.GetDevNetStartOptions(originalCtx, t, &sysConfig, options...)
+
+	system, err := sysConfig.Start(
+		t,
+
+		startOptions...,
+	)
 
 	if err != nil {
 		if system != nil {
