@@ -67,7 +67,7 @@ jobs:
           --key-name github-key \
           --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
           --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
-          --enclave-options Enabled=true \
+          --enclave-options "Enabled=true" \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
           --output text \
           --query 'Instances[0].InstanceId')
@@ -93,5 +93,6 @@ jobs:
       - name: SSH into EC2 and run bootstrap script
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
+            sudo localedef -i es_CL -f UTF-8 es_CL.UTF-8
             echo "Hello from GitHub Actions" > ~/hello.txt
           EOF
