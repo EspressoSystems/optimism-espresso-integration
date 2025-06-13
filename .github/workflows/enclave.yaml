@@ -52,7 +52,7 @@ jobs:
           aws ec2 authorize-security-group-ingress \
             --group-id ${{ steps.sg.outputs.id }} \
             --protocol tcp \
-            --port -1 \
+            --port 22 \
             --cidr 0.0.0.0/0
 
       - name: Launch EC2 Instance
