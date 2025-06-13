@@ -1,6 +1,13 @@
 name: Launch & SSH EC2
 
 on:
+  pull_request:
+    branches:
+      - "celo-integration*"
+  push:
+    branches:
+      - "master"
+      - "celo-integration*"
   workflow_dispatch:
 
 permissions:
