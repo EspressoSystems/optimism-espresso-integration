@@ -89,6 +89,5 @@ jobs:
       - name: SSH into EC2 and run bootstrap script
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            sudo yum update -y
             echo "Hello from GitHub Actions" > ~/hello.txt
           EOF
