@@ -66,7 +66,6 @@ jobs:
           --instance-type m6a.2xlarge \
           --key-name github-key \
           --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
-          --subnet-id ${{ secrets.AWS_SUBNET_ID }} \
           --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
           --enclave-options Enabled=true \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
