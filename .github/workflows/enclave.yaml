@@ -59,8 +59,7 @@ jobs:
         id: ec2
         run: |
           INSTANCE_ID=$(aws ec2 run-instances \
-            --image-id ami-0c2b8ca1dad447f8a \  # Amazon Linux 2023 x86_64 in us-east-1
-            --count 1 \
+            --image-id ami-0c2b8ca1dad447f8a \  
             --instance-type m6a.2xlarge \
             --key-name github-key \
             --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
@@ -73,9 +72,9 @@ jobs:
                 "DeleteOnTermination": true
               }
             }]' \
-          --enclave-options Enabled=true \
-          --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
-          --output text --query 'Instances[0].InstanceId')
+            --enclave-options Enabled=true \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
+            --output text --query 'Instances[0].InstanceId')
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Wait for instance to be running
