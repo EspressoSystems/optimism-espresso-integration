@@ -67,7 +67,7 @@ jobs:
           --key-name github-key \
           --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
           --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
-          --enclave-options 'Enabled=true' \
+          --enclave-options true \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
           --output text \
           --query 'Instances[0].InstanceId')
