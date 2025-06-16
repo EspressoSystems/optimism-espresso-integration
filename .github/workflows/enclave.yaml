@@ -105,25 +105,20 @@ jobs:
             cd optimism-espresso-integration
             git submodule update --init --recursive
             sudo yum install docker -y
+            nix --extra-experimental-features "nix-command flakes" develop
+            exit
           EOF
 
-      - name: Start services
+      - name: Start services and run tests
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
+            cd /home/ec2/optimism-espresso-integration
+            nix --extra-experimental-features "nix-command flakes" develop
             sudo usermod -a -G docker ec2-user
             sudo service docker start
             sudo chown ec2-user /var/run/docker.sock
-            sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yml"
+            sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
             sudo systemctl start nitro-enclaves-allocator.service
-          EOF
-
-
-      - name: Run tests
-        run: |
-          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            cd /home/ec2-user/optimism-espresso-integration
-            nix --extra-experimental-features "nix-command flakes" develop
             just espresso-enclave-tests
-            echo "Hello from GitHub Actions" > ~/hello.txt
           EOF
 
