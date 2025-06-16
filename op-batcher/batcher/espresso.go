@@ -656,8 +656,10 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	shouldClearState, err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
-	shouldClearState = shouldClearState || err != nil
+	err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
+	if err != nil {
+		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
+	}
 
 	l.channelMgrMutex.Lock()
 	defer l.channelMgrMutex.Unlock()
@@ -667,10 +669,7 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 		return
 	}
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
-	if syncActions.clearState == nil && shouldClearState {
-		l.channelMgr.Clear(newSyncStatus.SafeL2.L1Origin)
-		l.streamer.Reset()
-	} else if syncActions.clearState != nil {
+	if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
 		l.streamer.Reset()
 	} else {
