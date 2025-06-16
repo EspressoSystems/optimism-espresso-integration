@@ -283,7 +283,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		require.NoError(t, err, "failed to get safe L2 block ref")
 		finalizedL1BlockRef, err := l1RefClient.L1BlockRefByLabel(streamBlocksCtx, eth.Finalized)
 		require.NoError(t, err, "failed to get finalized L1 block ref")
-		_, err = streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number, l2BlockRef.L1Origin)
+		err = streamer.Refresh(streamBlocksCtx, finalizedL1BlockRef, l2BlockRef.Number, l2BlockRef.L1Origin)
 		require.NoError(t, err, "failed to refresh streamer")
 		lastTransaction := transactions[N-1]
 
@@ -312,7 +312,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 				safeL2, safeL2Error := l2RefClient.L2BlockRefByLabel(ctx, eth.Safe)
 				if finalizedL1Err == nil && safeL2Error == nil {
 					// Refresh the Streamer with the latest finalized L1 and safe L2
-					_, err := streamer.Refresh(ctx, finalizedL1, safeL2.Number, safeL2.L1Origin)
+					err := streamer.Refresh(ctx, finalizedL1, safeL2.Number, safeL2.L1Origin)
 					if have, want := err, error(nil); have != want {
 						// NOTE: we are in a go-routine here, so we are unable
 						// to fail fatally here. Instead, we'll Fail and and
