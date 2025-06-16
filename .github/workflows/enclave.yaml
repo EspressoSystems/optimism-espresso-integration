@@ -98,7 +98,7 @@ jobs:
             sudo yum update
             sudo yum install git -y
             sudo yum install docker -y
-            sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
+            sudo yum install aws-nitro-enclaves-cli -y
             git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
             cd optimism-espresso-integration
             git submodule update --init --recursive
