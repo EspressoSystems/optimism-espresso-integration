@@ -99,6 +99,7 @@ jobs:
             sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
             source ~/.bashrc
             sudo yum install git -y
+            sudo yum install dnf
             sudo dnf install aws-nitro-enclaves-cli -y
             git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
             cd optimism-espresso-integration
@@ -112,8 +113,6 @@ jobs:
             sudo usermod -a -G docker ec2-user
             sudo service docker start
             sudo chown ec2-user /var/run/docker.sock
-            sudo mkdir /etc/nitro_enclaves
-            sudo touch /etc/nitro_enclaves/allocator.yaml
             sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
             sudo systemctl start nitro-enclaves-allocator.service
           EOF
