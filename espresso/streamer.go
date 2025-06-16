@@ -130,7 +130,7 @@ func (s *EspressoStreamer[B]) Reset() {
 }
 
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
-// not consistent with what's on the L1. Returns true if the state was updated.
+// not consistent with what's on the L1.
 func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
 	s.FinalizedL1 = finalizedL1
 
