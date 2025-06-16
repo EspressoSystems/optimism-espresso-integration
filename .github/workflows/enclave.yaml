@@ -112,7 +112,7 @@ jobs:
       - name: Start services and run tests
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            cd /home/ec2/optimism-espresso-integration
+            cd /home/ec2-user/optimism-espresso-integration
             nix --extra-experimental-features "nix-command flakes" develop
             sudo usermod -a -G docker ec2-user
             sudo service docker start
