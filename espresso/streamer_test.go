@@ -374,10 +374,7 @@ func TestStreamerSmoke(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	updated, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
-	if have, want := updated, false; have != want {
-		t.Fatalf("failed to refresh streamer state:\nhave:\n\t%v\nwant:\n\t%v\n", updated, want)
-	}
+	err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -415,7 +412,7 @@ func TestEspressoStreamerSimpleIncremental(t *testing.T) {
 	for i := 0; i < N; i++ {
 		// update the state of our streamer
 		syncStatus := state.SyncStatus()
-		_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -477,7 +474,7 @@ func TestEspressoStreamerIncrementalDelayedConsumption(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+	err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 	for i := 0; i < N; i++ {
 		batch, _, _, espTxnInBlock := state.CreateEspressoTxnData(
@@ -545,7 +542,7 @@ func TestStreamerEspressoOutOfOrder(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+	err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -630,7 +627,7 @@ func TestEspressoStreamerDuplicationHandling(t *testing.T) {
 
 	// update the state of our streamer
 	syncStatus := state.SyncStatus()
-	_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+	err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to refresh streamer state encountered error:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -651,7 +648,7 @@ func TestEspressoStreamerDuplicationHandling(t *testing.T) {
 		for j := 0; j < 2; j++ {
 			// update the state of our streamer
 			syncStatus := state.SyncStatus()
-			_, err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+			err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 
 			require.NoError(t, err)
 
