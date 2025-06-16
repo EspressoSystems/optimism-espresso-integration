@@ -144,7 +144,7 @@ func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Cont
 		return nil, false, err
 	}
 	// Refresh the sync status
-	if _, err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
+	if err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
 		return nil, false, err
 	}
 
