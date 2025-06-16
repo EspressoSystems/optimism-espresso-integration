@@ -109,16 +109,21 @@ jobs:
             exit
           EOF
 
-      - name: Start services and run tests
+      - name: Start services
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            cd /home/ec2-user/optimism-espresso-integration
-            nix --extra-experimental-features "nix-command flakes" develop
             sudo usermod -a -G docker ec2-user
             sudo service docker start
             sudo chown ec2-user /var/run/docker.sock
             sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
             sudo systemctl start nitro-enclaves-allocator.service
+          EOF
+
+      - name: Run tests
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
+            cd /home/ec2-user/optimism-espresso-integration
+            nix --extra-experimental-features "nix-command flakes" develop
             just espresso-enclave-tests
           EOF
 
