@@ -58,7 +58,6 @@ jobs:
       - name: Launch EC2 Instance
         id: ec2
         run: |
-          # Amazon Linux 2023 AMI ID for us-east-1
           AMI_ID=ami-0f3f13f145e66a0a3
           INSTANCE_ID=$(aws ec2 run-instances \
           --image-id "$AMI_ID" \
@@ -108,10 +107,9 @@ jobs:
       - name: Start enclave service
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            sudo nitro-cli --version || sudo yum install aws-nitro-enclaves-cli -y
+            sudo nitro-cli --version
             sudo systemctl stop nitro-enclaves-allocator.service
-            sudo mkdir -p /etc/nitro_enclaves
-            echo -e 'memory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
+            echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
             sudo systemctl start nitro-enclaves-allocator.service
           EOF
 
