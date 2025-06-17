@@ -1,4 +1,4 @@
-name: Launch & SSH EC2
+name: Run enclave tests on EC2 instance
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  launch-and-ssh:
+  enclave-tests-on-ec2:
     runs-on: ubuntu-latest
 
     steps:
@@ -47,7 +47,7 @@ jobs:
           SG_ID=$(aws ec2 describe-security-groups --filters Name=group-name,Values=default --query 'SecurityGroups[0].GroupId' --output text)
           echo "id=$SG_ID" >> $GITHUB_OUTPUT
 
-      - name: Allow tcp in SG
+      - name: Allow tcp in security group
         run: |
           aws ec2 authorize-security-group-ingress \
             --group-id ${{ steps.sg.outputs.id }} \
