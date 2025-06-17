@@ -1,4 +1,4 @@
-name: Run enclave tests in EC2
+name: Launch & SSH EC2
 
 on:
   pull_request:
@@ -14,16 +14,8 @@ permissions:
   id-token: write
   contents: read
 
-
-env:
-  AWS_REGION: us-east-1
-  EC2_KEY_NAME: github-key
-  AMI_ID: ami-0f3f13f145e66a0a3
-  INSTANCE_TYPE: m6a.2xlarge
-  OPTIMISM_ESPRESSO_INTEGRATION_BRANCH: celo-integration-rebase-13
-
 jobs:
-  run-enclave-tests-in-ec2:
+  launch-and-ssh:
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +24,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: $AWS_REGION
+          aws-region: us-east-1
 
       - name: Check if key pair exists
         id: check_key
@@ -66,11 +58,12 @@ jobs:
       - name: Launch EC2 Instance
         id: ec2
         run: |
+          AMI_ID=ami-0f3f13f145e66a0a3
           INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id $AMI_ID \
+          --image-id "$AMI_ID" \
           --count 1 \
-          --instance-type $INSTANCE_TYPE \
-          --key-name $EC2_KEY_NAME \
+          --instance-type m6a.2xlarge \
+          --key-name github-key \
           --security-group-ids ${{ secrets.AWS_SECURITY_GROUP_ID }} \
           --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
           --enclave-options 'Enabled=true' \
@@ -101,12 +94,13 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
             sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
             source ~/.bashrc
+            sudo yum update
             sudo yum install git -y
             sudo yum install docker -y
             sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
             git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
             cd optimism-espresso-integration
-            git checkout $OPTIMISM_ESPRESSO_INTEGRATION_BRANCH
+            git checkout celo-integration-rebase-13
             git submodule update --init --recursive
             nix --extra-experimental-features "nix-command flakes" develop
           EOF
@@ -136,7 +130,7 @@ jobs:
             nix --extra-experimental-features "nix-command flakes" develop --command just compile-contracts
             nix --extra-experimental-features "nix-command flakes" develop --command just espresso-enclave-tests
           EOF
-
+          
       - name: Terminate EC2 instance
         if: ${{ always() }}
         run: |
