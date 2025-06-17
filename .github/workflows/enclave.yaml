@@ -121,10 +121,12 @@ jobs:
             sudo chown ec2-user /var/run/docker.sock
           EOF
 
+      # Compile contracts first to avoid text file busy error
       - name: Run tests
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
             cd /home/ec2-user/optimism-espresso-integration
+            nix --extra-experimental-features "nix-command flakes" develop --command just compile-contracts
             nix --extra-experimental-features "nix-command flakes" develop --command just espresso-enclave-tests
           EOF
 
