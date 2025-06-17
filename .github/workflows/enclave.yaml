@@ -59,7 +59,7 @@ jobs:
         id: ec2
         run: |
           # Amazon Linux 2023 AMI ID for us-east-1
-          AMI_ID=ami-09e6f87a47903347c
+          AMI_ID=ami-0f3f13f145e66a0a3
           INSTANCE_ID=$(aws ec2 run-instances \
           --image-id "$AMI_ID" \
           --count 1 \
