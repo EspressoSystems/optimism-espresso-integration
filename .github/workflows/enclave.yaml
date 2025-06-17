@@ -82,7 +82,7 @@ jobs:
           DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID \
             --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
           echo "DNS=$DNS" >> $GITHUB_ENV
-          echo "::set-output name=dns::$DNS"
+          echo "dns=$DNS" >> $GITHUB_OUTPUT
 
       - name: Save private key
         run: |
