@@ -91,7 +91,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          BRANCH_NAME="${GITHUB_REF_NAME}"
+          BRANCH_NAME=${{ github.ref_name }}
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
             sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
             source ~/.bashrc
