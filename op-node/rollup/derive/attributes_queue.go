@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	lightclient "github.com/EspressoSystems/espresso-network-go/light-client"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	lightclient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -94,10 +94,14 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 		return nil
 	}
 
+	client, err := espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls)
+	if err != nil {
+		return nil
+	}
 	streamer := espresso.NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
 		l1BlockRefClient,
-		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
+		client,
 		lightClient,
 		log,
 		func(data []byte) (*EspressoBatch, error) {
