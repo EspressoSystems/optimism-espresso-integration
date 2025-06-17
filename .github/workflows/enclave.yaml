@@ -102,6 +102,7 @@ jobs:
             sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
             git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
             cd optimism-espresso-integration
+            echo "Current branch: ${GITHUB_REF##*/}"
             git checkout ${GITHUB_REF##*/}
             git submodule update --init --recursive
             nix develop
