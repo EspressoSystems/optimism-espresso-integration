@@ -24,7 +24,8 @@
         });
 
         pkgs = import inputs.nixpkgs { inherit overlays system; };
-        baseUrl = "https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2Fv0.2.1";
+        espressoGoLibVersion = "0.2.1";
+        baseUrl = "https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2Fv${espressoGoLibVersion}";
         espressoGoLibFile =
           if system == "x86_64-linux" then
             pkgs.fetchurl {
@@ -102,7 +103,7 @@
             shellHook = ''
               export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
               export DOWNLOADED_FILE_PATH=${espressoGoLibFile}
-              echo "Espresso go library v0.2.1 stored at $DOWNLOADED_FILE_PATH"
+              echo "Espresso go library v${espressoGoLibVersion} stored at $DOWNLOADED_FILE_PATH"
               ln -sf ${espressoGoLibFile} ${target_link}
               export CGO_LDFLAGS="${cgo_ld_flags} -L${pkgs.zlib}/lib"
               export LD_LIBRARY_PATH=/tmp:${pkgs.zlib}/lib:$LD_LIBRARY_PATH
