@@ -125,7 +125,6 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
             cd /home/ec2-user/optimism-espresso-integration
-            nix --extra-experimental-features "nix-command flakes" develop
-            just espresso-enclave-tests
+            nix --extra-experimental-features "nix-command flakes" develop --command just espresso-enclave-tests
           EOF
 
