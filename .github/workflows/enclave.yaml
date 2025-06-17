@@ -130,4 +130,9 @@ jobs:
             nix --extra-experimental-features "nix-command flakes" develop --command just compile-contracts
             nix --extra-experimental-features "nix-command flakes" develop --command just espresso-enclave-tests
           EOF
+          
+      - name: Terminate EC2 instance
+        if: ${{ always() }}
+        run: |
+          aws ec2 terminate-instances --instance-ids $INSTANCE_ID
 
