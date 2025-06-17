@@ -100,6 +100,7 @@ jobs:
             sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
             git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
             cd optimism-espresso-integration
+            git checkout celo-integration-rebase-13
             git submodule update --init --recursive
             nix --extra-experimental-features "nix-command flakes" develop
           EOF
