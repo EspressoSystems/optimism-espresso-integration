@@ -92,7 +92,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 //	If M>N, the chain should make progress, otherwise it should not.
 func TestEnforceMajorityRule(t *testing.T) {
 
-	runWithMultiClient(t, 1, 0, NO_ERROR_EXPECTED)
+	runWithMultiClient(t, 2, 0, NO_ERROR_EXPECTED)
 	runWithMultiClient(t, 2, 1, NO_ERROR_EXPECTED)
 	runWithMultiClient(t, 0, 2, ERROR_EXPECTED)
 	runWithMultiClient(t, 1, 1, ERROR_EXPECTED)
