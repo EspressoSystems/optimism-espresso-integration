@@ -49,7 +49,6 @@ jobs:
           fi
 
       - name: Import SSH public key
-        if: steps.check_key.outputs.exists == 'false'
         run: |
           aws ec2 import-key-pair --key-name github-key --public-key-material fileb://github-ec2-key.pub
 
