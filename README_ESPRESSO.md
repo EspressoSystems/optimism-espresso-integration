@@ -266,3 +266,49 @@ docker run --rm \
   init --datadir=/data --state.scheme=path /config/<genesis-file>
 ```
 `<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
+
+
+## Continuous Integration environment
+
+### Running enclave tests in EC2
+
+In order to run the tests for the enclave in EC2 via github actions one must create an AWS user that supports the following policy:
+
+```json
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": [
+				"ec2:AuthorizeSecurityGroupIngress",
+				"ec2:RunInstances",
+				"ec2:DescribeInstances",
+				"ec2:TerminateInstances",
+				"ec2:DescribeImages",
+				"ec2:CreateTags",
+				"ec2:DescribeSecurityGroups",
+				"ec2:DescribeKeyPairs",
+				"ec2:ImportKeyPair",
+				"ec2:DescribeInstanceStatus"
+			],
+			"Resource": "*"
+		}
+	]
+}
+```
+
+Then it is required to update the following [github actions secrets variables](https://github.com/EspressoSystems/optimism-espresso-integration/settings/secrets/actions):
+```
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+EC2_SSH_PRIVATE_KEY
+EC2_SSH_PUBLIC_KEY
+```
+
+To generate the ssh key pair you can run:
+```bash
+ssh-keygen -t rsa -b 4096 -f ec2-github -N"
+```
+
+The public key is stored in `ec2-github.pub` and the private key in `ec2-github`. Copy the contents of these files respectively in  `EC2_SSH_PUBLIC_KEY` and `EC2_SSH_PRIVATE_KEY`.
