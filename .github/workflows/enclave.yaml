@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        name: configure aws credentials
         with:
           role-to-assume: arn:aws:iam::437720536533:role/github-optimism-espresso-integration-access
           role-duration-seconds: 10800
@@ -82,7 +82,6 @@ jobs:
 
       - name: Wait for instance to be running
         run: |
-          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
           aws ec2 wait instance-status-ok --instance-ids $INSTANCE_ID
 
       - name: Get EC2 Public DNS
@@ -152,4 +151,3 @@ jobs:
         run: |
           aws ec2 terminate-instances --instance-ids $INSTANCE_ID
           aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
-
