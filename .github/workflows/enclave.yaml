@@ -6,7 +6,6 @@ on:
       - "celo-integration*"
   push:
     branches:
-      - "master"
       - "celo-integration*"
   workflow_dispatch:
 
