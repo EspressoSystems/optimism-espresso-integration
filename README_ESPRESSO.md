@@ -297,18 +297,3 @@ In order to run the tests for the enclave in EC2 via github actions one must cre
 	]
 }
 ```
-
-Then it is required to update the following [github actions secrets variables](https://github.com/EspressoSystems/optimism-espresso-integration/settings/secrets/actions):
-```
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-EC2_SSH_PRIVATE_KEY
-EC2_SSH_PUBLIC_KEY
-```
-
-To generate the ssh key pair you can run:
-```bash
-ssh-keygen -t rsa -b 4096 -f ec2-github -N"
-```
-
-The public key is stored in `ec2-github.pub` and the private key in `ec2-github`. Copy the contents of these files respectively in  `EC2_SSH_PUBLIC_KEY` and `EC2_SSH_PRIVATE_KEY`.
