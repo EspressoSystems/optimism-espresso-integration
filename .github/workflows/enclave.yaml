@@ -33,19 +33,17 @@ jobs:
             echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
 
-      - name: Check if key pair exists
-        id: check_key
+      - name: Generate SSH key pair
         run: |
-          if aws ec2 describe-key-pairs --key-names github-key >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          ssh-keygen -t rsa -b 4096 -f temp_ssh_key -N ""
+          echo "Generated SSH key:"
+          cp temp_ssh_key.pub github-ec2-key.pub
+          cp temp_ssh_key key.pem
+          chmod 600 key.pem
 
       - name: Import SSH public key
         if: steps.check_key.outputs.exists == 'false'
         run: |
-          echo "${{ secrets.EC2_SSH_PUBLIC_KEY }}" > github-ec2-key.pub
           aws ec2 import-key-pair --key-name github-key --public-key-material fileb://github-ec2-key.pub
 
       - name: Get security group ID
@@ -91,11 +89,6 @@ jobs:
             --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
           echo "DNS=$DNS" >> $GITHUB_ENV
           echo "dns=$DNS" >> $GITHUB_OUTPUT
-
-      - name: Save private key
-        run: |
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
 
       - name: Install dependencies
         run: |
