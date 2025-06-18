@@ -65,7 +65,7 @@ jobs:
       - name: Launch EC2 Instance
         id: ec2
         run: |
-          AMI_ID=ami-0f3f13f145e66a0a3
+          AMI_ID=ami-0fe972392d04329e1
           INSTANCE_ID=$(aws ec2 run-instances \
           --image-id "$AMI_ID" \
           --count 1 \
