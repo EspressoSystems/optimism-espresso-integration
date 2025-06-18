@@ -50,7 +50,7 @@ type L1Client interface {
 	HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error)
 }
 
-// espresso-network-go's HeaderInterface currently lacks a function to get this info,
+// espresso-network go sdk's HeaderInterface currently lacks a function to get this info,
 // although it is present in all header versions
 func GetFinalizedL1(header *espressoCommon.HeaderImpl) espressoCommon.L1BlockInfo {
 	v0_1, ok := header.Header.(*espressoCommon.Header0_1)

@@ -772,7 +772,7 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
 								DockerContainerInfo: espressoDevNodeContainerInfo,
-								espressoUrls:        []string{"http://" + hostPort},
+								espressoUrls:        []string{"http://" + hostPort, "http://" + hostPort},
 							}
 							ct.EspressoDevNode = espressoDevNode
 							c.EspressoUrls = espressoDevNode.espressoUrls
