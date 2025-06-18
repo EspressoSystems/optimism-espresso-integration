@@ -82,7 +82,9 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Wait for instance to be running
-        run: aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+        run: |
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          aws ec2 wait instance-status-ok --instance-ids $INSTANCE_ID
 
       - name: Get EC2 Public DNS
         id: dns
