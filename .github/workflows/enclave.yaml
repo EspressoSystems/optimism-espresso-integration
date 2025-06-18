@@ -41,7 +41,17 @@ jobs:
           cp temp_ssh_key key.pem
           chmod 600 key.pem
 
+      - name: Check if key pair exists
+        id: check_key
+        run: |
+          if aws ec2 describe-key-pairs --key-names github-key >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Import SSH public key
+        if: steps.check_key.outputs.exists == 'false'
         run: |
           aws ec2 import-key-pair --key-name github-key --public-key-material fileb://github-ec2-key.pub
 
