@@ -97,6 +97,8 @@
               pkgs.gotools
               pkgs.go-ethereum
               pkgs.golangci-lint
+              pkgs.awscli2
+              pkgs.just
             ];
             shellHook = ''
               export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
