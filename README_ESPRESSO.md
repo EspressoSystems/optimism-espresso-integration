@@ -200,6 +200,7 @@ These commands install the dependencies for, start the service related to and co
 sudo dnf install aws-nitro-enclaves-cli -y
 sudo systemctl start nitro-enclaves-allocator.service
 sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
+sudo systemctl start nitro-enclaves-allocator.service
 ```
 
 
