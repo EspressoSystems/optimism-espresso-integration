@@ -61,3 +61,7 @@ gha-creds-*.json
 
 # Ignore the JWT secret for devnet.
 config/jwt.txt
+
+
+# Ignore keys
+*.pem

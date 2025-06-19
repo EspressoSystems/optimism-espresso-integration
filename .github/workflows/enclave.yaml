@@ -1,0 +1,152 @@
+name: Run enclave tests on EC2 instance
+
+on:
+  pull_request:
+    branches:
+      - "celo-integration*"
+  push:
+    branches:
+      - "celo-integration*"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  enclave-tests-on-ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        name: configure aws credentials
+        with:
+          role-to-assume: arn:aws:iam::437720536533:role/github-optimism-espresso-integration-access
+          role-duration-seconds: 10800
+          aws-region: us-east-2
+
+      - name: Set branch name
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          else
+            echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Generate SSH key pair
+        run: |
+          ssh-keygen -t rsa -b 4096 -f temp_ssh_key -N ""
+          echo "Generated SSH key:"
+          cp temp_ssh_key.pub github-ec2-key.pub
+          cp temp_ssh_key key.pem
+          chmod 600 key.pem
+
+      - name: Delete old key pair with the same name if needed
+        id: check_key
+        run: |
+          if aws ec2 describe-key-pairs --key-names github-key >/dev/null 2>&1; then
+            aws ec2 delete-key-pair --key-name github-key
+          fi
+
+      - name: Import SSH public key
+        run: |
+          aws ec2 import-key-pair --key-name github-key --public-key-material fileb://github-ec2-key.pub
+
+      - name: Get security group ID
+        id: sg
+        run: |
+          SG_ID=$(aws ec2 describe-security-groups --filters Name=group-name,Values=default --query 'SecurityGroups[0].GroupId' --output text)
+          echo "id=$SG_ID" >> $GITHUB_OUTPUT
+
+      - name: Allow tcp in security group
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ steps.sg.outputs.id }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr 0.0.0.0/0 || true
+
+      - name: Launch EC2 Instance
+        id: ec2
+        run: |
+          AMI_ID=ami-0fe972392d04329e1
+          INSTANCE_ID=$(aws ec2 run-instances \
+          --image-id "$AMI_ID" \
+          --count 1 \
+          --instance-type m6a.2xlarge \
+          --key-name github-key \
+          --security-group-ids ${{ steps.sg.outputs.id }} \
+          --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
+          --enclave-options 'Enabled=true' \
+          --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
+          --output text \
+          --query 'Instances[0].InstanceId')
+
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+
+      - name: Wait for instance to be running
+        run: |
+          aws ec2 wait instance-status-ok --instance-ids $INSTANCE_ID
+
+      - name: Get EC2 Public DNS
+        id: dns
+        run: |
+          DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
+          echo "DNS=$DNS" >> $GITHUB_ENV
+          echo "dns=$DNS" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: |
+          echo "Current branch: $BRANCH_NAME"
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << EOF
+            set -e
+            sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
+            source ~/.bashrc
+            mkdir -p ~/.config/nix
+            echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+            sudo yum update
+            sudo yum install git -y
+            sudo yum install docker -y
+            sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
+            git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
+            cd optimism-espresso-integration
+            git checkout "$BRANCH_NAME"
+            git submodule update --init --recursive
+            nix develop
+          EOF
+
+      - name: Configure and start enclave service
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
+            set -e
+            sudo nitro-cli --version
+            sudo systemctl stop nitro-enclaves-allocator.service
+            echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
+            sudo systemctl start nitro-enclaves-allocator.service
+          EOF
+
+      - name: Start docker service
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
+            set -e
+            sudo usermod -a -G docker ec2-user
+            sudo service docker start
+            sudo chown ec2-user /var/run/docker.sock
+          EOF
+
+      # Compile contracts first to avoid text file busy error
+      - name: Run tests
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5  -i key.pem ec2-user@$DNS << 'EOF'
+            set -e
+            cd /home/ec2-user/optimism-espresso-integration
+            nix develop --command just compile-contracts
+            nix develop --command just espresso-enclave-tests
+          EOF
+
+      - name: Terminate EC2 instance
+        if: ${{ always() }}
+        run: |
+          aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+          aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
