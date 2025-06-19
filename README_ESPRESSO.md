@@ -186,9 +186,9 @@ source ~/.bashrc
 These commands install the dependencies for, start the service related to and configures the enclave.
 
 ```
-sudo dnf install aws-nitro-enclaves-cli -y
-sudo systemctl start nitro-enclaves-allocator.service
+sudo amazon-linux-extras install aws-nitro-enclaves-cli
 sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
+sudo systemctl start nitro-enclaves-allocator.service
 ```
 
 
@@ -266,3 +266,34 @@ docker run --rm \
   init --datadir=/data --state.scheme=path /config/<genesis-file>
 ```
 `<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
+
+
+## Continuous Integration environment
+
+### Running enclave tests in EC2
+
+In order to run the tests for the enclave in EC2 via github actions one must create an AWS user that supports the following policy:
+
+```json
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": [
+				"ec2:AuthorizeSecurityGroupIngress",
+				"ec2:RunInstances",
+				"ec2:DescribeInstances",
+				"ec2:TerminateInstances",
+				"ec2:DescribeImages",
+				"ec2:CreateTags",
+				"ec2:DescribeSecurityGroups",
+				"ec2:DescribeKeyPairs",
+				"ec2:ImportKeyPair",
+				"ec2:DescribeInstanceStatus"
+			],
+			"Resource": "*"
+		}
+	]
+}
+```
