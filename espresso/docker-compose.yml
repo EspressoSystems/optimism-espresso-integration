@@ -136,7 +136,8 @@ services:
       - --rollup.halt=none
       - --l1.trustrpc=true
       - --rpc.enable-admin=true
-      - --caff.hotshot-urls=http://espresso-dev-node:24000,http://espresso-dev-node:24000
+      - --caff.hotshot-urls=http://espresso-dev-node:24000
+      - --caff.hotshot-urls=http://espresso-dev-node:24000
       - --caff.next-hotshot-block-num=1
       - --caff.polling-hotshot-polling-interval=500ms
       - --log.level=debug
