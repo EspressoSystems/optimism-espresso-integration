@@ -11,17 +11,20 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Geth
-# TODO (Keyao) Add SHA valication back
 RUN ARCH=$(dpkg --print-architecture) && \
     echo "Detected architecture: $ARCH" && \
     case "$ARCH" in \
         "amd64") \
             GETH_URL="https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.15.11-36b2371c.tar.gz" && \
-            GETH_DIR="geth-linux-amd64-1.15.11-36b2371c" \
+            GETH_SHA="a14a4285daedf75ea04a7a298e6caa48d566a2786c93fc5e86ec2c5998c92455" && \
+            GETH_DIR="geth-linux-amd64-1.15.11-36b2371c" && \
+            VERIFY_SHA="true" \
             ;; \
         "arm64") \
             GETH_URL="https://gethstore.blob.core.windows.net/builds/geth-linux-arm64-1.15.11-36b2371c.tar.gz" && \
-            GETH_DIR="geth-linux-arm64-1.15.11-36b2371c" \
+            GETH_SHA="148ec84db2268fa846ae68f6445f0c98d33e95069e40fe8c74b43ea5eb53df7b" && \
+            GETH_DIR="geth-linux-arm64-1.15.11-36b2371c" && \
+            VERIFY_SHA="true" \
             ;; \
         *) \
             echo "Unsupported architecture: $ARCH" && exit 1 \
