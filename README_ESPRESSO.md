@@ -257,17 +257,6 @@ docker compose down -v
 docker volume prune -f
 ```
 
-* If the genesis file is updated, initialize the chain data directory with the updated file.
-```
-docker run --rm \
-  -v $(pwd)/../config:/config \
-  -v espresso_op-geth-data:/data \
-  us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3 \
-  init --datadir=/data --state.scheme=path /config/<genesis-file>
-```
-`<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
-
-
 ## Continuous Integration environment
 
 ### Running enclave tests in EC2
