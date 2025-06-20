@@ -159,7 +159,7 @@ services:
       - --l1-eth-rpc=http://l1:8545
       - --l2-eth-rpc=http://op-geth:8551
       - --rollup-rpc=http://op-node-sequencer:8545
-      - --espresso-url=http://espresso-dev-node:24000
+      - --espresso-url=http://espresso-dev-node:24000,http://espresso-dev-node:24000
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
 
   op-proposer:
