@@ -772,7 +772,8 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
 								DockerContainerInfo: espressoDevNodeContainerInfo,
-								espressoUrls:        []string{"http://" + hostPort, "http://" + hostPort},
+								// To create a valid multiple nodes client, we need to provide at least 2 URLs.
+								espressoUrls: []string{"http://" + hostPort, "http://" + hostPort},
 							}
 							ct.EspressoDevNode = espressoDevNode
 							c.EspressoUrls = espressoDevNode.espressoUrls
