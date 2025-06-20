@@ -1,18 +1,18 @@
 # Espresso OP Integration Docker Setup
 
 services:
-  l1:
+  l1-geth:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8545"]
       interval: 3s
       timeout: 2s
       retries: 40
     build:
-      context: ../ops/docker/deployment-utils
+      context: ./dockerfiles/l1-geth
     image: l1-geth:espresso
     volumes:
       - ../config/l1-genesis-devnet.json:/l1-genesis-devnet.json:ro
-      - l1-data:/data
+      - l1-geth-data:/data
     command:
       - sh
       - -c
@@ -40,13 +40,13 @@ services:
     # Compose section in README_ESPRESSO.md as well.
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
     depends_on:
-      l1:
+      l1-geth:
         condition: service_healthy
     volumes:
       - ../config:/config
       - op-geth-data:/data
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: http://l1-geth:8545
     command:
       - --datadir=/data
       - --networkid=1
@@ -69,19 +69,19 @@ services:
   op-node-sequencer:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
       target: op-node-target
     image: op-node-sequencer:espresso
     depends_on:
       op-geth:
         condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: http://l1-geth:8545
     volumes:
       - ../config:/config
     command:
       - op-node
-      - --l1=http://l1:8545
+      - --l1=http://l1-geth:8545
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
@@ -90,19 +90,19 @@ services:
   op-node-verifier:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
       target: op-node-target
     image: op-node-verifier:espresso
     depends_on:
       op-geth:
         condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: http://l1-geth:8545
     volumes:
       - ../config:/config
     command:
       - op-node
-      - --l1=http://l1:8545
+      - --l1=http://l1-geth:8545
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
@@ -110,7 +110,7 @@ services:
   caff-node:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
       target: op-node-target
     image: caff-node:espresso
     depends_on:
@@ -119,13 +119,13 @@ services:
       espresso-dev-node:
         condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: http://l1-geth:8545
       CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
     volumes:
       - ../config:/config
     command:
       - op-node
-      - --l1=http://l1:8545
+      - --l1=http://l1-geth:8545
       - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
@@ -145,18 +145,18 @@ services:
   op-batcher:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
       target: op-batcher-target
     image: op-batcher:espresso
     depends_on:
       - op-node-sequencer
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: http://l1-geth:8545
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-batcher
-      - --l1-eth-rpc=http://l1:8545
+      - --l1-eth-rpc=http://l1-geth:8545
       - --l2-eth-rpc=http://op-geth:8551
       - --rollup-rpc=http://op-node-sequencer:8545
       - --espresso-url=http://espresso-dev-node:24000
@@ -165,7 +165,7 @@ services:
   op-proposer:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
@@ -174,7 +174,7 @@ services:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-proposer
-      - --l1-eth-rpc=http://l1:8545
+      - --l1-eth-rpc=http://l1-geth:8545
       - --rollup-rpc=http://op-node-sequencer:8545
       - --game-factory-address=0xDC9a4dba410aaC9D98a848710Aa82601752DBd44
       - --proposal-interval=10m
@@ -185,7 +185,7 @@ services:
       dockerfile: ./op-deployer/Dockerfile.default
     image: op-deployer:espresso
     depends_on:
-      - l1
+      - l1-geth
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     restart: "no"
@@ -203,6 +203,6 @@ services:
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
 
 volumes:
-  l1-data:
+  l1-geth-data:
   op-geth-data:
   espresso-data:
