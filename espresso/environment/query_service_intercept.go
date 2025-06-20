@@ -353,7 +353,8 @@ func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNod
 		// Set the proxy
 		proxy.u = *u
 		// Replace the Espresso URL with the proxy URL
-		cfg.EspressoUrls = []string{server.URL}
+		// We need to provide at least 2 URLs to create a valid multiple nodes client
+		cfg.EspressoUrls = []string{server.URL, server.URL}
 	}
 }
 
