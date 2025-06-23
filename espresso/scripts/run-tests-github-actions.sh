@@ -11,8 +11,8 @@ echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 echo "[*] Installing dependencies..."
 sudo yum update -y
 sudo yum install -y git docker
-sudo amazon-linux-extras enable aws-nitro-enclaves-cli-1.4.2
-sudo yum install -y aws-nitro-enclaves-cli
+sudo amazon-linux-extras enable aws-nitro-enclaves-cli
+sudo yum install -y aws-nitro-enclaves-cli-1.4.2
 
 echo "[*] Starting Docker..."
 sudo systemctl enable --now docker
