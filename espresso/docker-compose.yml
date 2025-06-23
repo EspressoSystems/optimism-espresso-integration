@@ -169,7 +169,8 @@ services:
       target: op-batcher-target
     image: op-batcher:espresso
     depends_on:
-      - op-node-sequencer
+      op-node-sequencer:
+        condition: service_started
     environment:
       L1_RPC: http://l1-geth:8545
     volumes:
@@ -189,7 +190,8 @@ services:
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
-      - op-node-sequencer
+      op-node-sequencer:
+        condition: service_started
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
