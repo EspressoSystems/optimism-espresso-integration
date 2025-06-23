@@ -143,7 +143,7 @@ jobs:
             cd /home/ec2-user/optimism-espresso-integration
             nix develop --command just compile-contracts
             nix develop --command just build-batcher-enclave-image
-            nix develop --command just espresso-enclave-tests-github-actions
+            nix develop --command just espresso-enclave-tests-only
           EOF
 
       - name: Terminate EC2 instance

@@ -30,12 +30,11 @@ espresso_tests_timeout := "35m"
 espresso-tests timeout=espresso_tests_timeout: compile-contracts
  go test -timeout={{timeout}} -p=1 -count=1 ./espresso/environment
 
-espresso-enclave-tests timeout=espresso_tests_timeout: compile-contracts build-batcher-enclave-image
- ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
-
-# This command is like the one above but without the dependencies. Adding the dependency here creates troubles with gihtub actions
-espresso-enclave-tests-github-actions timeout=espresso_tests_timeout:
+espresso-enclave-tests-only timeout=espresso_tests_timeout:
   ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
+
+espresso-enclave-tests: compile-contracts build-batcher-enclave-image espresso-enclave-tests-only
+
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
