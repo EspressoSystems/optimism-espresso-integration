@@ -99,7 +99,6 @@ RUN apk add gcc
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
-EXPOSE 8545
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
