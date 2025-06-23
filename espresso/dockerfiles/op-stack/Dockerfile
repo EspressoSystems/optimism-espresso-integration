@@ -19,7 +19,8 @@ RUN case "$TARGETARCH" in \
         "arm64") YQ_ARCH="arm64" ;; \
         *) YQ_ARCH="amd64" ;; \
     esac && \
-    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$YQ_ARCH
+    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$YQ_ARCH -O /usr/local/bin/yq && \
+    chmod +x /usr/local/bin/yq
 
 # Install versioned toolchain
 COPY ./mise.toml .
@@ -98,6 +99,7 @@ RUN apk add gcc
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
+EXPOSE 8545
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
