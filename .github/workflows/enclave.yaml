@@ -97,6 +97,7 @@ jobs:
           echo "dns=$DNS" >> $GITHUB_OUTPUT
 
       - name: Upload run-tests.sh to EC2
+        uses: actions/checkout@v4
         run: |
           scp -o StrictHostKeyChecking=no -i key.pem espresso/scripts/run-tests-github-actions.sh ec2-user@$DNS:/home/ec2-user/
           ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS "chmod +x run-tests-github-actions.sh"
