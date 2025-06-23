@@ -79,12 +79,19 @@ FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/c
 FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
 ARG ESPRESSO_SDK_VER=v0.2.1
 # Download the prebuilt static libraries for both archs (change arch as needed)
+ARG AARCH64_SHA256="877113f6568dea4810ba9aedbeaf1847adec9c8ec9d58b2dcf0edeb5b032ccf0"
+ARG X86_64_SHA256="b3e28f7dc755d72b27a2a43c2bcfdc0e4e82096e03596a01447bd8f406e6653c"
 RUN apk add --no-cache curl
-RUN mkdir -p /libespresso && \
-    curl -L -o /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.a \
-      https://github.com/EspressoSystems/espresso-network/releases/download/${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.a && \
-    curl -L -o /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a \
-      https://github.com/EspressoSystems/espresso-network/releases/download/${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+RUN set -e; \
+    mkdir -p /libespresso; \
+    curl -L -o /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so \
+      https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so; \
+    sha256sum /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so; \
+    echo "${AARCH64_SHA256}  /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so" | sha256sum -c -; \
+    curl -L -o /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so \
+      https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so; \
+    sha256sum /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so; \
+    echo "${X86_64_SHA256}  /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" | sha256sum -c -
 
 # We don't use the golang image for batcher & op-node because it doesn't play well with CGO
 FROM --platform=$BUILDPLATFORM alpine:3.20 AS op-cgo-builder
