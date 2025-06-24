@@ -2,13 +2,13 @@
 set -euo pipefail
 set -x
 
-export CACHIX_AUTH_TOKEN=$1
-echo "CACHIX_AUTH_TOKEN=$CACHIX_AUTH_TOKEN"
-
-echo "[*] Setting up Nix..."
+echo "[*] Setting up Nix and Cachix"
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source /etc/profile.d/nix.sh
 nix-env -iA cachix -f https://cachix.org/api/v1/install
+cachix authtoken $1
+cachix use espresso-systems-private
+
 
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
