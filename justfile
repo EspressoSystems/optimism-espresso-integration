@@ -31,11 +31,11 @@ espresso-tests timeout=espresso_tests_timeout: compile-contracts
  go test -timeout={{timeout}} -p=1 -count=1 ./espresso/environment
 
 espresso-enclave-tests: build-batcher-enclave-image
-  (cd packages/contracts-bedrock && just build) # slower but more reliable build
+  (cd packages/contracts-bedrock && just build-no-tests)
   ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{espresso_tests_timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
 
 
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:20250623"
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 
