@@ -2,7 +2,8 @@
 set -euo pipefail
 set -x
 
-CACHIX_AUTH_TOKEN=$1
+export CACHIX_AUTH_TOKEN=$1
+echo "CACHIX_AUTH_TOKEN=$CACHIX_AUTH_TOKEN"
 
 echo "[*] Setting up Nix..."
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
