@@ -12,6 +12,12 @@ cachix use espresso-systems-private
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 
+echo "[*] Installing dependencies..."
+sudo yum update -y
+sudo yum install -y git docker
+sudo amazon-linux-extras enable aws-nitro-enclaves-cli
+sudo yum install -y aws-nitro-enclaves-cli-1.4.2
+
 echo "[*] Cloning repo and checking out branch $BRANCH_NAME..."
 git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
 cd optimism-espresso-integration
@@ -20,12 +26,6 @@ git submodule update --init --recursive
 # Poblate cachix cahe
 nix develop --profile dev-profile -c true
 cachix push espresso-systems-private dev-profile
-
-echo "[*] Installing dependencies..."
-sudo yum update -y
-sudo yum install -y git docker
-sudo amazon-linux-extras enable aws-nitro-enclaves-cli
-sudo yum install -y aws-nitro-enclaves-cli-1.4.2
 
 echo "[*] Starting Docker..."
 sudo systemctl enable --now docker
