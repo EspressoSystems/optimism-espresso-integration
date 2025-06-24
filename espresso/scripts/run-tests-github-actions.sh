@@ -1,9 +1,13 @@
 #!/bin/bash
 set -euo pipefail
+set -x
+
+CACHIX_AUTH_TOKEN=$1
 
 echo "[*] Setting up Nix..."
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source /etc/profile.d/nix.sh
+nix-env -iA cachix -f https://cachix.org/api/v1/install
 
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
