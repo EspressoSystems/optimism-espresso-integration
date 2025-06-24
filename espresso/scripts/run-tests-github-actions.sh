@@ -24,9 +24,7 @@ cd optimism-espresso-integration
 git checkout "$BRANCH_NAME"
 git submodule update --init --recursive
 # Poblate cachix cahe
-CACHIX_AUTH_TOKEN=$1 nix flake archive --json \
-  | jq -r '.path,(.inputs|to_entries[].value.path)' \
-  | cachix push espresso-systems-private
+nix flake archive --json | jq -r '.path,(.inputs|to_entries[].value.path)' | cachix push espresso-systems-private
 
 echo "[*] Starting Docker..."
 sudo systemctl enable --now docker
