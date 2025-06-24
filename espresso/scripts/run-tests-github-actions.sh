@@ -6,8 +6,9 @@ echo "[*] Setting up Nix and Cachix"
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source /etc/profile.d/nix.sh
 nix-env -iA cachix -f https://cachix.org/api/v1/install
+echo "trusted-users = root ec2-user" | sudo tee -a /etc/nix/nix.conf && sudo pkill nix-daemon
 cachix authtoken $1
-sudo cachix use espresso-systems-private
+cachix use espresso-systems-private
 
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
