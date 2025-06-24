@@ -31,6 +31,8 @@ git checkout "$BRANCH_NAME"
 git submodule update --init --recursive
 
 echo "[*] Running tests in nix develop shell..."
-nix develop --command just compile-contracts-fast
-nix develop --command just build-batcher-enclave-image
-nix develop --command just espresso-enclave-tests
+nix develop <<'EOF'
+just compile-contracts-fast
+just build-batcher-enclave-image
+just espresso-enclave-tests
+EOF
