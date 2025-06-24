@@ -7,8 +7,7 @@ sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source /etc/profile.d/nix.sh
 nix-env -iA cachix -f https://cachix.org/api/v1/install
 cachix authtoken $1
-cachix use espresso-systems-private
-
+sudo cachix use espresso-systems-private
 
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
