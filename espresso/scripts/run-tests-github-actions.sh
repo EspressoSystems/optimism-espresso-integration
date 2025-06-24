@@ -11,10 +11,15 @@ cachix authtoken $1
 cachix use espresso-systems-private
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+
+echo "[*] Cloning repo and checking out branch $BRANCH_NAME..."
+git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
+cd optimism-espresso-integration
+git checkout "$BRANCH_NAME"
+git submodule update --init --recursive
 # Poblate cachix cahe
 nix develop --profile dev-profile -c true
 cachix push espresso-systems-private dev-profile
-
 
 echo "[*] Installing dependencies..."
 sudo yum update -y
@@ -32,11 +37,6 @@ sudo systemctl stop nitro-enclaves-allocator.service || true
 echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
 sudo systemctl start nitro-enclaves-allocator.service
 
-echo "[*] Cloning repo and checking out branch $BRANCH_NAME..."
-git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
-cd optimism-espresso-integration
-git checkout "$BRANCH_NAME"
-git submodule update --init --recursive
 
 echo "[*] Running tests in nix develop shell..."
 nix develop --command bash -c "cargo install svm-rs" # See https://github.com/foundry-rs/foundry/issues/4736
