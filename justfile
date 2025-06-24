@@ -21,7 +21,6 @@ compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
 compile-contracts-fast:
- cargo install svm-rs # See https://github.com/foundry-rs/foundry/issues/4736
  (cd packages/contracts-bedrock && just build-no-tests)
 
 build-batcher-enclave-image:

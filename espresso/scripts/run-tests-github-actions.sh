@@ -31,4 +31,5 @@ git checkout "$BRANCH_NAME"
 git submodule update --init --recursive
 
 echo "[*] Running tests in nix develop shell..."
+nix develop --command bash -c "cargo install svm-rs" # See https://github.com/foundry-rs/foundry/issues/4736
 nix develop --command bash -c "just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
