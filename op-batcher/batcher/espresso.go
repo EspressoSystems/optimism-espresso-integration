@@ -996,6 +996,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
+	log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
+
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create BatchAuthenticator contract bindings: %w", err)
