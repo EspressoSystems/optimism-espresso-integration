@@ -9,6 +9,9 @@ nix-env -iA cachix -f https://cachix.org/api/v1/install
 echo "trusted-users = root ec2-user" | sudo tee -a /etc/nix/nix.conf && sudo pkill nix-daemon
 cachix authtoken $1
 cachix use espresso-systems-private
+# Poblate cachix cahe
+nix develop --profile dev-profile -c true
+cachix push espresso-systems-private dev-profile
 
 mkdir -p ~/.config/nix
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
