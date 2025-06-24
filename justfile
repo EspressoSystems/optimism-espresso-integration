@@ -21,7 +21,7 @@ compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
 compile-contracts-fast:
- (cd packages/contracts-bedrock && just build-no-tests)
+ (cd packages/contracts-bedrock && forge build --offline --skip "/**/test/**")
 
 build-batcher-enclave-image:
  (cd kurtosis-devnet && just op-batcher-enclave-image)
