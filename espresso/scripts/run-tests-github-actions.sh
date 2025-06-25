@@ -38,7 +38,15 @@ sudo systemctl start nitro-enclaves-allocator.service
 
 
 echo "[*] Running tests in nix develop shell..."
-nix develop --command bash -c "cargo install svm-rs && svm install 0.8.30" # See https://github.com/foundry-rs/foundry/issues/4736
+
+# Workaround due to https://github.com/foundry-rs/foundry/issues/4736
+sudo yum install -y gcc
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source ~/.bashrc
+cargo install svm-rs
+svm install 0.8.30
+
+
 nix develop --command bash -c "just compile-contracts-fast && just build-batcher-enclave-image"
 sleep 5
 nix develop --command bash -c " just espresso-enclave-tests"
