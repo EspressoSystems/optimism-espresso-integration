@@ -46,6 +46,7 @@ curl https://sh.rustup.rs -sSf | sh -s -- -y
 cargo install svm-rs
 svm install 0.8.15
 svm install 0.8.19
+svm install 0.8.22
 svm install 0.8.25
 svm install 0.8.28
 svm install 0.8.30
