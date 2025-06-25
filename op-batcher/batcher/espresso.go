@@ -9,8 +9,8 @@ import (
 	"math/big"
 	"sync"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

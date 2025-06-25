@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	espresso "github.com/EspressoSystems/espresso-network-go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network-go/light-client"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	espressoLocal "github.com/ethereum-optimism/optimism/espresso"
 	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
@@ -78,7 +78,7 @@ type BatcherService struct {
 	EndpointProvider    dial.L2EndpointProvider
 	TxManager           txmgr.TxManager
 	AltDA               *altda.DAClient
-	Espresso            *espresso.MultipleNodesClient
+	Espresso            *espressoClient.MultipleNodesClient
 	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
@@ -194,7 +194,11 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 	}
 
 	if len(cfg.EspressoUrls) > 0 {
-		bs.Espresso = espresso.NewMultipleNodesClient(cfg.EspressoUrls)
+		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)
+		if err != nil {
+			return fmt.Errorf("failed to create Espresso client: %w", err)
+		}
+		bs.Espresso = client
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
