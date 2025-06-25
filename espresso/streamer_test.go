@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	esp_client "github.com/EspressoSystems/espresso-network-go/client"
-	esp_common "github.com/EspressoSystems/espresso-network-go/types"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -77,7 +77,7 @@ type MockStreamerSource struct {
 	FinalizedL1 eth.L1BlockRef
 	SafeL2      eth.L2BlockRef
 
-	EspTransactionData     map[EspBlockAndNamespace]esp_client.TransactionsInBlock
+	EspTransactionData     map[EspBlockAndNamespace]espressoClient.TransactionsInBlock
 	LatestEspHeight        uint64
 	finalizedHeightHistory map[uint64]uint64
 }
@@ -87,7 +87,7 @@ func NewMockStreamerSource() *MockStreamerSource {
 	return &MockStreamerSource{
 		FinalizedL1:            finalizedL1,
 		SafeL2:                 createL2BlockRef(0, finalizedL1),
-		EspTransactionData:     make(map[EspBlockAndNamespace]esp_client.TransactionsInBlock),
+		EspTransactionData:     make(map[EspBlockAndNamespace]espressoClient.TransactionsInBlock),
 		finalizedHeightHistory: make(map[uint64]uint64),
 		LatestEspHeight:        0,
 	}
@@ -136,9 +136,9 @@ func (m *MockStreamerSource) SyncStatus() *eth.SyncStatus {
 	}
 }
 
-func (m *MockStreamerSource) AddEspressoTransactionData(height, namespace uint64, txData esp_client.TransactionsInBlock) {
+func (m *MockStreamerSource) AddEspressoTransactionData(height, namespace uint64, txData espressoClient.TransactionsInBlock) {
 	if m.EspTransactionData == nil {
-		m.EspTransactionData = make(map[EspBlockAndNamespace]esp_client.TransactionsInBlock)
+		m.EspTransactionData = make(map[EspBlockAndNamespace]espressoClient.TransactionsInBlock)
 	}
 
 	m.EspTransactionData[BlockAndNamespace(height, namespace)] = txData
@@ -177,9 +177,9 @@ func (ErrorNotFound) Error() string {
 // that a requested resource was not found.
 var ErrNotFound error = ErrorNotFound{}
 
-func (m *MockStreamerSource) FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (esp_client.TransactionsInBlock, error) {
+func (m *MockStreamerSource) FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error) {
 	if m.LatestEspHeight < blockHeight {
-		return esp_client.TransactionsInBlock{}, ErrNotFound
+		return espressoClient.TransactionsInBlock{}, ErrNotFound
 	}
 
 	// NOTE: if this combination is not found, we will end up returning an
@@ -325,7 +325,7 @@ func createEspressoBatch(batch *derive.SingularBatch) *derive.EspressoBatch {
 
 // createEspressoTransaction creates a mock Espresso transaction for testing purposes
 // containing the provided Espresso batch.
-func createEspressoTransaction(ctx context.Context, batch *derive.EspressoBatch, namespace uint64, chainSigner crypto.ChainSigner) *esp_common.Transaction {
+func createEspressoTransaction(ctx context.Context, batch *derive.EspressoBatch, namespace uint64, chainSigner crypto.ChainSigner) *espressoCommon.Transaction {
 	tx, err := batch.ToEspressoTransaction(ctx, namespace, chainSigner)
 	if have, want := err, error(nil); have != want {
 		panic(err)
@@ -336,9 +336,9 @@ func createEspressoTransaction(ctx context.Context, batch *derive.EspressoBatch,
 
 // createTransactionsInBlock creates a mock TransactionsInBlock for testing purposes
 // containing the provided Espresso transaction.
-func createTransactionsInBlock(tx *esp_common.Transaction) esp_client.TransactionsInBlock {
-	return esp_client.TransactionsInBlock{
-		Transactions: []esp_common.Bytes{tx.Payload},
+func createTransactionsInBlock(tx *espressoCommon.Transaction) espressoClient.TransactionsInBlock {
+	return espressoClient.TransactionsInBlock{
+		Transactions: []espressoCommon.Bytes{tx.Payload},
 	}
 }
 
@@ -353,7 +353,7 @@ func (m *MockStreamerSource) CreateEspressoTxnData(
 	chainID *big.Int,
 	l2Height uint64,
 	chainSigner crypto.ChainSigner,
-) (*derive.SingularBatch, *derive.EspressoBatch, *esp_common.Transaction, esp_client.TransactionsInBlock) {
+) (*derive.SingularBatch, *derive.EspressoBatch, *espressoCommon.Transaction, espressoClient.TransactionsInBlock) {
 	txCount := rng.Intn(10)
 	batch := m.createSingularBatch(rng, txCount, chainID, l2Height)
 	espBatch := createEspressoBatch(batch)
