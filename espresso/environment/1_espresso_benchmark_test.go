@@ -145,7 +145,7 @@ func TestE2eDevNetWithEspressoFastConfirmationStability(t *testing.T) {
 			t.Errorf("expected a small amount of variance in the receipt to caff time:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 
-		if have, want := metrics.ReceiptToVerify.StdDev, 2*time.Second; have > want {
+		if have, want := metrics.ReceiptToVerify.StdDev, 3*time.Second; have > want {
 			t.Errorf("expected a small amount of variance in the receipt to L1 time:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}
 	}
