@@ -1434,12 +1434,12 @@ jobs:
       - go-restore-cache:
           namespace: fuzz-<<parameters.package_name>>
       - run:
-          name: download espresso-network-go
+          name: download espresso-network go sdk
           command: |
-            ver=$(grep "github.com/EspressoSystems/espresso-network-go" go.mod | awk '{print $2}')
-            url="https://github.com/EspressoSystems/espresso-network-go/releases/download/${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a"
+            ver=$(grep "github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
+            url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"
             mkdir -p /home/circleci/local-lib
-            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
       - run:
           name: Fuzz
           no_output_timeout: 15m
@@ -1596,12 +1596,12 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: download espresso-network-go
+          name: download espresso-network go sdk
           command: |
-            ver=$(grep "github.com/EspressoSystems/espresso-network-go" go.mod | awk '{print $2}')
-            url="https://github.com/EspressoSystems/espresso-network-go/releases/download/${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a"
+            ver=$(grep "github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
+            url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"
             mkdir -p /home/circleci/local-lib
-            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
       - run:
           name: build op-program-client
           command: make op-program-client
