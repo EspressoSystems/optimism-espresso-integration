@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	tagged_base64 "github.com/EspressoSystems/espresso-network-go/tagged-base64"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoTaggedBase64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -24,7 +24,7 @@ func NewEspressoStore(endpt string, logger log.Logger) *EspressoStore {
 
 func (s *EspressoStore) Get(ctx context.Context, key []byte) ([]byte, error) {
 	s.logger.Info("Get request", "key", key)
-	tb64, err := tagged_base64.New("TX", key[1:])
+	tb64, err := espressoTaggedBase64.New("TX", key[1:])
 	if err != nil {
 		return nil, err
 	}
