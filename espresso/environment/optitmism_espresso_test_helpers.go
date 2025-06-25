@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
@@ -772,7 +772,8 @@ func launchEspressoDevNodeDocker() DevNetLauncherOption {
 
 							espressoDevNode := &EspressoDevNodeDockerContainerInfo{
 								DockerContainerInfo: espressoDevNodeContainerInfo,
-								espressoUrls:        []string{"http://" + hostPort},
+								// To create a valid multiple nodes client, we need to provide at least 2 URLs.
+								espressoUrls: []string{"http://" + hostPort, "http://" + hostPort},
 							}
 							ct.EspressoDevNode = espressoDevNode
 							c.EspressoUrls = espressoDevNode.espressoUrls

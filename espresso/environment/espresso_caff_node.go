@@ -114,9 +114,10 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 	caffNodeConfig.Rollup.CaffNodeConfig = rollup.CaffNodeConfig{
 		IsCaffNode:                    true,
 		PollingHotShotPollingInterval: 30 * time.Millisecond,
-		HotShotUrls:                   []string{u.String()},
-		L1EthRpc:                      system.L1.UserRPC().RPC(),
-		EspressoLightClientAddr:       ESPRESSO_LIGHT_CLIENT_ADDRESS,
+		// To create a valid multiple nodes client, we need to provide at least 2 URLs.
+		HotShotUrls:             []string{u.String(), u.String()},
+		L1EthRpc:                system.L1.UserRPC().RPC(),
+		EspressoLightClientAddr: ESPRESSO_LIGHT_CLIENT_ADDRESS,
 	}
 
 	// Configure
