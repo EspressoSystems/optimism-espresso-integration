@@ -44,6 +44,10 @@ sudo yum install -y gcc
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 . $HOME/.cargo/env
 cargo install svm-rs
+svm install 0.8.15
+svm install 0.8.19
+svm install 0.8.25
+svm install 0.8.28
 svm install 0.8.30
 
 nix develop --command bash -c "just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
