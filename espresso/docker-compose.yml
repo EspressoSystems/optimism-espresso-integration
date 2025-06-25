@@ -32,7 +32,7 @@ services:
           --http.corsdomain=* \
           --nodiscover \
           --dev \
-          --dev.period=12 \
+          --dev.period=1 \
           --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
           --mine \
           --allow-insecure-unlock \
@@ -168,11 +168,11 @@ services:
       l1:
         condition: service_healthy
       op-geth:
-        condition: service_healthy
+        condition: service_started
       op-node-sequencer:
-        condition: service_healthy
+        condition: service_started
       espresso-dev-node:
-        condition: service_healthy
+        condition: service_started
     environment:
       L1_RPC: http://l1:8545
     volumes:
