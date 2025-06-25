@@ -257,16 +257,13 @@ docker compose down -v
 docker volume prune -f
 ```
 
-* If the genesis file is updated, initialize the chain data directory with the updated file.
-```
-docker run --rm \
-  -v $(pwd)/../config:/config \
-  -v espresso_op-geth-data:/data \
-  us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3 \
-  init --datadir=/data --state.scheme=path /config/<genesis-file>
-```
-`<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
+* If the `l2_time` field in `rollup-devnet.json` is updated to fix a timing synchronization issue,
+convert the time to hex and update the `timestamp` fields in the two genesis files,
+`l1-genesis-devnet.json` and `l2-genesis-devnet.json`, too.
 
+* If a genesis file is updated, you may get a hash mismatch error when running a service that uses
+the genesis file. Replace the corresonding `hash` field in `rollup-devnet.json`, then rerun the
+failed command.
 
 ## Continuous Integration environment
 

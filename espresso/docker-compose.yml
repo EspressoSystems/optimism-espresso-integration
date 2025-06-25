@@ -16,6 +16,9 @@ services:
     command:
       - sh
       - -c
+      # Initialize with the L1 genesis file.
+      # Enable `dev` to automatically create blocks in the dev mode.
+      # Set `dev.period=1` to create a block every 1 second.
       - |
         set -e
         rm -rf /data/geth || true
@@ -28,6 +31,8 @@ services:
           --http.vhosts=* \
           --http.corsdomain=* \
           --nodiscover \
+          --dev \
+          --dev.period=1 \
           --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
           --mine \
           --allow-insecure-unlock \
@@ -47,21 +52,29 @@ services:
       - op-geth-data:/data
     environment:
       L1_RPC: http://l1:8545
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - --datadir=/data
-      - --networkid=1
-      - --http
-      - --http.addr=0.0.0.0
-      - --http.port=8545
-      - --http.api=eth,net,web3,debug,admin,txpool
-      - --http.vhosts=*
-      - --http.corsdomain=*
-      - --authrpc.addr=0.0.0.0
-      - --authrpc.port=8551
-      - --authrpc.vhosts=*
-      - --authrpc.jwtsecret=/config/jwt.txt
-      - --rollup.sequencerhttp=http://op-node-sequencer:8545
-      - --nodiscover
+      # Initialize with the L2 genesis file.
+      - |
+        if [ ! -d "/data/geth" ]; then
+          geth init --datadir=/data /config/l2-genesis-devnet.json
+        fi
+        exec geth \
+          --datadir=/data \
+          --networkid=1 \
+          --http \
+          --http.addr=0.0.0.0 \
+          --http.port=8545 \
+          --http.api=eth,net,web3,debug,admin,txpool \
+          --http.vhosts=* \
+          --http.corsdomain=* \
+          --authrpc.addr=0.0.0.0 \
+          --authrpc.port=8551 \
+          --authrpc.vhosts=* \
+          --authrpc.jwtsecret=/config/jwt.txt \
+          --rollup.disabletxpoolgossip=true \
+          --rollup.halt=major \
+          --nodiscover
     ports:
       - "8546:8545"  # L2 RPC
       - "8551:8551"  # Engine API
@@ -86,6 +99,8 @@ services:
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
       - --sequencer.enabled=true
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=9545 # Specify the port that the `op-batcher` service will use
 
   op-node-verifier:
     build:
@@ -148,19 +163,30 @@ services:
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-batcher-target
     image: op-batcher:espresso
+    # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
-      - op-node-sequencer
+      l1:
+        condition: service_healthy
+      op-geth:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      espresso-dev-node:
+        condition: service_started
     environment:
       L1_RPC: http://l1:8545
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-batcher
-      - --l1-eth-rpc=http://l1:8545
-      - --l2-eth-rpc=http://op-geth:8551
-      - --rollup-rpc=http://op-node-sequencer:8545
+      - --l1-eth-rpc=http://l1:8545                                                                               # Port from the `l1` service
+      - --l2-eth-rpc=http://op-geth:8545                                                                          # Port from the `op-geth` service
+      - --rollup-rpc=http://op-node-sequencer:9545                                                                # Port from the `op-node-sequencer` service
       - --espresso-url=http://espresso-dev-node:24000
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
+      - --mnemonic=test test test test test test test test test test test junk                                    # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0                                                                                # Arbitrary value for testing
 
   op-proposer:
     build:
@@ -174,10 +200,11 @@ services:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-proposer
-      - --l1-eth-rpc=http://l1:8545
-      - --rollup-rpc=http://op-node-sequencer:8545
-      - --game-factory-address=0xDC9a4dba410aaC9D98a848710Aa82601752DBd44
-      - --proposal-interval=10m
+      - --l1-eth-rpc=http://l1:8545                                             # Port from the `l1` service
+      - --rollup-rpc=http://op-node-sequencer:9545                              # Port from the `op-node-sequencer` service
+      - --l2oo-address=0x1234567890123456789012345678901234567890
+      - --mnemonic=test test test test test test test test test test test junk  # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0                                              # Arbitrary value for testing
 
   op-deployer:
     build:
