@@ -32,7 +32,7 @@ services:
           --http.corsdomain=* \
           --nodiscover \
           --dev \
-          --dev.period=1 \
+          --dev.period=12 \
           --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
           --mine \
           --allow-insecure-unlock \
@@ -168,11 +168,11 @@ services:
       l1:
         condition: service_healthy
       op-geth:
-        condition: service_started
+        condition: service_healthy
       op-node-sequencer:
-        condition: service_started
+        condition: service_healthy
       espresso-dev-node:
-        condition: service_started
+        condition: service_healthy
     environment:
       L1_RPC: http://l1:8545
     volumes:
@@ -218,7 +218,10 @@ services:
     restart: "no"
 
   espresso-dev-node:
-    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
+    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
+    depends_on:
+      l1:
+        condition: service_healthy
     ports:
       - "24000:24000" # Espresso sequencer
       - "24002:24002" # Espresso dev node
@@ -228,6 +231,10 @@ services:
     environment:
       RUST_LOG: info
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
+      ESPRESSO_SEQUENCER_L1_PROVIDER: http://l1:8545
+      ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
+      ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
+      ESPRESSO_SEQUENCER_API_PORT: 24000
 
 volumes:
   l1-data:

@@ -254,7 +254,7 @@ docker compose down -v
 
 * To start the system fresh, remove all volumes.
 ```
-docker volume prune -f
+docker volume prune -a
 ```
 
 * If the `l2_time` field in `rollup-devnet.json` is updated to fix a timing synchronization issue,
