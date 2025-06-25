@@ -42,11 +42,8 @@ echo "[*] Running tests in nix develop shell..."
 # Workaround due to https://github.com/foundry-rs/foundry/issues/4736
 sudo yum install -y gcc
 curl https://sh.rustup.rs -sSf | sh -s -- -y
-source ~/.bashrc
+. $HOME/.cargo/env
 cargo install svm-rs
 svm install 0.8.30
 
-
-nix develop --command bash -c "just compile-contracts-fast && just build-batcher-enclave-image"
-sleep 5
-nix develop --command bash -c " just espresso-enclave-tests"
+nix develop --command bash -c "just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
