@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
@@ -73,7 +73,10 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 
 	// We want to setup our test
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
-	espressoClient := espressoClient.NewMultipleNodesClient(espressoDevNode.EspressoUrls())
+	espressoClient, err := espressoClient.NewMultipleNodesClient(espressoDevNode.EspressoUrls())
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to create Espresso client:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
 	l1Client := system.NodeClient(e2esys.RoleL1)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -282,7 +285,10 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	// We want to setup our test
-	espressoClient := espressoClient.NewMultipleNodesClient(espressoDevNode.EspressoUrls())
+	espressoClient, err := espressoClient.NewMultipleNodesClient(espressoDevNode.EspressoUrls())
+	if have, want := err, error(nil); have != want {
+		t.Fatalf("failed to create Espresso client:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
+	}
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 	caffVerif := system.NodeClient(env.RoleCaffNode)
 	// create a real Espresso transaction and make sure it can go through
