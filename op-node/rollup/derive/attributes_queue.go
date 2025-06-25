@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	lightclient "github.com/EspressoSystems/espresso-network-go/light-client"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -78,6 +78,7 @@ type SingularBatchProvider interface {
 func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.EspressoStreamer[EspressoBatch] {
 
 	if !cfg.CaffNodeConfig.IsCaffNode {
+		log.Info("Espresso streamer not initialized: Caff node is not enabled")
 		return nil
 	}
 
@@ -86,18 +87,25 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 
 	l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.L1EthRpc)
 	if err != nil {
+		log.Error("Espresso streamer not initialized: Failed to connect to L1", "err", err)
 		return nil
 	}
 
-	lightClient, err := lightclient.NewLightclientCaller(common.HexToAddress(cfg.CaffNodeConfig.EspressoLightClientAddr), l1Client)
+	lightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.CaffNodeConfig.EspressoLightClientAddr), l1Client)
 	if err != nil {
+		log.Error("Espresso streamer not initialized: Failed to connect to light client", "err", err)
 		return nil
 	}
 
+	client, err := espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls)
+	if err != nil {
+		log.Error("Espresso streamer not initialized: Failed to connect to hotshot client", "err", err)
+		return nil
+	}
 	streamer := espresso.NewEspressoStreamer(
 		cfg.L2ChainID.Uint64(),
 		l1BlockRefClient,
-		espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls),
+		client,
 		lightClient,
 		log,
 		func(data []byte) (*EspressoBatch, error) {
@@ -196,6 +204,10 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var concluding bool
 		var err error
 		if aq.isCaffNode {
+			if aq.espressoStreamer == nil {
+				aq.log.Error("Espresso streamer not initialized as expected when isCaffNode is ON")
+				return nil, ErrCritical
+			}
 			batch, concluding, err = CaffNextBatch(aq.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Fetcher)
 		} else {
 			batch, concluding, err = aq.prev.NextBatch(ctx, parent)

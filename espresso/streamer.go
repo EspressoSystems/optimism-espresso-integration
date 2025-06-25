@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	espressoClient "github.com/EspressoSystems/espresso-network-go/client"
-	espressoTypes "github.com/EspressoSystems/espresso-network-go/types"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -50,18 +50,18 @@ type L1Client interface {
 	HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error)
 }
 
-// espresso-network-go's HeaderInterface currently lacks a function to get this info,
+// espresso-network go sdk's HeaderInterface currently lacks a function to get this info,
 // although it is present in all header versions
-func GetFinalizedL1(header *espressoTypes.HeaderImpl) espressoTypes.L1BlockInfo {
-	v0_1, ok := header.Header.(*espressoTypes.Header0_1)
+func GetFinalizedL1(header *espressoCommon.HeaderImpl) espressoCommon.L1BlockInfo {
+	v0_1, ok := header.Header.(*espressoCommon.Header0_1)
 	if ok {
 		return *v0_1.L1Finalized
 	}
-	v0_2, ok := header.Header.(*espressoTypes.Header0_2)
+	v0_2, ok := header.Header.(*espressoCommon.Header0_2)
 	if ok {
 		return *v0_2.L1Finalized
 	}
-	v0_3, ok := header.Header.(*espressoTypes.Header0_3)
+	v0_3, ok := header.Header.(*espressoCommon.Header0_3)
 	if ok {
 		return *v0_3.L1Finalized
 	}

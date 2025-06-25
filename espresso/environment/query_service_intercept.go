@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	tagged_base64 "github.com/EspressoSystems/espresso-network-go/tagged-base64"
-	types "github.com/EspressoSystems/espresso-network-go/types"
+	espressoTaggedBase64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 )
@@ -143,18 +143,18 @@ type fakeSubmitTransactionSuccess struct{}
 // transaction in the request body. This is a fake implementation that
 // simulates a successful transaction submission by returning a commit hash
 // that won't collide with the real transaction commit hashes.
-func generateCommitForSubmitTransaction(r *http.Request) (*types.TaggedBase64, error) {
+func generateCommitForSubmitTransaction(r *http.Request) (*espressoTaggedBase64.TaggedBase64, error) {
 	defer r.Body.Close()
 
-	var txn types.Transaction
+	var txn espressoCommon.Transaction
 	if err := json.NewDecoder(r.Body).Decode(&txn); err != nil {
 		// Unable to decode, this is a problem?
 		var emptyHash [32]byte
-		return tagged_base64.New("FAKE", emptyHash[:])
+		return espressoTaggedBase64.New("FAKE", emptyHash[:])
 	}
 
 	commit := txn.Commit()
-	return tagged_base64.New("FAKE", commit[:])
+	return espressoTaggedBase64.New("FAKE", commit[:])
 }
 
 // ServeHTTP implements http.Handler
@@ -353,7 +353,8 @@ func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNod
 		// Set the proxy
 		proxy.u = *u
 		// Replace the Espresso URL with the proxy URL
-		cfg.EspressoUrls = []string{server.URL}
+		// We need to provide at least 2 URLs to create a valid multiple nodes client
+		cfg.EspressoUrls = []string{server.URL, server.URL}
 	}
 }
 
