@@ -277,7 +277,7 @@ docker compose down -v
 
 * To start the system fresh, remove all volumes.
 ```
-docker volume prune -f
+docker volume prune -a
 ```
 
 * If a genesis file is updated, you may get a hash mismatch error when running a service that uses
