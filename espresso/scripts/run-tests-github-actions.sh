@@ -2,21 +2,10 @@
 set -euo pipefail
 set -x
 
-echo "[*] Setting up Nix and Cachix"
-sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
-source /etc/profile.d/nix.sh
-nix-env -iA cachix -f https://cachix.org/api/v1/install
-mkdir -p ~/.config/nix
-echo "trusted-users = root ec2-user" | sudo tee -a /etc/nix/nix.conf && sudo pkill nix-daemon
+echo "[*] Setting up Cachix"
 cachix authtoken $1
 cachix use espresso-systems-private
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-
-echo "[*] Installing dependencies..."
-sudo yum update -y
-sudo yum install -y git docker
-sudo amazon-linux-extras enable aws-nitro-enclaves-cli
-sudo yum install -y aws-nitro-enclaves-cli-1.4.2
 
 echo "[*] Cloning repo and checking out branch $BRANCH_NAME..."
 git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
@@ -38,17 +27,5 @@ sudo systemctl start nitro-enclaves-allocator.service
 
 
 echo "[*] Running tests in nix develop shell..."
-
-# Workaround due to https://github.com/foundry-rs/foundry/issues/4736
-sudo yum install -y gcc
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-. $HOME/.cargo/env
-cargo install svm-rs
-svm install 0.8.15
-svm install 0.8.19
-svm install 0.8.22
-svm install 0.8.25
-svm install 0.8.28
-svm install 0.8.30
 
 nix develop --command bash -c "just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
