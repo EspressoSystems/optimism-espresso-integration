@@ -99,6 +99,7 @@
               pkgs.golangci-lint
               pkgs.awscli2
               pkgs.just
+              pkgs.pnpm
             ];
             shellHook = ''
               export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
