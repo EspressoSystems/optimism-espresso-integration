@@ -780,21 +780,24 @@ func determineDockerNetworkMode() string {
 // remapped port values.  This is done for convenience in order to ensure that
 // we can still reference the hard coded ports, even if they've been remapped
 // from their original values.
-func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerContainerInfo, portRemapping map[string]string) {
-	if _, ok := portRemapping[ESPRESSO_SEQUENCER_API_PORT]; !ok {
-		// If we don't have the original port mapping for the hard
-		// coded port, we will need to back fill them in, just
-		// to make life easier for consumers.
+func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerContainerInfo, portRemapping map[string]string, network string) {
+	if _, ok := containerInfo.PortMap[ESPRESSO_SEQUENCER_API_PORT]; ok && network != "host" {
+		// nothing needs to be modified
+		return
+	}
 
-		for portKey, portValue := range portRemapping {
-			// We copy the port mapping information
-			// so we know the original mapping again,
-			// since we're hard-coding the ports to use.
-			// This should allow us to run multiple
-			// e2e test environments in parallel on
-			// linux as well.
-			containerInfo.PortMap[portKey] = containerInfo.PortMap[portValue]
-		}
+	// If we don't have the original port mapping for the hard
+	// coded port, we will need to back fill them in, just
+	// to make life easier for consumers.
+
+	for portKey, portValue := range portRemapping {
+		// We copy the port mapping information
+		// so we know the original mapping again,
+		// since we're hard-coding the ports to use.
+		// This should allow us to run multiple
+		// e2e test environments in parallel on
+		// linux as well.
+		containerInfo.PortMap[portKey] = containerInfo.PortMap[portValue]
 	}
 }
 
@@ -840,8 +843,9 @@ func launchEspressoDevNodeStartOption(ct *DevNetLauncherContext) e2esys.StartOpt
 				return
 			}
 
-			ensureHardCodedPortsAreMappedFromTheirOriginalValues(&espressoDevNodeContainerInfo, portRemapping)
+			ensureHardCodedPortsAreMappedFromTheirOriginalValues(&espressoDevNodeContainerInfo, portRemapping, network)
 
+			// Wait for Espresso to be ready
 			if err := waitForEspressoToFinishSpinningUp(ct, espressoDevNodeContainerInfo); err != nil {
 				ct.Error = err
 				return
@@ -854,7 +858,8 @@ func launchEspressoDevNodeStartOption(ct *DevNetLauncherContext) e2esys.StartOpt
 
 			espressoDevNode := &EspressoDevNodeDockerContainerInfo{
 				DockerContainerInfo: espressoDevNodeContainerInfo,
-				espressoUrls:        []string{"http://" + hostPort},
+				// To create a valid multiple nodes client, we need to provide at least 2 URLs.
+				espressoUrls: []string{"http://" + hostPort, "http://" + hostPort},
 			}
 			ct.EspressoDevNode = espressoDevNode
 
