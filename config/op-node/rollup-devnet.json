@@ -1,7 +1,7 @@
 {
   "genesis": {
     "l1": {
-      "hash": "0xb013fbf7adbda6cfadb3a36774149ca34b1b5b43a65a01053f7d37beae05ec15",
+      "hash": "0xa6862f97effa8bb83340463bd2697b43c1737c9ec65ebc7f200a70755a9249af",
       "number": 0
     },
     "l2": {
@@ -20,7 +20,7 @@
   "max_sequencer_drift": 300,
   "seq_window_size": 200,
   "channel_timeout": 120,
-  "l1_chain_id": 1337,
+  "l1_chain_id": 11155111,
   "l2_chain_id": 1,
   "batch_inbox_address": "0xff00000000000000000000000000000000000901",
   "deposit_contract_address": "0x55bdfb0bfef1070c457124920546359426153833",
