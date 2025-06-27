@@ -112,6 +112,7 @@
               export CGO_LDFLAGS="${cgo_ld_flags} -L${pkgs.zlib}/lib"
               export LD_LIBRARY_PATH=/tmp:${pkgs.zlib}/lib:$LD_LIBRARY_PATH
               export MACOSX_DEPLOYMENT_TARGET=14.5
+              export PATH=$PATH:$PWD/op-deployer/bin
             '';
           };
         };
