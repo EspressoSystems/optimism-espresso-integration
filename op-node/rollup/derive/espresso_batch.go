@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	espressoCommon "github.com/EspressoSystems/espresso-network-go/types"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opCrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"

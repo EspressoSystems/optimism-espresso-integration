@@ -153,6 +153,7 @@ services:
       - --l1.trustrpc=true
       - --rpc.enable-admin=true
       - --caff.hotshot-urls=http://espresso-dev-node:24000
+      - --caff.hotshot-urls=http://espresso-dev-node:24000
       - --caff.next-hotshot-block-num=1
       - --caff.polling-hotshot-polling-interval=500ms
       - --log.level=debug
@@ -181,9 +182,10 @@ services:
     command:
       - op-batcher
       - --l1-eth-rpc=http://l1:8545                                                                               # Port from the `l1` service
-      - --l2-eth-rpc=http://op-geth:8545                                                                          # Port from the `op-geth` service
+      - --l2-eth-rpc=http://op-geth:8551                                                                          # Port from the `op-geth` service
       - --rollup-rpc=http://op-node-sequencer:9545                                                                # Port from the `op-node-sequencer` service
       - --espresso-url=http://espresso-dev-node:24000
+      - --espresso-url=http://espresso-dev-node:24000                                                             # Specify the URL twice due to the Espresso Go update.
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
       - --mnemonic=test test test test test test test test test test test junk                                    # Arbitrary value for testing

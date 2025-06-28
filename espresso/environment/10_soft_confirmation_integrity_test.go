@@ -30,8 +30,8 @@ import (
 	"testing"
 	"time"
 
-	esp_client "github.com/EspressoSystems/espresso-network-go/client"
-	esp_common "github.com/EspressoSystems/espresso-network-go/types/common"
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types/common"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -289,7 +289,7 @@ const SUBMIT_RANDOM_DATA_INTERVAL = 500 * time.Millisecond
 
 // submitRandomDataToSequencerNamespace is a function that submits
 // random data to the sequencer namespace at a specified interval.
-func submitRandomDataToSequencerNamespace(ctx context.Context, espCli esp_client.EspressoClient, namespace uint64) {
+func submitRandomDataToSequencerNamespace(ctx context.Context, espCli espressoClient.EspressoClient, namespace uint64) {
 	// We only want to submit garbage data to the sequencer so quickly
 	ticker := time.NewTicker(SUBMIT_RANDOM_DATA_INTERVAL)
 	buffer := make([]byte, 1024*3)
@@ -304,9 +304,9 @@ func submitRandomDataToSequencerNamespace(ctx context.Context, espCli esp_client
 		n, _ := crypto_rand.Read(buffer)
 
 		// Submit garbage data to the sequencer namespace
-		_, err := espCli.SubmitTransaction(ctx, esp_common.Transaction{
+		_, err := espCli.SubmitTransaction(ctx, espressoCommon.Transaction{
 			Namespace: namespace,
-			Payload:   esp_common.Bytes(buffer[:n]),
+			Payload:   espressoCommon.Bytes(buffer[:n]),
 		})
 		if err != nil {
 			log.Error("Failed to submit random data to sequencer namespace", "namespace", namespace, "error", err)
@@ -395,7 +395,7 @@ const SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL = 500 * time.Millisecond
 
 // Attack Espresso Integrity by Submitting Valid Data with the wrong
 // Signature to the Sequencer's namespace.
-func submitValidDataWithWrongSignature(ctx context.Context, rollupCfg *rollup.Config, l2Seq *ethclient.Client, espCli esp_client.EspressoClient, namespace uint64) {
+func submitValidDataWithWrongSignature(ctx context.Context, rollupCfg *rollup.Config, l2Seq *ethclient.Client, espCli espressoClient.EspressoClient, namespace uint64) {
 	// We only want to submit garbage data to the sequencer so quickly
 	ticker := time.NewTicker(SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL)
 	stackTrie := trie.NewStackTrie(func(path []byte, hash geth_common.Hash, blob []byte) {})
@@ -474,7 +474,7 @@ func submitValidDataWithRandomSignature(
 	ctx context.Context,
 	rollupCfg *rollup.Config,
 	l2Seq *ethclient.Client,
-	espCli esp_client.EspressoClient,
+	espCli espressoClient.EspressoClient,
 	namespace uint64,
 ) {
 	// We only want to submit garbage data to the sequencer so quickly
@@ -614,7 +614,7 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	}
 
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
-	espCli := esp_client.NewClient(espressoSequencerURL.String())
+	espCli := espressoClient.NewClient(espressoSequencerURL.String())
 	namespace := system.RollupConfig.L2ChainID.Uint64()
 
 	// Attack Espresso Integrity by Submitting Garbage Data to the Same
