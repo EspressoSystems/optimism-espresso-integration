@@ -56,7 +56,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
   esac && \
   echo "Downloading: $GETH_URL" && \
   curl -L "$GETH_URL" -o geth.tar.gz && \
-  echo "$GETH_SHA geth.tar.gz" | sha256sum -c -
+  echo "$GETH_SHA geth.tar.gz" | sha256sum -c - && \
   tar -xvf geth.tar.gz && \
   mv "$GETH_DIR/geth" /usr/local/bin/geth && \
   rm -rf geth.tar.gz "$GETH_DIR" && \
