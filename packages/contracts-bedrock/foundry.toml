@@ -137,13 +137,14 @@ optimizer = false
 additional_compiler_profiles = [
   { name = "dispute", optimizer_runs = 5000 },
   { name = "via-ir", via_ir = true },
+  { name = "op-contracts", optimizer_runs = 5000 },
 ]
 compilation_restrictions = [
-  { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 5000 },
-  { paths = "src/dispute/PermissionedDisputeGame.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
+  { paths = "src/dispute/FaultDisputeGame.sol", profile = "dispute" },
+  { paths = "src/dispute/PermissionedDisputeGame.sol", profile = "dispute" },
+  { paths = "src/L1/OPContractsManager.sol", profile = "op-contracts" },
+  { paths = "src/L1/StandardValidator.sol", profile = "op-contracts" },
+  { paths = "src/L1/OptimismPortal2.sol", profile = "op-contracts" },
   { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
   { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
 ]
