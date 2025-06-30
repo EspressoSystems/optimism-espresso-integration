@@ -39,17 +39,18 @@ const maxSequencerDriftCelo = maxSequencerDriftFjord + 1092
 type ForkName string
 
 const (
-	Bedrock  ForkName = "bedrock"
-	Regolith ForkName = "regolith"
-	Canyon   ForkName = "canyon"
-	Delta    ForkName = "delta"
-	Ecotone  ForkName = "ecotone"
-	Fjord    ForkName = "fjord"
-	Granite  ForkName = "granite"
-	Holocene ForkName = "holocene"
-	Isthmus  ForkName = "isthmus"
-	Jovian   ForkName = "jovian"
-	Interop  ForkName = "interop"
+	Bedrock                 ForkName = "bedrock"
+	Regolith                ForkName = "regolith"
+	Canyon                  ForkName = "canyon"
+	Delta                   ForkName = "delta"
+	Ecotone                 ForkName = "ecotone"
+	Fjord                   ForkName = "fjord"
+	Granite                 ForkName = "granite"
+	Holocene                ForkName = "holocene"
+	Isthmus                 ForkName = "isthmus"
+	Jovian                  ForkName = "jovian"
+	Interop                 ForkName = "interop"
+	EspressoCeloIntegration ForkName = "espresso_celo_integration"
 	// ADD NEW FORKS TO AllForks BELOW!
 	None ForkName = "none"
 )
@@ -66,6 +67,7 @@ var AllForks = []ForkName{
 	Isthmus,
 	Jovian,
 	Interop,
+	EspressoCeloIntegration,
 	// ADD NEW FORKS HERE!
 }
 
@@ -213,6 +215,9 @@ func (s *ChainSpec) CheckForkActivation(log log.Logger, block eth.L2BlockRef) {
 		if s.config.IsInterop(block.Time) {
 			s.currentFork = Interop
 		}
+		if s.config.IsEspressoCeloIntegration(block.Time) {
+			s.currentFork = EspressoCeloIntegration
+		}
 		log.Info("Current hardfork version detected", "forkName", s.currentFork)
 		return
 	}
@@ -240,6 +245,8 @@ func (s *ChainSpec) CheckForkActivation(log log.Logger, block eth.L2BlockRef) {
 		foundActivationBlock = s.config.IsJovianActivationBlock(block.Time)
 	case Interop:
 		foundActivationBlock = s.config.IsInteropActivationBlock(block.Time)
+	case EspressoCeloIntegration:
+		foundActivationBlock = s.config.IsEspressoCeloIntegrationActivationBlock(block.Time)
 	}
 
 	if foundActivationBlock {

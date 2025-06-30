@@ -157,7 +157,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
-		bs.UseEspresso = true
+		// Note: UseEspresso is now determined dynamically by isEspressoEnabled() based on activation timestamp
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}

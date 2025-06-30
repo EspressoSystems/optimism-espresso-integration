@@ -61,4 +61,13 @@ func ApplyDeltaTimeOffset(dp *e2eutils.DeployParams, deltaTimeOffset *hexutil.Ui
 			dp.DeployConfig.L2GenesisJovianTimeOffset = deltaTimeOffset
 		}
 	}
+
+	// configure Espresso Celo Integration to not be before Delta accidentally
+	if dp.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset != nil {
+		if deltaTimeOffset == nil {
+			dp.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = nil
+		} else if *dp.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset < *deltaTimeOffset {
+			dp.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = deltaTimeOffset
+		}
+	}
 }

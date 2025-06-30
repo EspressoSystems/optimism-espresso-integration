@@ -140,6 +140,18 @@ func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.Es
 	return &l.streamer
 }
 
+// isEspressoEnabled returns true if Espresso integration is currently active based on the timestamp.
+// It checks both that Espresso client is configured and that the activation timestamp has been reached.
+func (l *BatchSubmitter) isEspressoEnabled() bool {
+	// First check if Espresso is configured (we need the client and the authenticator address)
+	if l.Espresso == nil || l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+		return false
+	}
+	// Check if the EspressoCeloIntegration fork is active based on current timestamp
+	currentTime := uint64(time.Now().Unix())
+	return l.RollupConfig.IsEspressoCeloIntegration(currentTime)
+}
+
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
 func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	state := NewChannelManager(setup.Log, setup.Metr, setup.ChannelConfig, setup.RollupConfig)
@@ -212,7 +224,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.Log.Warn("Throttling loop is DISABLED due to 0 throttle-threshold. This should not be disabled in prod.")
 	}
 
-	if l.Config.UseEspresso {
+	if l.isEspressoEnabled() {
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
@@ -778,7 +790,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
-			if l.Config.UseEspresso {
+			if l.isEspressoEnabled() {
 				l.streamer.Reset()
 			}
 			return true
@@ -978,7 +990,7 @@ type TxSender[T any] interface {
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
-	if l.Config.UseEspresso && !isCancel {
+	if l.isEspressoEnabled() && !isCancel {
 		goroutineSpawned := daGroup.TryGo(
 			func() error {
 				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)

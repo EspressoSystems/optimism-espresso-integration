@@ -250,6 +250,7 @@ func ApplyDeployConfigForks(deployConfig *genesis.DeployConfig) {
 	isFjord := isGranite || os.Getenv("OP_E2E_USE_FJORD") == "true"
 	isEcotone := isFjord || os.Getenv("OP_E2E_USE_ECOTONE") == "true"
 	isDelta := isEcotone || os.Getenv("OP_E2E_USE_DELTA") == "true"
+	isEspressoCeloIntegration := os.Getenv("OP_E2E_USE_ESPRESSO_CELO_INTEGRATION") == "true"
 	if isDelta {
 		deployConfig.L2GenesisDeltaTimeOffset = new(hexutil.Uint64)
 	}
@@ -270,6 +271,9 @@ func ApplyDeployConfigForks(deployConfig *genesis.DeployConfig) {
 	}
 	if isJovian {
 		deployConfig.L2GenesisJovianTimeOffset = new(hexutil.Uint64)
+	}
+	if isEspressoCeloIntegration {
+		deployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = new(hexutil.Uint64)
 	}
 	// Canyon and lower is activated by default
 	deployConfig.L2GenesisCanyonTimeOffset = new(hexutil.Uint64)

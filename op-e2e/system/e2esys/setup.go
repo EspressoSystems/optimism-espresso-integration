@@ -213,6 +213,7 @@ func RegolithSystemConfig(t *testing.T, regolithTimeOffset *hexutil.Uint64, opts
 	cfg.DeployConfig.L2GenesisHoloceneTimeOffset = nil
 	cfg.DeployConfig.L2GenesisIsthmusTimeOffset = nil
 	cfg.DeployConfig.L2GenesisJovianTimeOffset = nil
+	cfg.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = nil
 	// ADD NEW FORKS HERE!
 	return cfg
 }
@@ -732,6 +733,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			JovianTime:                cfg.DeployConfig.JovianTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			InteropTime:               cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			Cel2Time:                  cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			EspressoCeloIntegrationTime: cfg.DeployConfig.EspressoCeloIntegrationTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			ProtocolVersionsAddress:   cfg.L1Deployments.ProtocolVersionsProxy,
 			AltDAConfig:               rollupAltDAConfig,
 			ChainOpConfig: &params.OptimismConfig{

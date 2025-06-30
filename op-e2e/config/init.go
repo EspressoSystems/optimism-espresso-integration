@@ -297,14 +297,15 @@ func initAllocType(root string, allocType AllocType) {
 			}
 
 			baseUpgradeSchedule := map[string]any{
-				"l2GenesisRegolithTimeOffset": nil,
-				"l2GenesisCanyonTimeOffset":   nil,
-				"l2GenesisDeltaTimeOffset":    nil,
-				"l2GenesisEcotoneTimeOffset":  nil,
-				"l2GenesisFjordTimeOffset":    nil,
-				"l2GenesisGraniteTimeOffset":  nil,
-				"l2GenesisHoloceneTimeOffset": nil,
-				"l2GenesisIsthmusTimeOffset":  nil,
+				"l2GenesisRegolithTimeOffset":                nil,
+				"l2GenesisCanyonTimeOffset":                  nil,
+				"l2GenesisDeltaTimeOffset":                   nil,
+				"l2GenesisEcotoneTimeOffset":                 nil,
+				"l2GenesisFjordTimeOffset":                   nil,
+				"l2GenesisGraniteTimeOffset":                 nil,
+				"l2GenesisHoloceneTimeOffset":                nil,
+				"l2GenesisIsthmusTimeOffset":                 nil,
+				"l2GenesisEspressoCeloIntegrationTimeOffset": nil,
 			}
 
 			upgradeSchedule := new(genesis.UpgradeScheduleDeployConfig)

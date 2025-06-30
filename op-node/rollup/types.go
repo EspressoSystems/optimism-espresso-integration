@@ -132,6 +132,10 @@ type Config struct {
 	// Active if InteropTime != nil && L2 block timestamp >= *InteropTime, inactive otherwise.
 	InteropTime *uint64 `json:"interop_time,omitempty"`
 
+	// EspressoCeloIntegrationTime sets the activation time of the OP-stack rollup Celo's integration with Espresso.
+	// Active if EspressoCeloIntegrationTime != nil && L2 block timestamp >= *EspressoCeloIntegrationTime, inactive otherwise.
+	EspressoCeloIntegrationTime *uint64 `json:"espresso_celo_integration_time,omitempty"`
+
 	// Note: below addresses are part of the block-derivation process,
 	// and required to be the same network-wide to stay in consensus.
 
@@ -495,6 +499,10 @@ func (c *Config) IsCel2(timestamp uint64) bool {
 	return c.Cel2Time != nil && timestamp >= *c.Cel2Time
 }
 
+func (c *Config) IsEspressoCeloIntegration(timestamp uint64) bool {
+	return c.Cel2Time != nil && timestamp >= *c.Cel2Time && c.EspressoCeloIntegrationTime != nil && timestamp >= *c.EspressoCeloIntegrationTime
+}
+
 func (c *Config) IsRegolithActivationBlock(l2BlockTime uint64) bool {
 	return c.IsRegolith(l2BlockTime) &&
 		l2BlockTime >= c.BlockTime &&
@@ -567,6 +575,14 @@ func (c *Config) IsInteropActivationBlock(l2BlockTime uint64) bool {
 		!c.IsInterop(l2BlockTime-c.BlockTime)
 }
 
+// IsEspressoCeloIntegrationActivationBlock returns whether the specified block is the first block subject to the
+// EspressoCeloIntegration upgrade.
+func (c *Config) IsEspressoCeloIntegrationActivationBlock(l2BlockTime uint64) bool {
+	return c.IsEspressoCeloIntegration(l2BlockTime) &&
+		l2BlockTime >= c.BlockTime &&
+		!c.IsEspressoCeloIntegration(l2BlockTime-c.BlockTime)
+}
+
 // IsActivationBlock returns the fork which activates at the block with time newTime if the previous
 // block's time is oldTime. It return an empty ForkName if no fork activation takes place between
 // those timestamps. It can be used for both, L1 and L2 blocks.
@@ -581,6 +597,9 @@ func (c *Config) IsActivationBlock(oldTime, newTime uint64) ForkName {
 func (c *Config) ActivateAtGenesis(hardfork ForkName) {
 	// IMPORTANT! ordered from newest to oldest
 	switch hardfork {
+	case EspressoCeloIntegration:
+		c.EspressoCeloIntegrationTime = new(uint64)
+		fallthrough
 	case Interop:
 		c.InteropTime = new(uint64)
 		fallthrough
@@ -776,6 +795,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		ctx = append(ctx, "pectra_blob_schedule_time", fmtForkTimeOrUnset(c.PectraBlobScheduleTime))
 	}
 	ctx = append(ctx, "cel2_time", fmtForkTimeOrUnset(c.Cel2Time))
+	ctx = append(ctx, "espresso_celo_integration_time", fmtForkTimeOrUnset(c.EspressoCeloIntegrationTime))
 	log.Info("Rollup Config", ctx...)
 }
 

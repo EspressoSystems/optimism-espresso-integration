@@ -56,6 +56,7 @@ func WithLatestFork() faultDisputeConfigOpts {
 			cfg.DeployConfig.L2GenesisGraniteTimeOffset = &genesisActivation
 			cfg.DeployConfig.L2GenesisHoloceneTimeOffset = &genesisActivation
 			cfg.DeployConfig.L2GenesisIsthmusTimeOffset = &genesisActivation
+			cfg.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = &genesisActivation
 		})
 	}
 }

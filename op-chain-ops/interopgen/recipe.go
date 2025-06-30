@@ -258,6 +258,7 @@ func (r *InteropDevL2Recipe) build(l1ChainID uint64, addrs devkeys.Addresses) (*
 				L2GenesisIsthmusTimeOffset:  new(hexutil.Uint64),
 				L2GenesisJovianTimeOffset:   nil,
 				L2GenesisInteropTimeOffset:  new(hexutil.Uint64),
+				L2GenesisEspressoCeloIntegrationTimeOffset: new(hexutil.Uint64),
 				L1CancunTimeOffset:          new(hexutil.Uint64),
 				L1PragueTimeOffset:          new(hexutil.Uint64),
 				UseInterop:                  true,

@@ -369,7 +369,9 @@ type UpgradeScheduleDeployConfig struct {
 	// L2GenesisInteropTimeOffset is the number of seconds after genesis block that the Interop hard fork activates.
 	// Set it to 0 to activate at genesis. Nil to disable Interop.
 	L2GenesisInteropTimeOffset *hexutil.Uint64 `json:"l2GenesisInteropTimeOffset,omitempty"`
-
+	// L2GenesisEspressoCeloIntegrationTimeOffset is the number of seconds after genesis block that the EspressoCeloIntegration hard fork activates.
+	// Set it to 0 to activate at genesis. Nil to disable EspressoCelo.
+	L2GenesisEspressoCeloIntegrationTimeOffset *hexutil.Uint64 `json:"l2GenesisEspressoCeloIntegrationTimeOffset,omitempty"`
 	// Optional Forks
 
 	// L2GenesisPectraBlobScheduleTimeOffset is the number of seconds after genesis block that the PectraBlobSchedule fix activates.
@@ -420,6 +422,8 @@ func (d *UpgradeScheduleDeployConfig) ForkTimeOffset(fork rollup.ForkName) *uint
 		return (*uint64)(d.L2GenesisJovianTimeOffset)
 	case rollup.Interop:
 		return (*uint64)(d.L2GenesisInteropTimeOffset)
+	case rollup.EspressoCeloIntegration:
+		return (*uint64)(d.L2GenesisEspressoCeloIntegrationTimeOffset)
 	default:
 		panic(fmt.Sprintf("unknown fork: %s", fork))
 	}
@@ -447,6 +451,8 @@ func (d *UpgradeScheduleDeployConfig) SetForkTimeOffset(fork rollup.ForkName, of
 		d.L2GenesisJovianTimeOffset = (*hexutil.Uint64)(offset)
 	case rollup.Interop:
 		d.L2GenesisInteropTimeOffset = (*hexutil.Uint64)(offset)
+	case rollup.EspressoCeloIntegration:
+		d.L2GenesisEspressoCeloIntegrationTimeOffset = (*hexutil.Uint64)(offset)
 	default:
 		panic(fmt.Sprintf("unknown fork: %s", fork))
 	}
@@ -525,6 +531,10 @@ func (d *UpgradeScheduleDeployConfig) InteropTime(genesisTime uint64) *uint64 {
 	return offsetToUpgradeTime(d.L2GenesisInteropTimeOffset, genesisTime)
 }
 
+func (d *UpgradeScheduleDeployConfig) EspressoCeloIntegrationTime(genesisTime uint64) *uint64 {
+	return offsetToUpgradeTime(d.L2GenesisEspressoCeloIntegrationTimeOffset, genesisTime)
+}
+
 func (d *UpgradeScheduleDeployConfig) AllocMode(genesisTime uint64) L2AllocsMode {
 	forks := d.forks()
 	for i := len(forks) - 1; i >= 0; i-- {
@@ -555,6 +565,7 @@ func (d *UpgradeScheduleDeployConfig) forks() []Fork {
 		{L2GenesisTimeOffset: d.L2GenesisHoloceneTimeOffset, Name: string(L2AllocsHolocene)},
 		{L2GenesisTimeOffset: d.L2GenesisIsthmusTimeOffset, Name: string(L2AllocsIsthmus)},
 		{L2GenesisTimeOffset: d.L2GenesisJovianTimeOffset, Name: string(L2AllocsJovian)},
+		{L2GenesisTimeOffset: d.L2GenesisEspressoCeloIntegrationTimeOffset, Name: string(L2AllocsEspressoCeloIntegration)},
 	}
 }
 
@@ -1066,23 +1077,24 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 		BatchInboxAddress:         d.BatchInboxAddress,
 		BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
 
-		DepositContractAddress:  d.OptimismPortalProxy,
-		L1SystemConfigAddress:   d.SystemConfigProxy,
-		RegolithTime:            d.RegolithTime(l1StartTime),
-		CanyonTime:              d.CanyonTime(l1StartTime),
-		DeltaTime:               d.DeltaTime(l1StartTime),
-		EcotoneTime:             d.EcotoneTime(l1StartTime),
-		FjordTime:               d.FjordTime(l1StartTime),
-		GraniteTime:             d.GraniteTime(l1StartTime),
-		HoloceneTime:            d.HoloceneTime(l1StartTime),
-		PectraBlobScheduleTime:  d.PectraBlobScheduleTime(l1StartTime),
-		IsthmusTime:             d.IsthmusTime(l1StartTime),
-		JovianTime:              d.JovianTime(l1StartTime),
-		InteropTime:             d.InteropTime(l1StartTime),
-		ProtocolVersionsAddress: d.ProtocolVersionsProxy,
-		AltDAConfig:             altDA,
-		ChainOpConfig:           chainOpConfig,
-		Cel2Time:                d.RegolithTime(l1StartTime),
+		DepositContractAddress:      d.OptimismPortalProxy,
+		L1SystemConfigAddress:       d.SystemConfigProxy,
+		RegolithTime:                d.RegolithTime(l1StartTime),
+		CanyonTime:                  d.CanyonTime(l1StartTime),
+		DeltaTime:                   d.DeltaTime(l1StartTime),
+		EcotoneTime:                 d.EcotoneTime(l1StartTime),
+		FjordTime:                   d.FjordTime(l1StartTime),
+		GraniteTime:                 d.GraniteTime(l1StartTime),
+		HoloceneTime:                d.HoloceneTime(l1StartTime),
+		PectraBlobScheduleTime:      d.PectraBlobScheduleTime(l1StartTime),
+		IsthmusTime:                 d.IsthmusTime(l1StartTime),
+		JovianTime:                  d.JovianTime(l1StartTime),
+		InteropTime:                 d.InteropTime(l1StartTime),
+		ProtocolVersionsAddress:     d.ProtocolVersionsProxy,
+		AltDAConfig:                 altDA,
+		ChainOpConfig:               chainOpConfig,
+		Cel2Time:                    d.RegolithTime(l1StartTime),
+		EspressoCeloIntegrationTime: d.EspressoCeloIntegrationTime(l1StartTime),
 	}, nil
 }
 
