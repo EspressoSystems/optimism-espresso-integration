@@ -213,6 +213,16 @@ just espresso-enclave-tests
 
 ### Run Docker Compose
 
+* Go to the `espresso` directory.
+```
+cd espresso
+```
+
+* Copy the example environment setting.
+```
+cp .env.example .env
+```
+
 * Shut down all containers.
 ```
 docker compose down
