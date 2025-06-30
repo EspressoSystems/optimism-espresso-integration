@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -237,8 +236,7 @@ func createEspressoTransaction(transactionString string, chainID *big.Int, batch
 }
 
 // espressoTransactionDataSkippingUnmarshal extract the L1 info deposit from Espresso transaction without checking whether the unmarshal could work
-func espressoTransactionDataSkippingUnmarshal(transactionString string) (*types.Transaction, error) {
-
+func espressoTransactionDataSkippingUnmarshal(transactionString string) (*geth_types.Transaction, error) {
 	bufData, err := hexutil.Decode(transactionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode Espresso transaction in the test: %w", err)
