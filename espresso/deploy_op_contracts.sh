@@ -56,7 +56,7 @@ echo "\nInitializing the intents..."
 op-deployer init \
 --l1-chain-id $L1_CHAIN_ID \
 --l2-chain-ids 1 \
---outdir $ROOT_DIR/deployment \
+--outdir $DEPLOYMENT_DIR \
 --intent-type standard
 
 
