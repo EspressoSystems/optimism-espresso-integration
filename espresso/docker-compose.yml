@@ -186,7 +186,7 @@ services:
     image: op-batcher:espresso
     # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
-      l1:
+      l1-geth:
         condition: service_healthy
       op-geth:
         condition: service_started
@@ -250,7 +250,7 @@ services:
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
     depends_on:
-      l1:
+      l1-geth:
         condition: service_healthy
     ports:
       - "${ESPRESSO_SEQUENCER_API_PORT}:${ESPRESSO_SEQUENCER_API_PORT}"
