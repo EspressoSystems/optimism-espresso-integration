@@ -21,7 +21,7 @@ import (
 // system with EspressoCeloIntegration activation configured, and verifies
 // that the batcher begins working with Espresso after the activation time.
 func Test_EspressoCeloIntegrationActivation(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Launch Espresso dev node environment

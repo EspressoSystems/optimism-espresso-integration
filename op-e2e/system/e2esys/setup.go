@@ -624,6 +624,8 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 
 	// sanity-check the deploy config
 	require.Nil(t, cfg.DeployConfig.L2GenesisJovianTimeOffset, "Jovian is not supported in op-e2e tests yet")
+	// espressoOffset := hexutil.Uint64(0)
+	// cfg.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = &espressoOffset
 
 	if err := cfg.DeployConfig.Check(cfg.Loggers["config-check"]); err != nil {
 		return nil, err
@@ -711,31 +713,31 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 				L2Time:       uint64(cfg.DeployConfig.L1GenesisBlockTimestamp),
 				SystemConfig: e2eutils.SystemConfigFromDeployConfig(cfg.DeployConfig),
 			},
-			BlockTime:                 cfg.DeployConfig.L2BlockTime,
-			MaxSequencerDrift:         cfg.DeployConfig.MaxSequencerDrift,
-			SeqWindowSize:             cfg.DeployConfig.SequencerWindowSize,
-			ChannelTimeoutBedrock:     cfg.DeployConfig.ChannelTimeoutBedrock,
-			L1ChainID:                 cfg.L1ChainIDBig(),
-			L2ChainID:                 cfg.L2ChainIDBig(),
-			BatchInboxAddress:         cfg.DeployConfig.BatchInboxAddress,
-			BatchAuthenticatorAddress: cfg.DeployConfig.BatchAuthenticatorAddress,
-			DepositContractAddress:    cfg.DeployConfig.OptimismPortalProxy,
-			L1SystemConfigAddress:     cfg.DeployConfig.SystemConfigProxy,
-			RegolithTime:              cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			CanyonTime:                cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			DeltaTime:                 cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			EcotoneTime:               cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			FjordTime:                 cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			GraniteTime:               cfg.DeployConfig.GraniteTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			HoloceneTime:              cfg.DeployConfig.HoloceneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			PectraBlobScheduleTime:    cfg.DeployConfig.PectraBlobScheduleTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			IsthmusTime:               cfg.DeployConfig.IsthmusTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			JovianTime:                cfg.DeployConfig.JovianTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			InteropTime:               cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			Cel2Time:                  cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			BlockTime:                   cfg.DeployConfig.L2BlockTime,
+			MaxSequencerDrift:           cfg.DeployConfig.MaxSequencerDrift,
+			SeqWindowSize:               cfg.DeployConfig.SequencerWindowSize,
+			ChannelTimeoutBedrock:       cfg.DeployConfig.ChannelTimeoutBedrock,
+			L1ChainID:                   cfg.L1ChainIDBig(),
+			L2ChainID:                   cfg.L2ChainIDBig(),
+			BatchInboxAddress:           cfg.DeployConfig.BatchInboxAddress,
+			BatchAuthenticatorAddress:   cfg.DeployConfig.BatchAuthenticatorAddress,
+			DepositContractAddress:      cfg.DeployConfig.OptimismPortalProxy,
+			L1SystemConfigAddress:       cfg.DeployConfig.SystemConfigProxy,
+			RegolithTime:                cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			CanyonTime:                  cfg.DeployConfig.CanyonTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			DeltaTime:                   cfg.DeployConfig.DeltaTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			EcotoneTime:                 cfg.DeployConfig.EcotoneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			FjordTime:                   cfg.DeployConfig.FjordTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			GraniteTime:                 cfg.DeployConfig.GraniteTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			HoloceneTime:                cfg.DeployConfig.HoloceneTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			PectraBlobScheduleTime:      cfg.DeployConfig.PectraBlobScheduleTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			IsthmusTime:                 cfg.DeployConfig.IsthmusTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			JovianTime:                  cfg.DeployConfig.JovianTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			InteropTime:                 cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
+			Cel2Time:                    cfg.DeployConfig.RegolithTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			EspressoCeloIntegrationTime: cfg.DeployConfig.EspressoCeloIntegrationTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
-			ProtocolVersionsAddress:   cfg.L1Deployments.ProtocolVersionsProxy,
-			AltDAConfig:               rollupAltDAConfig,
+			ProtocolVersionsAddress:     cfg.L1Deployments.ProtocolVersionsProxy,
+			AltDAConfig:                 rollupAltDAConfig,
 			ChainOpConfig: &params.OptimismConfig{
 				EIP1559Elasticity:        cfg.DeployConfig.EIP1559Elasticity,
 				EIP1559Denominator:       cfg.DeployConfig.EIP1559Denominator,
@@ -748,6 +750,9 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, err
 	}
 	sys.RollupConfig = &defaultConfig
+	timestamp := uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)
+	sys.RollupConfig.EspressoCeloIntegrationTime = &timestamp
+	log.Info("Setting EspressoCeloIntegrationTime", "espressoCeloIntegrationTime", sys.RollupConfig.EspressoCeloIntegrationTime, "l1GenesisBlockTimestamp", cfg.DeployConfig.L1GenesisBlockTimestamp)
 
 	// Create a fake Beacon node to hold on to blobs created by the L1 miner, and to serve them to L2
 	bcn := fakebeacon.NewBeacon(testlog.Logger(t, log.LevelInfo).New("role", "l1_cl"),

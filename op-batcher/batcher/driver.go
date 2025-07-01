@@ -145,10 +145,12 @@ func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.Es
 func (l *BatchSubmitter) isEspressoEnabled() bool {
 	// First check if Espresso is configured (we need the client and the authenticator address)
 	if l.Espresso == nil || l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+		l.Log.Info("Espresso is not enabled", "espresso", l.Espresso, "batchAuthenticatorAddress", l.RollupConfig.BatchAuthenticatorAddress)
 		return false
 	}
 	// Check if the EspressoCeloIntegration fork is active based on current timestamp
 	currentTime := uint64(time.Now().Unix())
+	l.Log.Info("Checking if EspressoCeloIntegration is active", "currentTime", currentTime, "espressoCeloIntegrationTime", l.RollupConfig.EspressoCeloIntegrationTime)
 	return l.RollupConfig.IsEspressoCeloIntegration(currentTime)
 }
 

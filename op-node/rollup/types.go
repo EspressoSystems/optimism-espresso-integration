@@ -500,7 +500,7 @@ func (c *Config) IsCel2(timestamp uint64) bool {
 }
 
 func (c *Config) IsEspressoCeloIntegration(timestamp uint64) bool {
-	return c.Cel2Time != nil && timestamp >= *c.Cel2Time && c.EspressoCeloIntegrationTime != nil && timestamp >= *c.EspressoCeloIntegrationTime
+	return c.EspressoCeloIntegrationTime != nil && timestamp >= *c.EspressoCeloIntegrationTime
 }
 
 func (c *Config) IsRegolithActivationBlock(l2BlockTime uint64) bool {
