@@ -213,6 +213,16 @@ just espresso-enclave-tests
 
 ### Run Docker Compose
 
+* Go to the `espresso` directory.
+```
+cd espresso
+```
+
+* Copy the example environment setting.
+```
+cp .env.example .env
+```
+
 * Shut down all containers.
 ```
 docker compose down
@@ -240,6 +250,15 @@ docker compose down
 docker compose up <service-name>
 ```
 
+* If the environment variable setting is not picked up, pass it explicitly.
+```
+docker compose --env-file .env up <service-name>
+```
+
+* If there is a timing synchronization issue, update the `l2_time` field in `rollup-devnet.json`
+with the current timestamp, convert the time to hex and update the `timestamp` fields in the two
+genesis files, `l1-genesis-devnet.json` and `l2-genesis-devnet.json`, too.
+
 ### Apply a Change
 
 * In most cases, simply remove all containers and run commands as normal.
@@ -256,6 +275,10 @@ docker compose down -v
 ```
 docker volume prune -f
 ```
+
+* If a genesis file is updated, you may get a hash mismatch error when running a service that uses
+the genesis file. Replace the corresponding `hash` field in `rollup-devnet.json`, then rerun the
+failed command.
 
 ## Continuous Integration environment
 
