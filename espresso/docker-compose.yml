@@ -3,7 +3,7 @@
 services:
   l1:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      test: ["CMD", "curl", "-f", "http://localhost:${ESPRESSO_L1_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -16,6 +16,9 @@ services:
     command:
       - sh
       - -c
+      # Initialize with the L1 genesis file.
+      # Enable `dev` to automatically create blocks in the dev mode.
+      # Set `dev.period=1` to create a block every 1 second.
       - |
         set -e
         rm -rf /data/geth || true
@@ -24,16 +27,18 @@ services:
           --http \
           --http.addr=0.0.0.0 \
           --http.api=eth,net,web3,admin \
-          --http.port=8545 \
+          --http.port=${ESPRESSO_L1_PORT} \
           --http.vhosts=* \
           --http.corsdomain=* \
           --nodiscover \
+          --dev \
+          --dev.period=12 \
           --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
           --mine \
           --allow-insecure-unlock \
           --rpc.allow-unprotected-txs
     ports:
-      - "8545:8545" # L1 RPC
+      - "${ESPRESSO_L1_PORT}:${ESPRESSO_L1_PORT}" # L1 RPC
 
   op-geth:
     # If the version below is updated, update the version for `images/op-geth` in the Docker
@@ -46,25 +51,33 @@ services:
       - ../config:/config
       - op-geth-data:/data
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: ${ESPRESSO_L1_PROVIDER}
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - --datadir=/data
-      - --networkid=1
-      - --http
-      - --http.addr=0.0.0.0
-      - --http.port=8545
-      - --http.api=eth,net,web3,debug,admin,txpool
-      - --http.vhosts=*
-      - --http.corsdomain=*
-      - --authrpc.addr=0.0.0.0
-      - --authrpc.port=8551
-      - --authrpc.vhosts=*
-      - --authrpc.jwtsecret=/config/jwt.txt
-      - --rollup.sequencerhttp=http://op-node-sequencer:8545
-      - --nodiscover
+      # Initialize with the L2 genesis file.
+      - |
+        if [ ! -d "/data/geth" ]; then
+          geth init --datadir=/data /config/l2-genesis-devnet.json
+        fi
+        exec geth \
+          --datadir=/data \
+          --networkid=1 \
+          --http \
+          --http.addr=0.0.0.0 \
+          --http.port=${ESPRESSO_L1_PORT} \
+          --http.api=eth,net,web3,debug,admin,txpool \
+          --http.vhosts=* \
+          --http.corsdomain=* \
+          --authrpc.addr=0.0.0.0 \
+          --authrpc.port=${ESPRESSO_GETH_PORT} \
+          --authrpc.vhosts=* \
+          --authrpc.jwtsecret=/config/jwt.txt \
+          --rollup.disabletxpoolgossip=true \
+          --rollup.halt=major \
+          --nodiscover
     ports:
-      - "8546:8545"  # L2 RPC
-      - "8551:8551"  # Engine API
+      - "8546:${ESPRESSO_L1_PORT}"  # L2 RPC
+      - "${ESPRESSO_GETH_PORT}:${ESPRESSO_GETH_PORT}"  # Engine API
 
   op-node-sequencer:
     build:
@@ -76,16 +89,19 @@ services:
       op-geth:
         condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
+      OP_NODE_RPC_PORT: ${ESPRESSO_ROLLUP_PORT}
     volumes:
       - ../config:/config
+      - /etc/localtime:/etc/localtime:ro
     command:
       - op-node
-      - --l1=http://l1:8545
-      - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
       - --sequencer.enabled=true
+      - --rpc.addr=0.0.0.0
 
   op-node-verifier:
     build:
@@ -97,13 +113,13 @@ services:
       op-geth:
         condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
     volumes:
       - ../config:/config
     command:
       - op-node
-      - --l1=http://l1:8545
-      - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
 
@@ -119,14 +135,15 @@ services:
       espresso-dev-node:
         condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
       CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+      CAFF_HOTSHOT_URLS: ${ESPRESSO_URL}
     volumes:
       - ../config:/config
     command:
       - op-node
-      - --l1=http://l1:8545
-      - --l2=http://op-geth:8551
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/op-node/rollup-devnet.json
       - --caff.node=true
@@ -136,8 +153,6 @@ services:
       - --rollup.halt=none
       - --l1.trustrpc=true
       - --rpc.enable-admin=true
-      - --caff.hotshot-urls=http://espresso-dev-node:24000
-      - --caff.hotshot-urls=http://espresso-dev-node:24000
       - --caff.next-hotshot-block-num=1
       - --caff.polling-hotshot-polling-interval=500ms
       - --log.level=debug
@@ -149,20 +164,30 @@ services:
       dockerfile: ./ops/docker/op-stack-go/Dockerfile
       target: op-batcher-target
     image: op-batcher:espresso
+    # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
-      - op-node-sequencer
+      l1:
+        condition: service_healthy
+      op-geth:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      espresso-dev-node:
+        condition: service_started
     environment:
-      L1_RPC: http://l1:8545
+      L1_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_BATCHER_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_BATCHER_L2_ETH_RPC: ${ESPRESSO_GETH_PROVIDER}
+      OP_BATCHER_ROLLUP_RPC: ${ESPRESSO_ROLLUP_PROVIDER}
+      ESPRESSO_URL: ${ESPRESSO_URL}
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-batcher
-      - --l1-eth-rpc=http://l1:8545
-      - --l2-eth-rpc=http://op-geth:8551
-      - --rollup-rpc=http://op-node-sequencer:8545
-      - --espresso-url=http://localhost:44889
-      - --espresso-url=http://localhost:44889
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
+      - --mnemonic=test test test test test test test test test test test junk                                    # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0                                                                                # Arbitrary value for testing
 
   op-proposer:
     build:
@@ -172,14 +197,23 @@ services:
     image: op-proposer:espresso
     depends_on:
       - op-node-sequencer
+    environment:
+      OP_PROPOSER_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
+      OP_PROPOSER_ROLLUP_RPC: ${ESPRESSO_ROLLUP_PROVIDER}
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
       - op-proposer
-      - --l1-eth-rpc=http://l1:8545
-      - --rollup-rpc=http://op-node-sequencer:8545
-      - --game-factory-address=0xDC9a4dba410aaC9D98a848710Aa82601752DBd44
-      - --proposal-interval=10m
+      # TODO: Fix the address below by deploying the contract and move it to `environment`
+      # afterward.
+      # <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210662897601844?focus=true>
+      # We need to specify either
+      #   `l2oo-address` or
+      #   `game-factory-address` and `proposal-interval`.
+      - --game-factory-address=0x80741a37E3644612F0465145C9709a90B6D77Ee3
+      - --proposal-interval=6s
+      - --mnemonic=test test test test test test test test test test test junk  # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0                                              # Arbitrary value for testing
 
   op-deployer:
     build:
@@ -193,16 +227,28 @@ services:
     restart: "no"
 
   espresso-dev-node:
-    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-goldendoodle
+    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
+    depends_on:
+      l1:
+        condition: service_healthy
     ports:
-      - "24000:24000" # Espresso sequencer
-      - "24002:24002" # Espresso dev node
-      - "31003:31003" # Espresso builder
+      - "${ESPRESSO_SEQUENCER_API_PORT}:${ESPRESSO_SEQUENCER_API_PORT}"
+      - "${ESPRESSO_DEV_NODE_PORT}:${ESPRESSO_DEV_NODE_PORT}"
+      - "${ESPRESSO_BUILDER_PORT}:${ESPRESSO_BUILDER_PORT}"
     volumes:
       - espresso-data:/data
     environment:
       RUST_LOG: info
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
+      ESPRESSO_SEQUENCER_L1_PROVIDER: ${ESPRESSO_L1_PROVIDER}
+      ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
+      ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
+      # TODO: After fixing all services, determine whether it is unnecessary to specify the
+      # following ports.
+      # <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210662897601844?focus=true>
+      ESPRESSO_SEQUENCER_API_PORT: ${ESPRESSO_SEQUENCER_API_PORT}
+      ESPRESSO_DEV_NODE_PORT: ${ESPRESSO_DEV_NODE_PORT}
+      ESPRESSO_BUILDER_PORT: ${ESPRESSO_BUILDER_PORT}
 
 volumes:
   l1-data:
