@@ -50,5 +50,8 @@ WORKDIR /data
 HEALTHCHECK --interval=3s --timeout=2s --retries=40 \
     CMD curl -f http://localhost:8545 || exit 1
 
+# Include the genesis file
+COPY ./l1-genesis-devnet.json /l1-genesis-devnet.json
+
 # Default command
 CMD ["geth", "--help"]
