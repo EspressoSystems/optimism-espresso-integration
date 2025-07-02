@@ -624,8 +624,6 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 
 	// sanity-check the deploy config
 	require.Nil(t, cfg.DeployConfig.L2GenesisJovianTimeOffset, "Jovian is not supported in op-e2e tests yet")
-	// espressoOffset := hexutil.Uint64(0)
-	// cfg.DeployConfig.L2GenesisEspressoCeloIntegrationTimeOffset = &espressoOffset
 
 	if err := cfg.DeployConfig.Check(cfg.Loggers["config-check"]); err != nil {
 		return nil, err
@@ -750,9 +748,6 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, err
 	}
 	sys.RollupConfig = &defaultConfig
-	timestamp := uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)
-	sys.RollupConfig.EspressoCeloIntegrationTime = &timestamp
-	log.Info("Setting EspressoCeloIntegrationTime", "espressoCeloIntegrationTime", sys.RollupConfig.EspressoCeloIntegrationTime, "l1GenesisBlockTimestamp", cfg.DeployConfig.L1GenesisBlockTimestamp)
 
 	// Create a fake Beacon node to hold on to blobs created by the L1 miner, and to serve them to L2
 	bcn := fakebeacon.NewBeacon(testlog.Logger(t, log.LevelInfo).New("role", "l1_cl"),
