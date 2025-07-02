@@ -35,7 +35,7 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 		env.WithL1BlockTime(12*time.Second),
 		env.WithL2BlockTime(2*time.Second),
 	)
-a
+
 	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
 	defer env.Stop(t, system)
