@@ -576,6 +576,10 @@ func (d *UpgradeScheduleDeployConfig) Check(log log.Logger) error {
 			return nil
 		}
 		if a == nil && b != nil {
+			// Allow espresso_celo_integration to work without jovian as prerequisite
+			if bName == string(L2AllocsEspressoCeloIntegration) && aName == string(L2AllocsJovian) {
+				return nil
+			}
 			return fmt.Errorf("fork %s set (to %d), but prior fork %s missing", bName, *b, aName)
 		}
 		if a != nil && b == nil {

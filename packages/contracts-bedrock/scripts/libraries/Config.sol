@@ -36,7 +36,8 @@ enum Fork {
     GRANITE,
     HOLOCENE,
     ISTHMUS,
-    JOVIAN
+    JOVIAN,
+    ESPRESSO_CELO_INTEGRATION
 }
 
 Fork constant LATEST_FORK = Fork.JOVIAN;
@@ -59,6 +60,8 @@ library ForkUtils {
             return "isthmus";
         } else if (_fork == Fork.JOVIAN) {
             return "jovian";
+        } else if (_fork == Fork.ESPRESSO_CELO_INTEGRATION) {
+            return "espresso_celo_integration";
         } else {
             return "unknown";
         }
@@ -171,6 +174,8 @@ library Config {
             return Fork.ISTHMUS;
         } else if (forkHash == keccak256(bytes("jovian"))) {
             return Fork.JOVIAN;
+        } else if (forkHash == keccak256(bytes("espresso_celo_integration"))) {
+            return Fork.ESPRESSO_CELO_INTEGRATION;
         } else {
             revert(string.concat("Config: unknown fork: ", forkStr));
         }

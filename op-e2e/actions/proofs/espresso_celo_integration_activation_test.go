@@ -13,13 +13,14 @@ import (
 )
 
 // Test_EspressoCeloIntegrationActivation tests that the EspressoCeloIntegration
-// activation works correctly by verifying that the batcher's espressoStreamer
-// is properly configured and that Espresso integration is enabled after the
-// activation timestamp.
+// activation works correctly by verifying that Espresso integration is enabled after the activation timestamp.
+// In a real deployment, this would enable the batcher's isEspressoEnabled() method and initialize the
+// espressoStreamer for dual submission to L1 and Espresso, therefore allowing the caff node to receive batches from Espresso.
 //
 // This test sets up a full Espresso environment with dev node, starts the
 // system with EspressoCeloIntegration activation configured, and verifies
-// that the batcher begins working with Espresso after the activation time.
+// that Espresso integration is enabled by checking caff node is making progress
+// after the activation time.
 func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -93,13 +94,20 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
+	// Verify that the Caff node is not receiving data (indicates Espresso integration is not started)
+	caffClient := system.NodeClient(env.RoleCaffNode)
+	caffHeader, err := caffClient.HeaderByNumber(ctx, nil)
+	require.NoError(t, err, "failed to get latest header from Caff node")
+
+	// Verify that the Caff node is not processing blocks
+	require.Equal(t, caffHeader.Number.Uint64(), uint64(0), "Caff node should NOT have processed blocks")
+
 	// Wait for activation time to pass
 	t.Log("Waiting for EspressoCeloIntegration activation...")
 	timeToWait := time.Until(time.Unix(int64(activationTime), 0)) + 2*time.Second
 	if timeToWait > 0 {
 		time.Sleep(timeToWait)
 	}
-
 	// Verify we're now past activation
 	nowTime := uint64(time.Now().Unix())
 	t.Logf("Current time: %d, activation time: %d", nowTime, activationTime)
@@ -151,27 +159,17 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	t.Log("EspressoCeloIntegration activation verified successfully")
 
 	// Verify that the Caff node is receiving data (indicates Espresso integration is working)
-	caffClient := system.NodeClient(env.RoleCaffNode)
-	caffHeader, err := caffClient.HeaderByNumber(ctx, nil)
-	if err == nil {
-		t.Logf("Caff node is active with latest block: %d", caffHeader.Number.Uint64())
+	caffHeader, err = caffClient.HeaderByNumber(ctx, nil)
+	require.NoError(t, err, "failed to get latest header from Caff node")
 
-		// Verify that both sequencer and caff node are progressing
-		require.Greater(t, header.Number.Uint64(), uint64(0), "Sequencer should have processed blocks")
-		require.Greater(t, caffHeader.Number.Uint64(), uint64(0), "Caff node should have processed blocks")
-
-		t.Log("Both sequencer and Caff node are active, indicating Espresso integration is working")
-	} else {
-		t.Logf("Caff node query failed (expected in some test environments): %v", err)
-	}
+	// Verify that both sequencer and caff node are progressing
+	require.Greater(t, header.Number.Uint64(), uint64(0), "Sequencer should have processed blocks")
+	require.Greater(t, caffHeader.Number.Uint64(), uint64(0), "Caff node should have processed blocks")
 
 	// Final verification: The key test is that EspressoCeloIntegration activation
-	// time-based logic is working correctly. In a real deployment, this would
-	// enable the batcher's isEspressoEnabled() method and initialize the
-	// espressoStreamer for dual submission to L1 and Espresso
+	// time-based logic is working correctly.
 	finalTime := uint64(time.Now().Unix())
 	require.True(t, system.RollupConfig.IsEspressoCeloIntegration(finalTime),
 		"EspressoCeloIntegration should remain active at test completion")
 
-	t.Log("Test completed successfully - EspressoCeloIntegration activation behavior verified")
 }
