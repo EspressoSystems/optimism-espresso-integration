@@ -213,6 +213,20 @@ just espresso-enclave-tests
 
 ### Run Docker Compose
 
+* Ensure that your Docker Compose, Engine, and plugins are up-to-date. Particularly, if the Docker
+Compose version is `2.37.3` or the Docker Engine version is `27.4.0`, and the Docker build hangs,
+you may need to upgrade the version.
+
+* Go to the `espresso` directory.
+```
+cd espresso
+```
+
+* Copy the example environment setting.
+```
+cp .env.example .env
+```
+
 * Shut down all containers.
 ```
 docker compose down
@@ -240,6 +254,15 @@ docker compose down
 docker compose up <service-name>
 ```
 
+* If the environment variable setting is not picked up, pass it explicitly.
+```
+docker compose --env-file .env up <service-name>
+```
+
+* If there is a timing synchronization issue, update the `l2_time` field in `rollup-devnet.json`
+with the current timestamp, convert the time to hex and update the `timestamp` fields in the two
+genesis files, `l1-genesis-devnet.json` and `l2-genesis-devnet.json`, too.
+
 ### Apply a Change
 
 * In most cases, simply remove all containers and run commands as normal.
@@ -254,19 +277,12 @@ docker compose down -v
 
 * To start the system fresh, remove all volumes.
 ```
-docker volume prune -f
+docker volume prune -a
 ```
 
-* If the genesis file is updated, initialize the chain data directory with the updated file.
-```
-docker run --rm \
-  -v $(pwd)/../config:/config \
-  -v espresso_op-geth-data:/data \
-  us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3 \
-  init --datadir=/data --state.scheme=path /config/<genesis-file>
-```
-`<genesis-file>` is either `l1-genesis-devnet.json` or `l2-genesis-devnet.json`.
-
+* If a genesis file is updated, you may get a hash mismatch error when running a service that uses
+the genesis file. Replace the corresponding `hash` field in `rollup-devnet.json`, then rerun the
+failed command.
 
 ## Continuous Integration environment
 
