@@ -1,14 +1,14 @@
 {
   "genesis": {
     "l1": {
-      "hash": "0xfc3c494d08d1e07af2b32ab3a4b771cdb3de9272bfe48017d7049d6af7d7e555",
+      "hash": "0xb013fbf7adbda6cfadb3a36774149ca34b1b5b43a65a01053f7d37beae05ec15",
       "number": 0
     },
     "l2": {
-      "hash": "0x989d7c9b1642192d130f73d6bd1f80c0719ed3fbe15ea1219a87af85025ea0d1",
+      "hash": "0x7b5cb57adc38e41e174a7696baf990c69cb5025c211921ef41c43fd5ed526dbc",
       "number": 0
     },
-    "l2_time": 1728358574,
+    "l2_time": 1750887000,
     "system_config": {
       "batcherAddr": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
       "overhead": "0x0000000000000000000000000000000000000000000000000000000000000834",
@@ -24,6 +24,7 @@
   "l2_chain_id": 1,
   "batch_inbox_address": "0xff00000000000000000000000000000000000901",
   "deposit_contract_address": "0x55bdfb0bfef1070c457124920546359426153833",
+  "l1_system_config_address": "0x1234567890abcdef1234567890abcdef12345678",
   "chain_op_config": {
     "eip1559Elasticity": 6,
     "eip1559Denominator": 50,
