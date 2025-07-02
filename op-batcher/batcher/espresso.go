@@ -1098,9 +1098,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	}
 
 	candidate := txmgr.TxCandidate{
-		TxData:   txData,
-		To:       &l.RollupConfig.BatchAuthenticatorAddress,
-		GasLimit: 5_000_000,
+		TxData: txData,
+		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
 	_, err = l.Txmgr.Send(ctx, candidate)
