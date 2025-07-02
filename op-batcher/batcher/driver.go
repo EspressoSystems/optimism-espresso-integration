@@ -226,7 +226,8 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.Log.Warn("Throttling loop is DISABLED due to 0 throttle-threshold. This should not be disabled in prod.")
 	}
 
-	if l.Config.UseEspresso && l.isEspressoEnabled() {
+	// There are two ways to use Espresso, one is to enable `UseEspresso` to force the use, the other is to set the timestamp and it will be activated automatically after the timestamp.
+	if l.Config.UseEspresso || l.isEspressoEnabled() {
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
@@ -792,7 +793,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
-			if l.Config.UseEspresso && l.isEspressoEnabled() {
+			if l.Config.UseEspresso || l.isEspressoEnabled() {
 				l.streamer.Reset()
 			}
 			return true
@@ -992,7 +993,8 @@ type TxSender[T any] interface {
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
-	if l.Config.UseEspresso && l.isEspressoEnabled() && !isCancel {
+	// There are two ways to use Espresso, one is to enable `UseEspresso` to force the use, the other is to set the timestamp and it will be activated automatically after the timestamp.
+	if (l.Config.UseEspresso || l.isEspressoEnabled()) && !isCancel {
 		goroutineSpawned := daGroup.TryGo(
 			func() error {
 				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)

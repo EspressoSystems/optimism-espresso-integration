@@ -126,6 +126,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
+	UseEspresso                      bool
 	EspressoUrls                     []string
 	EspressoLightClientAddr          string
 	TestingEspressoBatcherPrivateKey string

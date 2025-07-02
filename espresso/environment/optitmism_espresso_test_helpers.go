@@ -863,6 +863,7 @@ func launchEspressoDevNodeStartOption(ct *DevNetLauncherContext) e2esys.StartOpt
 			}
 			ct.EspressoDevNode = espressoDevNode
 
+			c.UseEspresso = true
 			c.EspressoUrls = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
 			c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY

@@ -146,6 +146,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	}
 	opts = append(optsFromRPC, opts...)
 
+	bs.UseEspresso = cfg.UseEspresso
 	if len(cfg.EspressoUrls) > 0 {
 		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)
 		if err != nil {
@@ -157,7 +158,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
-		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
@@ -297,10 +297,10 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 
 	// Initialize EspressoCeloIntegrationTime to genesis timestamp if Espresso is enabled
 	// Sishan TODO: Double checking whether we need the activation timestamp to be initialized to genesis time in Espresso Integration Test
-	if bs.UseEspresso {
-		timestamp := bs.RollupConfig.Genesis.L2Time
-		bs.RollupConfig.EspressoCeloIntegrationTime = &timestamp
-	}
+	// if bs.UseEspresso {
+	// 	timestamp := bs.RollupConfig.Genesis.L2Time
+	// 	bs.RollupConfig.EspressoCeloIntegrationTime = &timestamp
+	// }
 
 	if err := bs.RollupConfig.Check(); err != nil {
 		return fmt.Errorf("invalid rollup config: %w", err)
