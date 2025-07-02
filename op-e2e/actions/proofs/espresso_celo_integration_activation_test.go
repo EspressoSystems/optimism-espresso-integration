@@ -25,6 +25,7 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Sishan TODO: Remove this and initialize the e2esys with UseEspresso = False
 	// Launch Espresso dev node environment
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 	system, espressoDevNode, err := launcher.StartDevNet(
@@ -34,7 +35,7 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 		env.WithL1BlockTime(12*time.Second),
 		env.WithL2BlockTime(2*time.Second),
 	)
-
+a
 	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
 	defer env.Stop(t, system)
@@ -100,7 +101,7 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	require.NoError(t, err, "failed to get latest header from Caff node")
 
 	// Verify that the Caff node is not processing blocks
-	require.Equal(t, caffHeader.Number.Uint64(), uint64(0), "Caff node should NOT have processed blocks")
+	require.Equal(t, uint64(0), caffHeader.Number.Uint64(), "Caff node should NOT have processed blocks")
 
 	// Wait for activation time to pass
 	t.Log("Waiting for EspressoCeloIntegration activation...")
