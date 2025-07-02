@@ -213,6 +213,10 @@ just espresso-enclave-tests
 
 ### Run Docker Compose
 
+* Ensure that your Docker Compose, Engine, and plugins are up-to-date. Particularly, if the Docker
+Compose version is `2.37.3` or the Docker Engine version is `27.4.0`, and the Docker build hangs,
+you may need to upgrade the version.
+
 * Go to the `espresso` directory.
 ```
 cd espresso
