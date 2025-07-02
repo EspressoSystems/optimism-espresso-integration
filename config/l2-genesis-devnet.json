@@ -17,8 +17,8 @@
     "mergeNetsplitBlock": 0,
     "terminalTotalDifficulty": 0,
     "terminalTotalDifficultyPassed": true,
-    "shanghaiTime": 0,
-    "cancunTime": 0,
+    "shanghaiTime": null,
+    "cancunTime": null,
     "bedrockBlock": 0,
     "optimism": {
       "eip1559Elasticity": 6,
@@ -26,7 +26,7 @@
     }
   },
   "nonce": "0x0",
-  "timestamp": "0x66e5c98e",
+  "timestamp": "0x685c6a58",
   "extraData": "0x",
   "gasLimit": "0x1c9c380",
   "difficulty": "0x0",
