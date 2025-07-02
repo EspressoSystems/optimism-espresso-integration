@@ -49,7 +49,8 @@ type BatcherConfig struct {
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA bool
+	UseAltDA    bool
+	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
 	// public key and private key of the batcher
@@ -97,8 +98,7 @@ type BatcherService struct {
 
 	NotSubmittingOnStart bool
 
-	EspressoEnabled bool
-	Attestation     *nitrite.Result
+	Attestation *nitrite.Result
 }
 
 func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
@@ -152,12 +152,12 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 			return fmt.Errorf("failed to create Espresso client: %w", err)
 		}
 		bs.Espresso = client
-		bs.EspressoEnabled = true
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
+		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
@@ -296,7 +296,8 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 	bs.RollupConfig = rollupConfig
 
 	// Initialize EspressoCeloIntegrationTime to genesis timestamp if Espresso is enabled
-	if bs.EspressoEnabled {
+	// Sishan TODO: Double checking whether we need the activation timestamp to be initialized to genesis time in Espresso Integration Test
+	if bs.UseEspresso {
 		timestamp := bs.RollupConfig.Genesis.L2Time
 		bs.RollupConfig.EspressoCeloIntegrationTime = &timestamp
 	}
