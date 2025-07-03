@@ -116,18 +116,18 @@ func buildAction(c *cli.Context) error {
 	// Parse batcher arguments
 	batcherArgs, err := ParseBatcherArgs(args)
 	if err != nil {
-		return fmt.Errorf("failed to parse batcher arguments: %v", err)
+		return fmt.Errorf("failed to parse batcher arguments: %w", err)
 	}
 
 	ctx := context.Background()
 	fmt.Printf("Building enclave image...")
 	measurements, err := enclave_tools.BuildBatcherImage(ctx, opRoot, tag, batcherArgs...)
 	if err != nil {
-		return fmt.Errorf("failed to build enclave image: %v", err)
+		return fmt.Errorf("failed to build enclave image: %w", err)
 	}
 
-	fmt.Printf("Build completed successfully!")
-	fmt.Printf("Measurements:\n")
+	fmt.Println("Build completed successfully!")
+	fmt.Println("Measurements:")
 	fmt.Printf("  PCR0: %s\n", measurements.PCR0)
 	fmt.Printf("  PCR1: %s\n", measurements.PCR1)
 	fmt.Printf("  PCR2: %s\n", measurements.PCR2)
@@ -143,7 +143,7 @@ func registerAction(c *cli.Context) error {
 
 	key, err := crypto.HexToECDSA(strings.TrimPrefix(privateKey, "0x"))
 	if err != nil {
-		return fmt.Errorf("invalid private key: %v", err)
+		return fmt.Errorf("invalid private key: %w", err)
 	}
 
 	// Parse authenticator address

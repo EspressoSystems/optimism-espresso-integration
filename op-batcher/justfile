@@ -8,9 +8,14 @@ _LDFLAGSSTRING := "'" + trim(
     "") + "'"
 
 BINARY := "./bin/op-batcher"
+ET_BINARY := "./bin/enclave-tools"
 
+# Build all
+build: op-batcher enclave-tools
 # Build op-batcher binary
 op-batcher: (go_build BINARY "./cmd" "-ldflags" _LDFLAGSSTRING)
+# Build enclave-tools binary
+enclave-tools: (go_build ET_BINARY "./enclave-tools/cmd" "-ldflags" _LDFLAGSSTRING)
 
 # Clean build artifacts
 clean:

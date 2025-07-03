@@ -51,7 +51,7 @@ func BuildBatcherImage(ctx context.Context, opRoot string, tag string, args ...s
 	enclaverCli := new(EnclaverCli)
 	manifest := DefaultManifest("op-batcher", tag, intermediateTag)
 	measurements, err := enclaverCli.BuildEnclave(ctx, manifest)
-	return measurements, nil
+	return measurements, err
 }
 
 // RegisterEnclaveHash registers the enclave PCR0 hash with the EspressoNitroTEEVerifier.
