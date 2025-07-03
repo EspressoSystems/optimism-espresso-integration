@@ -159,14 +159,14 @@ func registerAction(c *cli.Context) error {
 	// Parse PCR0
 	pcr0Bytes, err := hex.DecodeString(strings.TrimPrefix(pcr0, "0x"))
 	if err != nil {
-		return fmt.Errorf("failed to parse PCR0: %v", err)
+		return fmt.Errorf("failed to parse PCR0: %w", err)
 	}
 
 	ctx := context.Background()
 	fmt.Printf("Registering enclave hash...")
 	err = enclave_tools.RegisterEnclaveHash(ctx, authAddr, l1URL, key, pcr0Bytes)
 	if err != nil {
-		return fmt.Errorf("failed to register enclave hash: %v", err)
+		return fmt.Errorf("failed to register enclave hash: %w", err)
 	}
 
 	fmt.Printf("Enclave hash registered successfully!")
