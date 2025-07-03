@@ -25,7 +25,7 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@v4
         name: configure aws credentials
         with:
-          role-to-assume: arn:aws:iam::437720536533:role/github-optimism-espresso-integration-access
+          role-to-assume: arn:aws:iam::324783324287:role/github-optimism-espresso-integration-access
           role-duration-seconds: 10800
           aws-region: us-east-2
 
