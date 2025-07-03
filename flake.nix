@@ -102,6 +102,7 @@
               pkgs.awscli2
               pkgs.just
               pkgs.pnpm
+              pkgs.cargo
             ];
             shellHook = ''
               export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
