@@ -29,6 +29,9 @@ run-test12: compile-contracts
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
+compile-contracts-fast:
+ (cd packages/contracts-bedrock && forge build --offline --skip "/**/test/**")
+
 build-batcher-enclave-image:
  (cd kurtosis-devnet && just op-batcher-enclave-image)
 
@@ -39,8 +42,9 @@ espresso_tests_timeout := "35m"
 espresso-tests timeout=espresso_tests_timeout: compile-contracts
  go test -timeout={{timeout}} -p=1 -count=1 ./espresso/environment
 
-espresso-enclave-tests timeout=espresso_tests_timeout: compile-contracts build-batcher-enclave-image
- ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
+espresso-enclave-tests:
+  ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{espresso_tests_timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
+
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 remove-espresso-containers:
