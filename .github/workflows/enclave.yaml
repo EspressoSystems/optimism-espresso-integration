@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - uses: aws-actions/configure-aws-credentials@v4
         name: configure aws credentials
         with:
@@ -69,7 +73,7 @@ jobs:
       - name: Launch EC2 Instance
         id: ec2
         run: |
-          AMI_ID=ami-0fe972392d04329e1
+          AMI_ID=ami-0ff5662328e9bbc2f
           INSTANCE_ID=$(aws ec2 run-instances \
           --image-id "$AMI_ID" \
           --count 1 \
@@ -96,53 +100,17 @@ jobs:
           echo "DNS=$DNS" >> $GITHUB_ENV
           echo "dns=$DNS" >> $GITHUB_OUTPUT
 
-      - name: Install dependencies
+      - name: Upload run-tests.sh to EC2
         run: |
-          echo "Current branch: $BRANCH_NAME"
-          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << EOF
-            set -e
-            sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
-            source ~/.bashrc
-            mkdir -p ~/.config/nix
-            echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-            sudo yum update
-            sudo yum install git -y
-            sudo yum install docker -y
-            sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
-            git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
-            cd optimism-espresso-integration
-            git checkout "$BRANCH_NAME"
-            git submodule update --init --recursive
-            nix develop
-          EOF
+          scp -o StrictHostKeyChecking=no -i key.pem espresso/scripts/run-tests-github-actions.sh ec2-user@$DNS:/home/ec2-user/
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS "chmod +x run-tests-github-actions.sh"
 
-      - name: Configure and start enclave service
+      - name: Run test script on EC2
+        timeout-minutes: 40
         run: |
-          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            set -e
-            sudo nitro-cli --version
-            sudo systemctl stop nitro-enclaves-allocator.service
-            echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
-            sudo systemctl start nitro-enclaves-allocator.service
-          EOF
-
-      - name: Start docker service
-        run: |
-          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS << 'EOF'
-            set -e
-            sudo usermod -a -G docker ec2-user
-            sudo service docker start
-            sudo chown ec2-user /var/run/docker.sock
-          EOF
-
-      # Compile contracts first to avoid text file busy error
-      - name: Run tests
-        run: |
-          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5  -i key.pem ec2-user@$DNS << 'EOF'
-            set -e
-            cd /home/ec2-user/optimism-espresso-integration
-            nix develop --command just compile-contracts
-            nix develop --command just espresso-enclave-tests
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -i key.pem ec2-user@$DNS << EOF
+            export BRANCH_NAME=$BRANCH_NAME
+            ./run-tests-github-actions.sh  ${{ secrets.CACHIX_AUTH_TOKEN }}
           EOF
 
       - name: Terminate EC2 instance
