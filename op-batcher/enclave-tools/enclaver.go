@@ -6,9 +6,11 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"regexp"
+	"time"
 
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
@@ -64,6 +66,9 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 			ProxyPort: 10000,
 			Allow:     []string{"0.0.0.0/0", "**", "::/0"},
 		},
+		Ingress: []EnclaverManifestIngress{
+			{ListenPort: 8337},
+		},
 	}
 }
 
@@ -117,8 +122,8 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 	return output.Measurements, nil
 }
 
-// RunEnclave runs an enclaver EIF image `name`. Stdout and stderr are redirected to the parent process.
-func (*EnclaverCli) RunEnclave(ctx context.Context, name string) {
+// RunEnclave runs an enclaver EIF image `name` with the provided arguments. Stdout and stderr are redirected to the parent process.
+func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
 
@@ -130,6 +135,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string) {
 		"docker",
 		"run",
 		"--rm",
+		"-d",
 		"--privileged",
 		"--net=host",
 		fmt.Sprintf("--name=batcher-enclaver-%s", nameSuffix),
@@ -139,10 +145,65 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	go func() {
-		err := cmd.Run()
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start enclave container: %w", err)
+	}
+
+	// Wait for container to start
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("enclave exited with an error: %w", err)
+	}
+
+	// Send arguments to enclave via nc listener
+	if err := sendArgsToEnclave(ctx, args); err != nil {
+		return fmt.Errorf("failed to send arguments to enclave: %w", err)
+	}
+
+	return nil
+}
+
+// sendArgsToEnclave sends arguments to the enclave's nc listener as null-separated values
+func sendArgsToEnclave(ctx context.Context, args []string) error {
+	// Prepare arguments as null-separated bytes
+	var buf bytes.Buffer
+	for _, arg := range args {
+		buf.WriteString(arg)
+		buf.WriteByte(0) // null separator
+	}
+	buf.WriteByte(0) // double null to signal end
+
+	// Create a dialer with short timeout for individual attempts
+	dialer := &net.Dialer{
+		Timeout: 5 * time.Second,
+	}
+
+	// Retry connecting for up to 1 minute
+	retryDuration := 60 * time.Second
+	retryInterval := 2 * time.Second
+	deadline := time.Now().Add(retryDuration)
+
+	for time.Now().Before(deadline) {
+		// Connect to the enclave's listener
+		conn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:8337")
 		if err != nil {
-			panic(fmt.Errorf("enclave exited with an error: %w", err))
+			// If we still have time, wait and retry
+			if time.Now().Add(retryInterval).Before(deadline) {
+				time.Sleep(retryInterval)
+				continue
+			}
+			return fmt.Errorf("failed to connect to enclave listener after %v: %w", retryDuration, err)
 		}
-	}()
+		defer conn.Close()
+
+		// Send the arguments
+		_, err = conn.Write(buf.Bytes())
+		if err != nil {
+			conn.Close()
+			return fmt.Errorf("failed to send arguments to enclave: %w", err)
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("timeout connecting to enclave listener after %v", retryDuration)
 }

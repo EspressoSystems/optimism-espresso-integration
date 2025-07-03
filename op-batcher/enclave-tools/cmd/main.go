@@ -103,6 +103,10 @@ AWS Nitro Enclaves configuration.`,
 				Usage:    "Name of the EIF image to run",
 				Required: true,
 			},
+			&cli.StringFlag{
+				Name:  "args",
+				Usage: "Command-line arguments to dynamically send to enclave (comma-separated)",
+			},
 		},
 		Action: runAction,
 	}
@@ -171,12 +175,22 @@ func registerAction(c *cli.Context) error {
 
 func runAction(c *cli.Context) error {
 	imageName := c.String("image")
+	argsStr := c.String("args")
+
+	// Parse arguments
+	args, err := ParseBatcherArgs(argsStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse arguments: %w", err)
+	}
 
 	ctx := context.Background()
 	enclaverCli := &enclave_tools.EnclaverCli{}
 
-	fmt.Printf("Starting enclave: %s", imageName)
-	enclaverCli.RunEnclave(ctx, imageName)
+	fmt.Printf("Starting enclave: %s\n", imageName)
+	err = enclaverCli.RunEnclave(ctx, imageName, args)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
