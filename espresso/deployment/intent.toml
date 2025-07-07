@@ -20,6 +20,7 @@ sequencerFeeVaultRecipient = "0xd0D5D18F0ebb07B7d728b14AAE014eedA814d6BD"
 eip1559DenominatorCanyon = 250
 eip1559Denominator = 50
 eip1559Elasticity = 6
+espressoEnabled = true
 # Various ownership roles for your chain. When you use op-deployer init, these roles are generated using the# test... junk mnemonic. You should replace these with your own addresses for production chains.
 [chains.roles]
 l1ProxyAdminOwner = "0xdf5a644aed1b5d6cE0DA2aDd778bc5f39d97Ac88"
