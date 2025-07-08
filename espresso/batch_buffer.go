@@ -1,7 +1,9 @@
 package espresso
 
 import (
+	"bytes"
 	"cmp"
+	"encoding/binary"
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -87,4 +89,41 @@ func (b *BatchBuffer[B]) Pop() *B {
 	b.batches = b.batches[1:]
 
 	return &batch
+}
+
+type DummyBatch struct {
+	number   uint64
+	l1Origin eth.BlockID
+}
+
+func (b DummyBatch) Number() uint64 {
+	return b.number
+}
+
+func (b DummyBatch) L1Origin() eth.BlockID {
+	return b.l1Origin
+}
+
+func (b DummyBatch) Hash() common.Hash {
+	return common.Hash{}
+}
+
+func (b DummyBatch) Header() *types.Header {
+	return nil
+}
+
+var b = NewBatchBuffer[DummyBatch]()
+
+func Fuzz(data []byte) int {
+	var num uint64
+	err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &num)
+
+	if err != nil {
+		b.Insert(DummyBatch{number: num, l1Origin: eth.BlockID{Number: num}}, 0)
+	} else {
+		b.Peek()
+		b.Pop()
+	}
+
+	return 0
 }
