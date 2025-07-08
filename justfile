@@ -75,3 +75,9 @@ shellcheck:
 # Generates a table of contents for the README.md file.
 toc:
   md_toc -p github README.md
+
+fuzz-batch-buffer:
+  go test -fuzz=FuzzBatchBufferSimple -fuzztime=1m -v ./espresso
+  go test -fuzz=FuzzBatchBufferInsertMultiple -fuzztime=1m -v ./espresso
+  go test -fuzz=FuzzBatchBufferTryInsert -fuzztime=1m -v ./espresso
+  go test -fuzz=FuzzBatchBufferBasic -fuzztime=1m -v ./espresso

@@ -33,8 +33,8 @@ func (b DummyBatch) Header() *types.Header {
 	return nil
 }
 
-// TestFuzz is the original Fuzz function moved to the test file
-func FuzzTestOps(f *testing.F) {
+// Basic batch buffer test
+func FuzzBatchBufferBasic(f *testing.F) {
 	// Generate corpus for batch buffer
 	f.Add([]byte{0})
 	f.Add([]byte{1})
@@ -56,7 +56,7 @@ func FuzzTestOps(f *testing.F) {
 }
 
 // FuzzBatchBuffer tests the BatchBuffer implementation using Go's built-in fuzzer
-func FuzzBatchBuffer(f *testing.F) {
+func FuzzBatchBufferSimple(f *testing.F) {
 	// Add some seed corpus
 	f.Add(uint64(0))
 	f.Add(uint64(1))
