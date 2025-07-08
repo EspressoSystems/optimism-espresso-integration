@@ -26,7 +26,6 @@ cache
 
 packages/contracts-bedrock/deployments/anvil
 
-espresso/deployment
 
 # vim
 *.sw*
