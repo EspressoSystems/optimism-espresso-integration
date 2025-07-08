@@ -2,8 +2,8 @@ deploymentStrategy = "live"
 configType = "standard-overrides"
 l1ChainID = 11155111# The chain ID of Sepolia (L1) you'll be deploying to.
 fundDevAccounts = true# Whether or not to fund dev accounts using the test... junk mnemonic on L2.
-l1ContractsLocator = "tag://op-contracts/v3.0.0-rc.2"# L1 smart contracts versions
-l2ContractsLocator = "tag://op-contracts/v3.0.0-rc.2"# L2 smart contracts versions# Delete this table if you are using the shared Superchain contracts on the L1# If you are deploying your own SuperchainConfig and ProtocolVersions contracts, fill in these details
+l1ContractsLocator = "file:///home/leloup/repositories/espresso/optimism-espresso-integration/packages/contracts-bedrock/forge-artifacts"# L1 smart contracts versions
+l2ContractsLocator = "file:///home/leloup/repositories/espresso/optimism-espresso-integration/packages/contracts-bedrock/forge-artifacts"# L2 smart contracts versions# Delete this table if you are using the shared Superchain contracts on the L1# If you are deploying your own SuperchainConfig and ProtocolVersions contracts, fill in these details
 [superchainRoles]
 proxyAdminOwner = "0x1eb2ffc903729a0f03966b917003800b145f56e2"
 protocolVersionsOwner = "0x79add5713b383daa0a138d3c4780c7a1804a8090"
