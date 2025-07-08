@@ -32,31 +32,13 @@ services:
           --http.corsdomain=* \
           --nodiscover \
           --dev \
-          --dev.period=1 \
+          --dev.period=12 \
           --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
           --mine \
           --allow-insecure-unlock \
           --rpc.allow-unprotected-txs
     ports:
       - "${ESPRESSO_L1_PORT}:${ESPRESSO_L1_PORT}" # L1 RPC
-
-  op-geth-init:
-    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
-    volumes:
-      - ../config:/config
-      - op-geth-data:/data
-    entrypoint: ""
-    command: >
-      sh -c "
-        if [ ! -f /data/geth/chaindata/CURRENT ]; then
-          echo 'Initializing op-geth database...'
-          geth init --datadir=/data --state.scheme=path /config/l2-genesis-devnet.json
-          echo 'op-geth initialization completed'
-        else
-          echo 'op-geth database already initialized, skipping...'
-        fi
-      "
-    restart: "no"
 
   op-geth:
     # If the version below is updated, update the version for `images/op-geth` in the Docker
@@ -65,8 +47,6 @@ services:
     depends_on:
       l1:
         condition: service_healthy
-      op-geth-init:
-        condition: service_completed_successfully
     volumes:
       - ../config:/config
       - op-geth-data:/data
@@ -186,7 +166,7 @@ services:
     image: op-batcher:espresso
     # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
-      l1-geth:
+      l1:
         condition: service_healthy
       op-geth:
         condition: service_started
@@ -249,7 +229,7 @@ services:
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
     depends_on:
-      l1-geth:
+      l1:
         condition: service_healthy
     ports:
       - "${ESPRESSO_SEQUENCER_API_PORT}:${ESPRESSO_SEQUENCER_API_PORT}"
