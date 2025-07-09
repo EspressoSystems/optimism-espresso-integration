@@ -10,6 +10,7 @@ ARTIFACTS_LOCATOR_DIR=$ROOT_DIR/packages/contracts-bedrock/forge-artifacts
 BOOTSTRAP_SUPERCHAIN_OUTPUT=$DEPLOYMENT_DIR/bootstrap_superchain.json
 BOOTSTRAP_IMPLEMENTATION_OUTPUT=$DEPLOYMENT_DIR/bootstrap_implementations.json
 L1_CHAIN_ID=11155111
+L2_CHAIN_ID=1
 
 mkdir -p $DEPLOYMENT_DIR
 
@@ -66,3 +67,7 @@ op-deployer apply \
   --workdir $DEPLOYMENT_DIR \
   --l1-rpc-url $L1_RPC_URL \
   --private-key $OPERATOR_PRIVATE_KEY
+
+cd deployment
+op-deployer inspect deployment genesis $L2_CHAIN_ID > l2-genesis-devnet.json
+op-deployer inspect rollup $L2_CHAIN_ID > rollup.json
