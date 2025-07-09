@@ -69,5 +69,5 @@ op-deployer apply \
   --private-key $OPERATOR_PRIVATE_KEY
 
 cd deployment
-op-deployer inspect deployment genesis $L2_CHAIN_ID > l2-genesis-devnet.json
+op-deployer inspect genesis $L2_CHAIN_ID > l2-genesis-devnet.json
 op-deployer inspect rollup $L2_CHAIN_ID > rollup.json
