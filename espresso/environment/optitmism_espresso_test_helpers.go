@@ -394,7 +394,6 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	system, err := sysConfig.Start(
 		t,
-
 		startOptions...,
 	)
 

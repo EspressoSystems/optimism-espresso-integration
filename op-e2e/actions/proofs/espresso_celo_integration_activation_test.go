@@ -7,6 +7,7 @@ import (
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -17,39 +18,43 @@ import (
 // In a real deployment, this would enable the batcher's isEspressoEnabled() method and initialize the
 // espressoStreamer for dual submission to L1 and Espresso, therefore allowing the caff node to receive batches from Espresso.
 //
-// This test sets up a full Espresso environment with dev node, starts the
-// system with EspressoCeloIntegration activation configured, and verifies
-// that Espresso integration is enabled by checking caff node is making progress
-// after the activation time.
+// This test starts with a normal e2esys (without Espresso), sets an activation time,
+// verifies caff node cannot make progress, then starts the espressoDevNode,
+// verifies caff node still cannot progress, then waits until activation time passes
+// and verifies that caff node can make progress.
 func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Sishan TODO: Remove this and initialize the e2esys with UseEspresso = False
-	// Launch Espresso dev node environment
-	launcher := new(env.EspressoDevNodeLauncherDocker)
-	system, espressoDevNode, err := launcher.StartDevNet(
-		ctx,
-		t,
-		env.WithSequencerUseFinalized(true),
-		env.WithL1BlockTime(12*time.Second),
-		env.WithL2BlockTime(2*time.Second),
-	)
+	var system *e2esys.System
+	var espressoDevNode env.EspressoDevNode
+	var caffNode *env.CaffNodeInstance
 
-	require.NoError(t, err, "failed to start dev environment with espresso dev node")
+	// Ensure cleanup happens even if test fails
+	defer func() {
+		if caffNode != nil {
+			env.Stop(t, caffNode)
+		}
+		if espressoDevNode != nil {
+			env.Stop(t, espressoDevNode)
+		}
+		if system != nil {
+			env.Stop(t, system)
+		}
+		// Give time for goroutines to finish
+		time.Sleep(1 * time.Second)
+	}()
 
-	defer env.Stop(t, system)
-	defer env.Stop(t, espressoDevNode)
+	// Step 1: Start with normal e2esys (without Espresso initially)
+	sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
+	system, err := sysConfig.Start(t)
+	require.NoError(t, err, "failed to launch without Espresso dev node")
 
-	// Launch Caff Node for Espresso integration
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
-	require.NoError(t, err, "failed to start caff node")
-	defer env.Stop(t, caffNode)
+	// Step 2: Configure EspressoCeloIntegration activation time for testing
+	// Set it to activate 15 seconds from now
 
-	// Configure EspressoCeloIntegration activation time for testing
-	// Set it to activate 10 seconds from now
 	currentTime := uint64(time.Now().Unix())
-	activationTime := currentTime + 10
+	activationTime := currentTime + 15
 	system.RollupConfig.EspressoCeloIntegrationTime = &activationTime
 
 	t.Logf("EspressoCeloIntegration activation time: %d (current: %d)", activationTime, currentTime)
@@ -70,10 +75,9 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	addresses := keys.Addresses()
 	signer := geth_types.LatestSignerForChainID(system.Cfg.L2ChainIDBig())
 
-	// Submit some transactions before activation
+	// Submit some transactions to generate activity before starting Espresso
 	seqClient := system.NodeClient(e2esys.RoleSeq)
 
-	// Submit a few transactions before activation
 	for i := 0; i < 3; i++ {
 		tx := &geth_types.DynamicFeeTx{
 			ChainID:   system.RollupConfig.L2ChainID,
@@ -91,19 +95,70 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 		err = seqClient.SendTransaction(ctx, signedTx)
 		require.NoError(t, err, "failed to send transaction")
 
-		t.Logf("Submitted pre-activation transaction %d", i)
+		t.Logf("Submitted transaction %d (before Espresso)", i)
 		time.Sleep(1 * time.Second)
 	}
 
-	// Verify that the Caff node is not receiving data (indicates Espresso integration is not started)
+	// Verify normal sequencer is working but we haven't started Espresso integration yet
+	seqHeader, err := seqClient.HeaderByNumber(ctx, nil)
+	require.NoError(t, err, "failed to get sequencer header")
+	require.Greater(t, seqHeader.Number.Uint64(), uint64(0), "Sequencer should process blocks normally")
+	t.Logf("Sequencer at block %d before Espresso", seqHeader.Number.Uint64())
+
+	// Step 3: Start the Espresso dev node
+	t.Log("Starting Espresso dev node...")
+	launcher := new(env.EspressoDevNodeLauncherDocker)
+	_, espressoDevNode, err = launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
+	require.NoError(t, err, "failed to start espresso dev node")
+
+	// Launch Caff Node with the espresso dev node
+	caffNode, err = env.LaunchCaffNode(t, system, espressoDevNode)
+	require.NoError(t, err, "failed to start caff node with espresso dev node")
+
+	// Submit more transactions to test with Espresso dev node running but before activation
+	for i := 3; i < 6; i++ {
+		tx := &geth_types.DynamicFeeTx{
+			ChainID:   system.RollupConfig.L2ChainID,
+			Nonce:     uint64(i),
+			To:        &addresses.Bob,
+			Value:     big.NewInt(1),
+			Gas:       21000,
+			GasFeeCap: big.NewInt(1000000000),
+			GasTipCap: big.NewInt(1000000000),
+		}
+
+		signedTx, err := geth_types.SignTx(geth_types.NewTx(tx), signer, keys.Alice)
+		require.NoError(t, err, "failed to sign transaction")
+
+		err = seqClient.SendTransaction(ctx, signedTx)
+		require.NoError(t, err, "failed to send transaction")
+
+		t.Logf("Submitted transaction %d (with Espresso dev node)", i)
+		time.Sleep(1 * time.Second)
+	}
+
+	// Wait a bit for any potential processing
+	time.Sleep(3 * time.Second)
+
+	// Verify that the Caff node still cannot make progress (Espresso integration not activated yet)
 	caffClient := system.NodeClient(env.RoleCaffNode)
 	caffHeader, err := caffClient.HeaderByNumber(ctx, nil)
 	require.NoError(t, err, "failed to get latest header from Caff node")
 
-	// Verify that the Caff node is not processing blocks
-	require.Equal(t, uint64(0), caffHeader.Number.Uint64(), "Caff node should NOT have processed blocks")
+	// Get current sequencer progress to compare
+	currentSeqHeader, err := seqClient.HeaderByNumber(ctx, nil)
+	require.NoError(t, err, "failed to get current sequencer header")
 
-	// Wait for activation time to pass
+	t.Logf("Before activation - Sequencer: block %d, Caff: block %d",
+		currentSeqHeader.Number.Uint64(), caffHeader.Number.Uint64())
+
+	// Verify that the Caff node is behind the sequencer (cannot process blocks before activation)
+	// The caff node should be at genesis because Espresso integration is not active
+	require.Less(t, caffHeader.Number.Uint64(), currentSeqHeader.Number.Uint64(),
+		"Caff node should be behind sequencer before activation time")
+	require.Equal(t, uint64(0), caffHeader.Number.Uint64(), "Caff node should be at genesis before activation time")
+
+	// Step 4: Wait for activation time to pass
 	t.Log("Waiting for EspressoCeloIntegration activation...")
 	timeToWait := time.Until(time.Unix(int64(activationTime), 0)) + 2*time.Second
 	if timeToWait > 0 {
@@ -116,7 +171,7 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	require.True(t, system.RollupConfig.IsEspressoCeloIntegration(nowTime), "EspressoCeloIntegration should be active now")
 
 	// Submit transactions after activation to test batcher behavior
-	for i := 3; i < 8; i++ {
+	for i := 6; i < 10; i++ {
 		tx := &geth_types.DynamicFeeTx{
 			ChainID:   system.RollupConfig.L2ChainID,
 			Nonce:     uint64(i),
@@ -159,13 +214,16 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 
 	t.Log("EspressoCeloIntegration activation verified successfully")
 
-	// Verify that the Caff node is receiving data (indicates Espresso integration is working)
+	// Verify that the Caff node can now make progress (indicates Espresso integration is working)
+	time.Sleep(10 * time.Second)
 	caffHeader, err = caffClient.HeaderByNumber(ctx, nil)
 	require.NoError(t, err, "failed to get latest header from Caff node")
 
 	// Verify that both sequencer and caff node are progressing
 	require.Greater(t, header.Number.Uint64(), uint64(0), "Sequencer should have processed blocks")
-	require.Greater(t, caffHeader.Number.Uint64(), uint64(0), "Caff node should have processed blocks")
+	require.Greater(t, caffHeader.Number.Uint64(), uint64(0), "Caff node should now be able to process blocks after activation")
+
+	t.Logf("Sequencer at block %d, Caff node at block %d", header.Number.Uint64(), caffHeader.Number.Uint64())
 
 	// Final verification: The key test is that EspressoCeloIntegration activation
 	// time-based logic is working correctly.
@@ -173,4 +231,5 @@ func Test_EspressoCeloIntegrationActivation(t *testing.T) {
 	require.True(t, system.RollupConfig.IsEspressoCeloIntegration(finalTime),
 		"EspressoCeloIntegration should remain active at test completion")
 
+	t.Log("Test completed successfully: Caff node can make progress after activation time")
 }
