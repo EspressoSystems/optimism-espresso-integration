@@ -21,7 +21,7 @@ ARG KONA_VERSION="kona-client-v0.1.0-beta.5"
 ARG ASTERISC_VERSION=none
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM --platform=$BUILDPLATFORM golang:1.22.7-alpine3.20 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23.0-alpine3.20 AS builder
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 
@@ -100,7 +100,26 @@ RUN set -e; \
 FROM --platform=$BUILDPLATFORM alpine:3.20 AS op-cgo-builder
 ARG OP_BATCHER_VERSION=v0.0.0
 # Install dependencies
-RUN apk add  musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
+RUN apk add  musl-dev gcc g++ curl tar gzip make gcc linux-headers git jq bash yq
+# Install Go 1.23.0 manually
+ARG TARGETARCH
+RUN set -eux; \
+    case "$TARGETARCH" in \
+        'amd64') \
+            url='https://dl.google.com/go/go1.23.0.linux-amd64.tar.gz'; \
+            sha256='905a297f19ead44780548933e0ff1a1b86e8327bb459e92f9c0012569f76f5e3'; \
+            ;; \
+        'arm64') \
+            url='https://dl.google.com/go/go1.23.0.linux-arm64.tar.gz'; \
+            sha256='62788056693009bcf7020eedc778cdd1781941c6145eab7688bd087bce0f8659'; \
+            ;; \
+        *) echo >&2 "error: unsupported architecture '$TARGETARCH'"; exit 1 ;; \
+    esac; \
+    wget -O go.tgz "$url"; \
+    echo "$sha256 *go.tgz" | sha256sum -c -; \
+    tar -C /usr/local -xzf go.tgz; \
+    rm go.tgz
+ENV PATH=/usr/local/go/bin:$PATH
 # Install just from mise (alpine's outdated and incompatible)
 COPY ./mise.toml .
 RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
@@ -202,7 +221,7 @@ CMD ["op-wheel"]
 
 FROM $TARGET_BASE_IMAGE AS op-node-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 CMD ["op-node"]
@@ -234,7 +253,7 @@ CMD ["op-dispute-mon"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
@@ -245,7 +264,7 @@ ARG ENCLAVE_BATCHER_ARGS=""
 RUN apk add gcc
 # enclave-entrypoint dependencies
 RUN apk add socat bash trurl curl
-ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 COPY --chmod=555 ./op-batcher/enclave-entrypoint.bash /entrypoint.bash
