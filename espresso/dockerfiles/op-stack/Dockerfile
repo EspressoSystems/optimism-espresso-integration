@@ -41,6 +41,8 @@ ARG GIT_DATE
 
 # Rust builder for Espresso crypto libraries
 FROM rust:1.84.1-alpine3.20 AS rust-builder
+# TODO: Check the hash of the Espresso GO library when switch to the new one.
+# <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210755885228839?focus=true>
 ARG ESPRESSO_NETWORK_GO_VER=0.0.34
 RUN apk add perl make openssl-dev musl-dev gcc
 ADD https://github.com/EspressoSystems/espresso-network-go/archive/refs/tags/v$ESPRESSO_NETWORK_GO_VER.tar.gz /source.tgz
