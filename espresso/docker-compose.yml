@@ -48,7 +48,7 @@ services:
       l1:
         condition: service_healthy
       op-deployer:
-        condition: service_completed_successfully
+        condition: service_healthy
     volumes:
       - ../config:/config
       - op-geth-data:/data
@@ -91,7 +91,7 @@ services:
       op-geth:
         condition: service_started
       op-deployer:
-        condition: service_completed_successfully
+        condition: service_healthy
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
       OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
@@ -117,7 +117,7 @@ services:
       op-geth:
         condition: service_started
       op-deployer:
-        condition: service_completed_successfully
+        condition: service_healthy
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
       OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
@@ -141,7 +141,7 @@ services:
       espresso-dev-node:
         condition: service_started
       op-deployer:
-        condition: service_completed_successfully
+        condition: service_healthy
 
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
@@ -228,6 +228,11 @@ services:
     build:
       context: ../
       dockerfile: ./op-deployer/Dockerfile.default
+    healthcheck: # We need a way for other services to know when all the contracts are deployed
+      test: [ "CMD", "test", "-f", "/tmp/done.flag" ]
+      interval: 5s
+      timeout: 2s
+      retries: 30
     image: op-deployer:espresso
     depends_on:
       l1:
@@ -241,7 +246,7 @@ services:
       ESPRESSO_L1_PROVIDER: ${ESPRESSO_L1_PROVIDER}
       ESPRESSO_OPERATOR_PRIVATE_KEY: ${ESPRESSO_OPERATOR_PRIVATE_KEY}
       L2_CHAIN_ID: ${L2_CHAIN_ID}
-    command: # Deploy the OP and Espresso contracts on L1. Write the l2 genesis file and the rollup configuration file in the root directory
+    command: # Deploy the OP and Espresso contracts on L1. Write the l2 genesis and the rollup configuration files in the root directory
       - |
         op-deployer \
           apply \
@@ -251,6 +256,8 @@ services:
         cd /deployment
         op-deployer inspect genesis $L2_CHAIN_ID > ../l2-genesis-devnet.json
         op-deployer inspect rollup $L2_CHAIN_ID > ../rollup.json
+        touch /tmp/done.flag
+        tail -f /dev/null
 
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
