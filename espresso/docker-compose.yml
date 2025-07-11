@@ -52,6 +52,7 @@ services:
     volumes:
       - ../config:/config
       - op-geth-data:/data
+      - espresso-data:/shared
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
     entrypoint: ["/bin/sh", "-c"]
@@ -59,7 +60,7 @@ services:
       # Initialize with the L2 genesis file.
       - |
         if [ ! -d "/data/geth" ]; then
-          geth init --datadir=/data /config/l2-genesis-devnet.json
+          geth init --datadir=/data /shared/l2-genesis-devnet.json
         fi
         exec geth \
           --datadir=/data \
@@ -100,10 +101,11 @@ services:
     volumes:
       - ../config:/config
       - /etc/localtime:/etc/localtime:ro
+      - espresso-data:/shared
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/shared/rollup.json
       - --sequencer.enabled=true
       - --rpc.addr=0.0.0.0
 
@@ -124,10 +126,11 @@ services:
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
     volumes:
       - ../config:/config
+      - espresso-data:/shared
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/shared/rollup.json
 
   caff-node:
     build:
