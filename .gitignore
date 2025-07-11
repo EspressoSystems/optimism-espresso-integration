@@ -35,7 +35,6 @@ packages/contracts-bedrock/deployments/anvil
 
 .secrets
 .env
-!espresso/.env
 !.env.example
 !.envrc.example
 *.log
@@ -65,6 +64,8 @@ gha-creds-*.json
 
 # Ignore the JWT secret for devnet.
 config/jwt.txt
+
+espresso/deployment/state.json
 
 
 # Ignore keys

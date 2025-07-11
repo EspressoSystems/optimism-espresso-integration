@@ -79,8 +79,8 @@ services:
           --rollup.halt=major \
           --nodiscover
     ports:
-      - "8546:${ESPRESSO_L1_PORT}"  # L2 RPC
-      - "${ESPRESSO_GETH_PORT}:${ESPRESSO_GETH_PORT}"  # Engine API
+      - "8546:${ESPRESSO_L1_PORT}" # L2 RPC
+      - "${ESPRESSO_GETH_PORT}:${ESPRESSO_GETH_PORT}" # Engine API
 
   op-node-sequencer:
     build:
@@ -151,7 +151,7 @@ services:
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
       CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
       CAFF_HOTSHOT_URLS: ${ESPRESSO_URL}
-    entrypoint: [ "/bin/sh", "-c" ]  # Override ENTRYPOINT
+    entrypoint: ["/bin/sh", "-c"] # Override ENTRYPOINT
     volumes:
       - ../config:/config
       - espresso-data:/shared
@@ -199,8 +199,8 @@ services:
       - op-batcher
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
-      - --mnemonic=test test test test test test test test test test test junk                                    # Arbitrary value for testing
-      - --hd-path=m/44'/60'/0'/0/0                                                                                # Arbitrary value for testing
+      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
 
   op-proposer:
     build:
@@ -225,15 +225,15 @@ services:
       #   `game-factory-address` and `proposal-interval`.
       - --game-factory-address=0x80741a37E3644612F0465145C9709a90B6D77Ee3
       - --proposal-interval=6s
-      - --mnemonic=test test test test test test test test test test test junk  # Arbitrary value for testing
-      - --hd-path=m/44'/60'/0'/0/0                                              # Arbitrary value for testing
+      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
 
   op-deployer:
     build:
       context: ../
       dockerfile: ./op-deployer/Dockerfile.default
     healthcheck: # We need a way for other services to know when all the contracts are deployed
-      test: [ "CMD", "test", "-f", "/tmp/done.flag" ]
+      test: ["CMD", "test", "-f", "/tmp/done.flag"]
       interval: 5s
       timeout: 2s
       retries: 30
@@ -246,13 +246,28 @@ services:
       - ./deployment:/deployment
       - espresso-data:/shared
     restart: "no"
-    entrypoint: [ "/bin/sh", "-c" ]  # Override ENTRYPOINT
+    entrypoint: ["/bin/sh", "-c"] # Override ENTRYPOINT
     environment:
       ESPRESSO_L1_PROVIDER: ${ESPRESSO_L1_PROVIDER}
       ESPRESSO_OPERATOR_PRIVATE_KEY: ${ESPRESSO_OPERATOR_PRIVATE_KEY}
       L2_CHAIN_ID: ${L2_CHAIN_ID}
     command: # Deploy the OP and Espresso contracts on L1. Write the l2 genesis and the rollup configuration files in the root directory
       - |
+        if [ ! -f /deployment/state.json ]; then
+          cat <<EOF > /deployment/state.json
+          {
+            "version": 1,
+            "create2Salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "appliedIntent": null,
+            "prestateManifest": null,
+            "superchainDeployment": null,
+            "implementationsDeployment": null,
+            "opChainDeployments": null,
+            "l1StateDump": null,
+            "DeploymentCalldata": null
+          }
+        EOF
+        fi
         op-deployer \
           apply \
             --workdir /deployment \
