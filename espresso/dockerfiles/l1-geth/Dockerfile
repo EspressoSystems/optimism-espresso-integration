@@ -47,12 +47,12 @@ EXPOSE 8545
 # Set working directory
 WORKDIR /data
 
-# Healthcheck
-HEALTHCHECK --interval=3s --timeout=2s --retries=40 \
-    CMD curl -f http://localhost:8545 || exit 1
-
-# Include the genesis file
+# Include the genesis file and the initialization script.
 COPY config/l1-genesis-devnet.json /l1-genesis-devnet.json
+COPY dockerfiles/l1-geth/l1-geth-init.sh /usr/local/bin/l1-geth-init.sh
 
-# Default command
-CMD ["geth", "--help"]
+# Run the initialization script.
+RUN chmod +x /usr/local/bin/l1-geth-init.sh
+
+# Use the initialization script as the entrypoint.
+ENTRYPOINT ["/usr/local/bin/l1-geth-init.sh"]
