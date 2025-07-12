@@ -13,88 +13,25 @@ services:
     volumes:
       - ../config/l1-genesis-devnet.json:/l1-genesis-devnet.json:ro
       - l1-geth-data:/data
-    command:
-      - sh
-      - -c
-      # Initialize with the L1 genesis file.
-      # Enable `dev` to automatically create blocks in the dev mode.
-      # Set `dev.period=1` to create a block every 1 second.
-      - |
-        set -e
-        rm -rf /data/geth || true
-        geth --datadir /data init /l1-genesis-devnet.json
-        exec geth --datadir /data \
-          --http \
-          --http.addr=0.0.0.0 \
-          --http.api=eth,net,web3,admin \
-          --http.port=${ESPRESSO_L1_PORT} \
-          --http.vhosts=* \
-          --http.corsdomain=* \
-          --nodiscover \
-          --dev \
-          --dev.period=12 \
-          --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
-          --mine \
-          --allow-insecure-unlock \
-          --rpc.allow-unprotected-txs
+    environment:
+      ESPRESSO_L1_PORT: ${ESPRESSO_L1_PORT}
     ports:
       - "${ESPRESSO_L1_PORT}:${ESPRESSO_L1_PORT}" # L1 RPC
 
-  op-geth-init:
-    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
-    volumes:
-      - ../config:/config
-      - op-geth-data:/data
-    entrypoint: ""
-    command: >
-      sh -c "
-        if [ ! -f /data/geth/chaindata/CURRENT ]; then
-          echo 'Initializing op-geth database...'
-          geth init --datadir=/data --state.scheme=path /config/l2-genesis-devnet.json
-          echo 'op-geth initialization completed'
-        else
-          echo 'op-geth database already initialized, skipping...'
-        fi
-      "
-    restart: "no"
-
   op-geth:
-    # If the version below is updated, update the version for `images/op-geth` in the Docker
-    # Compose section in README_ESPRESSO.md as well.
-    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
+    build:
+      context: ./dockerfiles/op-geth
+    image: op-geth:espresso
     depends_on:
       l1-geth:
         condition: service_healthy
-      op-geth-init:
-        condition: service_completed_successfully
     volumes:
       - ../config:/config
       - op-geth-data:/data
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      # Initialize with the L2 genesis file.
-      - |
-        if [ ! -d "/data/geth" ]; then
-          geth init --datadir=/data /config/l2-genesis-devnet.json
-        fi
-        exec geth \
-          --datadir=/data \
-          --networkid=1 \
-          --http \
-          --http.addr=0.0.0.0 \
-          --http.port=${ESPRESSO_L1_PORT} \
-          --http.api=eth,net,web3,debug,admin,txpool \
-          --http.vhosts=* \
-          --http.corsdomain=* \
-          --authrpc.addr=0.0.0.0 \
-          --authrpc.port=${ESPRESSO_GETH_PORT} \
-          --authrpc.vhosts=* \
-          --authrpc.jwtsecret=/config/jwt.txt \
-          --rollup.disabletxpoolgossip=true \
-          --rollup.halt=major \
-          --nodiscover
+      ESPRESSO_L1_PORT: ${ESPRESSO_L1_PORT}
+      ESPRESSO_GETH_PORT: ${ESPRESSO_GETH_PORT}
     ports:
       - "8546:${ESPRESSO_L1_PORT}"  # L2 RPC
       - "${ESPRESSO_GETH_PORT}:${ESPRESSO_GETH_PORT}"  # Engine API

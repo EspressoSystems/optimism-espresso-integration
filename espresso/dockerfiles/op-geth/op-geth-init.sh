@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 # Set the default ports if not provided.
 ESPRESSO_L1_PORT=${ESPRESSO_L1_PORT:-8545}
-ESPRESSO_GETH_PORT=${ESPRESSO_L1_PORT:-8551}
+ESPRESSO_GETH_PORT=${ESPRESSO_GETH_PORT:-8551}
 
 # Initialize database if not already done.
 if [ ! -f /data/geth/chaindata/CURRENT ]; then
@@ -27,7 +27,7 @@ exec geth \
     --authrpc.addr=0.0.0.0 \
     --authrpc.port=${ESPRESSO_GETH_PORT} \
     --authrpc.vhosts=* \
-    --authrpc.jwtsecret=/jwt.txt \
+    --authrpc.jwtsecret=/config/jwt.txt \
     --rollup.disabletxpoolgossip=true \
     --rollup.halt=major \
     --nodiscover

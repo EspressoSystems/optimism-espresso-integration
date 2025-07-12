@@ -47,12 +47,11 @@ EXPOSE 8545
 # Set working directory
 WORKDIR /data
 
-# Include the genesis file and the initialization script.
-COPY config/l1-genesis-devnet.json /l1-genesis-devnet.json
-COPY dockerfiles/l1-geth/l1-geth-init.sh /usr/local/bin/l1-geth-init.sh
+# Include the initialization script.
+COPY l1-geth-init.sh /l1-geth-init.sh
 
 # Run the initialization script.
-RUN chmod +x /usr/local/bin/l1-geth-init.sh
+RUN chmod +x /l1-geth-init.sh
 
 # Use the initialization script as the entrypoint.
-ENTRYPOINT ["/usr/local/bin/l1-geth-init.sh"]
+ENTRYPOINT ["/l1-geth-init.sh"]
