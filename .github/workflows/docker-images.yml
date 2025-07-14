@@ -4,12 +4,12 @@ on:
   push:
     branches: [main, celo*]
     paths:
-      - 'espresso/dockerfiles/**'
+      - 'espresso/docker/**'
       - 'espresso/docker-compose.yml'
       - 'config/**'
   pull_request:
     paths:
-      - 'espresso/dockerfiles/**'
+      - 'espresso/docker/**'
       - 'espresso/docker-compose.yml'
       - 'config/**'
   workflow_dispatch:
@@ -50,8 +50,8 @@ jobs:
       - name: Build and push L1 Geth
         uses: docker/build-push-action@v5
         with:
-          context: espresso/dockerfiles/l1-geth
-          file: espresso/dockerfiles/l1-geth/Dockerfile
+          context: espresso/docker/l1-geth
+          file: espresso/docker/l1-geth/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -88,8 +88,8 @@ jobs:
       - name: Build and push OP Geth
         uses: docker/build-push-action@v5
         with:
-          context: espresso/dockerfiles/op-geth
-          file: espresso/dockerfiles/op-geth/Dockerfile
+          context: espresso/docker/op-geth
+          file: espresso/docker/op-geth/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -127,7 +127,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: espresso/dockerfiles/op-stack/Dockerfile
+          file: espresso/docker/op-stack/Dockerfile
           target: op-node-target
           platforms: linux/amd64
           push: true

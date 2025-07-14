@@ -116,3 +116,9 @@ CMD ["op-batcher"]
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
 CMD ["op-proposer"]
+
+# Create config directory
+RUN mkdir -p /config
+
+# Include the rollup file.
+COPY espresso/docker/op-stack/rollup-devnet.json /config/rollup-devnet.json

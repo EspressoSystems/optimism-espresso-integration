@@ -47,7 +47,8 @@ EXPOSE 8545
 # Set working directory
 WORKDIR /data
 
-# Include the initialization script.
+# Include the genesis file and the initialization script.
+COPY l1-genesis-devnet.json /l1-genesis-devnet.json
 COPY l1-geth-init.sh /l1-geth-init.sh
 
 # Run the initialization script.

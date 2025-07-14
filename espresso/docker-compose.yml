@@ -8,10 +8,9 @@ services:
       timeout: 2s
       retries: 40
     build:
-      context: ./dockerfiles/l1-geth
+      context: ./docker/l1-geth
     image: l1-geth:espresso
     volumes:
-      - ../config/l1-genesis-devnet.json:/l1-genesis-devnet.json:ro
       - l1-geth-data:/data
     environment:
       ESPRESSO_L1_PORT: ${ESPRESSO_L1_PORT}
@@ -20,13 +19,13 @@ services:
 
   op-geth:
     build:
-      context: ./dockerfiles/op-geth
+      context: ./docker/op-geth
     image: op-geth:espresso
     depends_on:
       l1-geth:
         condition: service_healthy
     volumes:
-      - ../config:/config
+      - ./docker/config:/config
       - op-geth-data:/data
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
@@ -39,7 +38,7 @@ services:
   op-node-sequencer:
     build:
       context: ../
-      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     image: op-node-sequencer:espresso
     depends_on:
@@ -51,19 +50,19 @@ services:
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
       OP_NODE_RPC_PORT: ${ESPRESSO_ROLLUP_PORT}
     volumes:
-      - ../config:/config
+      - ./docker/config:/config
       - /etc/localtime:/etc/localtime:ro
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/config/rollup-devnet.json
       - --sequencer.enabled=true
       - --rpc.addr=0.0.0.0
 
   op-node-verifier:
     build:
       context: ../
-      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     image: op-node-verifier:espresso
     depends_on:
@@ -74,16 +73,16 @@ services:
       OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
     volumes:
-      - ../config:/config
+      - ./docker/config:/config
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/config/rollup-devnet.json
 
   caff-node:
     build:
       context: ../
-      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     image: caff-node:espresso
     depends_on:
@@ -98,11 +97,11 @@ services:
       CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
       CAFF_HOTSHOT_URLS: ${ESPRESSO_URL}
     volumes:
-      - ../config:/config
+      - ./docker/op-geth:/config
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/config/rollup-devnet.json
       - --caff.node=true
       - --sequencer.enabled=false
       - --verifier.l1-confs=0
@@ -118,7 +117,7 @@ services:
   op-batcher:
     build:
       context: ../
-      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-target
     image: op-batcher:espresso
     # It is not necessary to specify all dependencies, but a good practice.
@@ -149,7 +148,7 @@ services:
   op-proposer:
     build:
       context: ../
-      dockerfile: espresso/dockerfiles/op-stack/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
