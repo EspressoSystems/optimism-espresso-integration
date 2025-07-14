@@ -50,7 +50,7 @@ jobs:
       - name: Build and push L1 Geth
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: espresso/dockerfiles/l1-geth
           file: espresso/dockerfiles/l1-geth/Dockerfile
           platforms: linux/amd64
           push: true
@@ -88,7 +88,7 @@ jobs:
       - name: Build and push OP Geth
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: espresso/dockerfiles/op-geth
           file: espresso/dockerfiles/op-geth/Dockerfile
           platforms: linux/amd64
           push: true
