@@ -104,6 +104,13 @@ ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 
+
+# Create config directory
+RUN mkdir -p /config
+
+# Include the rollup file.
+COPY espresso/docker/op-stack/rollup-devnet.json /config/rollup-devnet.json
+
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
@@ -116,9 +123,3 @@ CMD ["op-batcher"]
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
 CMD ["op-proposer"]
-
-# Create config directory
-RUN mkdir -p /config
-
-# Include the rollup file.
-COPY espresso/docker/op-stack/rollup-devnet.json /config/rollup-devnet.json
