@@ -104,12 +104,11 @@ ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 
-
 # Create config directory
 RUN mkdir -p /config
 
 # Include the rollup file.
-COPY espresso/docker/op-stack/rollup-devnet.json /config/rollup-devnet.json
+COPY espresso/docker/config/rollup-devnet.json /config/rollup-devnet.json
 
 CMD ["op-node"]
 
