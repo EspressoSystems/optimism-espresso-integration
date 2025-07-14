@@ -25,7 +25,7 @@ services:
       l1-geth:
         condition: service_healthy
     volumes:
-      - ./docker/config:/config
+      - ./docker/op-geth:/config
       - op-geth-data:/data
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
@@ -50,7 +50,7 @@ services:
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
       OP_NODE_RPC_PORT: ${ESPRESSO_ROLLUP_PORT}
     volumes:
-      - ./docker/config:/config
+      - ./docker/op-geth:/config
       - /etc/localtime:/etc/localtime:ro
     command:
       - op-node
@@ -73,7 +73,7 @@ services:
       OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
     volumes:
-      - ./docker/config:/config
+      - ./docker/op-geth:/config
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt

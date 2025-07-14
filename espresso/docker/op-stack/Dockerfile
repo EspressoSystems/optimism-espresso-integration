@@ -107,8 +107,9 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
-# Include the rollup file.
-COPY espresso/docker/config/rollup-devnet.json /config/rollup-devnet.json
+# Include the secret and the rollup files.
+COPY espresso/docker/op-geth/jwt.txt /config/jwt.txt
+COPY espresso/docker/op-geth/rollup-devnet.json /config/rollup-devnet.json
 
 CMD ["op-node"]
 
