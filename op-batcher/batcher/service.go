@@ -151,19 +151,16 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso client: %w", err)
 		}
-		log.Info("Successfully created Espresso multiple nodes client", "urls", cfg.EspressoUrls)
 		bs.Espresso = client
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
-		log.Info("Successfully created Espresso light client", "urls", cfg.EspressoUrls)
 		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
-		log.Info("Successfully created key pair for batcher")
 		// try to generate attestationBytes on public key when start batcher
 		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
