@@ -187,7 +187,8 @@ These commands install the dependencies for, start the service related to and co
 
 ```
 sudo yum install -y aws-nitro-enclaves-cli-1.4.2
-sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
+sudo systemctl stop nitro-enclaves-allocator.service || true
+echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
 sudo systemctl start nitro-enclaves-allocator.service
 ```
 
@@ -202,6 +203,7 @@ git submodule update --init --recursive
 * Enter the nix shell and run the enclave tests
 ```
 nix --extra-experimental-features "nix-command flakes" develop
+just compile-contracts
 just espresso-enclave-tests
 ```
 
