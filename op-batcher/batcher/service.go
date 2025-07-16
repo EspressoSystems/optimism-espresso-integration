@@ -151,17 +151,19 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso client: %w", err)
 		}
+		log.Info("Successfully created Espresso multiple nodes client", "urls", cfg.EspressoUrls)
 		bs.Espresso = client
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
 		}
 		bs.EspressoLightClient = espressoLightClient
+		log.Info("Successfully created Espresso light client", "urls", cfg.EspressoUrls)
 		bs.UseEspresso = true
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
-
+		log.Info("Successfully created key pair for batcher")
 		// try to generate attestationBytes on public key when start batcher
 		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
@@ -170,7 +172,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
 			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TestingEspressoBatcherPrivateKey, "0x"))
 			if err != nil {
-				return fmt.Errorf("Failed to parse batcher's private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
+				return fmt.Errorf("failed to parse batcher's testing private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
 			}
 
 			publicKey := privateKey.Public()
