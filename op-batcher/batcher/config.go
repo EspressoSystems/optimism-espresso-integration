@@ -93,8 +93,6 @@ type CLIConfig struct {
 	// and creating a new batch.
 	PollInterval time.Duration
 
-	EspressoPollInterval time.Duration
-
 	// MaxPendingTransactions is the maximum number of concurrent pending
 	// transactions sent to the transaction manager (0 == no limit).
 	MaxPendingTransactions uint64
@@ -155,6 +153,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
+	EspressoPollInterval             time.Duration
 	EspressoUrls                     []string
 	EspressoLightClientAddr          string
 	TestingEspressoBatcherPrivateKey string
@@ -227,12 +226,11 @@ func (c *CLIConfig) Check() error {
 func NewConfig(ctx *cli.Context) *CLIConfig {
 	return &CLIConfig{
 		/* Required Flags */
-		L1EthRpc:             ctx.String(flags.L1EthRpcFlag.Name),
-		L2EthRpc:             ctx.StringSlice(flags.L2EthRpcFlag.Name),
-		RollupRpc:            ctx.StringSlice(flags.RollupRpcFlag.Name),
-		SubSafetyMargin:      ctx.Uint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:         ctx.Duration(flags.PollIntervalFlag.Name),
-		EspressoPollInterval: ctx.Duration(flags.EspressoPollIntervalFlag.Name),
+		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),
+		L2EthRpc:        ctx.StringSlice(flags.L2EthRpcFlag.Name),
+		RollupRpc:       ctx.StringSlice(flags.RollupRpcFlag.Name),
+		SubSafetyMargin: ctx.Uint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
 
 		/* Optional Flags */
 <<<<<<< HEAD
@@ -275,5 +273,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		EspressoUrl:             ctx.String(flags.EspressoUrlFlag.Name),
 >>>>>>> f54ce8211b (6.2 Batcher tests in enclave (#144))
 		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
+		EspressoPollInterval:             ctx.Duration(flags.EspressoPollIntervalFlag.Name),
 	}
 }

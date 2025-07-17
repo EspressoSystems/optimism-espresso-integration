@@ -19,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso"
+	espressoLocal "github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -634,6 +636,25 @@ func (s *espressoTransactionSubmitter) Start() {
 	go s.handleVerifyReceiptJobResponse()
 }
 
+func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
+	return &bs.driver.espressoStreamer
+}
+
+func (bs *BatcherService) initKeyPair() error {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
+	}
+	bs.BatcherPrivateKey = key
+	bs.BatcherPublicKey = &key.PublicKey
+	return nil
+}
+
+// EspressoStreamer returns the batch submitter's Espresso streamer instance
+func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+	return &l.espressoStreamer
+}
+
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
@@ -650,13 +671,13 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
 
-	l.submitter.SubmitTransaction(transaction)
+	l.espressoSubmitter.SubmitTransaction(transaction)
 
 	return nil
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
+	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
 	if err != nil {
 		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
 	}
@@ -671,7 +692,7 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		l.streamer.Reset()
+		l.espressoStreamer.Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -720,8 +741,8 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
-			err = l.streamer.Update(ctx)
-			remainingListLen := len(l.streamer.RemainingBatches)
+			err = l.espressoStreamer.Update(ctx)
+			remainingListLen := len(l.espressoStreamer.RemainingBatches)
 			if remainingListLen > 0 {
 				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
 			}
@@ -730,7 +751,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			for {
 
-				batch = l.streamer.Next(ctx)
+				batch = l.espressoStreamer.Next(ctx)
 
 				if batch == nil {
 					break
@@ -758,7 +779,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
-					l.streamer.Reset()
+					l.espressoStreamer.Reset()
 				}
 
 				l.Log.Info("Added L2 block to channel manager")

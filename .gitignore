@@ -33,6 +33,7 @@ packages/contracts-bedrock/deployments/anvil
 
 .secrets
 .env
+.envrc
 !espresso/.env
 !.env.example
 !.envrc.example
