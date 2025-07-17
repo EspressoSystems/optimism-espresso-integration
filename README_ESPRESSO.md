@@ -186,14 +186,11 @@ source ~/.bashrc
 These commands install the dependencies for, start the service related to and configures the enclave.
 
 ```
-sudo amazon-linux-extras install aws-nitro-enclaves-cli
-sudo sh -c "echo -e 'memory_mib: 4096\ncpu_count: 2' > /etc/nitro_enclaves/allocator.yaml"
+sudo yum install -y aws-nitro-enclaves-cli-1.4.2
+sudo systemctl stop nitro-enclaves-allocator.service || true
+echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
 sudo systemctl start nitro-enclaves-allocator.service
 ```
-
-
-
-/etc/nitro_enclaves/allocator.yaml
 
 * Clone repository and update submodules
 ```
@@ -206,8 +203,48 @@ git submodule update --init --recursive
 * Enter the nix shell and run the enclave tests
 ```
 nix --extra-experimental-features "nix-command flakes" develop
+just compile-contracts
 just espresso-enclave-tests
 ```
+
+#### Building, running and registering enclave images
+
+`op-batcher/enclave-tools` provides a command-line utility for common operations on batcher enclave images.
+Before using it, set your AWS instance as described in the guide above, then build the tool:
+
+```
+cd op-batcher/
+just enclave-tools
+```
+
+This should create `op-batcher/bin/enclave-tools` binary. You can run
+```
+./op-batcher/bin/enclave-tools --help
+```
+to get information on available commands and flags.
+
+##### Building a batcher image
+
+To build a batcher enclave image, and tag it with specified tag:
+```
+./op-batcher/bin/enclave-tools build --op-root ./ --tag op-batcher-enclave
+```
+On success this command will output PCR measurements of the enclave image, which can then be registered with BatchAuthenticator
+contract.
+
+##### Running a batcher image
+To run enclave image built by the previous command:
+```
+./op-batcher/bin/enclave-tools run --image op-batcher-enclave --args --argument-1,value-1,--argument-2,value-2
+```
+Arguments will be forwarded to the op-batcher
+
+##### Registering a batcher image
+To register PCR0 of the batcher enclave image built by the previous command:
+```
+./op-batcher/bin/enclave-tools register --l1-url example.com:1234 --authenticator 0x123..def --private-key 0x123..def --pcr0 0x123..def
+```
+You will need to provide the L1 URL, the contract address of BatchAuthenticator, private key of L1 account used to deploy BatchAuthenticator and PCR0 obtained when building the image.
 
 ## Docker Compose
 
