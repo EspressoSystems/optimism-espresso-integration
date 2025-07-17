@@ -1,0 +1,216 @@
+package main
+
+import (
+	"context"
+	"encoding/hex"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/urfave/cli/v2"
+
+	enclave_tools "github.com/ethereum-optimism/optimism/op-batcher/enclave-tools"
+)
+
+func main() {
+	app := &cli.App{
+		Name:        "enclave-tools",
+		Usage:       "Build, register, and run enclave EIF images",
+		Description: "A command-line interface for building, registering, and running enclave EIF (Enclave Image Format) images for the Optimism op-batcher.",
+		Version:     "1.0.0",
+		Commands: []*cli.Command{
+			buildCommand(),
+			registerCommand(),
+			runCommand(),
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func buildCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "build",
+		Usage: "Build enclave EIF image",
+		Description: `Build a Docker image and then create an EIF (Enclave Image Format) file
+with the op-batcher and specified arguments.`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "op-root",
+				Usage:    "Path to optimism root directory",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "tag",
+				Usage:    "Docker tag for the EIF image",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  "args",
+				Usage: "Command-line arguments to op-batcher (comma-separated)",
+			},
+		},
+		Action: buildAction,
+	}
+}
+
+func registerCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "register",
+		Usage: "Register enclave PCR with verifier",
+		Description: `Register the enclave's PCR0 measurement with the EspressoNitroTEEVerifier contract.
+This allows the enclave to be trusted by the verification system.`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "authenticator",
+				Usage:    "BatchAuthenticator contract address",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "l1-url",
+				Usage:    "L1 RPC URL",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "private-key",
+				Usage:    "Private key for transaction signing (hex format)",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "pcr0",
+				Usage:    "PCR0 value in hex format",
+				Required: true,
+			},
+		},
+		Action: registerAction,
+	}
+}
+
+func runCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "run",
+		Usage: "Launch/run the EIF",
+		Description: `Launch the specified EIF image in a Docker container with the necessary
+AWS Nitro Enclaves configuration.`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "image",
+				Usage:    "Name of the EIF image to run",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  "args",
+				Usage: "Command-line arguments to dynamically send to enclave (comma-separated)",
+			},
+		},
+		Action: runAction,
+	}
+}
+
+func buildAction(c *cli.Context) error {
+	opRoot := c.String("op-root")
+	tag := c.String("tag")
+	args := c.String("args")
+
+	// Parse batcher arguments
+	batcherArgs, err := ParseBatcherArgs(args)
+	if err != nil {
+		return fmt.Errorf("failed to parse batcher arguments: %w", err)
+	}
+
+	ctx := context.Background()
+	fmt.Printf("Building enclave image...")
+	measurements, err := enclave_tools.BuildBatcherImage(ctx, opRoot, tag, batcherArgs...)
+	if err != nil {
+		return fmt.Errorf("failed to build enclave image: %w", err)
+	}
+
+	fmt.Println("Build completed successfully!")
+	fmt.Println("Measurements:")
+	fmt.Printf("  PCR0: %s\n", measurements.PCR0)
+	fmt.Printf("  PCR1: %s\n", measurements.PCR1)
+	fmt.Printf("  PCR2: %s\n", measurements.PCR2)
+
+	return nil
+}
+
+func registerAction(c *cli.Context) error {
+	authenticatorAddr := c.String("authenticator")
+	l1URL := c.String("l1-url")
+	privateKey := c.String("private-key")
+	pcr0 := c.String("pcr0")
+
+	key, err := crypto.HexToECDSA(strings.TrimPrefix(privateKey, "0x"))
+	if err != nil {
+		return fmt.Errorf("invalid private key: %w", err)
+	}
+
+	// Parse authenticator address
+	authAddr := common.HexToAddress(authenticatorAddr)
+	if authAddr == (common.Address{}) {
+		return fmt.Errorf("invalid authenticator address")
+	}
+
+	// Parse PCR0
+	pcr0Bytes, err := hex.DecodeString(strings.TrimPrefix(pcr0, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to parse PCR0: %w", err)
+	}
+
+	ctx := context.Background()
+	fmt.Printf("Registering enclave hash...")
+	err = enclave_tools.RegisterEnclaveHash(ctx, authAddr, l1URL, key, pcr0Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to register enclave hash: %w", err)
+	}
+
+	fmt.Printf("Enclave hash registered successfully!")
+	return nil
+}
+
+func runAction(c *cli.Context) error {
+	imageName := c.String("image")
+	argsStr := c.String("args")
+
+	// Parse arguments
+	args, err := ParseBatcherArgs(argsStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse arguments: %w", err)
+	}
+
+	ctx := context.Background()
+	enclaverCli := &enclave_tools.EnclaverCli{}
+
+	fmt.Printf("Starting enclave: %s\n", imageName)
+	err = enclaverCli.RunEnclave(ctx, imageName, args)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ParseBatcherArgs parses comma-separated batcher arguments and validates them
+func ParseBatcherArgs(argsStr string) ([]string, error) {
+	if argsStr == "" {
+		return []string{}, nil
+	}
+
+	args := strings.Split(argsStr, ",")
+	var cleanedArgs []string
+
+	for _, arg := range args {
+		cleaned := strings.TrimSpace(arg)
+		if cleaned == "" {
+			continue // Skip empty args
+		}
+		cleanedArgs = append(cleanedArgs, cleaned)
+	}
+
+	return cleanedArgs, nil
+}
