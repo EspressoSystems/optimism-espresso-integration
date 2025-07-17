@@ -13,7 +13,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	espressoLocal "github.com/ethereum-optimism/optimism/espresso"
-	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -30,6 +29,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/params"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -57,15 +57,15 @@ type BatcherConfig struct {
 	UseEspresso bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
-	// public key and private key of the batcher
-	BatcherPublicKey  *ecdsa.PublicKey
-	BatcherPrivateKey *ecdsa.PrivateKey
-
-	WaitNodeSync        bool
-	CheckRecentTxsDepth int
+	WaitNodeSync            bool
+	CheckRecentTxsDepth     int
 
 	// For throttling DA. See CLIConfig in config.go for details on these parameters.
 	ThrottleParams config.ThrottleParams
+
+	// public key and private key of the batcher
+	BatcherPublicKey  *ecdsa.PublicKey
+	BatcherPrivateKey *ecdsa.PrivateKey
 }
 
 // BatcherService represents a full batch-submitter instance and its resources,
@@ -82,7 +82,6 @@ type BatcherService struct {
 	EspressoLightClient *espressoLightClient.LightclientCaller
 
 	BatcherConfig
-	opcrypto.ChainSigner
 
 	ChannelConfig ChannelConfigProvider
 	RollupConfig  *rollup.Config
@@ -100,11 +99,12 @@ type BatcherService struct {
 
 	NotSubmittingOnStart bool
 
+	opcrypto.ChainSigner
 	Attestation []byte
 }
 
 func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
-	return &bs.driver.streamer
+	return &bs.driver.espressoStreamer
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -117,7 +117,6 @@ func BatcherServiceFromCLIConfig(ctx context.Context, closeApp context.CancelCau
 	if err := bs.initFromCLIConfig(ctx, closeApp, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
-
 	return &bs, nil
 }
 
@@ -130,7 +129,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 	bs.initMetrics(cfg)
 
 	bs.PollInterval = cfg.PollInterval
-	bs.EspressoPollInterval = cfg.EspressoPollInterval
 	bs.MaxPendingTransactions = cfg.MaxPendingTransactions
 	bs.MaxConcurrentDARequests = cfg.AltDA.MaxConcurrentRequests
 	bs.NetworkTimeout = cfg.TxMgrConfig.NetworkTimeout
@@ -194,6 +192,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 	}
 
 	if len(cfg.EspressoUrls) > 0 {
+		bs.EspressoPollInterval = cfg.EspressoPollInterval
 		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso client: %w", err)
@@ -336,7 +335,6 @@ func (bs *BatcherService) initKeyPair() error {
 	bs.BatcherPublicKey = &key.PublicKey
 	return nil
 }
-
 func (bs *BatcherService) initChannelConfig(cfg *CLIConfig) error {
 	channelTimeout := bs.RollupConfig.ChannelTimeoutBedrock
 	// Use lower channel timeout if granite is scheduled.
@@ -495,13 +493,13 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		Metr:                bs.Metrics,
 		RollupConfig:        bs.RollupConfig,
 		Config:              bs.BatcherConfig,
-		ChainSigner:         bs.ChainSigner,
-		SequencerAddress:    bs.TxManager.From(),
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,
-		ChannelConfig:       bs.ChannelConfig,
+		ChannelConfig:      bs.ChannelConfig,
 		AltDA:               bs.AltDA,
+		SequencerAddress:    bs.TxManager.From(),
+		ChainSigner:         bs.ChainSigner,
 		Espresso:            bs.Espresso,
 		EspressoLightClient: bs.EspressoLightClient,
 		Attestation:         bs.Attestation,

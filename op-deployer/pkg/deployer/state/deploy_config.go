@@ -100,6 +100,7 @@ func CombineDeployConfig(intent *Intent, chainIntent *ChainIntent, state *State,
 				ChannelTimeoutBedrock:     300,
 				SystemConfigStartBlock:    0,
 				BatchInboxAddress:         calculateBatchInboxAddr(chainState),
+
 				BatchAuthenticatorAddress: chainState.BatchAuthenticatorAddress,
 			},
 			OperatorDeployConfig: genesis.OperatorDeployConfig{
