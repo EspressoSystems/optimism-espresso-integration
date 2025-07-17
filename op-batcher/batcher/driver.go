@@ -30,7 +30,7 @@ import (
 	config "github.com/ethereum-optimism/optimism/op-batcher/config"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -128,8 +128,6 @@ type BatchSubmitter struct {
 
 	throttling atomic.Bool // whether the batcher is throttling sequencers and additional endpoints
 
-	submitter *espressoTransactionSubmitter
-	streamer  espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
 	txpoolBlockedBlob bool
@@ -141,11 +139,9 @@ type BatchSubmitter struct {
 	throttleController *throttler.ThrottleController
 
 	publishSignal chan pubInfo
-}
 
-// EspressoStreamer returns the batch submitter's Espresso streamer instance
-func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
-	return &l.streamer
+	espressoSubmitter *espressoTransactionSubmitter
+	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -165,7 +161,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		panic(err)
 	}
 
-	batchSubmitter.streamer = espresso.NewEspressoStreamer(
+	batchSubmitter.espressoStreamer = espresso.NewEspressoStreamer(
 		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
 		NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
 		batchSubmitter.Espresso,
@@ -176,7 +172,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		},
 		2*time.Second,
 	)
-	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.streamer)
+	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 
 	return batchSubmitter
 }
@@ -232,13 +228,13 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
 		}
 
-		l.submitter = NewEspressoTransactionSubmitter(
+		l.espressoSubmitter = NewEspressoTransactionSubmitter(
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
 			WithEspressoClient(l.Espresso),
 		)
-		l.submitter.SpawnWorkers(4, 4)
-		l.submitter.Start()
+		l.espressoSubmitter.SpawnWorkers(4, 4)
+		l.espressoSubmitter.Start()
 
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
@@ -889,7 +885,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
 			if l.Config.UseEspresso {
-				l.streamer.Reset()
+				l.espressoStreamer.Reset()
 			}
 			return true
 		}
@@ -1044,8 +1040,6 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}
-
-		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 		if txdata.altDACommitment == nil {
 			// This means the txdata was not sent to the DA Provider yet.
 			// This will send the txdata to the DA Provider and store the commitment in the channelMgr.
