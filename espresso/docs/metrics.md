@@ -12,6 +12,7 @@ Each indicator points to a log event to monitor.
 ## Batcher
 
 ### Key Metrics
+
 Metrics that belong on the dashboard:
 
 - Blocks enqueued for batching to L1/AltDA:
@@ -28,6 +29,7 @@ Metrics that belong on the dashboard:
   `"Inserting accepted batch"`
 
 ### Abnormal Events
+
 Events that we need to monitor and raise alerts if they're encountered often:
 
 - State reset (even once is suspicious)
@@ -42,11 +44,13 @@ Events that we need to monitor and raise alerts if they're encountered often:
   `"Found L2 reorg"`
 
 ### Chain Stall Indicators
+
 - L1 height not increasing
 - L2 unsafe height not increasing
 - L2 safe height not increasing
 
 ### Potential Issue Indicators
+
 Non-errors that can indicate preconditions for a problem to occur:
 
 - Gas price too high
@@ -57,41 +61,51 @@ Non-errors that can indicate preconditions for a problem to occur:
 ## Caff Validator Node
 
 ### Key Metrics
+
 - Espresso batches fetched
   `"Inserting accepted batch"`
 - New L1 safe blocks
   `"New L1 safe block"`
-- New L1 unsafe blocks
+- New L2 unsafe blocks
   `"Inserted new L2 unsafe block"`
+- New L2 safe blocks
+  `"Derivation complete: reached L2 block as safe"`
 
 ### Abnormal Events
+
 - Pipeline errors
   `"Derivation process error"`
 - Malformed batch
   `"Dropping batch"`, `"Failed to parse frames"`
 
 ### Chain Stall Indicators
+
 Events that need to raise urgent alerts as they indicate full chain stall:
 
 - L1 height not increasing
 - L2 unsafe height not increasing
 - L2 safe height not increasing
 
-## Decaff Validator Node
+## Non-caff Validator Node
 
 ### Key Metrics
+
 - New L1 safe blocks
   `"New L1 safe block"`
-- New L1 unsafe blocks
+- New L2 unsafe blocks
   `"Inserted new L2 unsafe block"`
+- New L2 safe blocks
+  `"Derivation complete: reached L2 block as safe"`
 
 ### Abnormal Events
+
 - Pipeline errors
   `"Derivation process error"`
 - Malformed batch
   `"Dropping batch"`, `"Failed to parse frames"`
 
 ### Chain Stall Indicators
+
 Events that need to raise urgent alerts as they indicate full chain stall:
 
 - L1 safe height not increasing
@@ -103,10 +117,12 @@ Events that need to raise urgent alerts as they indicate full chain stall:
 All events of Decaff Validator Node, and:
 
 ### Key Metrics
+
 - Blocks produced
   `"Sequencer sealed block"`
 
 ### Abnormal events
+
 - Engine failure
   `"Engine failed temporarily, backing off sequencer"`
 - Engine reset
