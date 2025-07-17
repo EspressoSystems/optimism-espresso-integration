@@ -27,6 +27,30 @@ fi
 
 unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
 
+# Launch nc listener to receive null-separated arguments
+NC_PORT=8337
+received_args=()
+
+echo "Starting nc listener on port $NC_PORT (60 second timeout)"
+{
+    # Read null-separated arguments until we get \0\0
+    while IFS= read -r -d '' arg; do
+        if [[ -z "$arg" ]]; then
+            # Empty argument signals end (\0\0)
+            break
+        fi
+        received_args+=("$arg")
+    done
+} < <(nc -l -p "$NC_PORT" -w 60)
+
+if [ ${#received_args[@]} -eq 0 ]; then
+    echo "Warning: No arguments received via nc listener within 60 seconds, continuing with existing arguments"
+else
+    echo "Received ${#received_args[@]} arguments via nc, appending to existing arguments"
+    # Append received arguments to existing positional parameters
+    set -- "$@" "${received_args[@]}"
+fi
+
 wait_for_port() {
   local port="$1"
 
