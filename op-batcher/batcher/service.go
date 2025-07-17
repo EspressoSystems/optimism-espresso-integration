@@ -47,8 +47,7 @@ type BatcherConfig struct {
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA    bool
-	UseEspresso bool
+	UseAltDA bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
 	WaitNodeSync            bool
@@ -69,17 +68,14 @@ type BatcherConfig struct {
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	Log                 log.Logger
-	Metrics             metrics.Metricer
-	L1Client            *ethclient.Client
-	EndpointProvider    dial.L2EndpointProvider
-	TxManager           txmgr.TxManager
-	AltDA               *altda.DAClient
-	Espresso            *espressoClient.MultipleNodesClient
-	EspressoLightClient *espressoLightClient.LightclientCaller
+	Log              log.Logger
+	Metrics          metrics.Metricer
+	L1Client         *ethclient.Client
+	EndpointProvider dial.L2EndpointProvider
+	TxManager        txmgr.TxManager
+	AltDA            *altda.DAClient
 
 	BatcherConfig
-	opcrypto.ChainSigner
 
 	ChannelConfig ChannelConfigProvider
 	RollupConfig  *rollup.Config
@@ -117,7 +113,6 @@ func BatcherServiceFromCLIConfig(ctx context.Context, version string, cfg *CLICo
 	if err := bs.initFromCLIConfig(ctx, version, cfg, log, opts...); err != nil {
 		return nil, errors.Join(err, bs.Stop(ctx)) // try to clean up our failed initialization attempt
 	}
-
 	return &bs, nil
 }
 
@@ -129,7 +124,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	bs.initMetrics(cfg)
 
 	bs.PollInterval = cfg.PollInterval
-	bs.EspressoPollInterval = cfg.EspressoPollInterval
 	bs.MaxPendingTransactions = cfg.MaxPendingTransactions
 	bs.MaxConcurrentDARequests = cfg.AltDA.MaxConcurrentRequests
 	bs.NetworkTimeout = cfg.TxMgrConfig.NetworkTimeout
@@ -301,16 +295,6 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 		return fmt.Errorf("invalid rollup config: %w", err)
 	}
 	bs.RollupConfig.LogDescription(bs.Log, chaincfg.L2ChainIDToNetworkDisplayName)
-	return nil
-}
-
-func (bs *BatcherService) initKeyPair() error {
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
-	}
-	bs.BatcherPrivateKey = key
-	bs.BatcherPublicKey = &key.PublicKey
 	return nil
 }
 

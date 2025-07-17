@@ -28,7 +28,7 @@ import (
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	derive "github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -125,8 +125,6 @@ type BatchSubmitter struct {
 	mutex   sync.Mutex
 	running bool
 
-	submitter         *espressoTransactionSubmitter
-	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
 	txpoolBlockedBlob bool
@@ -139,9 +137,8 @@ type BatchSubmitter struct {
 	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
-// EspressoStreamer returns the batch submitter's Espresso streamer instance
-func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
-	return &l.streamer
+	espressoSubmitter *espressoTransactionSubmitter
+	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -938,8 +935,6 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 		if !l.Config.UseAltDA {
 			l.Log.Crit("Received AltDA type txdata without AltDA being enabled")
 		}
-
-		// if Alt DA is enabled we post the txdata to the DA Provider and replace it with the commitment.
 		if txdata.altDACommitment == nil {
 			// This means the txdata was not sent to the DA Provider yet.
 			// This will send the txdata to the DA Provider and store the commitment in the channelMgr.
