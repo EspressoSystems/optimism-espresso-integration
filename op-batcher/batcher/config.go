@@ -53,8 +53,6 @@ type CLIConfig struct {
 	// and creating a new batch.
 	PollInterval time.Duration
 
-	EspressoPollInterval time.Duration
-
 	// MaxPendingTransactions is the maximum number of concurrent pending
 	// transactions sent to the transaction manager (0 == no limit).
 	MaxPendingTransactions uint64
@@ -126,6 +124,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
+	EspressoPollInterval             time.Duration
 	EspressoUrls                     []string
 	EspressoLightClientAddr          string
 	TestingEspressoBatcherPrivateKey string
@@ -193,41 +192,42 @@ func (c *CLIConfig) Check() error {
 func NewConfig(ctx *cli.Context) *CLIConfig {
 	return &CLIConfig{
 		/* Required Flags */
-		L1EthRpc:             ctx.String(flags.L1EthRpcFlag.Name),
-		L2EthRpc:             ctx.String(flags.L2EthRpcFlag.Name),
-		RollupRpc:            ctx.String(flags.RollupRpcFlag.Name),
-		SubSafetyMargin:      ctx.Uint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:         ctx.Duration(flags.PollIntervalFlag.Name),
-		EspressoPollInterval: ctx.Duration(flags.EspressoPollIntervalFlag.Name),
+		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),
+		L2EthRpc:        ctx.String(flags.L2EthRpcFlag.Name),
+		RollupRpc:       ctx.String(flags.RollupRpcFlag.Name),
+		SubSafetyMargin: ctx.Uint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
 
 		/* Optional Flags */
-		MaxPendingTransactions:           ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
-		MaxChannelDuration:               ctx.Uint64(flags.MaxChannelDurationFlag.Name),
-		MaxL1TxSize:                      ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
-		MaxBlocksPerSpanBatch:            ctx.Int(flags.MaxBlocksPerSpanBatch.Name),
-		TargetNumFrames:                  ctx.Int(flags.TargetNumFramesFlag.Name),
-		ApproxComprRatio:                 ctx.Float64(flags.ApproxComprRatioFlag.Name),
-		Compressor:                       ctx.String(flags.CompressorFlag.Name),
-		CompressionAlgo:                  derive.CompressionAlgo(ctx.String(flags.CompressionAlgoFlag.Name)),
-		Stopped:                          ctx.Bool(flags.StoppedFlag.Name),
-		WaitNodeSync:                     ctx.Bool(flags.WaitNodeSyncFlag.Name),
-		CheckRecentTxsDepth:              ctx.Int(flags.CheckRecentTxsDepthFlag.Name),
-		BatchType:                        ctx.Uint(flags.BatchTypeFlag.Name),
-		DataAvailabilityType:             flags.DataAvailabilityType(ctx.String(flags.DataAvailabilityTypeFlag.Name)),
-		ActiveSequencerCheckDuration:     ctx.Duration(flags.ActiveSequencerCheckDurationFlag.Name),
-		TxMgrConfig:                      txmgr.ReadCLIConfig(ctx),
-		LogConfig:                        oplog.ReadCLIConfig(ctx),
-		MetricsConfig:                    opmetrics.ReadCLIConfig(ctx),
-		PprofConfig:                      oppprof.ReadCLIConfig(ctx),
-		RPC:                              oprpc.ReadCLIConfig(ctx),
-		AltDA:                            altda.ReadCLIConfig(ctx),
-		ThrottleThreshold:                ctx.Uint64(flags.ThrottleThresholdFlag.Name),
-		ThrottleTxSize:                   ctx.Uint64(flags.ThrottleTxSizeFlag.Name),
-		ThrottleBlockSize:                ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
-		ThrottleAlwaysBlockSize:          ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
-		PreferLocalSafeL2:                ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
+		MaxPendingTransactions:       ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
+		MaxChannelDuration:           ctx.Uint64(flags.MaxChannelDurationFlag.Name),
+		MaxL1TxSize:                  ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
+		MaxBlocksPerSpanBatch:        ctx.Int(flags.MaxBlocksPerSpanBatch.Name),
+		TargetNumFrames:              ctx.Int(flags.TargetNumFramesFlag.Name),
+		ApproxComprRatio:             ctx.Float64(flags.ApproxComprRatioFlag.Name),
+		Compressor:                   ctx.String(flags.CompressorFlag.Name),
+		CompressionAlgo:              derive.CompressionAlgo(ctx.String(flags.CompressionAlgoFlag.Name)),
+		Stopped:                      ctx.Bool(flags.StoppedFlag.Name),
+		WaitNodeSync:                 ctx.Bool(flags.WaitNodeSyncFlag.Name),
+		CheckRecentTxsDepth:          ctx.Int(flags.CheckRecentTxsDepthFlag.Name),
+		BatchType:                    ctx.Uint(flags.BatchTypeFlag.Name),
+		DataAvailabilityType:         flags.DataAvailabilityType(ctx.String(flags.DataAvailabilityTypeFlag.Name)),
+		ActiveSequencerCheckDuration: ctx.Duration(flags.ActiveSequencerCheckDurationFlag.Name),
+		TxMgrConfig:                  txmgr.ReadCLIConfig(ctx),
+		LogConfig:                    oplog.ReadCLIConfig(ctx),
+		MetricsConfig:                opmetrics.ReadCLIConfig(ctx),
+		PprofConfig:                  oppprof.ReadCLIConfig(ctx),
+		RPC:                          oprpc.ReadCLIConfig(ctx),
+		AltDA:                        altda.ReadCLIConfig(ctx),
+		ThrottleThreshold:            ctx.Uint64(flags.ThrottleThresholdFlag.Name),
+		ThrottleTxSize:               ctx.Uint64(flags.ThrottleTxSizeFlag.Name),
+		ThrottleBlockSize:            ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
+		ThrottleAlwaysBlockSize:      ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
+		PreferLocalSafeL2:            ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
+
 		EspressoUrls:                     ctx.StringSlice(flags.EspressoUrlsFlag.Name),
 		EspressoLightClientAddr:          ctx.String(flags.EspressoLCAddrFlag.Name),
 		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
+		EspressoPollInterval:             ctx.Duration(flags.EspressoPollIntervalFlag.Name),
 	}
 }

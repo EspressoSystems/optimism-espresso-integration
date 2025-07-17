@@ -1057,14 +1057,13 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 			L2Time:       l1StartBlock.Time,
 			SystemConfig: d.GenesisSystemConfig(),
 		},
-		BlockTime:                 d.L2BlockTime,
-		MaxSequencerDrift:         d.MaxSequencerDrift,
-		SeqWindowSize:             d.SequencerWindowSize,
-		ChannelTimeoutBedrock:     d.ChannelTimeoutBedrock,
-		L1ChainID:                 new(big.Int).SetUint64(d.L1ChainID),
-		L2ChainID:                 new(big.Int).SetUint64(d.L2ChainID),
-		BatchInboxAddress:         d.BatchInboxAddress,
-		BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
+		BlockTime:             d.L2BlockTime,
+		MaxSequencerDrift:     d.MaxSequencerDrift,
+		SeqWindowSize:         d.SequencerWindowSize,
+		ChannelTimeoutBedrock: d.ChannelTimeoutBedrock,
+		L1ChainID:             new(big.Int).SetUint64(d.L1ChainID),
+		L2ChainID:             new(big.Int).SetUint64(d.L2ChainID),
+		BatchInboxAddress:     d.BatchInboxAddress,
 
 		DepositContractAddress:  d.OptimismPortalProxy,
 		L1SystemConfigAddress:   d.SystemConfigProxy,
@@ -1083,6 +1082,8 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 		AltDAConfig:             altDA,
 		ChainOpConfig:           chainOpConfig,
 		Cel2Time:                d.RegolithTime(l1StartTime),
+
+		BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
 	}, nil
 }
 
@@ -1151,8 +1152,9 @@ type L1Deployments struct {
 	ProtocolVersionsProxy             common.Address `json:"ProtocolVersionsProxy"`
 	DataAvailabilityChallenge         common.Address `json:"DataAvailabilityChallenge"`
 	DataAvailabilityChallengeProxy    common.Address `json:"DataAvailabilityChallengeProxy"`
-	BatchInbox                        common.Address `json:"BatchInbox"`
-	BatchAuthenticator                common.Address `json:"BatchAuthenticator"`
+
+	BatchInbox         common.Address `json:"BatchInbox"`
+	BatchAuthenticator common.Address `json:"BatchAuthenticator"`
 }
 
 // GetName will return the name of the contract given an address.
