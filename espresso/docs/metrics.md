@@ -3,8 +3,8 @@
 This document outlines the monitoring framework for our system components, organized into the following categories:
 
 - **Key Metrics**: Metrics that belong on the dashboard for operational visibility
-- **Abnormal Events**: Events that we need to monitor and raise alerts if they're encountered often
-- **Chain Stall Indicators**: Events that need to raise urgent alerts as they indicate full chain stall or stall of the particular service
+- **Recoverable Errors**: Events that we need to monitor and raise alerts if they're encountered often, but do not necessarily lead to liveness or safety violations
+- **Critical Errors**: Events that need to raise urgent alerts as they indicate full chain stall or stall of the particular service
 - **Potential Issue Indicators**: Non-errors that can indicate preconditions for a problem to occur
 
 Each indicator points to a log event to monitor.
@@ -28,7 +28,7 @@ Metrics that belong on the dashboard:
 - Espresso batches fetched
   `"Inserting accepted batch"`
 
-### Abnormal Events
+### Recoverable Errors
 
 Events that we need to monitor and raise alerts if they're encountered often:
 
@@ -43,7 +43,7 @@ Events that we need to monitor and raise alerts if they're encountered often:
 - L2 reorg detected
   `"Found L2 reorg"`
 
-### Chain Stall Indicators
+### Critical Errors
 
 - L1 finalized height not increasing
 - L2 unsafe height not increasing
@@ -71,14 +71,14 @@ Non-errors that can indicate preconditions for a problem to occur:
 - New L2 safe blocks
   `"Derivation complete: reached L2 block as safe"`
 
-### Abnormal Events
+### Recoverable Errors
 
 - Pipeline errors
   `"Derivation process error"`
 - Malformed batch
   `"Dropping batch"`, `"Failed to parse frames"`
 
-### Chain Stall Indicators
+### Critical Errors
 
 Events that need to raise urgent alerts as they indicate full chain stall:
 
@@ -97,14 +97,14 @@ Events that need to raise urgent alerts as they indicate full chain stall:
 - New L2 safe blocks
   `"Derivation complete: reached L2 block as safe"`
 
-### Abnormal Events
+### Recoverable Errors
 
 - Pipeline errors
   `"Derivation process error"`
 - Malformed batch
   `"Dropping batch"`, `"Failed to parse frames"`
 
-### Chain Stall Indicators
+### Critical Errors
 
 Events that need to raise urgent alerts as they indicate full chain stall:
 
@@ -121,7 +121,7 @@ All events of Decaff Validator Node, and:
 - Blocks produced
   `"Sequencer sealed block"`
 
-### Abnormal events
+### Recoverable Errors
 
 - Engine failure
   `"Engine failed temporarily, backing off sequencer"`
