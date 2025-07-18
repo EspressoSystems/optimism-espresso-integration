@@ -21,7 +21,7 @@ ARG KONA_VERSION="kona-client-v0.1.0-beta.5"
 ARG ASTERISC_VERSION=none
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM golang:1.22.7-alpine3.20 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.22.7-alpine3.20 AS builder
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 
@@ -202,7 +202,7 @@ CMD ["op-wheel"]
 
 FROM $TARGET_BASE_IMAGE AS op-node-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 CMD ["op-node"]
@@ -234,7 +234,7 @@ CMD ["op-dispute-mon"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
@@ -245,7 +245,7 @@ ARG ENCLAVE_BATCHER_ARGS=""
 RUN apk add gcc
 # enclave-entrypoint dependencies
 RUN apk add socat bash trurl curl
-ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 COPY --chmod=555 ./op-batcher/enclave-entrypoint.bash /entrypoint.bash

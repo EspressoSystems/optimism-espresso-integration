@@ -161,6 +161,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 		if err := bs.initKeyPair(); err != nil {
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
+
 		// try to generate attestationBytes on public key when start batcher
 		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
