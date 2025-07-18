@@ -69,5 +69,3 @@ config/jwt.txt
 # Ignore keys
 *.pem
 
-# Ignore local kurtosis installation
-kurtosis-devnet/kurtosis-1.10.2/*
