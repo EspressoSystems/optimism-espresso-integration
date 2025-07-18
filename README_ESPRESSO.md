@@ -321,6 +321,9 @@ docker volume prune -a
 the genesis file. Replace the corresponding `hash` field in `rollup-devnet.json`, then rerun the
 failed command.
 
+### Log monitoring
+For a selection of important metrics to monitor for and corresponding log lines see `espresso/docs/metrics.md`
+
 ## Continuous Integration environment
 
 ### Running enclave tests in EC2
