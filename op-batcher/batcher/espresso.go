@@ -265,6 +265,9 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 // submitted, it will then submit a job to the verify receipt job queue to
 // verify the receipt of the transaction.
 func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
 	for {
 		var jobResp espressoSubmitTransactionJobResponse
 		var ok bool
@@ -272,6 +275,13 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		select {
 		case <-s.ctx.Done():
 			return
+		case <-ticker.C:
+			log.Info("Espresso transaction submitter queue status",
+				"submitJobQueue", len(s.submitJobQueue),
+				"submitRespQueue", len(s.submitRespQueue),
+				"verifyReceiptJobQueue", len(s.verifyReceiptJobQueue),
+				"verifyReceiptRespQueue", len(s.verifyReceiptRespQueue))
+			continue
 		case jobResp, ok = <-s.submitRespQueue:
 			if !ok {
 				// Our channel is closed, and we are done
@@ -528,6 +538,9 @@ func espressoSubmitTransactionWorker(
 
 		// Submit the transaction to Espresso
 		hash, err := cli.SubmitTransaction(ctx, *jobAttempt.job.transaction)
+		if err == nil {
+			log.Info("submitted transaction to Espresso", "hash", hash)
+		}
 
 		jobAttempt.job.attempts++
 		resp := espressoSubmitTransactionJobResponse{
