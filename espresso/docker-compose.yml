@@ -1,80 +1,36 @@
 # Espresso OP Integration Docker Setup
 
 services:
-  l1:
+  l1-geth:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${ESPRESSO_L1_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
     build:
-      context: ../ops/docker/deployment-utils
+      context: ./docker/l1-geth
     image: l1-geth:espresso
     volumes:
-      - ../config/l1-genesis-devnet.json:/l1-genesis-devnet.json:ro
-      - l1-data:/data
-    command:
-      - sh
-      - -c
-      # Initialize with the L1 genesis file.
-      # Enable `dev` to automatically create blocks in the dev mode.
-      # Set `dev.period=1` to create a block every 1 second.
-      - |
-        set -e
-        rm -rf /data/geth || true
-        geth --datadir /data init /l1-genesis-devnet.json
-        exec geth --datadir /data \
-          --http \
-          --http.addr=0.0.0.0 \
-          --http.api=eth,net,web3,admin \
-          --http.port=${ESPRESSO_L1_PORT} \
-          --http.vhosts=* \
-          --http.corsdomain=* \
-          --nodiscover \
-          --dev \
-          --dev.period=12 \
-          --miner.etherbase=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
-          --mine \
-          --allow-insecure-unlock \
-          --rpc.allow-unprotected-txs
+      - l1-geth-data:/data
+    environment:
+      ESPRESSO_L1_PORT: ${ESPRESSO_L1_PORT}
     ports:
       - "${ESPRESSO_L1_PORT}:${ESPRESSO_L1_PORT}" # L1 RPC
 
   op-geth:
-    # If the version below is updated, update the version for `images/op-geth` in the Docker
-    # Compose section in README_ESPRESSO.md as well.
-    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
+    build:
+      context: ./docker/op-geth
+    image: op-geth:espresso
     depends_on:
-      l1:
+      l1-geth:
         condition: service_healthy
     volumes:
-      - ../config:/config
+      - ./docker/op-geth:/config
       - op-geth-data:/data
     environment:
       L1_RPC: ${ESPRESSO_L1_PROVIDER}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      # Initialize with the L2 genesis file.
-      - |
-        if [ ! -d "/data/geth" ]; then
-          geth init --datadir=/data /config/l2-genesis-devnet.json
-        fi
-        exec geth \
-          --datadir=/data \
-          --networkid=1 \
-          --http \
-          --http.addr=0.0.0.0 \
-          --http.port=${ESPRESSO_L1_PORT} \
-          --http.api=eth,net,web3,debug,admin,txpool \
-          --http.vhosts=* \
-          --http.corsdomain=* \
-          --authrpc.addr=0.0.0.0 \
-          --authrpc.port=${ESPRESSO_GETH_PORT} \
-          --authrpc.vhosts=* \
-          --authrpc.jwtsecret=/config/jwt.txt \
-          --rollup.disabletxpoolgossip=true \
-          --rollup.halt=major \
-          --nodiscover
+      ESPRESSO_L1_PORT: ${ESPRESSO_L1_PORT}
+      ESPRESSO_GETH_PORT: ${ESPRESSO_GETH_PORT}
     ports:
       - "8546:${ESPRESSO_L1_PORT}"  # L2 RPC
       - "${ESPRESSO_GETH_PORT}:${ESPRESSO_GETH_PORT}"  # Engine API
@@ -82,7 +38,7 @@ services:
   op-node-sequencer:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     image: op-node-sequencer:espresso
     depends_on:
@@ -94,19 +50,19 @@ services:
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
       OP_NODE_RPC_PORT: ${ESPRESSO_ROLLUP_PORT}
     volumes:
-      - ../config:/config
+      - ./docker/op-geth:/config
       - /etc/localtime:/etc/localtime:ro
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/config/rollup-devnet.json
       - --sequencer.enabled=true
       - --rpc.addr=0.0.0.0
 
   op-node-verifier:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     image: op-node-verifier:espresso
     depends_on:
@@ -117,16 +73,16 @@ services:
       OP_NODE_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
       OP_NODE_L2_ENGINE_RPC: ${ESPRESSO_GETH_PROVIDER}
     volumes:
-      - ../config:/config
+      - ./docker/op-geth:/config
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/config/rollup-devnet.json
 
   caff-node:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     image: caff-node:espresso
     depends_on:
@@ -141,11 +97,11 @@ services:
       CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
       CAFF_HOTSHOT_URLS: ${ESPRESSO_URL}
     volumes:
-      - ../config:/config
+      - ./docker/op-geth:/config
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
-      - --rollup.config=/config/op-node/rollup-devnet.json
+      - --rollup.config=/config/rollup-devnet.json
       - --caff.node=true
       - --sequencer.enabled=false
       - --verifier.l1-confs=0
@@ -161,12 +117,12 @@ services:
   op-batcher:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-target
     image: op-batcher:espresso
     # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
-      l1:
+      l1-geth:
         condition: service_healthy
       op-geth:
         condition: service_started
@@ -192,11 +148,12 @@ services:
   op-proposer:
     build:
       context: ../
-      dockerfile: ./ops/docker/op-stack-go/Dockerfile
+      dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
-      - op-node-sequencer
+      op-node-sequencer:
+        condition: service_started
     environment:
       OP_PROPOSER_L1_ETH_RPC: ${ESPRESSO_L1_PROVIDER}
       OP_PROPOSER_ROLLUP_RPC: ${ESPRESSO_ROLLUP_PROVIDER}
@@ -221,7 +178,7 @@ services:
       dockerfile: ./op-deployer/Dockerfile.default
     image: op-deployer:espresso
     depends_on:
-      - l1
+      - l1-geth
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     restart: "no"
@@ -229,7 +186,7 @@ services:
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
     depends_on:
-      l1:
+      l1-geth:
         condition: service_healthy
     ports:
       - "${ESPRESSO_SEQUENCER_API_PORT}:${ESPRESSO_SEQUENCER_API_PORT}"
@@ -251,6 +208,6 @@ services:
       ESPRESSO_BUILDER_PORT: ${ESPRESSO_BUILDER_PORT}
 
 volumes:
-  l1-data:
+  l1-geth-data:
   op-geth-data:
   espresso-data:
