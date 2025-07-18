@@ -57,6 +57,71 @@
           '';
         };
 
+        mcl = pkgs.stdenv.mkDerivation rec {
+          pname = "mcl";
+          version = "v2.13";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "herumi";
+            repo = "mcl";
+            rev = "${version}";
+            hash = "sha256-JDsLv5PFRnFAA8cVaqdOzZHZepNMiKxaC6ADhAU+ihs=";
+          };
+
+          makeFlags =
+            [ "PREFIX=$(out)" ]
+            ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin "LDFLAGS=-Wl,-install_name,$(out)/lib/libmcl.dylib";
+        };
+
+        bls = pkgs.stdenv.mkDerivation rec {
+          pname = "bls";
+          version = "v1.96";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "herumi";
+            repo = "bls";
+            rev = "${version}";
+            hash = "sha256-R14TmRHHi0alq8eov/1t0ArGrKhMMubP/4uK89FSrD8=";
+          };
+
+          makeFlags =
+            [ "PREFIX=$(out)" ]
+            ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin "LDFLAGS=-Wl,-install_name,$(out)/lib/libbls384_256.dylib";
+
+          buildInputs = [
+            mcl
+            pkgs.gmp
+          ];
+
+          fixupPhase = pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin ''
+            for lib in $out/lib/*.dylib; do
+              install_name_tool -change "lib/libmcl.dylib" "${mcl}/lib/libmcl.dylib" "$lib" || true
+            done
+          '';
+
+        };
+
+        eth-beacon-genesis = pkgs.buildGoModule rec {
+          pname = "eth-beacon-genesis";
+          version = "703e97a";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "ethpandaops";
+            repo = pname;
+            rev = version;
+            hash = "sha256-Toal70A8cnIAtR4iCacRQ5vT+MHUlMc81l1dzjj56mA=";
+          };
+
+          vendorHash = "sha256-Fuql4bhCikwYkNnrhs4pOjgyO43HcKvwcB3PHufR2bg=";
+
+          buildInputs = [
+            mcl
+            bls
+          ];
+
+          doCheck = false;
+        };
+
         enclaver = pkgs.rustPlatform.buildRustPackage rec {
           pname = "enclaver";
           version = "0.5.0";
@@ -87,22 +152,22 @@
 
             packages = [
               enclaver
+              eth-beacon-genesis
               go_1_22_7
 
-              pkgs.jq
-              pkgs.yq-go
-              pkgs.uv
-              pkgs.shellcheck
-              pkgs.python311
-              pkgs.foundry-bin
-              pkgs.just
-              pkgs.gotools
-              pkgs.go-ethereum
-              pkgs.golangci-lint
               pkgs.awscli2
+              pkgs.cargo
+              pkgs.dasel
+              pkgs.foundry-bin
+              pkgs.go-ethereum
+              pkgs.jq
+              pkgs.just
               pkgs.just
               pkgs.pnpm
-              pkgs.cargo
+              pkgs.python311
+              pkgs.shellcheck
+              pkgs.uv
+              pkgs.yq-go
             ];
 
             shellHook = ''

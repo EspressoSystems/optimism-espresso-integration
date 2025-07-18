@@ -65,8 +65,6 @@ gha-creds-*.json
 # Ignore the JWT secret for devnet.
 config/jwt.txt
 
-espresso/deployment/state.json
-
 
 # Ignore keys
 *.pem
