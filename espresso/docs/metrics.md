@@ -45,7 +45,7 @@ Events that we need to monitor and raise alerts if they're encountered often:
 
 ### Chain Stall Indicators
 
-- L1 height not increasing
+- L1 finalized height not increasing
 - L2 unsafe height not increasing
 - L2 safe height not increasing
 
@@ -82,7 +82,7 @@ Non-errors that can indicate preconditions for a problem to occur:
 
 Events that need to raise urgent alerts as they indicate full chain stall:
 
-- L1 height not increasing
+- L1 finalized height not increasing
 - L2 unsafe height not increasing
 - L2 safe height not increasing
 
@@ -108,7 +108,7 @@ Events that need to raise urgent alerts as they indicate full chain stall:
 
 Events that need to raise urgent alerts as they indicate full chain stall:
 
-- L1 safe height not increasing
+- L1 finalized height not increasing
 - L2 unsafe height not increasing
 - L2 safe height not increasing
 
