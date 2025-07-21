@@ -45,7 +45,9 @@ optimism_package:
         image: {{ localDockerImage "op-batcher" }}
         extra_params:
           - "--espresso-url=http://op-espresso-devnode:24000"
+          - "--espresso-url=http://op-espresso-devnode:24000"
           - "--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+          - "--testing-espresso-batcher-private-key=0xb3d2d558e3491a3709b7c451100a0366b5872520c7aa020c17a0e7fa35b6a8df"
       challenger_params:
         image: {{ localDockerImage "op-challenger" }}
         cannon_prestate_path: ""
@@ -73,8 +75,6 @@ optimism_package:
   global_node_selectors: {}
   global_tolerations: []
   persistent: false
-  observability:
-    enabled: false
 ethereum_package:
   participants:
     - el_type: geth
