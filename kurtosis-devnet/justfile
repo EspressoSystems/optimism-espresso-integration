@@ -100,10 +100,10 @@ enter-devnet DEVNET CHAIN='Ethereum' NODE_INDEX='0': _prerequisites
     go run ../devnet-sdk/shell/cmd/enter/main.go --devnet kt://{{DEVNET}} --chain {{CHAIN}} --node-index {{NODE_INDEX}}
 
 # Espresso devnet
-espresso-devnet: (devnet "espresso.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package")
+espresso-devnet: (devnet "espresso.yaml")
 
 # Espresso devnet with external batcher
-espresso-eb-devnet: (devnet "espresso-eb.yaml" "" "" "github.com/EspressoSystems/espresso-optimism-package")
+espresso-eb-devnet: (devnet "espresso-eb.yaml")
 
 # Start an external batcher (assuming espresso-eb-devnet is running)
 external-batcher:

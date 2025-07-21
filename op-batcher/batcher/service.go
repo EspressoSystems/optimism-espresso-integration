@@ -216,7 +216,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
 			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TestingEspressoBatcherPrivateKey, "0x"))
 			if err != nil {
-				return fmt.Errorf("Failed to parse batcher's private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
+				return fmt.Errorf("failed to parse batcher's testing private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
 			}
 
 			publicKey := privateKey.Public()
