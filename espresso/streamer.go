@@ -151,19 +151,23 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 }
 
 func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
+	// @audit - should there be a check for for who has sent txns to hotshot since if there is not we can provide false data that might have not gotten processed by the sequencer
 
 	// Make sure the finalized L1 block is initialized before checking the block number.
+	// if the FinalizedL1 is blank then drop
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
 		s.Log.Error("Finalized L1 block not initialized")
 		return BatchDrop, 0
 	}
 	origin := (batch).L1Origin()
+	// ensure that the batches corresponding l1 block is finalized on L1 (checked via the latest fetched) @audit - there could be a problem depending on how often we fetch
 	if origin.Number > s.FinalizedL1.Number {
 		// Signal to resync to wait for the L1 finality.
 		s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.FinalizedL1.Number, "origin number", origin.Number)
 		return BatchUndecided, 0
 	}
 
+	// fetch the hash of the block that is referenced in the batch
 	l1headerHash, err := s.L1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
 	if err != nil {
 		// Signal to resync to be able to fetch the L1 header.
@@ -178,7 +182,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 	// Find a slot to insert the batch
 	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
 
-	// Batch already buffered/finalized
+	// Batch already buffered/finalized only allow new batches to get accepted
 	if batch.Number() < s.BatchPos {
 		s.Log.Warn("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
 		return BatchPast, 0
@@ -218,7 +222,7 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeigh
 //
 // It attempts to ensure the existence of a next batch, provided no errors
 // occur when communicating with HotShot, by processing Blocks retrieved from
-// `HotShot` in discreet batches. If each processing of a batch of blocks will
+// `HotShot` in discreet batches. If each processing of a batch of blocks will // its not a batch of blocks @audit
 // not yield a new `Batch`, then it will continue to process the next batch
 // of blocks from HotShot until it runs out of blocks to process.
 //
@@ -231,6 +235,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	// Retrieve the current block height from Espresso.  We grab this reference
 	// so we don't have to keep fetching it in a loop, and it informs us of
 	// the current block height available to process.
+	// @audit - We want to make this use multiple q nodes since one adds a large trust asumption
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
 		return err
@@ -238,6 +243,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 
 	for i := 0; ; i++ {
 		// Fetch more batches from HotShot if available.
+		// This does take the current hotshot block height but limits the distance from where it felt off to 100 block from start point
 		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
 		if start > finish || (start == finish && i > 0) {
 			// If start is equal to our finish, then that means we have
@@ -292,7 +298,7 @@ func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, fi
 	// Process the new batches fetched from Espresso
 	for height := start; height <= finish; height++ {
 		s.Log.Trace("Fetching HotShot block", "block", height)
-
+		// @audit - we need to fetch from more than one q node and we need to maybe do some validation?
 		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, height, s.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to fetch transactions in block: %w", err)
@@ -344,11 +350,16 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 
 		case BatchFuture:
 			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
+			// @audit - but say we do enter this case we are still inserting it
 			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
 		}
-
+		// @audit - would this try to insert it twice? since we can have already inserted in the checkbatch call above
+		// Does this insert a future batch
+		// We do a tryInsert in the above and a reg insert here
+		// It seems like the tryInsert function does not atually insert anything rather it just checks which will make it a INF for missleading
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(batch, pos)
+		// @audit - does this just delete k from the RemainingBatches and if so what does that do to the looping ?
 		delete(s.RemainingBatches, k)
 	}
 }
@@ -392,6 +403,7 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 		}
 
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
+		// @audit - this can will be called twice in the flow of insert
 		s.BatchBuffer.Insert(*batch, pos)
 	}
 }
@@ -423,9 +435,13 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 // For reference on why doing this guarantees we won't skip any unsafe blocks:
 // https://eng-wiki.espressosys.com/mainch30.html#:Components:espresso%20streamer:initializing%20hotshot%20height
 func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
+	// @audit - What does safeL1Origin mean for fetching since its fetching from hotshot but using a veriable that is related to some L1 origin
+	// What number here needs to be is the assosiated espresso block that corulates to the l2 block(l1 block)
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
 	if errors.Is(err, bind.ErrNoCode) {
+		// What is the fallbackHotShotPos?
+		// If we fallback to 0 does that mean we will post all blocks we have already posted again? How does that work with the caffnode?
 		s.fallbackHotShotPos = 0
 		return nil
 	} else if err != nil {

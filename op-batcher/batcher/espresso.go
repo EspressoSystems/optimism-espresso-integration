@@ -152,6 +152,7 @@ func WithWaitGroup(wg *sync.WaitGroup) EspressoTransactionSubmitterOption {
 // transaction submitter. After that, the user should be able to submit
 // transactions to the submitter via the SubmitTransaction method.
 func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOption) *espressoTransactionSubmitter {
+	// will be called by driver on start batching
 	config := EspressoTransactionSubmitterConfig{
 		Ctx:                                context.Background(),
 		Wg:                                 new(sync.WaitGroup),
@@ -165,6 +166,7 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 		option(&config)
 	}
 
+	// panic if we forgot to set EspressoClient
 	if config.EspressoClient == nil {
 		panic("Espresso client is required")
 	}
@@ -232,6 +234,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 	msg := err.Error()
 
 	// If the transaction is invalid due to a JSON error, skip the submission.
+	// @audit - Are there any err strings that we are missing?
 	if strings.Contains(msg, "json: unsupported type:") ||
 		strings.Contains(msg, "json: unsupported value:") ||
 		strings.Contains(msg, "json: error calling") ||
@@ -243,6 +246,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 	}
 
 	// If the request is invalid (likely due to API change), skip the submission.
+	// @audit - Are there any err strings that we are missing?
 	if strings.Contains(msg, "net/http: nil Context") ||
 		strings.Contains(msg, "net/http: invalid method") ||
 		strings.HasPrefix(msg, "parse ") {
@@ -281,10 +285,12 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		case Skip:
 			continue
 		case RetrySubmission:
+			// RetrySubmission will put the same job back in the submitJobQueue? is there any order to what is stored in the job queue or is it single operation at a time?
 			s.submitJobQueue <- jobResp.job
 			continue
 		}
 
+		// s.ctx.Done():
 		verifyJob := espressoVerifyReceiptJob{
 			start:       time.Now(),
 			transaction: jobResp.job,
@@ -295,7 +301,10 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		case <-s.ctx.Done():
 			return
 		// Move to verifying the receipt
+		// The functional here is to put the job hash into the verify q to be verified later
 		case s.verifyReceiptJobQueue <- verifyJob:
+			// @audi - should we be calling anything with this verify because this looks like its self set to pass
+			// we do have evaluateVerification which will happen somewhere else? but then this should not be here
 		}
 	}
 }
@@ -326,17 +335,24 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 	err := jobResp.err
 
 	// If there's no error, continue handling the verification.
+	// @audit - should this not be returned after we have checked timeout,
+	// Can we still do the timeout check if dont have this timeout,
+	// what is the conditions that we need to meet for a timeout and
+	// no error
 	if err == nil {
 		return Handle
 	}
 
 	// If the hash is invalid, skip the verification.
+	// @audit - this is checking for a lot less than the other evaluate
 	if strings.Contains(err.Error(), "hash is nil") {
 		log.Warn("Hash is nil, skipping")
 		return Skip
 	}
 
 	// If the verification times out, degrade to the submission phase and try again.
+	// @audit - is there a chance have is larger then start and we can get a panic or underflow
+	// is there a case where we have an error that is not caught above which will lead to a timeout since if no error we return handle
 	if have := time.Now(); have.Sub(jobResp.job.start) > VERIFY_RECEIPT_TIMEOUT {
 		return RetrySubmission
 	}
@@ -363,6 +379,8 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 		var jobResp espressoVerifyReceiptJobResponse
 		var ok bool
 
+		// If we have already verified we are done
+		// Makes it a two step
 		select {
 		case <-s.ctx.Done():
 			return
@@ -373,6 +391,8 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 			}
 		}
 
+		// the only verification is that it has passed some time threshold
+		// We dont do anything in the "handle" case
 		switch evaluation := evaluateVerification(jobResp); evaluation {
 		case Skip:
 			continue
@@ -443,6 +463,7 @@ func (s *espressoTransactionSubmitter) scheduleVerifyReceiptsJobs() {
 		var ok bool
 
 		// Get a worker from the worker queue
+		// ensure we have a worker
 		var worker chan espressoVerifyReceiptJobAttempt
 		select {
 		case <-s.ctx.Done():
@@ -456,6 +477,7 @@ func (s *espressoTransactionSubmitter) scheduleVerifyReceiptsJobs() {
 		}
 
 		// Get a job from the job queue
+		// ensure we have a job
 		var job espressoVerifyReceiptJob
 		select {
 		case <-s.ctx.Done():
@@ -468,6 +490,7 @@ func (s *espressoTransactionSubmitter) scheduleVerifyReceiptsJobs() {
 		}
 
 		// Submit the job to the worker
+		// The worker then becomes the struct that represents the job
 		select {
 		case <-s.ctx.Done():
 			return
@@ -508,7 +531,7 @@ func espressoSubmitTransactionWorker(
 		case <-ctx.Done():
 			return
 
-			// Queue our job queue, asking for work
+		// Queue our job queue, asking for work
 		case workerQueue <- ch:
 		}
 
@@ -584,13 +607,16 @@ func espressoVerifyTransactionWorker(
 			}
 		}
 
+		// @audit - jobAttempt is incremented in two difference places both in
+		// espressoSubmitTransactionWorker and espressoVerifyTransactionWorker
+		// Is there a case where they can overlap maybe submit can block verify?
 		if jobAttempt.job.attempts > 0 {
 			// We have already attempted this job, so we will wait a bit
 			// NOTE: this prevents this worker from being able to process
 			// other jobs while we wait for this delay.
 			time.Sleep(VERIFY_RECEIPT_RETRY_DELAY)
 		}
-
+		// @audit -  using the espresso QueryService, we should note that this would be a single point of failure
 		_, err := cli.FetchTransactionByHash(ctx, jobAttempt.job.hash)
 
 		jobAttempt.job.attempts++
@@ -610,6 +636,9 @@ func espressoVerifyTransactionWorker(
 
 // SpawnWorkers spawns the given number of workers to process the
 // submit transaction jobs and verify receipt jobs.
+// currently hardcoded to be 4 works
+// 4 numSubmitTransactionWorkers
+// 4 numVerifyReceiptWorkers
 func (s *espressoTransactionSubmitter) SpawnWorkers(numSubmitTransactionWorkers, numVerifyReceiptWorkers int) {
 	workersCtx := s.ctx
 
@@ -624,13 +653,18 @@ func (s *espressoTransactionSubmitter) SpawnWorkers(numSubmitTransactionWorkers,
 	}
 }
 
+// set up the internal event loop/job pipeline
 func (s *espressoTransactionSubmitter) Start() {
 	// Submit Transaction Jobs
+	// should check for new txns and create a job
 	go s.scheduleSubmitTransactionJobs()
+	// handle the job created via the schedule
 	go s.handleTransactionSubmitJobResponse()
 
 	// Verify Receipt Jobs
+	// should check if we have anything to verify and create a job
 	go s.scheduleVerifyReceiptsJobs()
+	// handle the job created via the schedule
 	go s.handleVerifyReceiptJobResponse()
 }
 
@@ -638,24 +672,29 @@ func (s *espressoTransactionSubmitter) Start() {
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
+	// @audit - what steps goes into converting the to espresso batch
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
 		l.Log.Warn("Failed to derive batch from block", "err", err)
 		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
+	// This is the L2 chain ID as the namespace?
+	// @audit - should this be signing the batch?
 	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner)
 	if err != nil {
 		l.Log.Warn("Failed to create Espresso transaction from a batch", "err", err)
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
-
+	// add to the submitJobQueue
 	l.submitter.SubmitTransaction(transaction)
 
 	return nil
 }
 
+// @audit - function is called sync and refresh but it refreshes and then syncs
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
+	// @audit - needs deep dive
 	err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
 	if err != nil {
 		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
@@ -793,33 +832,37 @@ func (l *BlockLoader) reset(ctx context.Context) {
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
 	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
+	// @audit - how is the blocksToQueue start and end decided
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
+		// fetch a block from the l2 client where we fetch the L1 block that will be corresponding with the L2 block we are creating?
 		block, err := l.batcher.fetchBlock(ctx, i)
 		if err != nil {
 			l.batcher.Log.Warn("Failed to fetch block", "err", err)
 			break
 		}
-
+		// loop over all txns in the block
 		for _, txn := range block.Transactions() {
 			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
 		}
 
+		// @audit - this is checked in an order similar to 1 == 1 2==2 etc are we enfocing that the hash will differ if we reorg out one block
+		// is this fetched in real time?
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
 			l.batcher.Log.Warn("Found L2 reorg", "block_number", i)
 			l.reset(ctx)
 			break
 		}
-
+		// turn the received block into a l1 block
 		blockRef, err := derive.L2BlockToBlockRef(l.batcher.RollupConfig, block)
 		if err != nil {
 			continue
 		}
-
+		// q the block for espresso
 		err = l.batcher.queueBlockToEspresso(ctx, block)
 		if err != nil {
 			continue
 		}
-
+		// @note - its now appended into  the queuedBlocks
 		l.queuedBlocks = append(l.queuedBlocks, blockRef)
 	}
 }
@@ -839,12 +882,14 @@ const (
 //
 // If reorg is detected, empty range and ActionReset is returned.
 // If there isn't enough information or no blocks to load yet, empty range and ActionRetry is returned.
+// cross check this with computeSyncActions
 func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBlockRange, EnqueueBlockAction) {
 	if newSyncStatus.HeadL1 == (eth.L1BlockRef{}) {
 		// empty sync status
 		return inclusiveBlockRange{}, ActionRetry
 	}
 
+	// @audit - what is this prevSyncStatus
 	if l.prevSyncStatus == nil {
 		l.prevSyncStatus = newSyncStatus
 	}
@@ -857,21 +902,28 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 
 	var safeL2 eth.L2BlockRef
 	if l.batcher.Config.PreferLocalSafeL2 {
-		// This is preffered when running interop, but not yet enabled by default.
+		// This is preffered when running interop, but not yet enabled by default. // @audit-issue - typo - preferred
+		// the order of this does not really matter since
 		safeL2 = newSyncStatus.LocalSafeL2
 	} else {
+		// Is there a difference between this an the original OP implementation
 		safeL2 = newSyncStatus.SafeL2
 	}
 
 	// State empty, just enqueue all unsafe blocks
+	// @audit - How does the ActionEnqueue work
+	// this is a deviation from OP
 	if len(l.queuedBlocks) == 0 {
+		// This returns all unsafe blocks?
 		return inclusiveBlockRange{safeL2.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
 	}
 
 	lastQueuedBlock := l.queuedBlocks[len(l.queuedBlocks)-1]
+	// We know there the array as at least one object
 	firstQueuedBlock := l.queuedBlocks[0]
 	nextSafeBlockNum := safeL2.Number + 1
 
+	// us this the equivalent of checking oldestBlockInState?
 	if lastQueuedBlock.Number >= newSyncStatus.UnsafeL2.Number {
 		// nothing to enqueue, unsafe block number is not higher than safe
 		return inclusiveBlockRange{}, ActionRetry
@@ -886,9 +938,16 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		l.batcher.Log.Warn("next safe block is below oldest block in state")
 		return inclusiveBlockRange{}, ActionReset
 	}
-
+	// @audit - can this be 0
+	// We could have two cases here
+	// We can have safeL2 be the same as what queued ends at or
+	// we could have safeL2 be the prior block to where queued ends at
+	// in the first case we can be 0 in the 2nd case
+	// we might have a block that is unaccounted for
 	numBlocksToEnqueue := nextSafeBlockNum - firstQueuedBlock.Number
 
+	// if it can be 0 will we not fail here
+	// What OP calls dequeue we call enqueue, why?
 	if numBlocksToEnqueue > uint64(len(l.queuedBlocks)) {
 		l.batcher.Log.Warn("safe head above newest block in state, resetting loader")
 		return inclusiveBlockRange{}, ActionReset
@@ -902,7 +961,7 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 	if newSyncStatus.UnsafeL2.Number <= lastQueuedBlock.Number+1 {
 		return inclusiveBlockRange{}, ActionRetry
 	}
-
+	// @audit - no pruning
 	if safeL2.Number > firstQueuedBlock.Number {
 		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
 		l.batcher.Log.Warn(
@@ -931,15 +990,19 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 	for {
 		select {
 		case <-ticker.C:
+			// @note - this si where the newSyncStatus is updated
+			// That will be passed into nextBlockRange
 			newSyncStatus, err := l.getSyncStatus(ctx)
 
 			if err != nil {
 				l.Log.Error("Couldn't get sync status", "error", err)
 				continue
 			}
-
+			// @note - the sync happens right as before we call nextBlockRange
 			blocksToQueue, action := loader.nextBlockRange(newSyncStatus)
 
+			// there are 3 cases and we are missing action retry here,
+			// what happens if we go into the ActionRetry case
 			if action == ActionEnqueue {
 				loader.EnqueueBlocks(ctx, blocksToQueue)
 			} else if action == ActionReset {
@@ -954,6 +1017,7 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 }
 
 func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*types.Block, error) {
+	// blocks that are passed in is whats between blocksToQueue start and end
 	l2Client, err := l.EndpointProvider.EthClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting L2 client: %w", err)
@@ -962,6 +1026,7 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	cCtx, cancel := context.WithTimeout(ctx, l.Config.NetworkTimeout)
 	defer cancel()
 
+	// hit the client to get the block, where is this?
 	block, err := l2Client.BlockByNumber(cCtx, new(big.Int).SetUint64(blockNumber))
 	if err != nil {
 		return nil, fmt.Errorf("getting L2 block: %w", err)
@@ -970,10 +1035,12 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
-// createVerifyCertTransaction creates transactiondata to verify a certificate `cert` against provided certManager.
+// createVerifyCertTransaction creates transaction data to verify a certificate `cert` against provided certManager.
 // Returns (nil, nil) in case `cert` is already verified.
 func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
 	certHash := crypto.Keccak256Hash(cert)
+	// is this verification happening in a smart contract
+	// @audit - check the contract
 	verified, err := certManager.Verified(nil, certHash)
 	if err != nil {
 		return nil, err
@@ -990,6 +1057,7 @@ func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certMa
 	}
 }
 
+// some start up checks
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -1045,10 +1113,13 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
 	}
 
-	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
+	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit @audit-issue - typo - certificate
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
+	// loops over all cert?
+	// can there be more than 1 signer since that would not work
 	for _, cert := range l.Attestation.Document.CABundle {
+		// contract call to do this verification
 		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 		if err != nil {
 			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
@@ -1061,7 +1132,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		if txData == nil {
 			continue
 		}
-
+		// the point where txn is actually sent,  is the data signed? by the certManagerAddress
+		// if so where does that happen
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
@@ -1072,6 +1144,9 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		}
 	}
 
+	// follows the same flow as the above
+	// @audit - what is the difference between doign this and doing the the other 2 send calls
+	// the cert is different on 1 and two leading to different txdata and the 3rd is gotten via some api packing
 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
 	if err != nil {
 		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
@@ -1092,6 +1167,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
+	// @audit - this registerSigner signer calls happens here, how can we have done the last two calls if we have not registered
+	// maybe you only need to register if post and anyone can verify
 	txData, err = abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
@@ -1115,6 +1192,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 // sendEspressoTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
+	// what does isCancel mean in this path
 	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
 	l.Log.Debug("Sending Espresso-enabled L1 transaction", "txRef", transactionReference)
 
@@ -1136,6 +1214,7 @@ func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate 
 			blobHash := eth.KZGToVersionedHash(blobCommitment)
 			contactenatedBlobHashes = append(contactenatedBlobHashes, blobHash.Bytes()...)
 		}
+		// @audit - This is whats being signed
 		commitment = crypto.Keccak256Hash(contactenatedBlobHashes)
 		l.Log.Debug("Hashing blob transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
 	}

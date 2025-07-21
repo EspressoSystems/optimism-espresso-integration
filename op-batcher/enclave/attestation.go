@@ -37,6 +37,8 @@ func attest(nonce, userData, publicKey []byte) ([]byte, error) {
 }
 
 func AttestationWithPublicKey(publicKey *ecdsa.PublicKey) ([]byte, error) {
+	// how does this work since its using empty data?
+	// It could be that this is on startup and creating the attestation?
 	// Use empty slices for nonce and publicKey when they're not needed
 	nonce := make([]byte, 0)
 	txData := make([]byte, 0)

@@ -185,6 +185,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	l.clearState(l.shutdownCtx)
 	l.wg = &sync.WaitGroup{}
 
+	// post this point we have already seen genesis
 	if err := l.waitForL2Genesis(); err != nil {
 		return fmt.Errorf("error waiting for L2 genesis: %w", err)
 	}
@@ -227,6 +228,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.submitter.SpawnWorkers(4, 4)
 		l.submitter.Start()
 
+		// @note - this is where the batches are being looped to run
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
 		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)

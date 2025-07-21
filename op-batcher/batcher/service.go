@@ -146,12 +146,15 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	}
 	opts = append(optsFromRPC, opts...)
 
+	// @audit - this check should be > 1 since we will fail in NewMultipleNodesClient of we are one
 	if len(cfg.EspressoUrls) > 0 {
+		// @note - this is the multi node that will reach a consensus on the query service?
 		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso client: %w", err)
 		}
 		bs.Espresso = client
+		// get the light client contract
 		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
@@ -162,17 +165,19 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 			return fmt.Errorf("failed to create key pair for batcher: %w", err)
 		}
 
-		// try to generate attestationBytes on public key when start batcher
+		// try to generate attestationBytes on public key when start batcher // @audit - typo - when starting the?
 		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 		if err != nil {
 			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
 
 			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
+			// logging er private key? even if its just for testing. also I was under the assuption that we wanted to use ephemeral keys
 			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TestingEspressoBatcherPrivateKey, "0x"))
 			if err != nil {
 				return fmt.Errorf("Failed to parse batcher's private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
 			}
 
+			// What is the other key pair if not ECDSA
 			publicKey := privateKey.Public()
 			publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 			if !ok {
@@ -302,6 +307,7 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 }
 
 func (bs *BatcherService) initKeyPair() error {
+	// Generate a ecdsa key pair for the batcher, generated within would need to be readded
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("failed to generate key pair for batcher: %w", err)

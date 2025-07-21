@@ -137,5 +137,6 @@ func (id txID) string(chIDStringer func(id derive.ChannelID) string) string {
 }
 
 func (td *txData) signTx(privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	// sign all calldata with the ephemeral key
 	return crypto.Sign(crypto.Keccak256(td.CallData()), privateKey)
 }
