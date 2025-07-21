@@ -16,6 +16,7 @@ permissions:
 jobs:
   enclave-tests-on-ec2:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     steps:
 
