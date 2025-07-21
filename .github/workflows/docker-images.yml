@@ -51,7 +51,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: espresso/docker/l1-geth
-          file: espresso/docker/l1-geth/Dockerfile
+          file: ./Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -89,7 +89,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: espresso/docker/op-geth
-          file: espresso/docker/op-geth/Dockerfile
+          file: ./Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
