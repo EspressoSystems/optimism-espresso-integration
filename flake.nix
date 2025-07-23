@@ -57,50 +57,6 @@
           '';
         };
 
-        mcl = pkgs.stdenv.mkDerivation rec {
-          pname = "mcl";
-          version = "v2.13";
-
-          src = pkgs.fetchFromGitHub {
-            owner = "herumi";
-            repo = "mcl";
-            rev = "${version}";
-            hash = "sha256-JDsLv5PFRnFAA8cVaqdOzZHZepNMiKxaC6ADhAU+ihs=";
-          };
-
-          makeFlags =
-            [ "PREFIX=$(out)" ]
-            ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin "LDFLAGS=-Wl,-install_name,$(out)/lib/libmcl.dylib";
-        };
-
-        bls = pkgs.stdenv.mkDerivation rec {
-          pname = "bls";
-          version = "v1.96";
-
-          src = pkgs.fetchFromGitHub {
-            owner = "herumi";
-            repo = "bls";
-            rev = "${version}";
-            hash = "sha256-R14TmRHHi0alq8eov/1t0ArGrKhMMubP/4uK89FSrD8=";
-          };
-
-          makeFlags =
-            [ "PREFIX=$(out)" ]
-            ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin "LDFLAGS=-Wl,-install_name,$(out)/lib/libbls384_256.dylib";
-
-          buildInputs = [
-            mcl
-            pkgs.gmp
-          ];
-
-          fixupPhase = pkgs.lib.optional pkgs.stdenv.hostPlatform.isDarwin ''
-            for lib in $out/lib/*.dylib; do
-              install_name_tool -change "lib/libmcl.dylib" "${mcl}/lib/libmcl.dylib" "$lib" || true
-            done
-          '';
-
-        };
-
         eth-beacon-genesis = pkgs.buildGoModule rec {
           pname = "eth-beacon-genesis";
           version = "703e97a";
@@ -112,12 +68,25 @@
             hash = "sha256-Toal70A8cnIAtR4iCacRQ5vT+MHUlMc81l1dzjj56mA=";
           };
 
-          vendorHash = "sha256-Fuql4bhCikwYkNnrhs4pOjgyO43HcKvwcB3PHufR2bg=";
+          vendorHash = "sha256-keBJHjl42o6guAAAWoESJateXVG3hotdSnDv2pf1Lv4=";
+          proxyVendor = true;
 
-          buildInputs = [
-            mcl
-            bls
-          ];
+          doCheck = false;
+        };
+
+        eth2-val-tools = pkgs.buildGoModule rec {
+          pname = "eth2-val-tools";
+          version = "662955e";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "protolambda";
+            repo = pname;
+            rev = version;
+            hash = "sha256-UpQmCS/FrY667EnNH2XCTJhzhLOpsfS5GUhGvXGG65U=";
+          };
+
+          vendorHash = "sha256-IblAuZgk7EBkfcFoEugzb9pO454zfHq6RxIfgvUFBDo=";
+          proxyVendor = true;
 
           doCheck = false;
         };
@@ -153,6 +122,7 @@
             packages = [
               enclaver
               eth-beacon-genesis
+              eth2-val-tools
               go_1_22_7
 
               pkgs.awscli2

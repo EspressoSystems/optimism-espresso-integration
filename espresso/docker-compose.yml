@@ -2,29 +2,62 @@
 
 services:
   l1-validator:
-    image: chainsafe/lodestar:latest
+    image: sigp/lighthouse
     depends_on:
-      - l1-geth
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${L1_BEACON_PORT}"]
-      interval: 3s
-      timeout: 2s
-      retries: 40
+      l1-geth:
+        condition: service_healthy
+      l1-beacon:
+        condition: service_started
     volumes:
       - l1-data:/data
       - ./deployment/l1-config:/config:ro
     command:
-      - dev
-      - --genesisValidators
-      - "1"
-      - --execution.urls
+      - sh
+      - -c
+      - |
+        mkdir -p /data/lighthouse-validator
+        mkdir -p /data/lighthouse-validator/validators
+        cp -r /config/keystore/keys/* /data/lighthouse-validator/validators/
+        cp -r /config/keystore/secrets/ /data/lighthouse-validator/
+
+        lighthouse \
+          validator_client \
+          --testnet-dir /config \
+          --beacon-nodes http://l1-beacon:${L1_BEACON_PORT} \
+          --init-slashing-protection \
+          --datadir /data/lighthouse-validator \
+          --suggested-fee-recipient ${OPERATOR_ADDRESS}
+
+  l1-beacon:
+    image: sigp/lighthouse
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+    volumes:
+      - l1-data:/data
+      - ./deployment/l1-config:/config:ro
+    command:
+      - lighthouse
+      - beacon_node
+      - --testnet-dir
+      - /config
+      - --execution-endpoint
       - http://l1-geth:${L1_ENGINE_PORT}
-      - --rest.namespace
-      - "*"
-      - --rest.address
+      - --execution-jwt
+      - /config/jwt.txt
+      - --http
+      - --http-address
       - 0.0.0.0
-      - --rest.port
+      - --http-port
       - ${L1_BEACON_PORT}
+      - --http-allow-origin
+      - "*"
+      - --allow-insecure-genesis-sync
+      - --target-peers
+      - "0"
+      - --enable-private-discovery
+      - --disable-deposit-contract-sync
+      - --disable-upnp
     ports:
       - "${L1_BEACON_PORT}:${L1_BEACON_PORT}"
 
@@ -47,7 +80,7 @@ services:
         set -e
         rm -rf /data/geth || true
         if [ ! -d "/data/geth" ]; then
-          geth --datadir /data/geth init /config/genesis.json
+          geth --gcmode=archive --state.scheme=hash --datadir=/data init /config/genesis.json
         fi
         exec geth \
           --datadir /data/geth \
@@ -63,8 +96,9 @@ services:
           --authrpc.jwtsecret=/config/jwt.txt \
           --nodiscover \
           --maxpeers 0 \
-          --allow-insecure-unlock \
-          --networkid ${L1_CHAIN_ID}
+          --networkid ${L1_CHAIN_ID} \
+          --syncmode=full \
+          --gcmode=archive
     ports:
       - "${L1_HTTP_PORT}:${L1_HTTP_PORT}" # L1 RPC
       - "${L1_ENGINE_PORT}:${L1_ENGINE_PORT}" # L1 Engine
@@ -109,7 +143,7 @@ services:
       # Initialize with the L2 genesis file.
       - |
         if [ ! -d "/data/geth" ]; then
-          geth init --datadir=/data /config/genesis.json
+          geth --gcmode=archive init --state.scheme=hash --datadir=/data /config/genesis.json
         fi
         exec geth \
           --datadir=/data \
@@ -141,11 +175,11 @@ services:
       op-geth:
         condition: service_started
       l1-validator:
-        condition: service_healthy
+        condition: service_started
       fixup-genesis:
         condition: service_completed_successfully
     environment:
-      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
@@ -170,7 +204,7 @@ services:
       op-geth:
         condition: service_started
       l1-validator:
-        condition: service_healthy
+        condition: service_started
       fixup-genesis:
         condition: service_completed_successfully
     environment:
@@ -184,6 +218,7 @@ services:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
+      - --p2p.disable=true
 
   caff-node:
     build:
@@ -221,6 +256,7 @@ services:
       - --caff.next-hotshot-block-num=1
       - --caff.polling-hotshot-polling-interval=500ms
       - --log.level=debug
+      - --p2p.disable=true
     restart: "no"
 
   op-batcher:

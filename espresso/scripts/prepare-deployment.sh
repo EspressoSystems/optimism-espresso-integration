@@ -58,8 +58,6 @@ op-deployer bootstrap superchain \
                       --protocol-versions-owner="${OPERATOR_ADDRESS}" \
                       --guardian="${OPERATOR_ADDRESS}"
 
-
-
 op-deployer bootstrap implementations \
                       --l1-rpc-url="${ANVIL_URL}" \
                       --private-key="${OPERATOR_PRIVATE_KEY}" \
@@ -68,7 +66,6 @@ op-deployer bootstrap implementations \
                       --superchain-config-proxy=`jq -r .superchainConfigProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
                       --upgrade-controller="${OPERATOR_ADDRESS}" \
                       --outfile="${DEPLOYER_DIR}/bootstrap_implementations.json"
-
 
 op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --l2-chain-ids "${L2_CHAIN_ID}" \
@@ -104,6 +101,21 @@ jq -s 'reduce .[] as $item ({}; . * $item)'        \
         "${DEPLOYMENT_DIR}/deployer_allocs.json"            \
         "${OP_ROOT}/config/l1-genesis-devnet.json" \
         > "${L1_CONFIG_DIR}/genesis.json"
+
+dasel put -f "${L1_CONFIG_DIR}/genesis.json" -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+
+eth-beacon-genesis devnet \
+                  --eth1-config "${L1_CONFIG_DIR}/genesis.json" \
+                  --config "${OP_ROOT}/config/beacon-config.yaml" \
+                  --mnemonics "${OP_ROOT}/config/mnemonics.yaml" \
+                  --state-output "${L1_CONFIG_DIR}/genesis.ssz"
+cp -r ${OP_ROOT}/config/beacon-config.yaml "${L1_CONFIG_DIR}/config.yaml"
+
+rm -rf ${L1_CONFIG_DIR}/keystore && \
+eth2-val-tools keystores --out-loc ${L1_CONFIG_DIR}/keystore \
+                         --source-mnemonic "$(yq -r '.[0].mnemonic' "${OP_ROOT}/config/mnemonics.yaml")" \
+                         --source-min 0 \
+                         --source-max 1
 
 if [[ ! -f "${OP_CONFIG_DIR}/jwt.txt" ]]; then
     openssl rand -hex 32 > "${OP_CONFIG_DIR}/jwt.txt"

@@ -18,6 +18,7 @@
     "cancunTime": 0,
     "pragueTime": 0,
     "terminalTotalDifficulty": 0,
+    "terminalTotalDifficultyPassed": true,
     "depositContractAddress": "0x0000000000000000000000000000000000000000",
     "blobSchedule": {
       "cancun": {
