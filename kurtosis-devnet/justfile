@@ -130,6 +130,28 @@ external-batcher:
   echo "$command"
   $command
 
+external-batcher-celo:
+  #!/usr/bin/env sh
+  function external_url () {
+    kurtosis service inspect celo-devnet "${1}" | yq .Ports."${2}" | sed -E 's#.*->\s+(.*\/)?#http://#'
+  }
+  batcher="$(pwd)/../op-batcher/bin/op-batcher"
+  command="${batcher} "\
+  "--l2-eth-rpc=$(external_url 'op-el-1-op-geth-op-node-op-celo' 'rpc') "\
+  "--rollup-rpc=$(external_url 'op-cl-1-op-node-op-geth-op-celo' 'http') "\
+  "--l1-eth-rpc=$(external_url 'el-1-geth-teku' 'rpc') "\
+  "--espresso-url=http://localhost:24000,http://localhost:24000 "\
+  "--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797 "\
+  "--testing-espresso-batcher-private-key=0xb3d2d558e3491a3709b7c451100a0366b5872520c7aa020c17a0e7fa35b6a8df "\
+  "--poll-interval=1s --sub-safety-margin=6 --num-confirmations=1 --safe-abort-nonce-too-low-count=3 "\
+  "--resubmission-timeout=30s --rpc.addr=0.0.0.0 --rpc.port=8548 --rpc.enable-admin "\
+  "--max-channel-duration=1 --private-key=0xb3d2d558e3491a3709b7c451100a0366b5872520c7aa020c17a0e7fa35b6a8df "\
+  "--data-availability-type=calldata --metrics.enabled --metrics.addr=0.0.0.0 --metrics.port=9001 "\
+  "--log.level=debug"
+  echo "Running batcher:"
+  echo "$command"
+  $command
+
 # Start an external batcher (assuming espresso-eb-devnet is running)
 external-batcher-parameters:
   #!/usr/bin/env sh

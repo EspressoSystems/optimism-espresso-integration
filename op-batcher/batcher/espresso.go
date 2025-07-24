@@ -683,7 +683,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		l.Log.Warn("Failed to create Espresso transaction from a batch", "err", err)
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
-
+	l.Log.Info("Submitting transaction to Espresso", "transaction", transaction)
 	l.espressoSubmitter.SubmitTransaction(transaction)
 
 	return nil
@@ -747,15 +747,18 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		select {
 		case <-ticker.C:
 			newSyncStatus, err := l.getSyncStatus(ctx)
+			l.Log.Info("gen new sync status", "newSyncStatus", newSyncStatus, "err", err)
 			if err != nil {
 				l.Log.Error("failed to refresh sync status", "err", err)
 				continue
 			}
 
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
-
+			l.Log.Info("finished sync and refresh")
 			err = l.espressoStreamer.Update(ctx)
+			l.Log.Info("finished update", "err", err)
 			remainingListLen := len(l.espressoStreamer.RemainingBatches)
+			l.Log.Info("remaining list len", "remainingListLen", remainingListLen)
 			if remainingListLen > 0 {
 				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
 			}
@@ -843,17 +846,19 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 			l.reset(ctx)
 			break
 		}
-
+		l.batcher.Log.Info("plan to convert block to block ref", "block_number", i)
 		blockRef, err := derive.L2BlockToBlockRef(l.batcher.RollupConfig, block)
 		if err != nil {
+			l.batcher.Log.Warn("Failed to convert block to block ref", "err", err)
 			continue
 		}
-
+		l.batcher.Log.Info("Converting block to block ref", "block_number", i)
 		err = l.batcher.queueBlockToEspresso(ctx, block)
 		if err != nil {
+			l.batcher.Log.Warn("Failed to queue block to Espresso", "err", err)
 			continue
 		}
-
+		l.batcher.Log.Info("Queued block to Espresso", "block_number", i)
 		l.queuedBlocks = append(l.queuedBlocks, blockRef)
 	}
 }
@@ -973,6 +978,7 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 			}
 
 			blocksToQueue, action := loader.nextBlockRange(newSyncStatus)
+			l.Log.Info("plan to enqueue blocks", "blocksToQueue", blocksToQueue, "action", action)
 
 			if action == ActionEnqueue {
 				loader.EnqueueBlocks(ctx, blocksToQueue)
