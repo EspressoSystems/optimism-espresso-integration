@@ -740,6 +740,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			},
 
 			BatchAuthenticatorAddress: cfg.DeployConfig.BatchAuthenticatorAddress,
+			CeloEspressoTimestamp:     func() *uint64 { v := uint64(cfg.DeployConfig.L1GenesisBlockTimestamp); return &v }(),
 		}
 	}
 	defaultConfig := makeRollupConfig()

@@ -102,8 +102,12 @@ type DataSourceConfig struct {
 //  4. the transaction has a valid signature from the batcher address
 func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger, celoEspressoTimestamp *uint64) bool {
 	// If CeloEspresso is activated, return false if the transaction is reverted
-	if celoEspressoTimestamp != nil && time.Now().Unix() >= int64(*celoEspressoTimestamp) && receipt.Status != types.ReceiptStatusSuccessful {
-		return false
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		logger.Info("tx in inbox with reverted status", "hash", tx.Hash(), "status", receipt.Status)
+		if celoEspressoTimestamp != nil && time.Now().Unix() >= int64(*celoEspressoTimestamp) {
+			logger.Info("tx is dropped since it is reverted")
+			return false
+		}
 	}
 
 	// For now, we want to disallow the SetCodeTx type or any future types.
