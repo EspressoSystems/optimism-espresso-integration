@@ -4,15 +4,11 @@ set -e
 # Set the default port if not provided.
 ESPRESSO_L1_PORT=${ESPRESSO_L1_PORT:-8545}
 
-# Initialize database if not already done.
-if [ ! -f /data/geth/chaindata/CURRENT ]; then
-  echo "Initializing L1 Geth database..."
-  rm -rf /data/geth || true
-  geth --datadir /data init /l1-genesis-devnet.json
-  echo "L1 Geth initialization completed"
-else
-  echo "L1 Geth database already initialized, skipping..."
-fi
+# Initialize database.
+echo "Initializing L1 Geth database..."∂
+rm -rf /data/geth || true
+geth --datadir /data init /l1-genesis-devnet.json
+echo "L1 Geth initialization completed"
 
 # Start Geth with the specified configuration.
 exec geth --datadir /data \
