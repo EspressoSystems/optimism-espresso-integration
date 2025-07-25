@@ -26,17 +26,17 @@ type BlobDataSource struct {
 	data         []blobOrCalldata
 	ref          eth.L1BlockRef
 	batcherAddr  common.Address
-	ds           *DataSourceFactory
+	dsCfg        DataSourceConfig
 	fetcher      L1TransactionFetcher
 	blobsFetcher L1BlobsFetcher
 	log          log.Logger
 }
 
 // NewBlobDataSource creates a new blob data source.
-func NewBlobDataSource(ctx context.Context, log log.Logger, ds *DataSourceFactory, fetcher L1TransactionFetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
+func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1TransactionFetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
 	return &BlobDataSource{
 		ref:          ref,
-		ds:           ds,
+		dsCfg:        dsCfg,
 		fetcher:      fetcher,
 		log:          log.New("origin", ref),
 		batcherAddr:  batcherAddr,
@@ -98,7 +98,7 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: L1 fetcher provided inconsistent number of receipts"))
 	}
 
-	data, hashes := dataAndHashesFromTxs(txs, receipts, ds.ds, ds.batcherAddr, ds.log)
+	data, hashes := dataAndHashesFromTxs(txs, receipts, &ds.dsCfg, ds.batcherAddr, ds.log)
 
 	if len(hashes) == 0 {
 		// there are no blobs to fetch so we can return immediately
@@ -127,14 +127,14 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(txs types.Transactions, receipts types.Receipts, ds *DataSourceFactory, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash) {
+func dataAndHashesFromTxs(txs types.Transactions, receipts types.Receipts, config *DataSourceConfig, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash) {
 	data := []blobOrCalldata{}
 	var hashes []eth.IndexedBlobHash
 	blobIndex := 0 // index of each blob in the block's blob sidecar
 	for i, tx := range txs {
 		receipt := receipts[i]
 		// skip any non-batcher transactions
-		if !isValidBatchTx(tx, receipt, ds.dsCfg.l1Signer, ds.dsCfg.batchInboxAddress, batcherAddr, logger, ds.dsCfg.celoEspressoTimestamp) {
+		if !isValidBatchTx(tx, receipt, config.l1Signer, config.batchInboxAddress, batcherAddr, logger, config.celoEspressoTimestamp) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}

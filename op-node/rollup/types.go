@@ -170,7 +170,7 @@ type Config struct {
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
 
 	// CeloEspressoTimestamp is the activation timestamp for Celo Espresso integration
-	// When this timestamp is reached, additional transaction validation rules in derivation pipelinewill be enforced
+	// When this timestamp is reached, additional transaction validation rules in derivation pipeline will be enforced
 	// If nil, the integration is not active.
 	CeloEspressoTimestamp *uint64 `json:"celo_espresso_timestamp,omitempty"`
 }

@@ -288,6 +288,10 @@ func applyOverrides(ctx *cli.Context, rollupConfig *rollup.Config) {
 		interop := ctx.Uint64(opflags.InteropOverrideFlagName)
 		rollupConfig.InteropTime = &interop
 	}
+	if ctx.IsSet(flags.CeloEspressoTimestamp.Name) {
+		celoEspresso := ctx.Uint64(flags.CeloEspressoTimestamp.Name)
+		rollupConfig.CeloEspressoTimestamp = &celoEspresso
+	}
 }
 
 // applyCeloHardforks modifies the rollupConfig to apply Celo-specific hardforks.
