@@ -132,8 +132,14 @@ func TestDataFromEVMTransactions(t *testing.T) {
 			}
 		}
 
-		out := DataFromEVMTransactions(DataSourceConfig{cfg.L1Signer(), cfg.BatchInboxAddress, false}, batcherAddr, txs, receipts, testlog.Logger(t, log.LevelCrit))
-		require.ElementsMatch(t, expectedData, out)
+		ds := &DataSourceFactory{
+			dsCfg: DataSourceConfig{
+				l1Signer:          signer,
+				batchInboxAddress: cfg.BatchInboxAddress,
+			},
+		}
+		data := DataFromEVMTransactions(ds, batcherAddr, txs, receipts, testlog.Logger(t, log.LevelCrit))
+		require.ElementsMatch(t, expectedData, data)
 	}
 
 }

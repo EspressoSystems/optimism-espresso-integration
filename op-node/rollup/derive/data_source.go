@@ -3,6 +3,7 @@ package derive
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -50,9 +51,10 @@ type DataSourceFactory struct {
 
 func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, altDAFetcher AltDAInputFetcher) *DataSourceFactory {
 	config := DataSourceConfig{
-		l1Signer:          cfg.L1Signer(),
-		batchInboxAddress: cfg.BatchInboxAddress,
-		altDAEnabled:      cfg.AltDAEnabled(),
+		l1Signer:              cfg.L1Signer(),
+		batchInboxAddress:     cfg.BatchInboxAddress,
+		altDAEnabled:          cfg.AltDAEnabled(),
+		celoEspressoTimestamp: cfg.CeloEspressoTimestamp,
 	}
 	return &DataSourceFactory{
 		log:          log,
@@ -73,9 +75,9 @@ func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, b
 		if ds.blobsFetcher == nil {
 			return nil, fmt.Errorf("ecotone upgrade active but beacon endpoint not configured")
 		}
-		src = NewBlobDataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ds.blobsFetcher, ref, batcherAddr)
+		src = NewBlobDataSource(ctx, ds.log, ds, ds.fetcher, ds.blobsFetcher, ref, batcherAddr)
 	} else {
-		src = NewCalldataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ref, batcherAddr)
+		src = NewCalldataSource(ctx, ds.log, ds, ds.fetcher, ref, batcherAddr)
 	}
 	if ds.dsCfg.altDAEnabled {
 		// altDA([calldata | blobdata](l1Ref)) -> data
@@ -86,18 +88,21 @@ func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, b
 
 // DataSourceConfig regroups the mandatory rollup.Config fields needed for DataFromEVMTransactions.
 type DataSourceConfig struct {
-	l1Signer          types.Signer
-	batchInboxAddress common.Address
-	altDAEnabled      bool
+	l1Signer              types.Signer
+	batchInboxAddress     common.Address
+	altDAEnabled          bool
+	celoEspressoTimestamp *uint64
 }
 
-// isValidBatchTx returns true if:
-//  1. the transaction is not reverted
+// isValidBatchTx validates a transaction against the given configuration
+// It returns true if:
+//  1. the transaction is not reverted (only checked if CeloEspresso is enabled)
 //  2. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
 //  3. the transaction has a To() address that matches the batch inbox address, and
 //  4. the transaction has a valid signature from the batcher address
-func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
-	if receipt.Status != types.ReceiptStatusSuccessful {
+func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger, celoEspressoTimestamp *uint64) bool {
+	// If CeloEspresso is activated, return false if the transaction is reverted
+	if celoEspressoTimestamp != nil && time.Now().Unix() >= int64(*celoEspressoTimestamp) && receipt.Status != types.ReceiptStatusSuccessful {
 		return false
 	}
 

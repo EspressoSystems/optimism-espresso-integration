@@ -168,6 +168,11 @@ type Config struct {
 	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
 
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
+
+	// CeloEspressoTimestamp is the activation timestamp for Celo Espresso integration
+	// When this timestamp is reached, additional transaction validation rules in derivation pipelinewill be enforced
+	// If nil, the integration is not active.
+	CeloEspressoTimestamp *uint64 `json:"celo_espresso_timestamp,omitempty"`
 }
 
 // CaffNodeConfig is the config for the Caff Node

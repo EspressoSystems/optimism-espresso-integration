@@ -506,6 +506,14 @@ var (
 		Value:    "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
 		Category: OperationsCategory,
 	}
+	CeloEspressoTimestamp = &cli.Uint64Flag{
+		Name:        "celo-espresso-timestamp",
+		Usage:       "Unix timestamp for activating Celo Espresso integration features",
+		EnvVars:     prefixEnvVars("CELO_ESPRESSO_TIMESTAMP"),
+		Category:    RollupCategory,
+		Required:    false,
+		Destination: new(uint64),
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -568,6 +576,7 @@ var optionalFlags = []cli.Flag{
 	CaffNodeHotShotUrls,
 	CaffNodeEspressoLightClientAddr,
 	CaffNodeL1EthRpc,
+	CeloEspressoTimestamp,
 }
 
 var DeprecatedFlags = []cli.Flag{
