@@ -30,10 +30,10 @@ optimism_package:
         tolerations: []
         count: 1
       network_params:
-        network: "celo"
-        network_id: "2151908" # not "42220"  # Celo mainnet network ID
-        seconds_per_slot: 5   # Celo's 5-second block time
-        name: "op-celo"
+        network: "kurtosis"
+        network_id: "2151908" # not "42220"?  # Celo mainnet network ID
+        seconds_per_slot: 2
+        name: "op-kurtosis"
         fjord_time_offset: 0
         granite_time_offset: 0
         holocene_time_offset: 0
@@ -50,7 +50,7 @@ optimism_package:
         image: {{ localDockerImage "op-proposer" }}
         extra_params: []
         game_type: 1
-        proposal_interval: 5m  # More frequent proposals for Celo
+        proposal_interval: 10m
       mev_params:
         rollup_boost_image: ""
         builder_host: ""
@@ -78,12 +78,6 @@ ethereum_package:
         "0x4e59b44847b379578588920cA78FbF26c0B4956C": {
           "balance": "0ETH",
           "code": "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3",
-          "storage": {},
-          "nonce": "1"
-        },
-        "0x000000000000000000000000000000000000ce10": {
-          "balance": "1000000000000000000000000ETH",
-          "code": "0x608060405234801561001057600080fd5b50600436106100365760003560e01c8063095ea7b31461003b57806318160ddd14610059575b600080fd5b61004361006f565b60405161005091906100a1565b60405180910390f35b610061610075565b60405161006c91906100c0565b60405180910390f35b60006001905090565b60006b204fce5e3e25026110000000905090565b60008115159050919050565b61009b8161008b565b82525050565b60006020820190506100b66000830184610092565b92915050565b6000819050919050565b6100cf816100bc565b82525050565b60006020820190506100ea60008301846100c6565b9291505056fea2646970667358221220",
           "storage": {},
           "nonce": "1"
         }

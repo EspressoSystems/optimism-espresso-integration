@@ -14,12 +14,12 @@
           inputs.foundry.overlay
         ];
 
-        go_1_22_7 = pkgs.go_1_22.overrideAttrs (oldAttrs: rec {
-          version = "1.22.7";
+        go_1_22_10 = pkgs.go_1_22.overrideAttrs (oldAttrs: rec {
+          version = "1.22.10";
 
           src = pkgs.fetchurl {
-            url = "https://go.dev/dl/go1.22.7.src.tar.gz";
-            sha256 = "sha256-ZkMth9heDPrD7f/mN9WTD8Td9XkzE/4R5KDzMwI8h58=";
+            url = "https://go.dev/dl/go1.22.10.src.tar.gz";
+            sha256 = "sha256-HpT9SL51DR+vtNmztt0xpunSc10zm/JGK8l7ZMpMEDc=";
           };
         });
 
@@ -95,7 +95,7 @@
               pkgs.python311
               pkgs.foundry-bin
               pkgs.just
-              go_1_22_7
+              go_1_22_10
               pkgs.gotools
               pkgs.go-ethereum
               pkgs.golangci-lint
