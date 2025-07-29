@@ -202,6 +202,7 @@ const HOTSHOT_BLOCK_LOAD_LIMIT = 100
 // HOTSHOT_BLOCK_LOAD_LIMIT blocks ahead or the current block height, whichever
 // is smaller.
 func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64) (start uint64, finish uint64) {
+	log.Info("computeEspressoBlockHeightsRange", "hotShotPos", s.hotShotPos, "currentBlockHeight", currentBlockHeight)
 	start = s.hotShotPos
 	if start > 0 {
 		// We've already processed the block in hotShotPos.  In order to avoid
