@@ -151,7 +151,7 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 }
 
 func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
-	// @audit - should there be a check for for who has sent txns to hotshot since if there is not we can provide false data that might have not gotten processed by the sequencer
+	// @audit - should there be a check for for who has sent txns to hotshot since if there is not we can provide false data that might have not gotten processed by the sequencer.
 
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	// if the FinalizedL1 is blank then drop
@@ -236,6 +236,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 	// so we don't have to keep fetching it in a loop, and it informs us of
 	// the current block height available to process.
 	// @audit - We want to make this use multiple q nodes since one adds a large trust asumption
+	// @audit - medium - Compromised query node could lead to invalid node
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
 		return err
@@ -299,6 +300,7 @@ func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, fi
 	for height := start; height <= finish; height++ {
 		s.Log.Trace("Fetching HotShot block", "block", height)
 		// @audit - we need to fetch from more than one q node and we need to maybe do some validation?
+		// @audit - medium - same issue as the other client fetch
 		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, height, s.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to fetch transactions in block: %w", err)
@@ -351,15 +353,18 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 		case BatchFuture:
 			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
 			// @audit - but say we do enter this case we are still inserting it
+			// @audit - low - Missing check for batch insertion on error.
 			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
 		}
 		// @audit - would this try to insert it twice? since we can have already inserted in the checkbatch call above
+		// @audit - medium - Double insert into the batch buffer.
 		// Does this insert a future batch
 		// We do a tryInsert in the above and a reg insert here
 		// It seems like the tryInsert function does not atually insert anything rather it just checks which will make it a INF for missleading
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(batch, pos)
 		// @audit - does this just delete k from the RemainingBatches and if so what does that do to the looping ?
+		// @audit - high - changing loop structure during loop enumeration
 		delete(s.RemainingBatches, k)
 	}
 }
@@ -404,6 +409,7 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
 		// @audit - this can will be called twice in the flow of insert
+		// @audit - medium - Potential double insertion for Accept and Future.
 		s.BatchBuffer.Insert(*batch, pos)
 	}
 }

@@ -147,6 +147,7 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	opts = append(optsFromRPC, opts...)
 
 	// @audit - this check should be > 1 since we will fail in NewMultipleNodesClient of we are one
+	// @audit - low - inconsistent len check.
 	if len(cfg.EspressoUrls) > 0 {
 		// @note - this is the multi node that will reach a consensus on the query service?
 		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)

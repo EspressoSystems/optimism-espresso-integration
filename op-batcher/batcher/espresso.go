@@ -235,6 +235,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 
 	// If the transaction is invalid due to a JSON error, skip the submission.
 	// @audit - Are there any err strings that we are missing?
+	// @audit - low - extremely brittle error checking.
 	if strings.Contains(msg, "json: unsupported type:") ||
 		strings.Contains(msg, "json: unsupported value:") ||
 		strings.Contains(msg, "json: error calling") ||
@@ -247,6 +248,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 
 	// If the request is invalid (likely due to API change), skip the submission.
 	// @audit - Are there any err strings that we are missing?
+	// @audit - low - extremely brittle error checking
 	if strings.Contains(msg, "net/http: nil Context") ||
 		strings.Contains(msg, "net/http: invalid method") ||
 		strings.HasPrefix(msg, "parse ") {
@@ -345,6 +347,7 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 
 	// If the hash is invalid, skip the verification.
 	// @audit - this is checking for a lot less than the other evaluate
+	// @audit - low - missing error cases, brittle string checks.
 	if strings.Contains(err.Error(), "hash is nil") {
 		log.Warn("Hash is nil, skipping")
 		return Skip
@@ -617,6 +620,7 @@ func espressoVerifyTransactionWorker(
 			time.Sleep(VERIFY_RECEIPT_RETRY_DELAY)
 		}
 		// @audit -  using the espresso QueryService, we should note that this would be a single point of failure
+		// @audit - low - single point of failure with query service
 		_, err := cli.FetchTransactionByHash(ctx, jobAttempt.job.hash)
 
 		jobAttempt.job.attempts++
@@ -693,6 +697,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 // @audit - function is called sync and refresh but it refreshes and then syncs
+// @audit - info - Function order of operations inconsistent in name
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
 	// @audit - needs deep dive
 	err := l.streamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
@@ -847,6 +852,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 
 		// @audit - this is checked in an order similar to 1 == 1 2==2 etc are we enfocing that the hash will differ if we reorg out one block
 		// is this fetched in real time?
+		// If one block is forked out, what happens here.
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
 			l.batcher.Log.Warn("Found L2 reorg", "block_number", i)
 			l.reset(ctx)
@@ -944,6 +950,7 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 	// we could have safeL2 be the prior block to where queued ends at
 	// in the first case we can be 0 in the 2nd case
 	// we might have a block that is unaccounted for
+	// @info - Unchecked subtraction.
 	numBlocksToEnqueue := nextSafeBlockNum - firstQueuedBlock.Number
 
 	// if it can be 0 will we not fail here
@@ -962,6 +969,8 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		return inclusiveBlockRange{}, ActionRetry
 	}
 	// @audit - no pruning
+	// ref - optimism-espresso-integration/op-batcher/batcher/sync_actions.go#169
+	// The other code has more robust pruning
 	if safeL2.Number > firstQueuedBlock.Number {
 		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
 		l.batcher.Log.Warn(
@@ -1001,7 +1010,7 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 			// @note - the sync happens right as before we call nextBlockRange
 			blocksToQueue, action := loader.nextBlockRange(newSyncStatus)
 
-			// there are 3 cases and we are missing action retry here,
+			// @low - there are 3 cases and we are missing action retry here,
 			// what happens if we go into the ActionRetry case
 			if action == ActionEnqueue {
 				loader.EnqueueBlocks(ctx, blocksToQueue)
