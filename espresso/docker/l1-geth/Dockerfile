@@ -8,7 +8,16 @@ RUN apt-get update && apt-get install -y \
   curl \
   jq \
   ca-certificates \
+  openssl \
   && rm -rf /var/lib/apt/lists/*
+
+# Install dasel for JSON manipulation
+RUN curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /usr/local/bin/dasel && \
+    chmod +x /usr/local/bin/dasel
+
+# Install yq for YAML parsing
+RUN curl -sSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" -o /usr/local/bin/yq && \
+    chmod +x /usr/local/bin/yq
 
 # Install Geth for the given architecture.
 RUN ARCH=$(dpkg --print-architecture) && \
@@ -38,8 +47,15 @@ RUN ARCH=$(dpkg --print-architecture) && \
   rm -rf geth.tar.gz "$GETH_DIR" && \
   chmod +x /usr/local/bin/geth
 
-# Create data directory
-RUN mkdir -p /data
+# Install lighthouse consensus tools
+RUN curl -sSL "https://github.com/sigp/lighthouse/releases/download/v5.3.0/lighthouse-v5.3.0-x86_64-unknown-linux-gnu.tar.gz" -o lighthouse.tar.gz && \
+    tar -xzf lighthouse.tar.gz && \
+    mv lighthouse /usr/local/bin/ && \
+    rm lighthouse.tar.gz && \
+    chmod +x /usr/local/bin/lighthouse
+
+# Create data and templates directories
+RUN mkdir -p /data /templates
 
 # Expose the RPC port
 EXPOSE 8545
@@ -47,8 +63,11 @@ EXPOSE 8545
 # Set working directory
 WORKDIR /data
 
-# Include the initialization script.
-COPY l1-geth-init.sh /l1-geth-init.sh
+# Include the initialization scripts for the L1 services.
+COPY espresso/docker/l1-geth/beacon-config.yaml /templates/
+COPY espresso/docker/l1-geth/devnet-genesis-template.json /tempates/
+COPY espresso/docker/l1-geth/mnemonics.yaml /tempates/
+COPY espresso/docker/l1-geth/l1-geth-init.sh /l1-geth-init.sh
 
 # Run the initialization script.
 RUN chmod +x /l1-geth-init.sh
