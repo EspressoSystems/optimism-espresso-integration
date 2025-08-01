@@ -47,6 +47,13 @@ jobs:
         with:
           version: nightly
 
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+          dasel --version
+
       - name: Build op-deployer
         run: |
           cd op-deployer
