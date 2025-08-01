@@ -195,8 +195,6 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        set -euo pipefail
-
         echo "Generating genesis..."
         op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
 
@@ -207,6 +205,22 @@ services:
             echo "Generating JWT token..."
             openssl rand -hex 32 > /config/jwt.txt
         fi
+
+        echo "Waiting for L1 finalized block..."
+        while true; do
+          finalized_block=$(curl -s -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
+            http://l1-geth:$L1_HTTP_PORT | jq -r '.result.number')
+
+          if [[ -z "$$finalized_block" || "$$finalized_block" == "null" ]]; then
+            echo "No finalized block yet, waiting..."
+            sleep 3
+            continue
+          fi
+
+          echo "Found L1 finalized block, exiting"
+          break
+        done
 
   op-geth:
     healthcheck:
@@ -392,6 +406,8 @@ services:
       - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
       - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
       - --throttle-threshold=0
+      - --max-channel-duration=1
+      - --target-num-frames=1
 
   op-proposer:
     build:
