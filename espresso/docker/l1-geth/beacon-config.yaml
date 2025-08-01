@@ -1,4 +1,4 @@
-PRESET_BASE: "mainnet"
+PRESET_BASE: "minimal"
 CONFIG_NAME: "devnet"
 
 # Genesis

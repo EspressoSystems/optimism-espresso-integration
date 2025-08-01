@@ -410,18 +410,17 @@ services:
       OP_PROPOSER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+      - ./deployment/deployer:/deployer
     command:
-      - op-proposer
-      # TODO: Fix the address below by deploying the contract and move it to `environment`
-      # afterward.
-      # <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210662897601844?focus=true>
-      # We need to specify either
-      #   `l2oo-address` or
-      #   `game-factory-address` and `proposal-interval`.
-      - --game-factory-address=0x80741a37E3644612F0465145C9709a90B6D77Ee3
-      - --proposal-interval=6s
-      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
-      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
+      - sh
+      - -c
+      - |
+        GAME_FACTORY=$(jq -r '.disputeGameFactoryImplAddress' ./deployer/bootstrap_implementations.json)
+        op-proposer \
+          --proposal-interval 6s \
+          --mnemonic "test test test test test test test test test test test junk" \
+          --hd-path "m/44'/60'/0'/0/0" \
+          --game-factory-address $$GAME_FACTORY
 
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake

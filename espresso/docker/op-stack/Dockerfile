@@ -132,6 +132,7 @@ COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
+RUN apk add jq
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
 CMD ["op-proposer"]
 
