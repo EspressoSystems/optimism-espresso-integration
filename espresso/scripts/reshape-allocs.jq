@@ -1,4 +1,5 @@
-#!/usr/bin/jq -S -f
+#!/bin/bash
+exec jq -S -f "$0" "$@"
 # Converts output of espresso-dev-node launched with
 # 'ESPRESSO_DEV_NODE_L1_DEPLOYMENT=dump' to form suitable
 # for e2e testing harness.
