@@ -42,6 +42,11 @@ jobs:
         with:
           node-version: 20.x
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
       - name: Build op-deployer
         run: |
           cd op-deployer
