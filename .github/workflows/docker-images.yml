@@ -81,7 +81,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}/l1-geth
           tags: |
-            type=ref,event=branch
+            type=ref,event=branch,suffix={{regexReplace(ref, '/', '-')}}
             type=ref,event=pr
             type=sha,prefix={{branch}}-,enable={{is_default_branch}}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -119,7 +119,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}/op-geth
           tags: |
-            type=ref,event=branch
+            type=ref,event=branch,suffix={{regexReplace(ref, '/', '-')}}
             type=ref,event=pr
             type=sha,prefix={{branch}}-,enable={{is_default_branch}}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -157,7 +157,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_PREFIX }}/op-node
           tags: |
-            type=ref,event=branch
+            type=ref,event=branch,suffix={{regexReplace(ref, '/', '-')}}
             type=ref,event=pr
             type=sha,prefix={{branch}}-,enable={{is_default_branch}}
             type=raw,value=latest,enable={{is_default_branch}}
