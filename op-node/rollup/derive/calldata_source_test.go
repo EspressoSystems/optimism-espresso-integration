@@ -133,7 +133,7 @@ func TestDataFromEVMTransactions(t *testing.T) {
 		}
 
 		testRef := eth.L1BlockRef{Time: 1000} // Use a fixed timestamp for testing
-out := DataFromEVMTransactions(DataSourceConfig{cfg.L1Signer(), cfg.BatchInboxAddress, false, nil}, batcherAddr, txs, receipts, testRef, testlog.Logger(t, log.LevelCrit))
+		out := DataFromEVMTransactions(DataSourceConfig{cfg.L1Signer(), cfg.BatchInboxAddress, false, nil}, batcherAddr, txs, receipts, testRef, testlog.Logger(t, log.LevelCrit))
 		require.ElementsMatch(t, expectedData, out)
 	}
 

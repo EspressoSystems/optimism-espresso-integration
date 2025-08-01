@@ -58,7 +58,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	txs := types.Transactions{calldataTx}
 	receipts := types.Receipts{calldataReceipt}
 	testRef := eth.L1BlockRef{Time: 1000} // Use a fixed timestamp for testing
-data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
+	data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
