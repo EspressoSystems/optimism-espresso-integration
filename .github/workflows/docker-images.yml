@@ -51,6 +51,7 @@ jobs:
         run: |
           cd op-deployer
           just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Compile contracts
         run: just compile-contracts
