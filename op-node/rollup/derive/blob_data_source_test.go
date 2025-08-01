@@ -57,7 +57,8 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	}
 	txs := types.Transactions{calldataTx}
 	receipts := types.Receipts{calldataReceipt}
-	data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	testRef := eth.L1BlockRef{Time: 1000} // Use a fixed timestamp for testing
+data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -77,7 +78,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	}
 	txs = types.Transactions{blobTx}
 	receipts = types.Receipts{blobReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.Nil(t, data[0].calldata)
@@ -85,7 +86,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	// try again with both the blob & calldata transactions and make sure both are picked up
 	txs = types.Transactions{blobTx, calldataTx}
 	receipts = types.Receipts{blobReceipt, calldataReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 2, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.NotNil(t, data[1].calldata)
@@ -98,7 +99,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	}
 	txs = types.Transactions{blobTx}
 	receipts = types.Receipts{blobReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -112,7 +113,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	}
 	txs = types.Transactions{blobTx}
 	receipts = types.Receipts{blobReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -131,7 +132,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	require.NoError(t, err)
 	txs = types.Transactions{setCodeTx}
 	receipts = types.Receipts{setCodeReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, testRef, batcherAddr, logger)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 }
