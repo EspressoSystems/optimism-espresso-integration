@@ -3,7 +3,6 @@ package derive
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -102,10 +101,9 @@ type DataSourceConfig struct {
 //  4. the transaction has a valid signature from the batcher address
 func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger, celoEspressoTimestamp *uint64) bool {
 	// If CeloEspresso is activated, return false if the transaction is reverted
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		logger.Info("tx in inbox with reverted status", "hash", tx.Hash(), "status", receipt.Status)
-		if celoEspressoTimestamp != nil && time.Now().Unix() >= int64(*celoEspressoTimestamp) {
-			logger.Info("tx is dropped since it is reverted")
+	if celoEspressoTimestamp != nil && tx.Time().Unix() >= int64(*celoEspressoTimestamp) {
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			logger.Info("tx is dropped since it is reverted", "hash", tx.Hash())
 			return false
 		}
 	}
