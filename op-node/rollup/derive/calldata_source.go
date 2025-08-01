@@ -55,7 +55,7 @@ func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConf
 	}
 	return &CalldataSource{
 		open: true,
-		data: DataFromEVMTransactions(dsCfg, batcherAddr, txs, receipts, log.New("origin", ref)),
+		data: DataFromEVMTransactions(dsCfg, batcherAddr, txs, receipts, ref, log.New("origin", ref)),
 	}
 }
 
@@ -80,7 +80,7 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 			return nil, NewTemporaryError(fmt.Errorf("failed to open calldata source: L1 fetcher provided inconsistent number of transactions and receipts"))
 		}
 		ds.open = true
-		ds.data = DataFromEVMTransactions(ds.dsCfg, ds.batcherAddr, txs, receipts, ds.log)
+		ds.data = DataFromEVMTransactions(ds.dsCfg, ds.batcherAddr, txs, receipts, ds.ref, ds.log)
 	}
 	if len(ds.data) == 0 {
 		return nil, io.EOF
@@ -94,10 +94,10 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 // DataFromEVMTransactions filters all of the transactions and returns the calldata from transactions
 // that are sent to the batch inbox address from the batch sender address.
 // This will return an empty array if no valid transactions are found.
-func DataFromEVMTransactions(dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, receipts types.Receipts, log log.Logger) []eth.Data {
+func DataFromEVMTransactions(dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, receipts types.Receipts, ref eth.L1BlockRef, log log.Logger) []eth.Data {
 	out := []eth.Data{}
 	for i, tx := range txs {
-		if isValidBatchTx(tx, receipts[i], dsCfg.l1Signer, dsCfg.batchInboxAddress, batcherAddr, log, dsCfg.celoEspressoTimestamp) {
+		if isValidBatchTx(tx, receipts[i], ref, dsCfg.l1Signer, dsCfg.batchInboxAddress, batcherAddr, log, dsCfg.celoEspressoTimestamp) {
 			out = append(out, tx.Data())
 		}
 	}

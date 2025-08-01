@@ -99,9 +99,9 @@ type DataSourceConfig struct {
 //  2. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
 //  3. the transaction has a To() address that matches the batch inbox address, and
 //  4. the transaction has a valid signature from the batcher address
-func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger, celoEspressoTimestamp *uint64) bool {
+func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Block eth.L1BlockRef, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger, celoEspressoTimestamp *uint64) bool {
 	// If CeloEspresso is activated, return false if the transaction is reverted
-	if celoEspressoTimestamp != nil && tx.Time().Unix() >= int64(*celoEspressoTimestamp) {
+	if celoEspressoTimestamp != nil && l1Block.Time >= uint64(*celoEspressoTimestamp) {
 		if receipt.Status != types.ReceiptStatusSuccessful {
 			logger.Info("tx is dropped since it is reverted", "hash", tx.Hash())
 			return false

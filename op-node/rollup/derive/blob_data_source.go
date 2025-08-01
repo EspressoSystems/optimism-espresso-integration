@@ -98,7 +98,7 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: L1 fetcher provided inconsistent number of receipts"))
 	}
 
-	data, hashes := dataAndHashesFromTxs(txs, receipts, &ds.dsCfg, ds.batcherAddr, ds.log)
+	data, hashes := dataAndHashesFromTxs(txs, receipts, &ds.dsCfg, ds.ref, ds.batcherAddr, ds.log)
 
 	if len(hashes) == 0 {
 		// there are no blobs to fetch so we can return immediately
@@ -127,14 +127,14 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(txs types.Transactions, receipts types.Receipts, config *DataSourceConfig, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash) {
+func dataAndHashesFromTxs(txs types.Transactions, receipts types.Receipts, config *DataSourceConfig, ref eth.L1BlockRef, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash) {
 	data := []blobOrCalldata{}
 	var hashes []eth.IndexedBlobHash
 	blobIndex := 0 // index of each blob in the block's blob sidecar
 	for i, tx := range txs {
 		receipt := receipts[i]
 		// skip any non-batcher transactions
-		if !isValidBatchTx(tx, receipt, config.l1Signer, config.batchInboxAddress, batcherAddr, logger, config.celoEspressoTimestamp) {
+		if !isValidBatchTx(tx, receipt, ref, config.l1Signer, config.batchInboxAddress, batcherAddr, logger, config.celoEspressoTimestamp) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}
