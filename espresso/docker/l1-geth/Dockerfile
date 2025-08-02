@@ -65,8 +65,8 @@ WORKDIR /data
 
 # Include the initialization scripts for the L1 services.
 COPY espresso/docker/l1-geth/beacon-config.yaml /templates/
-COPY espresso/docker/l1-geth/devnet-genesis-template.json /tempates/
-COPY espresso/docker/l1-geth/mnemonics.yaml /tempates/
+COPY espresso/docker/l1-geth/devnet-genesis-template.json /templates/
+COPY espresso/docker/l1-geth/mnemonics.yaml /templates/
 COPY espresso/docker/l1-geth/l1-geth-init.sh /l1-geth-init.sh
 
 # Run the initialization script.
