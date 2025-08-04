@@ -25,6 +25,7 @@ cache
 
 packages/contracts-bedrock/deployments/anvil
 
+
 # vim
 *.sw*
 
@@ -33,8 +34,8 @@ packages/contracts-bedrock/deployments/anvil
 
 .secrets
 .env
-.envrc
 !espresso/.env
+.envrc
 !.env.example
 !.envrc.example
 *.log
