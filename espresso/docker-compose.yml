@@ -5,9 +5,10 @@ services:
     restart: on-failure
     build:
       context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-deployer-target
-    image: op-espresso-deployment-utils:espresso
+      dockerfile: espresso/docker/l1-geth/Dockerfile
+    image: l1-geth:espresso
+    environment:
+      - MODE=genesis
     volumes:
       - ./deployment/l1-config:/config
       - ./docker/l1-geth:/templates:ro

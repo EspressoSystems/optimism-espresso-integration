@@ -107,8 +107,6 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM golang:1.24-alpine AS deployment-utils-builder
 RUN apk add gcc lld musl-dev # For CGO
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/tomwright/dasel/v2/cmd/dasel@v2.8.1
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/protolambda/eth2-val-tools@662955e
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@703e97a
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/mikefarah/yq/v4@v4.47.1
 
 
@@ -140,7 +138,5 @@ FROM $TARGET_BASE_IMAGE AS op-deployer-target
 RUN apk add jq curl bash openssl
 COPY --from=op-deployer-builder /op-deployer /usr/local/bin/
 COPY --from=deployment-utils-builder /go/bin/dasel /usr/local/bin/
-COPY --from=deployment-utils-builder /go/bin/eth2-val-tools /usr/local/bin/
-COPY --from=deployment-utils-builder /go/bin/eth-beacon-genesis /usr/local/bin/
 COPY --from=deployment-utils-builder /go/bin/yq /usr/local/bin/
 CMD ["op-deployer"]
