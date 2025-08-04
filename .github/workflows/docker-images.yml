@@ -128,7 +128,7 @@ jobs:
       - name: Build and push OP Geth
         uses: docker/build-push-action@v5
         with:
-          context: espresso/docker/op-geth
+          context: .
           file: espresso/docker/op-geth/Dockerfile
           platforms: linux/amd64
           push: true
