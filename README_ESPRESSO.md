@@ -4,7 +4,7 @@
 
 ### Clone the repository and initialize the submodules
 
-```
+```console
 > git clone git@github.com:EspressoSystems/optimism-espresso-integration.git
 > git submodule update --init --recursive
 ```
@@ -15,7 +15,9 @@
 
 * Enter the nix shell of this project
 
+```console
 > nix develop .
+```
 
 
 ## Docker
@@ -26,7 +28,7 @@ Create a [Github Personal Access Token (PAT)](https://docs.github.com/en/authent
 
 Provide Docker with the PAT.
 
-```
+```console
 > export CR_PAT=<your PAT>
 > echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 ```
@@ -35,88 +37,94 @@ Provide Docker with the PAT.
 
 Run the Espresso smoke tests:
 
+```console
 > just smoke-tests
-
+```
 
 Run the Espresso integration tests. Note, this can take up to 30min.
 
+```console
 > just espresso-tests
-
+```
 
 To run all the standard OP stack (w/o Espresso integration) tests (slow):
 
+```console
 > just tests
+```
 
 To run a subset of the tests above (fast):
 
+```console
 > just fast-tests
+```
 
 ### Run the Kurtosis devnet
 
 - Install tools.
-  - Install Docker Desktop via https://www.docker.com/products/docker-desktop/.
-    - Or podman, colima, etc.
-    - Verify Docker is installed:
-      ```bash
-      docker version
-      ```
+		- Install Docker Desktop via https://www.docker.com/products/docker-desktop/.
+				- Or podman, colima, etc.
+				- Verify Docker is installed:
+						```console
+						docker version
+						```
 
-  - Install Kurtosis via https://docs.kurtosis.com/install/.
+		- Install Kurtosis via https://docs.kurtosis.com/install/.
 
 - Run the devnet.
-  - In the Nix environment:
-    ```bash
-    cd kurtosis-devnet
-    just espresso-devnet
-    ```
+		- In the Nix environment:
+				```console
+				cd kurtosis-devnet
+				just espresso-devnet
+				```
 
-  - If you get the `command not found` or the `"kurtosis": executable file not found in $PATH`
-  error, add the Docker's binary directory to `PATH`. E.g., if the Docker CLI lives at
-  `/Applications/Docker.app/Contents/Resources/bin/`, run:
-    ```bash
-    echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.bash_profile
-    source ~/.bash_profile
-    ```
-    or:
-    ```bash
-    echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.zshrc
-    source ~/.zshrc
-    ```
-    if you are using Zsh. Then restart the devnet test.
+		- If you get the `command not found` or the `"kurtosis": executable file not found in $PATH`
+		error, add the Docker's binary directory to `PATH`. E.g., if the Docker CLI lives at
+		`/Applications/Docker.app/Contents/Resources/bin/`, run:
+				```console
+				echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.bash_profile
+				source ~/.bash_profile
+				```
+				or:
+				```console
+				echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.zshrc
+				source ~/.zshrc
+				```
+				if you are using Zsh. Then restart the devnet test.
 
-  - Kurtosis devnet can be quite slow to start, especially on the first run. Verify everything is
-  running with:
-    ```bash
-    kurtosis enclave inspect espresso-devnet
-    ```
+		- Kurtosis devnet can be quite slow to start, especially on the first run. Verify everything is
+		running with:
+				```console
+				kurtosis enclave inspect espresso-devnet
+				```
 
-  - Read logs:
-    ```bash
-    kurtosis service logs espresso-devnet <service-name>
+		- Read logs:
+				```console
+				kurtosis service logs espresso-devnet <service-name>
 
-    # show all the logs
-    kurtosis service logs -a espresso-devnet <service-name>
+				# show all the logs
+				kurtosis service logs -a espresso-devnet <service-name>
 
-    # frequently used commands
-    kurtosis service logs -a espresso-devnet op-batcher-op-kurtosis
-    kurtosis service logs -a espresso-devnet op-cl-1-op-node-op-geth-op-kurtosis
-    ```
+				# frequently used commands
+				kurtosis service logs -a espresso-devnet op-batcher-op-kurtosis
+				kurtosis service logs -a espresso-devnet op-cl-1-op-node-op-geth-op-kurtosis
+				```
 
-  - Clean up:
-    ```bash
-    kurtosis clean -a
-    ```
+		- Clean up:
+				```console
+				kurtosis clean -a
+				```
 
 
 ### Misc commands
 
 In order to run the go linter do:
-```
+```console
 just golint
 ```
 
 Generate the bindings for the contracts:
-```
+```console
 just gen-bindings
 ```
 
@@ -141,21 +149,21 @@ Use the AWS Management Console or AWS CLI to launch a new EC2 instance.
 Make sure to:
 
 - **Enable Enclaves**
-  - In the CLI: set the `--enclave-options` flag to `true`
-  - In the Console: select `Enabled` under the **Enclave** section
+		- In the CLI: set the `--enclave-options` flag to `true`
+		- In the Console: select `Enabled` under the **Enclave** section
 
 - **Use the following configuration:**
-  - **Architecture:** x86_64
-  - **AMI:** Amazon Linux 2023
-  - **Instance Type:** `m6a.2xlarge`
-  - **Volume Size:** 100 GB
+		- **Architecture:** x86_64
+		- **AMI:** Amazon Linux 2023
+		- **Instance Type:** `m6a.2xlarge`
+		- **Volume Size:** 100 GB
 
 
 ##### 2. Connect to the Instance
 
 Once the instance is running, connect to it via the AWS Console or CLI.
 In practice, you will be provided a `key.pem` file, and you can connect like this:
-```shell
+```console
 chmod 400 key.pem
 ssh -i "key.pem" ec2-user@<aws_instance_dns>
 ```
@@ -166,26 +174,26 @@ Note that the command above can be found in the AWS Console by selecting the ins
 ##### 3. Install dependencies
 
 * Nix
-```
+```console
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source ~/.bashrc
 ```
 
 * Git, Docker
-```
- sudo yum update
- sudo yum install git
- sudo yum install docker
- sudo usermod -a -G docker ec2-user
- sudo service docker start
- sudo chown ec2-user /var/run/docker.sock
+```console
+	sudo yum update
+	sudo yum install git
+	sudo yum install docker
+	sudo usermod -a -G docker ec2-user
+	sudo service docker start
+	sudo chown ec2-user /var/run/docker.sock
 ```
 
 * Nitro
 
 These commands install the dependencies for, start the service related to and configures the enclave.
 
-```
+```console
 sudo yum install -y aws-nitro-enclaves-cli-1.4.2
 sudo systemctl stop nitro-enclaves-allocator.service || true
 echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
@@ -193,7 +201,7 @@ sudo systemctl start nitro-enclaves-allocator.service
 ```
 
 * Clone repository and update submodules
-```
+```console
 git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
 cd optimism-espresso-integration
 git submodule update --init --recursive
@@ -201,7 +209,7 @@ git submodule update --init --recursive
 
 
 * Enter the nix shell and run the enclave tests
-```
+```console
 nix --extra-experimental-features "nix-command flakes" develop
 just compile-contracts
 just espresso-enclave-tests
@@ -212,13 +220,13 @@ just espresso-enclave-tests
 `op-batcher/enclave-tools` provides a command-line utility for common operations on batcher enclave images.
 Before using it, set your AWS instance as described in the guide above, then build the tool:
 
-```
+```console
 cd op-batcher/
 just enclave-tools
 ```
 
 This should create `op-batcher/bin/enclave-tools` binary. You can run
-```
+```console
 ./op-batcher/bin/enclave-tools --help
 ```
 to get information on available commands and flags.
@@ -226,7 +234,7 @@ to get information on available commands and flags.
 ##### Building a batcher image
 
 To build a batcher enclave image, and tag it with specified tag:
-```
+```console
 ./op-batcher/bin/enclave-tools build --op-root ./ --tag op-batcher-enclave
 ```
 On success this command will output PCR measurements of the enclave image, which can then be registered with BatchAuthenticator
@@ -234,14 +242,14 @@ contract.
 
 ##### Running a batcher image
 To run enclave image built by the previous command:
-```
+```console
 ./op-batcher/bin/enclave-tools run --image op-batcher-enclave --args --argument-1,value-1,--argument-2,value-2
 ```
 Arguments will be forwarded to the op-batcher
 
 ##### Registering a batcher image
 To register PCR0 of the batcher enclave image built by the previous command:
-```
+```console
 ./op-batcher/bin/enclave-tools register --l1-url example.com:1234 --authenticator 0x123..def --private-key 0x123..def --pcr0 0x123..def
 ```
 You will need to provide the L1 URL, the contract address of BatchAuthenticator, private key of L1 account used to deploy BatchAuthenticator and PCR0 obtained when building the image.
@@ -254,72 +262,85 @@ You will need to provide the L1 URL, the contract address of BatchAuthenticator,
 Compose version is `2.37.3` or the Docker Engine version is `27.4.0`, and the Docker build hangs,
 you may need to upgrade the version.
 
-* Go to the `espresso` directory.
+* Enter the Nix shell in the repo root.
+```console
+nix develop
 ```
+
+* Build the op-deployer. This step needs to be re-run if the op-deployer is modified.
+```console
+cd op-deployer
+just
+cd ../
+```
+
+* Build the contracts. This step needs to be re-run if the contracts are modified.
+```console
+just compile-contracts
+```
+
+* Go to the `espresso` directory.
+```console
 cd espresso
 ```
 
-* Copy the example environment setting.
-```
-cp .env.example .env
+* Shut down all containers.
+```console
+docker compose down -v --remove-orphans
 ```
 
-* Shut down all containers.
-```
-docker compose down
+* Prepare OP contract allocations. Nix shell provides dependencies for the script. This step needs to be re-run only when the OP contracts are modified.
+```console
+./scripts/prepare-allocs.sh
 ```
 
 * Build and start all services in the background.
-```
+```console
 docker compose up --build -d
 ```
 
 * Run the services and check the log.
-```
+```console
 docker compose logs -f
 ```
 
 ### Investigate a Service
 
 * Shut down all containers.
-```
+```console
 docker compose down
 ```
 
 * Build and start the specific service and check the log.
-```
+```console
 docker compose up <service-name>
 ```
 
 * If the environment variable setting is not picked up, pass it explicitly.
-```
+```console
 docker compose --env-file .env up <service-name>
 ```
-
-* If there is a timing synchronization issue, update the `l2_time` field in `rollup-devnet.json`
-with the current timestamp, convert the time to hex and update the `timestamp` fields in the two
-genesis files, `l1-genesis-devnet.json` and `l2-genesis-devnet.json`, too.
 
 ### Apply a Change
 
 * In most cases, simply remove all containers and run commands as normal.
-```
+```console
 docker compose down
 ```
 
 * To start the project fresh, remove containers, volumes, and network, from this project.
-```
+```console
 docker compose down -v
 ```
 
 * To start the system fresh, remove all volumes.
-```
+```console
 docker volume prune -a
 ```
 
-* If a genesis file is updated, you may get a hash mismatch error when running a service that uses
-the genesis file. Replace the corresponding `hash` field in `rollup-devnet.json`, then rerun the
-failed command.
+* If you have changed OP contracts, you will have to start the devnet fresh and re-generate 
+  the genesis allocations by running `prepare-allocs.sh`
+
 
 ### Log monitoring
 For a selection of important metrics to monitor for and corresponding log lines see `espresso/docs/metrics.md`
