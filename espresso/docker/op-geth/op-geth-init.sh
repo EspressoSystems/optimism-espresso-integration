@@ -2,46 +2,90 @@
 set -euo pipefail
 
 # Set default values.
+L1_HTTP_PORT=${L1_HTTP_PORT:-8545}
 OP_HTTP_PORT=${OP_HTTP_PORT:-8546}
 OP_ENGINE_PORT=${OP_ENGINE_PORT:-8552}
 L2_CHAIN_ID=${L2_CHAIN_ID:-22266222}
 
-# Wait for genesis.json to be available.
-while [[ ! -f "/config/genesis.json" ]]; do
-    echo "Waiting for genesis.json to be generated..."
-    sleep 2
-done
+# Mode can be "genesis" or "geth" (default).
+MODE=${MODE:-geth}
 
-# Wait for JWT secret to be available.
-while [[ ! -f "/config/jwt.txt" ]]; do
-    echo "Waiting for JWT secret to be generated..."
-    sleep 2
-done
+if [ "$MODE" = "genesis" ]; then
+  echo "=== Running L2 Genesis Mode ==="
 
-# Initialize database if not already done.
-if [ ! -d "/data/geth" ]; then
-    echo "Initializing OP Geth database..."
-    geth --gcmode=archive init --state.scheme=hash --datadir=/data/geth /config/genesis.json
-    echo "OP Geth initialization completed"
+  echo "Generating genesis..."
+  op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
+
+  echo "Updating genesis timestamp..."
+  dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+
+  if [[ ! -f /config/jwt.txt ]]; then
+      echo "Generating JWT token..."
+      openssl rand -hex 32 > /config/jwt.txt
+  fi
+
+  echo "Waiting for L1 finalized block..."
+  while true; do
+    finalized_block=$(curl -s -X POST -H "Content-Type: application/json" \
+      --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
+      http://l1-geth:$L1_HTTP_PORT | jq -r '.result.number')
+
+    if [[ -z "$$finalized_block" || "$$finalized_block" == "null" ]]; then
+      echo "No finalized block yet, waiting..."
+      sleep 3
+      continue
+    fi
+
+    echo "Found L1 finalized block, exiting"
+    break
+  done
+  echo "L2 genesis setup complete"
+    exit 0
+
+elif [ "$MODE" = "geth" ]; then
+  echo "=== Starting OP Geth Mode ==="
+
+  # Wait for genesis.json to be available.
+  while [[ ! -f "/config/genesis.json" ]]; do
+      echo "Waiting for genesis.json to be generated..."
+      sleep 2
+  done
+
+  # Wait for JWT secret to be available.
+  while [[ ! -f "/config/jwt.txt" ]]; do
+      echo "Waiting for JWT secret to be generated..."
+      sleep 2
+  done
+
+  # Initialize database if not already done.
+  if [ ! -d "/data/geth" ]; then
+      echo "Initializing OP Geth database..."
+      geth --gcmode=archive init --state.scheme=hash --datadir=/data/geth /config/genesis.json
+      echo "OP Geth initialization completed"
+  else
+      echo "OP Geth database already initialized, skipping..."
+  fi
+
+  # Start OP Geth with the specified configuration.
+  echo "Starting OP Geth..."
+  exec geth \
+    --datadir=/data/geth \
+    --networkid=${L2_CHAIN_ID} \
+    --http \
+    --http.addr=0.0.0.0 \
+    --http.port=${OP_HTTP_PORT} \
+    --http.api=eth,net,web3,debug,admin,txpool \
+    --http.vhosts=* \
+    --http.corsdomain=* \
+    --authrpc.addr=0.0.0.0 \
+    --authrpc.port=${OP_ENGINE_PORT} \
+    --authrpc.vhosts=* \
+    --authrpc.jwtsecret=/config/jwt.txt \
+    --rollup.disabletxpoolgossip=true \
+    --rollup.halt=major \
+    --nodiscover
+
 else
-    echo "OP Geth database already initialized, skipping..."
+    echo "Unknown MODE: $MODE. Use 'genesis' or 'geth'"
+    exit 1
 fi
-
-# Start OP Geth with the specified configuration.
-echo "Starting OP Geth..."
-exec geth \
-  --datadir=/data/geth \
-  --networkid=${L2_CHAIN_ID} \
-  --http \
-  --http.addr=0.0.0.0 \
-  --http.port=${OP_HTTP_PORT} \
-  --http.api=eth,net,web3,debug,admin,txpool \
-  --http.vhosts=* \
-  --http.corsdomain=* \
-  --authrpc.addr=0.0.0.0 \
-  --authrpc.port=${OP_ENGINE_PORT} \
-  --authrpc.vhosts=* \
-  --authrpc.jwtsecret=/config/jwt.txt \
-  --rollup.disabletxpoolgossip=true \
-  --rollup.halt=major \
-  --nodiscover

@@ -138,46 +138,16 @@ services:
     restart: on-failure
     build:
       context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-deployer-target
-    image: op-espresso-deployment-utils:espresso
+      dockerfile: espresso/docker/op-geth/Dockerfile
+    image: op-geth:espresso
+    environment:
+      - MODE=genesis
     depends_on:
       l1-geth:
         condition: service_healthy
     volumes:
       - ./deployment/l2-config:/config
       - ./deployment/deployer:/deployer:ro
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        set -euo pipefail
-
-        echo "Generating genesis..."
-        op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
-
-        echo "Updating genesis timestamp..."
-        dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
-
-        if [[ ! -f /config/jwt.txt ]]; then
-            echo "Generating JWT token..."
-            openssl rand -hex 32 > /config/jwt.txt
-        fi
-
-        echo "Waiting for L1 finalized block..."
-        while true; do
-          finalized_block=$(curl -s -X POST -H "Content-Type: application/json" \
-            --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
-            http://l1-geth:$L1_HTTP_PORT | jq -r '.result.number')
-
-          if [[ -z "$$finalized_block" || "$$finalized_block" == "null" ]]; then
-            echo "No finalized block yet, waiting..."
-            sleep 3
-            continue
-          fi
-
-          echo "Found L1 finalized block, exiting"
-          break
-        done
 
   op-geth:
     healthcheck:
@@ -186,7 +156,8 @@ services:
       timeout: 2s
       retries: 40
     build:
-      context: ./docker/op-geth
+      context: ../
+      dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
     depends_on:
       l2-genesis:
