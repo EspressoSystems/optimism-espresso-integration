@@ -44,5 +44,4 @@ exec geth \
   --authrpc.jwtsecret=/config/jwt.txt \
   --rollup.disabletxpoolgossip=true \
   --rollup.halt=major \
-  --nodiscover \
-  --networkid ${L2_CHAIN_ID}
+  --nodiscover

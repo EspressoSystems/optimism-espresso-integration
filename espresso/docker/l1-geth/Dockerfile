@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
   curl \
   jq \
   ca-certificates \
+<<<<<<< HEAD
   openssl \
   && rm -rf /var/lib/apt/lists/*
 
@@ -40,6 +41,9 @@ RUN curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel
 # Install yq for YAML parsing
 RUN curl -sSL "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" -o /usr/local/bin/yq && \
     chmod +x /usr/local/bin/yq
+=======
+  && rm -rf /var/lib/apt/lists/*
+>>>>>>> celo-integration-rebase-13.2
 
 # Install Geth for the given architecture.
 RUN ARCH=$(dpkg --print-architecture) && \

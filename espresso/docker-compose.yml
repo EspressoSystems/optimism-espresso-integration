@@ -49,6 +49,70 @@ services:
         echo "0" > /config/deposit_contract_block.txt
         echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
 
+<<<<<<< HEAD
+=======
+  l1-validator:
+    image: sigp/lighthouse
+    depends_on:
+      l1-genesis:
+        condition: service_completed_successfully
+      l1-geth:
+        condition: service_started
+      l1-beacon:
+        condition: service_started
+    volumes:
+      - l1-data:/data
+      - ./deployment/l1-config:/config:ro
+    command:
+      - lighthouse
+      - validator_client
+      - --testnet-dir
+      - /config
+      - --beacon-nodes
+      - http://l1-beacon:${L1_BEACON_PORT}
+      - --init-slashing-protection
+      - --datadir
+      - /data/lighthouse-validator
+      - --suggested-fee-recipient
+      - ${OPERATOR_ADDRESS}
+
+  l1-beacon:
+    image: sigp/lighthouse
+    depends_on:
+      l1-genesis:
+        condition: service_completed_successfully
+      l1-geth:
+        condition: service_started
+    volumes:
+      - l1-data:/data
+      - ./deployment/l1-config:/config:ro
+    command:
+      - lighthouse
+      - --datadir
+      - /data/lighthouse-beacon
+      - beacon_node
+      - --testnet-dir
+      - /config
+      - --execution-endpoint
+      - http://l1-geth:${L1_ENGINE_PORT}
+      - --execution-jwt
+      - /config/jwt.txt
+      - --http
+      - --http-address
+      - 0.0.0.0
+      - --http-port
+      - ${L1_BEACON_PORT}
+      - --http-allow-origin
+      - "*"
+      - --allow-insecure-genesis-sync
+      - --target-peers
+      - "0"
+      - --disable-deposit-contract-sync
+      - --disable-upnp
+    ports:
+      - "${L1_BEACON_PORT}:${L1_BEACON_PORT}"
+
+>>>>>>> celo-integration-rebase-13.2
   l1-geth:
     depends_on:
       l1-genesis:
@@ -69,6 +133,7 @@ services:
     volumes:
       - ./deployment/l1-config:/config:ro
       - l1-data:/data
+<<<<<<< HEAD
     ports:
       - "${L1_HTTP_PORT}:${L1_HTTP_PORT}" # L1 RPC
       - "${L1_ENGINE_PORT}:${L1_ENGINE_PORT}" # L1 Engine
@@ -133,6 +198,58 @@ services:
       - /data/lighthouse-validator
       - --suggested-fee-recipient
       - ${OPERATOR_ADDRESS}
+=======
+    ports:
+      - "${L1_HTTP_PORT}:${L1_HTTP_PORT}" # L1 RPC
+      - "${L1_ENGINE_PORT}:${L1_ENGINE_PORT}" # L1 Engine
+
+  l2-rollup:
+    restart: on-failure
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-deployer-target
+    image: op-espresso-deployment-utils:espresso
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      l1-genesis:
+        condition: service_completed_successfully
+      op-geth:
+        condition: service_healthy
+    volumes:
+      - ./deployment/l2-config:/config
+      - ./deployment/deployer:/deployer:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -euo pipefail
+
+        echo "Generating rollup config..."
+        op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
+
+        echo "Updating L1 genesis info..."
+        L1_HASH=$(curl -X POST \
+                http://l1-geth:${L1_HTTP_PORT} \
+                -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
+                | jq -r ".result.hash")
+        dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v $$L1_HASH
+        dasel put -f /config/rollup.json -s .genesis.l1.number -t int -v 0
+
+        echo "Updating L2 genesis info..."
+        L2_HASH=$(curl -X POST \
+                http://op-geth:${OP_HTTP_PORT} \
+                -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
+                | jq -r ".result.hash")
+        dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v $$L2_HASH
+        dasel put -f /config/rollup.json -s .genesis.l2.number -t int -v 0
+
+        echo "Updating rollup l2_time..."
+        TIMESTAMP=$(date +%s)
+        dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+>>>>>>> celo-integration-rebase-13.2
 
   l2-genesis:
     restart: on-failure
@@ -150,8 +267,11 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
+<<<<<<< HEAD
         set -euo pipefail
 
+=======
+>>>>>>> celo-integration-rebase-13.2
         echo "Generating genesis..."
         op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
 
@@ -162,6 +282,25 @@ services:
             echo "Generating JWT token..."
             openssl rand -hex 32 > /config/jwt.txt
         fi
+<<<<<<< HEAD
+=======
+
+        echo "Waiting for L1 finalized block..."
+        while true; do
+          finalized_block=$(curl -s -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
+            http://l1-geth:$L1_HTTP_PORT | jq -r '.result.number')
+
+          if [[ -z "$$finalized_block" || "$$finalized_block" == "null" ]]; then
+            echo "No finalized block yet, waiting..."
+            sleep 3
+            continue
+          fi
+
+          echo "Found L1 finalized block, exiting"
+          break
+        done
+>>>>>>> celo-integration-rebase-13.2
 
   op-geth:
     healthcheck:
@@ -211,6 +350,7 @@ services:
     ports:
       - "${OP_HTTP_PORT}:${OP_HTTP_PORT}"
       - "${OP_ENGINE_PORT}:${OP_ENGINE_PORT}"
+<<<<<<< HEAD
 
   l2-rollup:
     restart: on-failure
@@ -258,6 +398,8 @@ services:
         echo "Updating rollup l2_time..."
         TIMESTAMP=$(date +%s)
         dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+=======
+>>>>>>> celo-integration-rebase-13.2
 
   op-node-sequencer:
     build:
@@ -291,6 +433,7 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
+<<<<<<< HEAD
 
   op-batcher:
     build:
@@ -325,6 +468,8 @@ services:
       - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
       - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
       - --throttle-threshold=0
+=======
+>>>>>>> celo-integration-rebase-13.2
 
   op-node-verifier:
     build:
@@ -395,6 +540,45 @@ services:
       - --l1.epoch-poll-interval=1s
     restart: "no"
 
+<<<<<<< HEAD
+=======
+  op-batcher:
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-batcher-target
+    image: op-batcher:espresso
+    # It is not necessary to specify all dependencies, but a good practice.
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      op-geth:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      espresso-dev-node:
+        condition: service_started
+      l2-genesis:
+        condition: service_completed_successfully
+    environment:
+      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
+      OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-batcher
+      - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
+      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
+      - --throttle-threshold=0
+      - --max-channel-duration=1
+      - --target-num-frames=1
+
+>>>>>>> celo-integration-rebase-13.2
   op-proposer:
     build:
       context: ../
