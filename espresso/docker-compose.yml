@@ -180,9 +180,12 @@ services:
     restart: on-failure
     build:
       context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-deployer-target
-    image: op-espresso-deployment-utils:espresso
+      dockerfile: espresso/docker/op-geth/Dockerfile
+    image: op-geth:espresso
+    environment:
+      - MODE=rollup
+      - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
+      - OP_RPC=http://op-geth:${OP_HTTP_PORT:?err}
     depends_on:
       l1-geth:
         condition: service_healthy
@@ -193,35 +196,6 @@ services:
     volumes:
       - ./deployment/l2-config:/config
       - ./deployment/deployer:/deployer:ro
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        set -euo pipefail
-
-        echo "Generating rollup config..."
-        op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
-
-        echo "Updating L1 genesis info..."
-        L1_HASH=$(curl -X POST \
-                http://l1-geth:${L1_HTTP_PORT} \
-                -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
-                | jq -r ".result.hash")
-        dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v $$L1_HASH
-        dasel put -f /config/rollup.json -s .genesis.l1.number -t int -v 0
-
-        echo "Updating L2 genesis info..."
-        L2_HASH=$(curl -X POST \
-                http://op-geth:${OP_HTTP_PORT} \
-                -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
-                | jq -r ".result.hash")
-        dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v $$L2_HASH
-        dasel put -f /config/rollup.json -s .genesis.l2.number -t int -v 0
-
-        echo "Updating rollup l2_time..."
-        TIMESTAMP=$(date +%s)
-        dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
 
   op-node-sequencer:
     build:
