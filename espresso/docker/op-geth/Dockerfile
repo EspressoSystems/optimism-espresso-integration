@@ -59,7 +59,8 @@ RUN curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel
 # Copy binary from builder stage.
 COPY --from=op-deployer-builder /op-deployer /usr/local/bin/
 
-# Include the initialization script.
+# Include the deployer and the initialization script.
+COPY deployment/deployer /deployer
 COPY espresso/docker/op-geth/op-geth-init.sh /op-geth-init.sh
 
 # Run the initialization script.
