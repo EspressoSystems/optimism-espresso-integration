@@ -252,6 +252,12 @@ jobs:
           cd espresso
           ./scripts/prepare-allocs.sh
 
+      - name: Create l2-config directory
+        run: |
+          mkdir -p espresso/deployment/l2-config
+          echo "Created l2-config directory"
+          ls -la espresso/deployment/
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
