@@ -198,6 +198,60 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+
+      - name: Check for package.json
+        id: check-package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has-package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-package=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-package.outputs.has-package == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check-package.outputs.has-package == 'true'
+        run: npm ci
+
+      - name: Build op-deployer
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Compile contracts
+        run: just compile-contracts
+
+      - name: Prepare allocations
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
