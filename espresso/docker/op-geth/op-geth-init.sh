@@ -28,7 +28,7 @@ if [ "$MODE" = "genesis" ]; then
   while true; do
     finalized_block=$(curl -s -X POST -H "Content-Type: application/json" \
       --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
-      http://l1-geth:$L1_HTTP_PORT | jq -r '.result.number')
+      "$L1_RPC" | jq -r '.result.number')
 
     if [[ -z "$$finalized_block" || "$$finalized_block" == "null" ]]; then
       echo "No finalized block yet, waiting..."
