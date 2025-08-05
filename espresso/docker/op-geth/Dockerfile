@@ -1,5 +1,11 @@
 # OP Geth Dockerfile
 
+# Build arguments.
+ARG TARGETOS
+ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
+
 # Rust builder for Espresso crypto libraries
 FROM rust:1.88.0-alpine3.22 AS rust-builder
 # TODO: Check the hash of the Espresso GO library when switch to the new one.
