@@ -147,7 +147,7 @@ cd op-batcher/ && just && cd -
 cd kurtosis-devnet && just external-batcher-celo
 ```
 
- <!-- Sishan TODO: some other migrates like op-node's and caff-node's will be added here later -->
+ <!-- Sishan TODO: some other migrations like op-node's and caff-node's will be added here later -->
 
 ### Misc commands
 
