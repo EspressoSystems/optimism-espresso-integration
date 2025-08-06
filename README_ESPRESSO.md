@@ -115,6 +115,39 @@ To run a subset of the tests above (fast):
 				kurtosis clean -a
 				```
 
+### Migration from Celo's kurtosis devnet to Celo-Espesso devnet
+
+To do the migration, you need to start Celo's kurtosis devnet first.
+
+```console
+git checkout Kourin1996/celo-rebase-13-devnet
+cd kurtosis-devnet && just celo-isthmus-devnet
+```
+
+Then get back to the original branch.
+```console
+git checkout -
+```
+
+Deploy Espresso's contracts to the devnet.
+```console
+./espresso/scripts/deploy-espresso-contracts.sh
+```
+
+Stop the old batcher.
+```console
+kurtosis service stop celo-isthmus-devnet op-batcher-op-kurtosis
+```
+
+ <!-- Sishan TODO: some other preparations like starting espresso dev node is needed here -->
+
+Start the new batcher.
+```console
+cd op-batcher/ && just && cd -
+cd kurtosis-devnet && just external-batcher-celo
+```
+
+ <!-- Sishan TODO: some other migrates like op-node's and caff-node's will be added here later -->
 
 ### Misc commands
 
@@ -338,7 +371,7 @@ docker compose down -v
 docker volume prune -a
 ```
 
-* If you have changed OP contracts, you will have to start the devnet fresh and re-generate 
+* If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
 
