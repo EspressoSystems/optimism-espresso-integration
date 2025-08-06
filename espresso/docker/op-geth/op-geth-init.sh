@@ -21,7 +21,8 @@ if [ "$MODE" = "genesis" ]; then
 
   if [[ ! -f /config/jwt.txt ]]; then
       echo "Generating JWT token..."
-      openssl rand -hex 32 > /config/jwt.txt
+      # TODO (Keyao) Use a random value?
+      echo "2692310708e4207ecd73bf5597a59ab9cd085380108a7787b3d6be22840e37f0" > /config/jwt.txt
   fi
 
   echo "Waiting for L1 finalized block..."
