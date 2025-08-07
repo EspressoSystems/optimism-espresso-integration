@@ -13,7 +13,9 @@ func TestBatcherRestart(t *testing.T) {
 
 	d := NewDevnet(ctx)
 	require.NoError(t, d.Up())
-	defer d.Down()
+	defer func() {
+		require.NoError(t, d.Down())
+	}()
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())

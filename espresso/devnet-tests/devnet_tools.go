@@ -74,7 +74,9 @@ func (d *Devnet) Up() (err error) {
 	// themselves).
 	defer func() {
 		if err != nil {
-			d.Down()
+			if downErr := d.Down(); downErr != nil {
+				log.Error("error shutting down devnet after encountering another error", "error", downErr)
+			}
 		}
 	}()
 
@@ -254,7 +256,9 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
 	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
 	defer cancel()
 
-	d.VerifyL2Tx(receipt.Receipt)
+	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
+		return err
+	}
 
 	// Check the balance of the burn address using the L2 Verifier
 	final, err := wait.ForBalanceChange(ctx, d.L2Verif, receipt.BurnAddress, receipt.InitialBurnBalance)
