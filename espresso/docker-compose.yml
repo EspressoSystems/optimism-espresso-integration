@@ -13,65 +13,31 @@ services:
       - ./deployment/l1-config:/config
       - ./docker/l1-geth:/templates:ro
       - l1-data:/data
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        set -euo pipefail
 
-        echo "Updating genesis timestamp..."
-        dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
-
-        echo "Generating consensus layer genesis..."
-        eth-beacon-genesis devnet \
-                          --quiet \
-                          --eth1-config "/config/genesis.json" \
-                          --config "/templates/beacon-config.yaml" \
-                          --mnemonics "/templates/mnemonics.yaml" \
-                          --state-output "/config/genesis.ssz"
-        cp -r /templates/beacon-config.yaml /config/config.yaml
-
-        echo "Generating validator keys..."
-        rm -rf /config/keystore && \
-        eth2-val-tools keystores --out-loc /config/keystore \
-                                 --source-mnemonic "$(yq -r '.[0].mnemonic' "/templates/mnemonics.yaml")" \
-                                 --source-min 0 \
-                                 --source-max 1
-        mkdir -p /data/lighthouse-validator
-        mkdir -p /data/lighthouse-validator/validators
-        cp -r /config/keystore/keys/* /data/lighthouse-validator/validators/
-        cp -r /config/keystore/secrets/ /data/lighthouse-validator/
-
-        if [[ ! -f "/config/jwt.txt" ]]; then
-          echo "Generating JWT secret..."
-          openssl rand -hex 32 > "/config/jwt.txt"
-        fi
-
-        echo "0" > /config/deposit_contract_block.txt
-        echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
-
-  l1-geth:
+  l1-validator:
+    image: sigp/lighthouse
     depends_on:
       l1-genesis:
         condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}"]
-      interval: 3s
-      timeout: 2s
-      retries: 40
-    build:
-      context: ../
-      dockerfile: espresso/docker/l1-geth/Dockerfile
-    image: l1-geth:espresso
-    environment:
-      L1_HTTP_PORT: ${L1_HTTP_PORT:-8545}
-      L1_ENGINE_PORT: ${L1_ENGINE_PORT:-8551}
-      L1_CHAIN_ID: ${L1_CHAIN_ID:?err}
+      l1-geth:
+        condition: service_started
+      l1-beacon:
+        condition: service_started
     volumes:
-      - ./deployment/l1-config:/config:ro
       - l1-data:/data
-    ports:
-      - "${L1_HTTP_PORT}:${L1_HTTP_PORT}" # L1 RPC
-      - "${L1_ENGINE_PORT}:${L1_ENGINE_PORT}" # L1 Engine
+      - ./deployment/l1-config:/config:ro
+    command:
+      - lighthouse
+      - validator_client
+      - --testnet-dir
+      - /config
+      - --beacon-nodes
+      - http://l1-beacon:${L1_BEACON_PORT}
+      - --init-slashing-protection
+      - --datadir
+      - /data/lighthouse-validator
+      - --suggested-fee-recipient
+      - ${OPERATOR_ADDRESS}
 
   l1-beacon:
     image: sigp/lighthouse
@@ -109,30 +75,50 @@ services:
     ports:
       - "${L1_BEACON_PORT}:${L1_BEACON_PORT}"
 
-  l1-validator:
-    image: sigp/lighthouse
+  l1-geth:
     depends_on:
       l1-genesis:
         condition: service_completed_successfully
-      l1-geth:
-        condition: service_started
-      l1-beacon:
-        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}"]
+      interval: 3s
+      timeout: 2s
+      retries: 40
+    build:
+      context: ../
+      dockerfile: espresso/docker/l1-geth/Dockerfile
+    image: l1-geth:espresso
+    environment:
+      L1_HTTP_PORT: ${L1_HTTP_PORT:-8545}
+      L1_ENGINE_PORT: ${L1_ENGINE_PORT:-8551}
+      L1_CHAIN_ID: ${L1_CHAIN_ID:?err}
     volumes:
-      - l1-data:/data
       - ./deployment/l1-config:/config:ro
-    command:
-      - lighthouse
-      - validator_client
-      - --testnet-dir
-      - /config
-      - --beacon-nodes
-      - http://l1-beacon:${L1_BEACON_PORT}
-      - --init-slashing-protection
-      - --datadir
-      - /data/lighthouse-validator
-      - --suggested-fee-recipient
-      - ${OPERATOR_ADDRESS}
+      - l1-data:/data
+    ports:
+      - "${L1_HTTP_PORT}:${L1_HTTP_PORT}" # L1 RPC
+      - "${L1_ENGINE_PORT}:${L1_ENGINE_PORT}" # L1 Engine
+
+  l2-rollup:
+    restart: on-failure
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-geth/Dockerfile
+    image: op-geth:espresso
+    environment:
+      - MODE=rollup
+      - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
+      - OP_RPC=http://op-geth:${OP_HTTP_PORT:?err}
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      l1-genesis:
+        condition: service_completed_successfully
+      op-geth:
+        condition: service_healthy
+    volumes:
+      - ./deployment/l2-config:/config
+      - ./deployment/deployer:/deployer:ro
 
   l2-genesis:
     restart: on-failure
@@ -176,27 +162,6 @@ services:
       - "${OP_HTTP_PORT}:${OP_HTTP_PORT}"
       - "${OP_ENGINE_PORT}:${OP_ENGINE_PORT}"
 
-  l2-rollup:
-    restart: on-failure
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-geth/Dockerfile
-    image: op-geth:espresso
-    environment:
-      - MODE=rollup
-      - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
-      - OP_RPC=http://op-geth:${OP_HTTP_PORT:?err}
-    depends_on:
-      l1-geth:
-        condition: service_healthy
-      l1-genesis:
-        condition: service_completed_successfully
-      op-geth:
-        condition: service_healthy
-    volumes:
-      - ./deployment/l2-config:/config
-      - ./deployment/deployer:/deployer:ro
-
   op-node-sequencer:
     build:
       context: ../
@@ -229,42 +194,6 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
-
-  op-batcher:
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-batcher-target
-    image: op-batcher:espresso
-    # It is not necessary to specify all dependencies, but a good practice.
-    depends_on:
-      l1-geth:
-        condition: service_healthy
-      op-geth:
-        condition: service_started
-      op-node-sequencer:
-        condition: service_started
-      espresso-dev-node:
-        condition: service_started
-      l2-genesis:
-        condition: service_completed_successfully
-    environment:
-      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
-      OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
-      OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
-      OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
-      OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
-    volumes:
-      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
-    command:
-      - op-batcher
-      - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
-      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
-      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
-      - --throttle-threshold=0
-      - --max-channel-duration=1
-      - --target-num-frames=1
 
   op-node-verifier:
     build:
@@ -334,6 +263,42 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
     restart: "no"
+
+  op-batcher:
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-batcher-target
+    image: op-batcher:espresso
+    # It is not necessary to specify all dependencies, but a good practice.
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      op-geth:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      espresso-dev-node:
+        condition: service_started
+      l2-genesis:
+        condition: service_completed_successfully
+    environment:
+      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
+      OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-batcher
+      - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
+      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
+      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
+      - --throttle-threshold=0
+      - --max-channel-duration=1
+      - --target-num-frames=1
 
   op-proposer:
     build:
