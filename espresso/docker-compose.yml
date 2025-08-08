@@ -409,6 +409,55 @@ services:
       - --max-channel-duration=1
       - --target-num-frames=1
 
+  # op-batcher-tee:
+  #   build:
+  #     context: ../
+  #     dockerfile: espresso/docker/op-stack/Dockerfile
+  #     target: op-batcher-target
+  #   image: optimism-espresso-integration/op-batcher-enclave:latest
+  #   # It is not necessary to specify all dependencies, but a good practice.
+  #   depends_on:
+  #     l1-geth:
+  #       condition: service_healthy
+  #     op-geth:
+  #       condition: service_started
+  #     op-node-sequencer:
+  #       condition: service_started
+  #     espresso-dev-node:
+  #       condition: service_started
+  #     l2-genesis:
+  #       condition: service_completed_successfully
+  #   environment:
+  #     L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+  #     OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+  #     OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
+  #     OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+  #     OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+  #     BATCH_INBOX_ADDRESS: ${BATCH_INBOX_ADDRESS:-0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9}
+  #     BATCH_AUTHENTICATOR_ADDRESS: ${BATCH_AUTHENTICATOR_ADDRESS:-0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9}
+  #     ESPRESSO_TEE_VERIFIER_ADDRESS: ${ESPRESSO_TEE_VERIFIER_ADDRESS:-0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0}
+  #     ESPRESSO_RUN_ENCLAVE_TESTS: "true"
+  #   devices:
+  #     - /dev/nitro_enclaves:/dev/nitro_enclaves
+  #   volumes:
+  #     - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         memory: 4096M
+  #         cpus: '2'
+  #   privileged: true  # Required for enclave access
+  #   command:
+  #     - op-batcher
+  #     - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+  #     - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
+  #     - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
+  #     - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
+  #     - --throttle-threshold=0
+  #     - --max-channel-duration=1
+  #     - --target-num-frames=1
+
   op-proposer:
     build:
       context: ../
