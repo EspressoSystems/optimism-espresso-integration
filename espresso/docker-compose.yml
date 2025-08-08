@@ -430,7 +430,7 @@ services:
       - sh
       - -c
       - |
-        GAME_FACTORY=$(jq -r '.disputeGameFactoryImplAddress' ./deployer/bootstrap_implementations.json)
+        GAME_FACTORY=$(jq -r '.chains[0].disputeGameFactoryProxyAddress' ./deployer/state.json)
         op-proposer \
           --proposal-interval 6s \
           --mnemonic "test test test test test test test test test test test junk" \
