@@ -296,7 +296,7 @@ docker compose down -v --remove-orphans
 
 * Build the enclave image.
 ```console
-./scripts/launch-batcher-enclave.sh
+./scripts/batcher-enclave-image.sh
 ```
 
 * Build and start all services in the background.
