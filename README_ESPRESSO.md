@@ -294,6 +294,11 @@ docker compose down -v --remove-orphans
 ./scripts/prepare-allocs.sh
 ```
 
+* Build the enclave image.
+```console
+./scripts/launch-batcher-enclave.sh
+```
+
 * Build and start all services in the background.
 ```console
 docker compose up --build -d
@@ -338,7 +343,7 @@ docker compose down -v
 docker volume prune -a
 ```
 
-* If you have changed OP contracts, you will have to start the devnet fresh and re-generate 
+* If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
 

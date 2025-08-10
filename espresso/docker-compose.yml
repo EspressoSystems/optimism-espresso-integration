@@ -284,6 +284,8 @@ services:
         condition: service_healthy
       l1-validator:
         condition: service_started
+    ports:
+      - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     environment:
       CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
@@ -373,13 +375,44 @@ services:
       - --l1.epoch-poll-interval=1s
     restart: "no"
 
+  # op-batcher:
+  #   build:
+  #     context: ../
+  #     dockerfile: espresso/docker/op-stack/Dockerfile
+  #     target: op-batcher-target
+  #   image: op-batcher:espresso
+  #   # It is not necessary to specify all dependencies, but a good practice.
+  #   depends_on:
+  #     l1-geth:
+  #       condition: service_healthy
+  #     op-geth:
+  #       condition: service_started
+  #     op-node-sequencer:
+  #       condition: service_started
+  #     espresso-dev-node:
+  #       condition: service_started
+  #     l2-genesis:
+  #       condition: service_completed_successfully
+  #   environment:
+  #     L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+  #     OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+  #     OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
+  #     OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+  #     OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+  #   volumes:
+  #     - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+  #   command:
+  #     - op-batcher
+  #     - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+  #     - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
+  #     - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
+  #     - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
+  #     - --throttle-threshold=0
+  #     - --max-channel-duration=1
+  #     - --target-num-frames=1
+
   op-batcher:
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-batcher-target
-    image: op-batcher:espresso
-    # It is not necessary to specify all dependencies, but a good practice.
+    image: ${OP_BATCHER_ENCLAVE_IMAGE:-op-batcher-enclaver:tests}
     depends_on:
       l1-geth:
         condition: service_healthy
@@ -391,23 +424,14 @@ services:
         condition: service_started
       l2-genesis:
         condition: service_completed_successfully
+    network_mode: "host"
+    privileged: true
+    devices:
+      - /dev/nitro_enclaves:/dev/nitro_enclaves
     environment:
-      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
-      OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
-      OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
-      OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
-      OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
-    volumes:
-      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
-    command:
-      - op-batcher
-      - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
-      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
-      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
-      - --throttle-threshold=0
-      - --max-channel-duration=1
-      - --target-num-frames=1
+      ESPRESSO_RUN_ENCLAVE_TESTS: "true"
+    restart: "no"
+
 
   # op-batcher-tee:
   #   build:

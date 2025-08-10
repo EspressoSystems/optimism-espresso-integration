@@ -6,7 +6,7 @@
 # to directly pass commandline arguments when starting EIF images)
 
 # We will need to start a proxy for each of those urls
-URL_ARG="^(--altda\.da-server|--espresso-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)$"
+URL_ARG_RE='^(--altda\.da-server|--espresso-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
 
 # Re-populate the arguments passed through the environment
 if [ -n "$ENCLAVE_BATCHER_ARGS" ]; then
@@ -31,25 +31,25 @@ unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
 NC_PORT=8337
 received_args=()
 
-echo "Starting nc listener on port $NC_PORT (60 second timeout)"
-{
-    # Read null-separated arguments until we get \0\0
-    while IFS= read -r -d '' arg; do
-        if [[ -z "$arg" ]]; then
-            # Empty argument signals end (\0\0)
-            break
-        fi
-        received_args+=("$arg")
-    done
-} < <(nc -l -p "$NC_PORT" -w 60)
+# echo "Starting nc listener on port $NC_PORT (60 second timeout)"
+# {
+#     # Read null-separated arguments until we get \0\0
+#     while IFS= read -r -d '' arg; do
+#         if [[ -z "$arg" ]]; then
+#             # Empty argument signals end (\0\0)
+#             break
+#         fi
+#         received_args+=("$arg")
+#     done
+# } < <(nc -l -p "$NC_PORT" -w 60)
 
-if [ ${#received_args[@]} -eq 0 ]; then
-    echo "Warning: No arguments received via nc listener within 60 seconds, continuing with existing arguments"
-else
-    echo "Received ${#received_args[@]} arguments via nc, appending to existing arguments"
-    # Append received arguments to existing positional parameters
-    set -- "$@" "${received_args[@]}"
-fi
+# if [ ${#received_args[@]} -eq 0 ]; then
+#     echo "Warning: No arguments received via nc listener within 60 seconds, continuing with existing arguments"
+# else
+#     echo "Received ${#received_args[@]} arguments via nc, appending to existing arguments"
+#     # Append received arguments to existing positional parameters
+#     set -- "$@" "${received_args[@]}"
+# fi
 
 wait_for_port() {
   local port="$1"
@@ -108,36 +108,50 @@ filtered_args=()
 url_args=()
 
 SOCAT_PORT=10001
+echo "Arguments: $@"
 # Process all arguments
 while [ $# -gt 0 ]; do
+    echo "Processing argument: $1"
     # Check if the argument matches the URL pattern
-    if [[ $1 =~ $URL_ARG ]]; then
-        # Extract the flag part and possible value part
-        flag=${BASH_REMATCH[1]}
+    if [[ $1 =~ $URL_ARG_RE ]]; then
+      echo "Found URL argument: $1"
+      # Extract the flag part and possible value part
+      flag=${BASH_REMATCH[1]}
 
-        if [ $# -gt 1 ]; then
-            shift
-            value="$1"
-        else
-          echo "$flag doesn't have a value"
-          exit 1
-        fi
+      # extract value from "--flag=value" or "--flag value"
+      if [[ "$1" == *=* ]]; then
+        value="${1#*=}"
+      else
+        shift || { echo "$flag missing value"; exit 1; }
+        value="$1"
+      fi
 
-        echo "Rewriting $flag=$value"
+      # SPECIAL CASE: espresso-url may be a comma list. Either split here,
+      # or (simpler) pass the flag twice at build time. See note below.
+      if [[ "$flag" == "--espresso-url" && "$value" == *","* ]]; then
+        IFS=',' read -r -a parts <<< "$value"
+        for part in "${parts[@]}"; do
+          if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
+            echo "Failed to launch socat for $flag=$part"; exit 1
+          fi
+          echo "Rewritten: $new_url"
+          url_args+=("$flag" "$new_url")
+          ((SOCAT_PORT++))
+        done
+      else
         if ! new_url=$(launch_socat "$value" "$SOCAT_PORT"); then
-            echo "Failed to launch socat for $flag=$value"
-            exit 1
+          echo "Failed to launch socat for $flag=$value"; exit 1
         fi
         echo "Rewritten: $new_url"
         url_args+=("$flag" "$new_url")
-
         ((SOCAT_PORT++))
+      fi
     else
-        # This is not a URL argument, add it to filtered args
-        filtered_args+=("$1")
+      filtered_args+=("$1")
     fi
     shift
-done
+  done
+
 
 # Combine the rewritten URL arguments with the other arguments
 all_args=("${filtered_args[@]}" "${url_args[@]}")

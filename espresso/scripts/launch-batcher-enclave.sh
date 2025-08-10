@@ -1,9 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Default environment variables if not set
-export ENCLAVE_INTERMEDIATE_IMAGE_TAG="op-batcher-enclave:tests"
-export ENCLAVE_IMAGE_TAG="op-batcher-enclaver:tests"
+# Configuration
+export HOST_IP=127.0.0.1 #$(hostname -I | awk '{print $1}')
+export ENCLAVE_APP_IMAGE="op-batcher-enclave:app"
+export ENCLAVE_TARGET_IMAGE="op-batcher-enclaver:tests"
+export MANIFEST_FILE="batcher-enclave.yaml"
 
 # Required for enclave operations
 if [[ ! -e /dev/nitro_enclaves ]]; then
@@ -17,82 +19,66 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Step 1: Check and build the intermediate Docker image
-# This is the base image that will be used by enclaver to build the enclave image
-if ! docker image inspect $ENCLAVE_INTERMEDIATE_IMAGE_TAG >/dev/null 2>&1; then
-    echo "Building enclave image..."
-    docker build -t $ENCLAVE_INTERMEDIATE_IMAGE_TAG \
-        -f ../ops/docker/op-stack-go/Dockerfile \
-        --target op-batcher-enclave-target \
-        --build-arg ENCLAVE_BATCHER_ARGS="--l1-eth-rpc=http://l1-geth:8545 \
-          --l2-eth-rpc=http://l2-geth:8547 \
-          --rollup-rpc=http://rollup-node:8548 \
-          --espresso-url=http://op-proposer:50051 \
-          --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-          --mnemonic=test\ test\ test\ test\ test\ test\ test\ test\ test\ test\ test\ junk \
-          --hd-path=m/44\'/60\'/0\'/0/0 \
-          --throttle-threshold=0 --max-channel-duration=1 --target-num-frames=1 \
-          --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797" \
-        ../
-    if [ $? -ne 0 ]; then
-        echo "Failed to build batcher image"; exit 1
-    fi
-else
-    echo "Using existing intermediate batcher image"
+echo "Using HOST_IP: $HOST_IP"
+
+# Step 1: Build the Docker image using your existing Dockerfile
+echo "Building Docker image..."
+docker build -t $ENCLAVE_APP_IMAGE \
+    -f ../ops/docker/op-stack-go/Dockerfile \
+    --target op-batcher-enclave-target \
+    --build-arg ENCLAVE_BATCHER_ARGS="--l1-eth-rpc=http://$HOST_IP:8545 \
+      --l2-eth-rpc=http://$HOST_IP:8546 \
+      --rollup-rpc=http://$HOST_IP:9545 \
+      --espresso-url=http://$HOST_IP:24000,http://$HOST_IP:24000 \
+      --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+      --mnemonic=test\ test\ test\ test\ test\ test\ test\ test\ test\ test\ test\ junk \
+      --hd-path=m/44\'/60\'/0\'/0/0 \
+      --throttle-threshold=0 --max-channel-duration=1 --target-num-frames=1 \
+      --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797" \
+    ../
+
+if [ $? -ne 0 ]; then
+    echo "Failed to build Docker image"
+    exit 1
 fi
 
-# Create enclaver manifest
-cat > batcher-manifest.yaml << EOL
+# Step 2: Create enclaver manifest
+echo "Creating enclaver manifest..."
+cat > $MANIFEST_FILE << EOL
 version: v1
-name: op-batcher-enclaver
-target: $ENCLAVE_IMAGE_TAG
+name: "op-batcher-enclave"
+target: "$ENCLAVE_TARGET_IMAGE"
 sources:
-  app: $ENCLAVE_INTERMEDIATE_IMAGE_TAG
+  app: "$ENCLAVE_APP_IMAGE"
 defaults:
-  cpu_count: 2
   memory_mb: 4096
+  cpu_count: 2
 egress:
   proxy_port: 10000
   allow:
+    - "host"
     - "0.0.0.0/0"
     - "**"
     - "::/0"
 EOL
 
-# Step 2: Check and build the final enclave image (op-batcher-enclaver:tests)
-# This is built by enclaver using the intermediate image as input
-if ! docker image inspect $ENCLAVE_IMAGE_TAG >/dev/null 2>&1; then
-    echo "Building enclaver image..."
-    echo "Using manifest:"
-    cat batcher-manifest.yaml
+echo "Manifest created:"
+cat $MANIFEST_FILE
 
-    echo "\nRunning enclaver build..."
-    ENCLAVER_OUTPUT=$(enclaver build --file batcher-manifest.yaml 2>&1)
-    if [ $? -ne 0 ]; then
-        echo "Failed to build enclaver image"
-        echo "Build output:"
-        echo "$ENCLAVER_OUTPUT"
-        exit 1
-    fi
-    echo "Build output:"
-    echo "$ENCLAVER_OUTPUT"
-    # Verify the image was built
-    if ! docker image inspect $ENCLAVE_IMAGE_TAG >/dev/null 2>&1; then
-        echo "Error: enclaver build succeeded but image not found"
-        exit 1
-    fi
-else
-    echo "Using existing enclaver image"
+# Step 3: Build the enclave
+echo "Building enclave..."
+sudo enclaver build --file $MANIFEST_FILE
+
+if [ $? -ne 0 ]; then
+    echo "Failed to build enclave"
+    exit 1
 fi
 
-# Run the batcher in enclave
-echo "Running batcher in enclave..."
-docker run \
-    --rm \
-    --privileged \
-    --net=host \
-    --name=batcher-enclaver-${RANDOM} \
-    --device=/dev/nitro_enclaves \
-    $ENCLAVE_IMAGE_TAG
+# Step 4: Run the enclave
+echo "Running enclave..."
+docker run --rm --privileged --net=host \
+  --name batcher-enclaver-$RANDOM \
+  --device=/dev/nitro_enclaves \
+  $ENCLAVE_TARGET_IMAGE
 
-echo "Batcher started in enclave mode"
+# echo "Enclave execution completed"
