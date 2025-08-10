@@ -75,10 +75,10 @@ if [ $? -ne 0 ]; then
 fi
 
 # Step 4: Run the enclave
-echo "Running enclave..."
-docker run --rm --privileged --net=host \
-  --name batcher-enclaver-$RANDOM \
-  --device=/dev/nitro_enclaves \
-  $ENCLAVE_TARGET_IMAGE
+# echo "Running enclave..."
+# docker run --rm --privileged --net=host \
+#   --name batcher-enclaver-$RANDOM \
+#   --device=/dev/nitro_enclaves \
+#   $ENCLAVE_TARGET_IMAGE
 
 # echo "Enclave execution completed"
