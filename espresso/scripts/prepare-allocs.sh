@@ -72,7 +72,6 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
 
 # turn on Espresso integration for this chain
 dasel put bool   -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -v true
-dasel put string -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].preApprovedBatcherKey -v "${OPERATOR_ADDRESS}"
 
 dasel put string -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put string -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"

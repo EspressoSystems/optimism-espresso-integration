@@ -294,14 +294,18 @@ docker compose down -v --remove-orphans
 ./scripts/prepare-allocs.sh
 ```
 
-* Build the enclave image.
+* Make sure you're on a machine with AWS Nitro Enclaves enabled. Build the enclave image.
 ```console
 ./scripts/batcher-enclave-image.sh
 ```
 
-* Build and start all services in the background.
+* Build and start all services in the background. If you're not running on a machine with AWS Nitro Enclaves enabled, use the `nontee` profile instead.
 ```console
 docker compose up --build -d
+```
+or
+```console
+docker compose up --build -d --profile nontee
 ```
 
 * Run the services and check the log.
