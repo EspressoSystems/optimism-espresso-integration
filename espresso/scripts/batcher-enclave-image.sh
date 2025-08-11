@@ -1,8 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
+# --- load .env ---
+SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+ENV_FILE="${SCRIPT_DIR}/../.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Error: $ENV_FILE not found"; exit 1
+fi
+# export everything we source
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+
 # Configuration
-export HOST_IP=127.0.0.1 #$(hostname -I | awk '{print $1}')
+# NOTE: if loopback doesn't work from inside the enclave, set HOST_IP=host
+HOST_IP="${HOST_IP:-127.0.0.1}"
 export ENCLAVE_APP_IMAGE="op-batcher-enclave:app"
 export ENCLAVE_TARGET_IMAGE="op-batcher-enclaver:tests"
 export MANIFEST_FILE="batcher-enclave.yaml"
@@ -20,16 +33,17 @@ if ! docker info > /dev/null 2>&1; then
 fi
 
 echo "Using HOST_IP: $HOST_IP"
+echo "Ports -> L1:$L1_HTTP_PORT  L2:$OP_HTTP_PORT  Rollup:$ROLLUP_PORT  EspressoAPI:$ESPRESSO_SEQUENCER_API_PORT"
 
 # Step 1: Build the Docker image using your existing Dockerfile
 echo "Building Docker image..."
 docker build -t $ENCLAVE_APP_IMAGE \
     -f ../ops/docker/op-stack-go/Dockerfile \
     --target op-batcher-enclave-target \
-    --build-arg ENCLAVE_BATCHER_ARGS="--l1-eth-rpc=http://$HOST_IP:8545 \
-      --l2-eth-rpc=http://$HOST_IP:8546 \
-      --rollup-rpc=http://$HOST_IP:9545 \
-      --espresso-url=http://$HOST_IP:24000,http://$HOST_IP:24000 \
+    --build-arg ENCLAVE_BATCHER_ARGS="--l1-eth-rpc=http://$HOST_IP:$L1_HTTP_PORT \
+      --l2-eth-rpc=http://$HOST_IP:$OP_HTTP_PORT \
+      --rollup-rpc=http://$HOST_IP:$ROLLUP_PORT \
+      --espresso-url=http://$HOST_IP:$ESPRESSO_SEQUENCER_API_PORT,http://$HOST_IP:$ESPRESSO_SEQUENCER_API_PORT \
       --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
       --mnemonic=test\ test\ test\ test\ test\ test\ test\ test\ test\ test\ test\ junk \
       --hd-path=m/44\'/60\'/0\'/0/0 \
