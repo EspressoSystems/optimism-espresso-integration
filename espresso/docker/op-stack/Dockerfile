@@ -129,6 +129,7 @@ CMD ["op-batcher"]
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 RUN apk add jq
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
+COPY --from=op-proposer-builder /app/espresso/deployment/deployer /deployer
 CMD ["op-proposer"]
 
 FROM $TARGET_BASE_IMAGE AS op-deployer-target
