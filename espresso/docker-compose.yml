@@ -429,8 +429,6 @@ services:
     privileged: true
     devices:
       - /dev/nitro_enclaves:/dev/nitro_enclaves
-    environment:
-      ESPRESSO_RUN_ENCLAVE_TESTS: "true"
     restart: "no"
 
 
