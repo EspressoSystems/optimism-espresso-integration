@@ -65,8 +65,10 @@ func (d *Devnet) Up() (err error) {
 		d.ctx,
 		"docker", "compose", "up", "-d",
 	)
+	buf := new(bytes.Buffer)
+	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
-		return err
+		return fmt.Errorf("failed to start docker compose (%w): %s", err, buf.String())
 	}
 
 	// Shut down the now-running devnet if we exit this function with an error (in which case the
@@ -89,14 +91,11 @@ func (d *Devnet) Up() (err error) {
 	}()
 
 	// Open RPC clients for the different nodes.
-	// TODO: in the current devnet, both sequencer and verifier use the same op-geth node, so this
-	// just opens two clients to the same node. We should eventually change this so that the
-	// sequencer and verifier are totally separate, communicating only via the inbox.
-	d.L2Seq, err = d.serviceClient("op-geth", 8546)
+	d.L2Seq, err = d.serviceClient("op-geth-seq", 8546)
 	if err != nil {
 		return err
 	}
-	d.L2Verif, err = d.serviceClient("op-geth", 8546)
+	d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
 	if err != nil {
 		return err
 	}
@@ -283,13 +282,13 @@ func (d *Devnet) RunSimpleL2Burn() error {
 }
 
 // Wait for a configurable amount of time while simulating an outage.
-func (d *Devnet) WaitOutage() {
+func (d *Devnet) SleepOutageDuration() {
 	log.Info("sleeping during simulated outage", "duration", d.outageTime)
 	time.Sleep(d.outageTime)
 }
 
 // Wait for a configurable amount of time before considering a run a success.
-func (d *Devnet) WaitSuccess() {
+func (d *Devnet) SleepRecoveryDuration() {
 	log.Info("sleeping to check that things stay working", "duration", d.successTime)
 	time.Sleep(d.successTime)
 }
@@ -306,14 +305,16 @@ func (d *Devnet) Down() error {
 // Get the host port mapped to `privatePort` for the given Docker service.
 func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
 	buf := new(bytes.Buffer)
+	errBuf := new(bytes.Buffer)
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "port", service, fmt.Sprint(privatePort),
 	)
 	cmd.Stdout = buf
+	cmd.Stderr = errBuf
 
 	if err := cmd.Run(); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("command failed (%w)\nStdout: %s\nStderr: %s", err, buf.String(), errBuf.String())
 	}
 	out := strings.TrimSpace(buf.String())
 	_, portStr, found := strings.Cut(out, ":")
