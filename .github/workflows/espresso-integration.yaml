@@ -40,6 +40,12 @@ jobs:
       - name: Compile contracts
         run: just compile-contracts
 
+      - name: Build Devnet
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
+          docker compose build
+
       - name: Generate test slice
         id: test_split
         uses: hashicorp-forge/go-test-split-action@v1
