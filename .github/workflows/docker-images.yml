@@ -73,7 +73,7 @@ jobs:
       - name: Upload deployment artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-artifacts-${{ steps.hash.outputs.hash }}
+          name: deployment-artifacts
           path: |
             op-deployer/bin/
             espresso/deployment/
@@ -92,7 +92,7 @@ jobs:
       - name: Download deployment artifacts
         uses: actions/download-artifact@v4
         with:
-          name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
+          name: deployment-artifacts
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -135,7 +135,7 @@ jobs:
       - name: Download deployment artifacts
         uses: actions/download-artifact@v4
         with:
-          name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
+          name: deployment-artifacts
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -178,7 +178,7 @@ jobs:
       - name: Download deployment artifacts
         uses: actions/download-artifact@v4
         with:
-          name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
+          name: deployment-artifacts
 
       - name: Create l2-config directory
         run: |
@@ -232,7 +232,7 @@ jobs:
       - name: Download deployment artifacts
         uses: actions/download-artifact@v4
         with:
-          name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
+          name: deployment-artifacts
 
       - name: Copy config for op-batcher
         run: |
@@ -286,7 +286,7 @@ jobs:
       - name: Download deployment artifacts
         uses: actions/download-artifact@v4
         with:
-          name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
+          name: deployment-artifacts
 
       - name: Copy config for op-proposer
         run: |
