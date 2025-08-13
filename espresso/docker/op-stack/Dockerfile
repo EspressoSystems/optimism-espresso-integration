@@ -113,8 +113,10 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
-# Include the config.
+# Include the deployment and contarcts.
+COPY espresso/deployment/ /deployment/
 COPY espresso/deployment/l2-config /config
+COPY packages/contracts-bedrock/ /contracts-bedrock/
 
 CMD ["op-node"]
 

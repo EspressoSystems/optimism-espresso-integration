@@ -67,6 +67,15 @@ jobs:
           cd espresso
           ./scripts/prepare-allocs.sh
 
+      - name: List generated files
+        run: |
+          echo "=== Generated deployment files ==="
+          find espresso/deployment -type f -name "*.json" -o -name "*.toml" | head -20
+          echo "=== L1 Config ==="
+          ls -la espresso/deployment/l1-config/ || echo "No l1-config directory"
+          echo "=== Deployer ==="
+          ls -la espresso/deployment/deployer/ || echo "No deployer directory"
+
       - name: Generate deployment hash
         id: hash
         run: echo "hash=$(date +%s)" >> $GITHUB_OUTPUT
@@ -294,11 +303,16 @@ jobs:
         with:
           name: deployment-artifacts
 
+      - name: Verify deployment files are present
+        run: |
+          echo "=== Verifying downloaded files ==="
+          ls -la espresso/deployment/ || echo "No deployment directory"
+          ls -la espresso/deployment/deployer/ || echo "No deployer directory"
+          ls -la packages/contracts-bedrock/ || echo "No contracts-bedrock directory"
+
       - name: Copy config for op-proposer
         run: |
           mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
-          mkdir -p espresso/deployment/deployer
-          # Copy any required config files here, or create placeholder
           echo "Config prepared for op-proposer"
 
       - name: Login to GitHub Container Registry
