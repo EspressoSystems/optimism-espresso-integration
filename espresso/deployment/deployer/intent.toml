@@ -1,0 +1,33 @@
+configType = 'standard-overrides'
+fundDevAccounts = true
+l1ChainID = 11155111
+l1ContractsLocator = 'file:////Users/tschnepp/Documents/repos/go/github.com/espressosystems/optimism-espresso-integration/packages/contracts-bedrock/forge-artifacts'
+l2ContractsLocator = 'file:////Users/tschnepp/Documents/repos/go/github.com/espressosystems/optimism-espresso-integration/packages/contracts-bedrock/forge-artifacts'
+useInterop = false
+
+[[chains]]
+  baseFeeVaultRecipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+  eip1559Denominator = 50
+  eip1559DenominatorCanyon = 250
+  eip1559Elasticity = 6
+  espressoEnabled = true
+  id = '0x000000000000000000000000000000000000000000000000000000000153c16e'
+  l1FeeVaultRecipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+  operatorFeeConstant = 0
+  operatorFeeScalar = 0
+  preApprovedBatcherKey = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+  sequencerFeeVaultRecipient = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+
+  [chains.roles]
+    batcher = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+    challenger = '0xfd1d2e729ae8eee2e146c033bf4400fe75284301'
+    l1ProxyAdminOwner = '0x1eb2ffc903729a0f03966b917003800b145f56e2'
+    l2ProxyAdminOwner = '0x2fc3ffc903729a0f03966b917003800b145f67f3'
+    proposer = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+    systemConfigOwner = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+    unsafeBlockSigner = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+
+[superchainRoles]
+  guardian = '0x7a50f00e8d05b95f98fe38d8bee366a7324dcf7e'
+  protocolVersionsOwner = '0xfd1d2e729ae8eee2e146c033bf4400fe75284301'
+  proxyAdminOwner = '0x1eb2ffc903729a0f03966b917003800b145f56e2'
