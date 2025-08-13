@@ -71,7 +71,7 @@ jobs:
         run: echo "hash=$(date +%s)" >> $GITHUB_OUTPUT
 
       - name: Upload deployment artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: deployment-artifacts-${{ steps.hash.outputs.hash }}
           path: |
@@ -90,12 +90,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -133,12 +133,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
 
@@ -187,7 +187,7 @@ jobs:
           ls -la espresso/deployment/
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -230,7 +230,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
 
@@ -241,7 +241,7 @@ jobs:
           echo "Config prepared for op-batcher"
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -284,7 +284,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts-${{ needs.prepare-deployment.outputs.deployment-hash }}
 
@@ -296,7 +296,7 @@ jobs:
           echo "Config prepared for op-proposer"
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
