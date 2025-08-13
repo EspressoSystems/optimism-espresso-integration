@@ -15,14 +15,34 @@ if [[ "$MODE" == "genesis" ]]; then
   # Create config directory if it doesn't exist.
   mkdir -p /config
 
-  # Copy genesis template if it doesn't exist.
+  # Use pre-built genesis with deployed contracts instead of empty template
   if [[ ! -f "/config/genesis.json" ]]; then
-      echo "Copying genesis template..."
-      cp /templates/devnet-genesis-template.json /config/genesis.json
+      echo "Copying pre-built genesis with deployed contracts..."
+      if [[ -f "/deployment/l1-config/genesis.json" ]]; then
+          echo "Using pre-built genesis from deployment artifacts..."
+          cp /deployment/l1-config/genesis.json /config/genesis.json
+      else
+          echo "Pre-built genesis not found, falling back to template..."
+          cp /templates/devnet-genesis-template.json /config/genesis.json
+      fi
   fi
 
-  echo "Updating genesis timestamp..."
-  dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+  # Also copy other pre-built config files if they exist
+  if [[ -f "/deployment/l1-config/config.yaml" ]]; then
+      echo "Copying pre-built beacon config..."
+      cp /deployment/l1-config/config.yaml /config/config.yaml
+  fi
+
+  if [[ -f "/deployment/l1-config/jwt.txt" ]]; then
+      echo "Copying pre-built JWT secret..."
+      cp /deployment/l1-config/jwt.txt /config/jwt.txt
+  fi
+
+  # Skip genesis timestamp update if using pre-built genesis
+  if [[ ! -f "/deployment/l1-config/genesis.json" ]]; then
+      echo "Updating genesis timestamp..."
+      dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+  fi
 
   echo "Generating consensus layer genesis..."
   eth-beacon-genesis devnet \
