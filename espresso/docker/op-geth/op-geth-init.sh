@@ -117,6 +117,6 @@ elif [ "$MODE" = "rollup" ]; then
   exit 0
 
 else
-    echo "Unknown MODE: $MODE. Use 'genesis' or 'geth'"
+    echo "Unknown MODE: $MODE. Use 'genesis', 'rollup', or 'geth'"
     exit 1
 fi
