@@ -42,7 +42,10 @@ jobs:
 
       - name: Build Devnet
         run: |
-          cd espresso
+          cd op-deployer
+          just
+          export PATH=$PATH:$PWD/bin
+          cd ../espresso
           ./scripts/prepare-allocs.sh
           docker compose build
 
