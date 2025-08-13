@@ -81,6 +81,7 @@ jobs:
           retention-days: 1
 
   build-l1-geth:
+    needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,6 +125,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   build-op-geth:
+    needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -167,6 +169,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   build-op-node:
+    needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -221,6 +224,7 @@ jobs:
             TARGETARCH=amd64
 
   build-op-batcher:
+    needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -275,6 +279,7 @@ jobs:
             TARGETARCH=amd64
 
   build-op-proposer:
+    needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
