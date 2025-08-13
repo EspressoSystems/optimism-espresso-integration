@@ -57,7 +57,10 @@ jobs:
           total: 4
           packages: "./espresso/..."
       - name: Run Go tests for group ${{ matrix.group }}
-        run: go test -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
+        run: |
+          export ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD=1m
+          export ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD=1m
+          go test -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
