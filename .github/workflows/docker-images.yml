@@ -28,6 +28,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+          dasel --version
+
+      - name: Build op-deployer
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Compile contracts
+        run: just compile-contracts
+
+      - name: Prepare allocations
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -50,7 +90,7 @@ jobs:
       - name: Build and push L1 Geth
         uses: docker/build-push-action@v5
         with:
-          context: espresso/docker/l1-geth
+          context: .
           file: espresso/docker/l1-geth/Dockerfile
           platforms: linux/amd64
           push: true
@@ -65,6 +105,60 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+
+      - name: Check for package.json
+        id: check-package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has-package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-package=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-package.outputs.has-package == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check-package.outputs.has-package == 'true'
+        run: npm ci
+
+      - name: Build op-deployer
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Compile contracts
+        run: just compile-contracts
+
+      - name: Prepare allocations
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -88,7 +182,7 @@ jobs:
       - name: Build and push OP Geth
         uses: docker/build-push-action@v5
         with:
-          context: espresso/docker/op-geth
+          context: .
           file: espresso/docker/op-geth/Dockerfile
           platforms: linux/amd64
           push: true
@@ -103,6 +197,66 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+
+      - name: Check for package.json
+        id: check-package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has-package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-package=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-package.outputs.has-package == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check-package.outputs.has-package == 'true'
+        run: npm ci
+
+      - name: Build op-deployer
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Compile contracts
+        run: just compile-contracts
+
+      - name: Prepare allocations
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
+
+      - name: Create l2-config directory
+        run: |
+          mkdir -p espresso/deployment/l2-config
+          echo "Created l2-config directory"
+          ls -la espresso/deployment/
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -129,6 +283,109 @@ jobs:
           context: .
           file: espresso/docker/op-stack/Dockerfile
           target: op-node-target
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+            TARGETOS=linux
+            TARGETARCH=amd64
+
+  build-op-batcher:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+
+      - name: Check for package.json
+        id: check-package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has-package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-package=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-package.outputs.has-package == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check-package.outputs.has-package == 'true'
+        run: npm ci
+
+      - name: Build op-deployer
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Compile contracts
+        run: just compile-contracts
+
+      - name: Prepare allocations
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
+
+      - name: Copy config for op-batcher
+        run: |
+          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
+          # Copy any required config files here, or create placeholder
+          echo "Config prepared for op-batcher"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/op-batcher
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Build and push OP Batcher
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-batcher-target
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
