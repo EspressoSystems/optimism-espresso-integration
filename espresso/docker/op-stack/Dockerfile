@@ -97,18 +97,9 @@ ARG OP_PROPOSER_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-proposer && make op-proposer  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
-# Build op-deployer
-FROM op-cgo-builder AS op-deployer-builder
-ARG OP_DEPLOYER_VERSION=v0.0.0
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
-  go build -ldflags '-linkmode external -extldflags "-static"' -o /op-deployer ./cmd/op-deployer
-
 FROM golang:1.24-alpine AS deployment-utils-builder
 RUN apk add gcc lld musl-dev # For CGO
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/tomwright/dasel/v2/cmd/dasel@v2.8.1
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/protolambda/eth2-val-tools@662955e
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@703e97a
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/mikefarah/yq/v4@v4.47.1
 
 
@@ -122,6 +113,9 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
+# Include the config.
+COPY espresso/deployment/l2-config /config
+
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
@@ -129,6 +123,7 @@ RUN apk add gcc
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
+COPY packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo /config
 CMD ["op-batcher"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
@@ -138,9 +133,6 @@ CMD ["op-proposer"]
 
 FROM $TARGET_BASE_IMAGE AS op-deployer-target
 RUN apk add jq curl bash openssl
-COPY --from=op-deployer-builder /op-deployer /usr/local/bin/
 COPY --from=deployment-utils-builder /go/bin/dasel /usr/local/bin/
-COPY --from=deployment-utils-builder /go/bin/eth2-val-tools /usr/local/bin/
-COPY --from=deployment-utils-builder /go/bin/eth-beacon-genesis /usr/local/bin/
 COPY --from=deployment-utils-builder /go/bin/yq /usr/local/bin/
 CMD ["op-deployer"]
