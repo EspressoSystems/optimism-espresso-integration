@@ -321,11 +321,12 @@ services:
       - sh
       - -c
       - |
-        GAME_FACTORY=$(jq -r '.disputeGameFactoryImplAddress' ./deployer/bootstrap_implementations.json)
+        GAME_FACTORY=$(jq -r '.opChainDeployments[0].disputeGameFactoryProxyAddress' ./deployer/state.json)
         op-proposer \
           --proposal-interval 6s \
           --mnemonic "test test test test test test test test test test test junk" \
           --hd-path "m/44'/60'/0'/0/0" \
+          --game-type 1 \
           --game-factory-address $$GAME_FACTORY
 
   espresso-dev-node:
