@@ -95,7 +95,7 @@ kill $ANVIL_PID
 
 sleep 1
 
-jq -S -f "${OP_ROOT}/espresso/scripts/reshape-allocs.jq" \
+"${OP_ROOT}/espresso/scripts/reshape-allocs.jq" \
                   <(jq .accounts "${ANVIL_STATE_FILE}") \
                   | jq '{ "alloc": map_values(.state) }' \
                   > "${DEPLOYMENT_DIR}/deployer_allocs.json"
