@@ -326,6 +326,7 @@ services:
           --proposal-interval 6s \
           --mnemonic "test test test test test test test test test test test junk" \
           --hd-path "m/44'/60'/0'/0/0" \
+          --game-type 1 \
           --game-factory-address $$GAME_FACTORY
 
   espresso-dev-node:
