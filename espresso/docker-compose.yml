@@ -108,7 +108,7 @@ services:
     environment:
       - MODE=rollup
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
-      - OP_RPC=http://op-geth:${OP_HTTP_PORT:?err}
+      - OP_RPC=http://op-geth-seq:${OP_HTTP_PORT:?err}
     depends_on:
       l1-geth:
         condition: service_healthy

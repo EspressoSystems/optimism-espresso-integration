@@ -21,5 +21,5 @@ services:
       OP_HTTP_PORT: ${OP_HTTP_PORT:?err}
       OP_ENGINE_PORT: ${OP_ENGINE_PORT:?err}
     ports:
-      - "${OP_HTTP_PORT}:${OP_HTTP_PORT}"
-      - "${OP_ENGINE_PORT}:${OP_ENGINE_PORT}"
+      - "${OP_HTTP_PORT}"
+      - "${OP_ENGINE_PORT}"
