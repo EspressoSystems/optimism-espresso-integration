@@ -70,6 +70,8 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --intent-type standard-overrides \
                  --outdir ${DEPLOYER_DIR}
 
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].preApprovedBatcherKey -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .fundDevAccounts -t bool -v true
@@ -80,6 +82,10 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.systemConfigOwne
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.unsafeBlockSigner -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.batcher -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.proposer -v "${OPERATOR_ADDRESS}"
+
+# Fill in a specified create2Salt for the deployer, in order to ensure that the
+# contract addresses are deterministic.
+dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097ccd56594f2f22715ac52f92971c5913b70a7f1134b68feb"
 
 op-deployer apply --l1-rpc-url "${ANVIL_URL}" \
                   --workdir "${DEPLOYER_DIR}" \
