@@ -16,6 +16,7 @@ set +a
 # Configuration
 # NOTE: if loopback doesn't work from inside the enclave, set HOST_IP=host
 HOST_IP="${HOST_IP:-127.0.0.1}"
+export ENCLAVE_APP_IMAGE="op-batcher-enclave:app"
 export ENCLAVE_TARGET_IMAGE="op-batcher-enclaver:tests"
 export MANIFEST_FILE="batcher-enclave.yaml"
 

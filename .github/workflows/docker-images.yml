@@ -400,6 +400,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      ENCLAVE_APP_IMAGE: op-batcher-enclave:app
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -475,19 +477,6 @@ jobs:
           cd espresso
           ./scripts/prepare-allocs.sh
 
-      - name: Load environment variables
-        run: |
-          echo "Loading .env file..."
-          if [ -f "espresso/.env" ]; then
-            set -a
-            source espresso/.env
-            set +a
-            echo "ENCLAVE_APP_IMAGE=$ENCLAVE_APP_IMAGE" >> $GITHUB_ENV
-          else
-            echo "Error: espresso/.env not found"
-            exit 1
-          fi
-
       - name: Build op-batcher enclave image
         run: |
           cd espresso
@@ -514,5 +503,5 @@ jobs:
 
       - name: Tag and push op-batcher-tee image
         run: |
-          docker tag "$ENCLAVE_APP_IMAGE" ${{ steps.meta.outputs.tags }}
+          docker tag "${{ env.ENCLAVE_APP_IMAGE }}" ${{ steps.meta.outputs.tags }}
           docker push ${{ steps.meta.outputs.tags }}
