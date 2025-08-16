@@ -445,7 +445,7 @@ jobs:
         run: |
           echo "Downloading and installing Enclaver..."
           ARCH=$(uname -m)
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/edgeandnode/enclaver/releases/latest)
+          LATEST_RELEASE=$(curl -s https://api.github.com/repositories/516492075/releases/latest)
           DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name | test(\"^enclaver-linux-$ARCH.*tar.gz$\")) | .browser_download_url")
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "Could not find Enclaver download URL"
