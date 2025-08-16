@@ -440,23 +440,23 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Run Enclaver installation
-        run: |
-          echo "Downloading and installing Enclaver..."
-          ARCH=$(uname -m)
-          LATEST_RELEASE=$(curl -s https://api.github.com/repositories/516492075/releases/latest)
-          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name | test(\"^enclaver-linux-$ARCH.*tar.gz$\")) | .browser_download_url")
+      # - name: Run Enclaver installation
+      #   run: |
+      #     echo "Downloading and installing Enclaver..."
+      #     ARCH=$(uname -m)
+      #     LATEST_RELEASE=$(curl -s https://api.github.com/repositories/516492075/releases/latest)
+      #     DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name | test(\"^enclaver-linux-$ARCH.*tar.gz$\")) | .browser_download_url")
 
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "Could not find Enclaver download URL"
-            exit 1
-          fi
+      #     if [ -z "$DOWNLOAD_URL" ]; then
+      #       echo "Could not find Enclaver download URL"
+      #       exit 1
+      #     fi
 
-          curl -L "$DOWNLOAD_URL" -o enclaver.tar.gz
-          tar xzf enclaver.tar.gz
-          sudo install enclaver-*/enclaver /usr/local/bin/
-          rm -rf enclaver.tar.gz enclaver-*
-          enclaver --version
+      #     curl -L "$DOWNLOAD_URL" -o enclaver.tar.gz
+      #     tar xzf enclaver.tar.gz
+      #     sudo install enclaver-*/enclaver /usr/local/bin/
+      #     rm -rf enclaver.tar.gz enclaver-*
+      #     enclaver --version
 
       - name: Install dependencies
         if: steps.check-package.outputs.has-package == 'true'
