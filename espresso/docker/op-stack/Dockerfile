@@ -113,8 +113,6 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
-# Include the config.
-COPY espresso/deployment/l2-config /config
 
 CMD ["op-node"]
 

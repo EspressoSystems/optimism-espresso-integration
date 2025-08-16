@@ -21,16 +21,16 @@ export ENCLAVE_TARGET_IMAGE="op-batcher-enclaver:tests"
 export MANIFEST_FILE="batcher-enclave.yaml"
 
 # Required for enclave operations
-if [[ ! -e /dev/nitro_enclaves ]]; then
-    echo "Error: /dev/nitro_enclaves device not found. Are you running on a Nitro-enabled instance?"
-    exit 1
-fi
+# if [[ ! -e /dev/nitro_enclaves ]]; then
+#     echo "Error: /dev/nitro_enclaves device not found. Are you running on a Nitro-enabled instance?"
+#     exit 1
+# fi
 
 # Check if docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "Error: Docker is not running or not accessible"
-    exit 1
-fi
+# if ! docker info > /dev/null 2>&1; then
+#     echo "Error: Docker is not running or not accessible"
+#     exit 1
+# fi
 
 echo "Using HOST_IP: $HOST_IP"
 echo "Ports -> L1:$L1_HTTP_PORT  L2:$OP_HTTP_PORT  Rollup:$ROLLUP_PORT  EspressoAPI:$ESPRESSO_SEQUENCER_API_PORT"
