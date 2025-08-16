@@ -16,28 +16,16 @@ set +a
 # Configuration
 # NOTE: if loopback doesn't work from inside the enclave, set HOST_IP=host
 HOST_IP="${HOST_IP:-127.0.0.1}"
-export ENCLAVE_APP_IMAGE="op-batcher-enclave:app"
 export ENCLAVE_TARGET_IMAGE="op-batcher-enclaver:tests"
 export MANIFEST_FILE="batcher-enclave.yaml"
 
-# Required for enclave operations
-# if [[ ! -e /dev/nitro_enclaves ]]; then
-#     echo "Error: /dev/nitro_enclaves device not found. Are you running on a Nitro-enabled instance?"
-#     exit 1
-# fi
-
-# Check if docker is running
-# if ! docker info > /dev/null 2>&1; then
-#     echo "Error: Docker is not running or not accessible"
-#     exit 1
-# fi
 
 echo "Using HOST_IP: $HOST_IP"
 echo "Ports -> L1:$L1_HTTP_PORT  L2:$OP_HTTP_PORT  Rollup:$ROLLUP_PORT  EspressoAPI:$ESPRESSO_SEQUENCER_API_PORT"
 
 # Step 1: Build the Docker image using your existing Dockerfile
 echo "Building Docker image..."
-docker build -t $ENCLAVE_APP_IMAGE \
+docker build -t "$ENCLAVE_APP_IMAGE" \
     -f ../ops/docker/op-stack-go/Dockerfile \
     --target op-batcher-enclave-target \
     --build-arg ENCLAVE_BATCHER_ARGS="--l1-eth-rpc=http://$HOST_IP:$L1_HTTP_PORT \
@@ -58,7 +46,7 @@ fi
 
 # Step 2: Create enclaver manifest
 echo "Creating enclaver manifest..."
-cat > $MANIFEST_FILE << EOL
+cat > "$MANIFEST_FILE" << EOL
 version: v1
 name: "op-batcher-enclave"
 target: "$ENCLAVE_TARGET_IMAGE"
@@ -77,18 +65,18 @@ egress:
 EOL
 
 echo "Manifest created:"
-cat $MANIFEST_FILE
+cat "$MANIFEST_FILE"
 
 # Step 3: Build the enclave
 echo "Building enclave..."
-sudo enclaver build --file $MANIFEST_FILE
+sudo enclaver build --file "$MANIFEST_FILE"
 
 if [ $? -ne 0 ]; then
     echo "Failed to build enclave"
     exit 1
 fi
 
-# Step 4: Run the enclave
+# Step 4: Run the enclave (commented out as in original)
 # echo "Running enclave..."
 # docker run --rm --privileged --net=host \
 #   --name batcher-enclaver-$RANDOM \

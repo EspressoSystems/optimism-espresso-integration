@@ -423,6 +423,7 @@ jobs:
           curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
           sudo mv /tmp/dasel /usr/local/bin/dasel
           sudo chmod +x /usr/local/bin/dasel
+          dasel --version
 
       - name: Check for package.json
         id: check-package
@@ -440,23 +441,21 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      # - name: Run Enclaver installation
-      #   run: |
-      #     echo "Downloading and installing Enclaver..."
-      #     ARCH=$(uname -m)
-      #     LATEST_RELEASE=$(curl -s https://api.github.com/repositories/516492075/releases/latest)
-      #     DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name | test(\"^enclaver-linux-$ARCH.*tar.gz$\")) | .browser_download_url")
-
-      #     if [ -z "$DOWNLOAD_URL" ]; then
-      #       echo "Could not find Enclaver download URL"
-      #       exit 1
-      #     fi
-
-      #     curl -L "$DOWNLOAD_URL" -o enclaver.tar.gz
-      #     tar xzf enclaver.tar.gz
-      #     sudo install enclaver-*/enclaver /usr/local/bin/
-      #     rm -rf enclaver.tar.gz enclaver-*
-      #     enclaver --version
+      - name: Run Enclaver installation
+        run: |
+          echo "Downloading and installing Enclaver..."
+          ARCH=$(uname -m)
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/edgeandnode/enclaver/releases/latest)
+          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name | test(\"^enclaver-linux-$ARCH.*tar.gz$\")) | .browser_download_url")
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Could not find Enclaver download URL"
+            exit 1
+          fi
+          curl -L "$DOWNLOAD_URL" -o enclaver.tar.gz
+          tar xzf enclaver.tar.gz
+          sudo install enclaver-*/enclaver /usr/local/bin/
+          rm -rf enclaver.tar.gz enclaver-*
+          enclaver --version
 
       - name: Install dependencies
         if: steps.check-package.outputs.has-package == 'true'
@@ -471,13 +470,25 @@ jobs:
       - name: Compile contracts
         run: just compile-contracts
 
-
       - name: Prepare allocations
         run: |
           cd espresso
           ./scripts/prepare-allocs.sh
 
-      - name: Build op-batcher enclaver image
+      - name: Load environment variables
+        run: |
+          echo "Loading .env file..."
+          if [ -f "espresso/.env" ]; then
+            set -a
+            source espresso/.env
+            set +a
+            echo "ENCLAVE_APP_IMAGE=$ENCLAVE_APP_IMAGE" >> $GITHUB_ENV
+          else
+            echo "Error: espresso/.env not found"
+            exit 1
+          fi
+
+      - name: Build op-batcher enclave image
         run: |
           cd espresso
           ./scripts/batcher-enclave-image.sh
@@ -503,5 +514,5 @@ jobs:
 
       - name: Tag and push op-batcher-tee image
         run: |
-          docker tag op-batcher-enclave:app ${{ steps.meta.outputs.tags }}
+          docker tag "$ENCLAVE_APP_IMAGE" ${{ steps.meta.outputs.tags }}
           docker push ${{ steps.meta.outputs.tags }}
