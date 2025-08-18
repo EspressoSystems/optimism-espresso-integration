@@ -259,6 +259,7 @@ services:
       - --rollup.config=/config/rollup.json
       - --rpc.addr=0.0.0.0
       - --sequencer.enabled=false
+      - --caff.node=true
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
       - --rollup.halt=none
