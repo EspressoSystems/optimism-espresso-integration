@@ -338,7 +338,7 @@ docker compose down -v
 docker volume prune -a
 ```
 
-* If you have changed OP contracts, you will have to start the devnet fresh and re-generate 
+* If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
 
@@ -380,3 +380,43 @@ In order to refresh this AMI one needs to:
 1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/enclave.yaml` *Launch EC2 Instance* job).
 2. Copy the script `espresso/scrips/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
+
+## Demo to Celo
+
+### Prepare for the Demo
+* Go to the scripts directory.
+```console
+cd espresso/scripts
+```
+* Allow access to scripts.
+```console
+chmod +x startup.sh
+chmod +x logs.sh
+chmod +x shutdown.sh
+```
+
+### Prebuild Everything and Start All Services
+Note that `l2-genesis` is expected to take around 2 minutes.
+```console
+./startup.sh
+```
+
+### View Logs
+There are 13 services in total, as listed in `logs.sh`. It is supported to run logs for any
+service, but we may want to show logs selectively, e.g., by running the following commands one by
+one. Note that some service names are replaced by more convenient alias, but it is also suported to
+use their full names.
+```console
+./logs.sh l1-geth
+./logs.sh dev-node
+./logs.sh op-geth
+./logs.sh sequencer
+./logs.sh verifier
+./logs.sh caff-node
+./logs.sh batcher
+```
+
+### Shut Down All Services
+```console
+./shutdown.sh
+```
