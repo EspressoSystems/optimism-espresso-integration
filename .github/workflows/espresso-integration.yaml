@@ -47,8 +47,7 @@ jobs:
           export PATH=$PATH:$PWD/bin
           cd ../espresso
           ./scripts/prepare-allocs.sh
-          docker compose up --build -d
-          docker compose down -v --remove-orphans
+          docker compose build
 
       - name: Generate test slice
         id: test_split
