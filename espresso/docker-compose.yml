@@ -176,11 +176,12 @@ services:
       l1-validator:
         condition: service_started
     environment:
-      CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${ROLLUP_PORT}
+    ports:
+      - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     volumes:
       - ./deployment/l2-config:/config:ro
       - /etc/localtime:/etc/localtime:ro
@@ -213,12 +214,16 @@ services:
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
+      OP_NODE_RPC_PORT: ${VERIFIER_PORT}
+    ports:
+      - "${VERIFIER_PORT}:${VERIFIER_PORT}"
     volumes:
       - ./deployment/l2-config:/config:ro
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
+      - --rpc.addr=0.0.0.0
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
@@ -237,20 +242,24 @@ services:
       l2-rollup:
         condition: service_completed_successfully
     environment:
-      CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
-      CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
-      CAFF_HOTSHOT_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+      OP_NODE_CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_NODE_CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+      OP_NODE_CAFF_HOTSHOT_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+      OP_NODE_RPC_PORT: ${CAFF_PORT}
+    ports:
+      - "${CAFF_PORT}:${CAFF_PORT}"
     volumes:
       - ./deployment/l2-config:/config:ro
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
-      - --caff.node=true
+      - --rpc.addr=0.0.0.0
       - --sequencer.enabled=false
+      - --caff.node=true
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
       - --rollup.halt=none
