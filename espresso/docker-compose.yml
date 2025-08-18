@@ -176,7 +176,6 @@ services:
       l1-validator:
         condition: service_started
     environment:
-      CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
@@ -246,8 +245,9 @@ services:
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
-      CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
-      CAFF_HOTSHOT_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+      OP_NODE_CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_NODE_CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+      OP_NODE_CAFF_HOTSHOT_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
       OP_NODE_RPC_PORT: ${CAFF_PORT}
     ports:
       - "${CAFF_PORT}:${CAFF_PORT}"
