@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -34,7 +35,11 @@ type Devnet struct {
 	L2Verif *ethclient.Client
 }
 
-func NewDevnet(ctx context.Context) *Devnet {
+func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
+	if testing.Short() {
+		t.Skip("skipping devnet test in short mode")
+	}
+
 	d := new(Devnet)
 	d.ctx = ctx
 	d.secrets = *secrets.DefaultSecrets

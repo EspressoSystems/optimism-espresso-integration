@@ -12,7 +12,7 @@ func TestBatcherRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d := NewDevnet(ctx)
+	d := NewDevnet(ctx, t)
 	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
