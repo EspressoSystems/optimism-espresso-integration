@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 # This is a convenience script to fetch data from the optimism node for
 # "optimism_syncStatus" RPC method.
 
