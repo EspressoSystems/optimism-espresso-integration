@@ -113,9 +113,6 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
-# Include the config.
-COPY espresso/deployment/l2-config /config
-
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
@@ -123,7 +120,6 @@ RUN apk add gcc
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
-COPY packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo /config
 CMD ["op-batcher"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
