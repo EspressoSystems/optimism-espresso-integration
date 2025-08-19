@@ -155,7 +155,7 @@ func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchVal
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
 		s.Log.Error("Finalized L1 block not initialized")
-		return BatchDrop, 0
+		return BatchUndecided, 0
 	}
 	origin := (batch).L1Origin()
 	if origin.Number > s.FinalizedL1.Number {
