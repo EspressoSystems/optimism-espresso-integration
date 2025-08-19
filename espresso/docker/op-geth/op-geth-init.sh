@@ -31,7 +31,7 @@ if [ "$MODE" = "genesis" ]; then
       --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
       "$L1_RPC" | jq -r '.result.number')
 
-    if [[ -z "$$finalized_block" || "$$finalized_block" == "null" ]]; then
+    if [[ -z "$finalized_block" || "$finalized_block" == "null" ]]; then
       echo "No finalized block yet, waiting..."
       sleep 3
       continue
