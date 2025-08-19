@@ -138,6 +138,7 @@
               pkgs.shellcheck
               pkgs.uv
               pkgs.yq-go
+              pkgs.tmux
             ];
 
             shellHook = ''
