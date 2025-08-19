@@ -446,14 +446,14 @@ Note that `l2-genesis` is expected to take around 2 minutes.
 ```
 
 ### View Logs
-There are 13 services in total, as listed in `logs.sh`. It is supported to run logs for any
+There are 15 services in total, as listed in `logs.sh`. It is supported to run logs for any
 service, but we may want to show logs selectively, e.g., by running the following commands one by
 one. Note that some service names are replaced by more convenient alias, but it is also suported to
 use their full names.
 ```console
 ./logs.sh l1-geth
 ./logs.sh dev-node
-./logs.sh op-geth
+./logs.sh op-geth-sequencer
 ./logs.sh sequencer
 ./logs.sh verifier
 ./logs.sh caff-node
