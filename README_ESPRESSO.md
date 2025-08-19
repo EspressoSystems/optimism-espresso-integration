@@ -382,6 +382,50 @@ In order to refresh this AMI one needs to:
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
 ## Demo to Celo
+For convenience some scripts have been added to make it easier to showcase the
+results, and monitor the progress of the docker compose file.  The primary
+script concerns evaluating `optimism_syncStatus` and displaying the results.
+
+This script requires the commands `tmux`, and `watch` to be installed and
+in the `PATH`. Check to see if you have them, and if you don't, be sure to
+install them using whatever method you deem necessary in order to run the
+script.
+
+After that has been done you should be able to spin up the simple script
+using the following command:
+```console
+./espresso/scripts/demo_tmux_get_sync_status.sh
+```
+
+This will launch a `tmux` session setup with a script to automatically
+query and display the `optimism_syncStatus` result for the `sequencer`,
+`verifier`, and `caff-node`.
+
+It assumes that the `docker-file.yml` is being run with the default values
+and will attempt to connect to them as needed.
+
+If you're not used to `tmux` you should be able to disconnect from the session
+using `<C-b> d`. This only detaches from the session, the session will still
+exist and be running in the background.  You can kill the session using the
+following command:
+```console
+tmux kill-session
+```
+
+Or you can reattach to it using this command instead:
+```console
+tmux attach
+```
+
+If you want to target different RPC endpoints for optimism, if you're not
+running the local demo, and want to target the remote, you can always
+specify environment variables before running the script:
+```console
+OP_RPC_SEQUENCER=http://sequencer.example.com:4545 \
+OP_RPC_VERIFIER=http://verifier.example.com:4545 \
+OP_RPC_CAFF=http://caff.example.com:4545 \
+./espresso/scripts/demo_tmux_get_sync_status.sh
+```
 
 ### Prepare for the Demo
 * Go to the scripts directory.
@@ -402,14 +446,14 @@ Note that `l2-genesis` is expected to take around 2 minutes.
 ```
 
 ### View Logs
-There are 13 services in total, as listed in `logs.sh`. It is supported to run logs for any
+There are 15 services in total, as listed in `logs.sh`. It is supported to run logs for any
 service, but we may want to show logs selectively, e.g., by running the following commands one by
 one. Note that some service names are replaced by more convenient alias, but it is also suported to
 use their full names.
 ```console
 ./logs.sh l1-geth
 ./logs.sh dev-node
-./logs.sh op-geth
+./logs.sh op-geth-sequencer
 ./logs.sh sequencer
 ./logs.sh verifier
 ./logs.sh caff-node
