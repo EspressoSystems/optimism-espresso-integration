@@ -80,7 +80,7 @@ services:
       l1-genesis:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}"]
+      test: [ "CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}" ]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -108,13 +108,13 @@ services:
     environment:
       - MODE=rollup
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
-      - OP_RPC=http://op-geth:${OP_HTTP_PORT:?err}
+      - OP_RPC=http://op-geth-seq:${OP_HTTP_PORT:?err}
     depends_on:
       l1-geth:
         condition: service_healthy
       l1-genesis:
         condition: service_completed_successfully
-      op-geth:
+      op-geth-seq:
         condition: service_healthy
     volumes:
       - ./deployment/l2-config:/config
@@ -136,31 +136,26 @@ services:
       - ./deployment/l2-config:/config
       - ./deployment/deployer:/deployer:ro
 
-  op-geth:
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${OP_HTTP_PORT}"]
-      interval: 3s
-      timeout: 2s
-      retries: 40
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-geth/Dockerfile
-    image: op-geth:espresso
-    depends_on:
-      l2-genesis:
-        condition: service_completed_successfully
-      l1-geth:
-        condition: service_healthy
+  op-geth-seq:
+    extends:
+      file: docker-compose-op-geth.yml
+      service: op-geth
     volumes:
-      - ./deployment/l2-config:/config:ro
-      - op-data:/data
-    environment:
-      L1_RPC: http://l1-geth:${L1_HTTP_PORT:?err}
-      OP_HTTP_PORT: ${OP_HTTP_PORT:?err}
-      OP_ENGINE_PORT: ${OP_ENGINE_PORT:?err}
-    ports:
-      - "${OP_HTTP_PORT}:${OP_HTTP_PORT}"
-      - "${OP_ENGINE_PORT}:${OP_ENGINE_PORT}"
+      - op-data-seq:/data
+
+  op-geth-verifier:
+    extends:
+      file: docker-compose-op-geth.yml
+      service: op-geth
+    volumes:
+      - op-data-verifier:/data
+
+  op-geth-caff-node:
+    extends:
+      file: docker-compose-op-geth.yml
+      service: op-geth
+    volumes:
+      - op-data-caff-node:/data
 
   op-node-sequencer:
     build:
@@ -171,7 +166,7 @@ services:
     depends_on:
       l2-rollup:
         condition: service_completed_successfully
-      op-geth:
+      op-geth-seq:
         condition: service_healthy
       l1-validator:
         condition: service_started
@@ -179,7 +174,7 @@ services:
       CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
-      OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
+      OP_NODE_L2_ENGINE_RPC: http://op-geth-seq:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${ROLLUP_PORT}
     volumes:
       - ./deployment/l2-config:/config:ro
@@ -204,7 +199,7 @@ services:
     depends_on:
       l2-rollup:
         condition: service_completed_successfully
-      op-geth:
+      op-geth-verifier:
         condition: service_started
       l1-validator:
         condition: service_started
@@ -212,7 +207,7 @@ services:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
-      OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
+      OP_NODE_L2_ENGINE_RPC: http://op-geth-verifier:${OP_ENGINE_PORT}
     volumes:
       - ./deployment/l2-config:/config:ro
     command:
@@ -230,7 +225,7 @@ services:
       target: op-node-target
     image: caff-node:espresso
     depends_on:
-      op-geth:
+      op-geth-caff-node:
         condition: service_started
       espresso-dev-node:
         condition: service_started
@@ -240,7 +235,7 @@ services:
       CAFF_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
-      OP_NODE_L2_ENGINE_RPC: http://op-geth:${OP_ENGINE_PORT}
+      OP_NODE_L2_ENGINE_RPC: http://op-geth-caff-node:${OP_ENGINE_PORT}
       CAFF_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
       CAFF_HOTSHOT_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
     volumes:
@@ -274,7 +269,7 @@ services:
     depends_on:
       l1-geth:
         condition: service_healthy
-      op-geth:
+      op-geth-seq:
         condition: service_started
       op-node-sequencer:
         condition: service_started
@@ -285,7 +280,7 @@ services:
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
-      OP_BATCHER_L2_ETH_RPC: http://op-geth:${OP_HTTP_PORT}
+      OP_BATCHER_L2_ETH_RPC: http://op-geth-seq:${OP_HTTP_PORT}
       OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
       OP_BATCHER_ESPRESSO_URL: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
     volumes:
@@ -349,10 +344,12 @@ services:
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
       ESPRESSO_SEQUENCER_L1_PROVIDER: http://l1-geth:${L1_HTTP_PORT}
       ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
-      ESPRESSO_DEV_NODE_EPOCH_HEIGHT: 18446744073709551615
+      ESPRESSO_DEV_NODE_EPOCH_HEIGHT: '4294967295'
       ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
 
 volumes:
   l1-data:
-  op-data:
+  op-data-seq:
+  op-data-verifier:
+  op-data-caff-node:
   espresso-data:
