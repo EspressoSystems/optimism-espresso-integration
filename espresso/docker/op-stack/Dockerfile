@@ -115,7 +115,6 @@ RUN mkdir -p /config
 
 # Include the deployment and contarcts.
 COPY espresso/deployment/ /deployment/
-COPY espresso/deployment/l2-config /config
 
 CMD ["op-node"]
 
