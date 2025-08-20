@@ -170,8 +170,6 @@ services:
         condition: service_healthy
       l1-validator:
         condition: service_started
-    ports:
-      - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     environment:
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
