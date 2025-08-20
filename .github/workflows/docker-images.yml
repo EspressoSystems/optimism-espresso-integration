@@ -463,20 +463,6 @@ jobs:
         if: steps.check-package.outputs.has-package == 'true'
         run: npm ci
 
-      - name: Build op-deployer
-        run: |
-          cd op-deployer
-          just
-          echo "$(pwd)/bin" >> $GITHUB_PATH
-
-      - name: Compile contracts
-        run: just compile-contracts
-
-      - name: Prepare allocations
-        run: |
-          cd espresso
-          ./scripts/prepare-allocs.sh
-
       - name: Build op-batcher enclave image
         run: |
           cd espresso
