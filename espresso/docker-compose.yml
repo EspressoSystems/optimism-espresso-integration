@@ -266,8 +266,8 @@ services:
       - --l1.epoch-poll-interval=1s
     restart: "no"
 
-  op-batcher-non-tee:
-    profiles: ["nontee"]
+  op-batcher:
+    profiles: ["default"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -303,7 +303,8 @@ services:
       - --max-channel-duration=1
       - --target-num-frames=1
 
-  op-batcher:
+  op-batcher-tee:
+    profiles: ["tee"]
     image: ${OP_BATCHER_ENCLAVE_IMAGE:-op-batcher-enclaver:tests}
     depends_on:
       l1-geth:
