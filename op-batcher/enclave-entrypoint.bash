@@ -126,9 +126,8 @@ while [ $# -gt 0 ]; do
         value="$1"
       fi
 
-      # SPECIAL CASE: espresso-url may be a comma list. Either split here,
-      # or (simpler) pass the flag twice at build time. See note below.
-      if [[ "$flag" == "--espresso-url" && "$value" == *","* ]]; then
+      # Handle comma-separated values for any flag
+      if [[ "$value" == *","* ]]; then
         IFS=',' read -r -a parts <<< "$value"
         for part in "${parts[@]}"; do
           if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
