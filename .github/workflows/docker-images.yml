@@ -394,3 +394,100 @@ jobs:
             TARGET_BASE_IMAGE=alpine:3.22
             TARGETOS=linux
             TARGETARCH=amd64
+
+  build-op-batcher-tee:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      ENCLAVE_APP_IMAGE: op-batcher-enclave:app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+          dasel --version
+
+      - name: Check for package.json
+        id: check-package
+        run: |
+          if [ -f "package.json" ]; then
+            echo "has-package=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-package=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-package.outputs.has-package == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Run Enclaver installation
+        run: |
+          echo "Downloading and installing Enclaver..."
+          ARCH=$(uname -m)
+          LATEST_RELEASE=$(curl -s https://api.github.com/repositories/516492075/releases/latest)
+          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r ".assets[] | select(.name | test(\"^enclaver-linux-$ARCH.*tar.gz$\")) | .browser_download_url")
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Could not find Enclaver download URL"
+            exit 1
+          fi
+          curl -L "$DOWNLOAD_URL" -o enclaver.tar.gz
+          tar xzf enclaver.tar.gz
+          sudo install enclaver-*/enclaver /usr/local/bin/
+          rm -rf enclaver.tar.gz enclaver-*
+          enclaver --version
+
+      - name: Install dependencies
+        if: steps.check-package.outputs.has-package == 'true'
+        run: npm ci
+
+      - name: Build op-batcher enclave image
+        run: |
+          cd espresso
+          ./scripts/batcher-enclave-image.sh
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/op-batcher-tee
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Tag and push op-batcher-tee image
+        run: |
+          docker tag "${{ env.ENCLAVE_APP_IMAGE }}" ${{ steps.meta.outputs.tags }}
+          docker push ${{ steps.meta.outputs.tags }}
