@@ -305,7 +305,7 @@ docker compose up --build -d
 ```
 If you're on a machine with AWS Nitro Enclaves enabled, use the `tee` profile instead to start the enclave batcher.
 ```console
-docker compose up --build -d --profile tee
+COMPOSE_PROFILES=tee docker compose up --build -d
 ```
 
 * Run the services and check the log.
