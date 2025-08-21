@@ -320,6 +320,9 @@ func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, fi
 // processRemainingBatches is a helper method that checks the remaining batches
 // and prunes or adds them to the batch buffer as appropriate.
 func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
+	// Collect keys to delete, without modifying the batch list during iteration.
+	var keysToDelete []common.Hash
+
 	// Process the remaining batches
 	for k, batch := range s.RemainingBatches {
 		validity, pos := s.CheckBatch(ctx, batch)
@@ -327,12 +330,12 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 		switch validity {
 		case BatchDrop:
 			s.Log.Warn("Dropping batch", "batch", batch)
-			delete(s.RemainingBatches, k)
+			keysToDelete = append(keysToDelete, k)
 			continue
 
 		case BatchPast:
 			s.Log.Warn("Batch already processed. Skipping", "batch", batch)
-			delete(s.RemainingBatches, k)
+			keysToDelete = append(keysToDelete, k)
 			continue
 
 		case BatchUndecided:
@@ -349,6 +352,11 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(batch, pos)
+		keysToDelete = append(keysToDelete, k)
+	}
+
+	// Delete keys all at once.
+	for _, k := range keysToDelete {
 		delete(s.RemainingBatches, k)
 	}
 }
