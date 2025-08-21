@@ -31,7 +31,7 @@ unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
 NC_PORT=8337
 received_args=()
 
-echo "Starting nc listener on port $NC_PORT (10 second timeout)"
+echo "Starting nc listener on port $NC_PORT (60 second timeout)"
 {
     # Read null-separated arguments until we get \0\0
     while IFS= read -r -d '' arg; do
@@ -41,10 +41,10 @@ echo "Starting nc listener on port $NC_PORT (10 second timeout)"
         fi
         received_args+=("$arg")
     done
-} < <(nc -l -p "$NC_PORT" -w 10)
+} < <(nc -l -p "$NC_PORT" -w 60)
 
 if [ ${#received_args[@]} -eq 0 ]; then
-    echo "Warning: No arguments received via nc listener within 10 seconds, continuing with existing arguments"
+    echo "Warning: No arguments received via nc listener within 60 seconds, continuing with existing arguments"
 else
     echo "Received ${#received_args[@]} arguments via nc, appending to existing arguments"
     # Append received arguments to existing positional parameters
