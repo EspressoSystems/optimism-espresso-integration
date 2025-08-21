@@ -1,6 +1,7 @@
 package batcher
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -649,8 +650,8 @@ func (s *espressoTransactionSubmitter) Start() {
 	go s.handleVerifyReceiptJobResponse()
 }
 
-func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
-	return &bs.driver.espressoStreamer
+func (bs *BatcherService) EspressoStreamer() espressoLocal.EspressoStreamerIFace[derive.EspressoBatch] {
+	return bs.driver.espressoStreamer
 }
 
 func (bs *BatcherService) initKeyPair() error {
@@ -664,7 +665,7 @@ func (bs *BatcherService) initKeyPair() error {
 }
 
 // EspressoStreamer returns the batch submitter's Espresso streamer instance
-func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamerIFace[derive.EspressoBatch] {
 	return &l.espressoStreamer
 }
 
@@ -690,7 +691,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
+	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.FinalizedL2.Number, newSyncStatus.FinalizedL2.L1Origin)
 	if err != nil {
 		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
 	}
@@ -736,7 +737,7 @@ func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *
 
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan struct{}) {
-	l.Log.Info("Starting EspressoBatchLoadingLoop")
+	l.Log.Info("Starting EspressoBatchLoadingLoop", "pollInterval", l.Config.EspressoPollInterval)
 
 	defer wg.Done()
 	ticker := time.NewTicker(l.Config.EspressoPollInterval)
@@ -755,12 +756,13 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
 			err = l.espressoStreamer.Update(ctx)
-			remainingListLen := len(l.espressoStreamer.RemainingBatches)
+			remainingListLen := l.espressoStreamer.RemainingBatchesLen()
 			if remainingListLen > 0 {
 				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
 			}
 
 			var batch *derive.EspressoBatch
+			var hasData bool
 
 			for {
 
@@ -787,18 +789,37 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 				l.channelMgrMutex.Lock()
 				err = l.channelMgr.AddL2Block(block)
+				lastStoredBlock := l.channelMgr.LastStoredBlock()
 				l.channelMgrMutex.Unlock()
 
 				if err != nil {
-					l.Log.Error("failed to add L2 block to channel manager", "err", err)
+					l.Log.Error("failed to add L2 block to channel manager", "err", err, "blockHash", block.Hash(), "tipHash", lastStoredBlock.Hash, "blockNumber", block.NumberU64(), "tipNumber", lastStoredBlock.Number)
+					if errors.Is(err, ErrReorg) {
+						if lastStoredBlock.Number >= block.NumberU64() {
+							batch = nil
+							l.Log.Debug("Detected an earlier block than the last stored block, skipping", "lastStoredBlock", lastStoredBlock.Number, "currentBlock", block.NumberU64())
+							// Ignore this block, and wait for the next one.
+							continue
+						}
+					}
+
+					// The reason for the error is unclear, so it's safer to
+					// just reset the state and try again.
 					l.clearState(ctx)
 					l.espressoStreamer.Reset()
+					break
 				}
 
+				hasData = true
 				l.Log.Info("Added L2 block to channel manager")
 			}
 
-			trySignal(publishSignal)
+			if hasData {
+				// Only notify the need to publish if we have successfully
+				// processed a batch
+				l.Log.Info("attempting to signal publishSignal")
+				trySignal(publishSignal)
+			}
 
 			// A failure in the streamer Update can happen after the buffer has been partially filled
 			if err != nil {

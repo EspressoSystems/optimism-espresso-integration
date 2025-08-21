@@ -24,6 +24,14 @@ output_block_details() {
     echo "  timestamp: $(echo $BLOCK | jq -r .timestamp)"
 }
 
+output_l2_block_details() {
+    BLOCK=$(echo $RESULT | jq -r .$1)
+    output_block_details "$1"
+    echo "  l1 origin: $(echo $BLOCK | jq -r .l1origin.hash) ($(echo $BLOCK | jq -r .l1origin.number))"
+    echo "  sequence: $(echo $BLOCK | jq -r .sequenceNumber)"
+
+}
+
 # Output the block details in a simple format
 output_block_details "current_l1"
 output_block_details "current_l1_finalized"
@@ -31,6 +39,6 @@ output_block_details "head_l1"
 output_block_details "safe_l1"
 output_block_details "finalized_l1"
 echo
-output_block_details "unsafe_l2"
-output_block_details "safe_l2"
-output_block_details "finalized_l2"
+output_l2_block_details "unsafe_l2"
+output_l2_block_details "safe_l2"
+output_l2_block_details "finalized_l2"

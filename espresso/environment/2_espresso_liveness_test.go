@@ -297,7 +297,7 @@ func TestE2eDevNetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) 
 		// maintain the same block hash, and the transaction hashes will match
 		// for the transactions beyond the first in the block.
 		wg.Add(1)
-		go (func(ctx context.Context, wg *sync.WaitGroup, streamer espresso.EspressoStreamer[derive.EspressoBatch]) {
+		go (func(ctx context.Context, wg *sync.WaitGroup, streamer espresso.EspressoStreamerIFace[derive.EspressoBatch]) {
 			cfg := system.RollupConfig
 			defer wg.Done()
 			for {

@@ -80,7 +80,7 @@ services:
       l1-genesis:
         condition: service_completed_successfully
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}" ]
+      test: ["CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -142,6 +142,8 @@ services:
       service: op-geth
     volumes:
       - op-data-seq:/data
+    ports:
+      - "${ROLLUP_GETH_PORT}:${OP_HTTP_PORT}"
 
   op-geth-verifier:
     extends:
@@ -149,6 +151,8 @@ services:
       service: op-geth
     volumes:
       - op-data-verifier:/data
+    ports:
+      - "${VERIFIER_GETH_PORT}:${OP_HTTP_PORT}"
 
   op-geth-caff-node:
     extends:
@@ -156,6 +160,8 @@ services:
       service: op-geth
     volumes:
       - op-data-caff-node:/data
+    ports:
+      - "${CAFF_GETH_PORT}:${OP_HTTP_PORT}"
 
   op-node-sequencer:
     build:
@@ -187,6 +193,7 @@ services:
       - --sequencer.enabled=true
       - --sequencer.use-finalized=true
       - --rpc.addr=0.0.0.0
+      - --rpc.enable-admin=true
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
@@ -219,6 +226,8 @@ services:
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
       - --rpc.addr=0.0.0.0
+      - --sequencer.enabled=false
+      - --rpc.enable-admin=true
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
@@ -254,18 +263,18 @@ services:
       - --rollup.config=/config/rollup.json
       - --rpc.addr=0.0.0.0
       - --sequencer.enabled=false
+      - --rpc.enable-admin=true
+      - --l1.http-poll-interval=1s
+      - --l1.epoch-poll-interval=1s
+      - --p2p.disable=true
       - --caff.node=true
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
       - --rollup.halt=none
       - --l1.trustrpc=true
-      - --rpc.enable-admin=true
       - --caff.next-hotshot-block-num=1
       - --caff.polling-hotshot-polling-interval=500ms
       - --log.level=debug
-      - --p2p.disable=true
-      - --l1.http-poll-interval=1s
-      - --l1.epoch-poll-interval=1s
     restart: "no"
 
   op-batcher:
@@ -353,7 +362,7 @@ services:
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
       ESPRESSO_SEQUENCER_L1_PROVIDER: http://l1-geth:${L1_HTTP_PORT}
       ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
-      ESPRESSO_DEV_NODE_EPOCH_HEIGHT: '4294967295'
+      ESPRESSO_DEV_NODE_EPOCH_HEIGHT: "4294967295"
       ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
 
 volumes:
