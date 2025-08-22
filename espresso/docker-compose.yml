@@ -311,10 +311,12 @@ services:
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
-      op-node-sequencer:
-        condition: service_started
       l2-rollup:
         condition: service_completed_successfully
+      op-node-sequencer:
+        condition: service_started
+      op-batcher:
+        condition: service_started
     environment:
       OP_PROPOSER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_PROPOSER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}

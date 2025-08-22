@@ -15,10 +15,16 @@ if [[ "$MODE" == "genesis" ]]; then
   # Create config directory if it doesn't exist.
   mkdir -p /config
 
-  # Copy genesis template if it doesn't exist.
+  # Use pre-built genesis with deployed contracts instead of empty template
   if [[ ! -f "/config/genesis.json" ]]; then
-      echo "Copying genesis template..."
-      cp /templates/devnet-genesis-template.json /config/genesis.json
+      echo "Copying pre-built genesis with deployed contracts..."
+      if [[ -f "/deployment/l1-config/genesis.json" ]]; then
+          echo "Using pre-built genesis from deployment artifacts..."
+          cp /deployment/l1-config/genesis.json /config/genesis.json
+      else
+          echo "Pre-built genesis not found, falling back to template..."
+          cp /templates/devnet-genesis-template.json /config/genesis.json
+      fi
   fi
 
   echo "Updating genesis timestamp..."
