@@ -89,34 +89,61 @@ elif [ "$MODE" = "geth" ]; then
 elif [ "$MODE" = "rollup" ]; then
   echo "=== Running L2 Rollup Config Mode ==="
 
-  echo "Generating rollup config..."
-  op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
+  if [[ -f "/deployment/l2-config/rollup.json" ]]; then
+    echo "Using pre-built rollup config..."
+    cp /deployment/l2-config/rollup.json /config/rollup.json
 
-  echo "Updating L1 genesis info..."
-  L1_HASH=$(curl -X POST \
-          "${L1_RPC}" \
-          -H 'Content-Type: application/json' \
-          -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
-          | jq -r ".result.hash")
-  dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v $L1_HASH
-  dasel put -f /config/rollup.json -s .genesis.l1.number -t int -v 0
+    # Still need to update with current L1/L2 state
+    echo "Updating L1 genesis info..."
+    L1_HASH=$(curl -X POST \
+            "${L1_RPC}" \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
+            | jq -r ".result.hash")
+    dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v $L1_HASH
+    dasel put -f /config/rollup.json -s .genesis.l1.number -t int -v 0
 
-  echo "Updating L2 genesis info..."
-  L2_HASH=$(curl -X POST \
-          "${OP_RPC}" \
-          -H 'Content-Type: application/json' \
-          -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
-          | jq -r ".result.hash")
-  dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v $L2_HASH
-  dasel put -f /config/rollup.json -s .genesis.l2.number -t int -v 0
+    echo "Updating L2 genesis info..."
+    L2_HASH=$(curl -X POST \
+            "${OP_RPC}" \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
+            | jq -r ".result.hash")
+    dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v $L2_HASH
+    dasel put -f /config/rollup.json -s .genesis.l2.number -t int -v 0
 
-  echo "Updating rollup l2_time..."
-  dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+    echo "Updating rollup l2_time..."
+    dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+  else
+    echo "Pre-built rollup config not found, generating new one..."
+    op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
+
+    echo "Updating L1 genesis info..."
+    L1_HASH=$(curl -X POST \
+            "${L1_RPC}" \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
+            | jq -r ".result.hash")
+    dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v $L1_HASH
+    dasel put -f /config/rollup.json -s .genesis.l1.number -t int -v 0
+
+    echo "Updating L2 genesis info..."
+    L2_HASH=$(curl -X POST \
+            "${OP_RPC}" \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
+            | jq -r ".result.hash")
+    dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v $L2_HASH
+    dasel put -f /config/rollup.json -s .genesis.l2.number -t int -v 0
+
+    echo "Updating rollup l2_time..."
+    dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+  fi
 
   echo "L2 rollup config complete"
   exit 0
 
 else
-    echo "Unknown MODE: $MODE. Use 'genesis' or 'geth'"
+    echo "Unknown MODE: $MODE. Use 'genesis', 'rollup', or 'geth'"
     exit 1
 fi
