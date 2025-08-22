@@ -899,7 +899,13 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 
 	// State empty, just enqueue all unsafe blocks
 	if len(l.queuedBlocks) == 0 {
-		return inclusiveBlockRange{safeL2.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
+		if newSyncStatus.UnsafeL2.Number <= safeL2.Number+1 {
+			// no unsafe blocks to enqueue, just retry
+			l.batcher.Log.Warn("no unsafe blocks to enqueue", "safeL2", safeL2, "unsafeL2", newSyncStatus.UnsafeL2)
+			return inclusiveBlockRange{}, ActionRetry
+		}
+
+		return inclusiveBlockRange{start: safeL2.Number + 1, end: newSyncStatus.UnsafeL2.Number}, ActionEnqueue
 	}
 
 	lastQueuedBlock := l.queuedBlocks[len(l.queuedBlocks)-1]
@@ -947,7 +953,7 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		l.queuedBlocks = l.queuedBlocks[numFinalizedBlocks:]
 	}
 
-	return inclusiveBlockRange{lastQueuedBlock.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
+	return inclusiveBlockRange{start: lastQueuedBlock.Number + 1, end: newSyncStatus.UnsafeL2.Number}, ActionEnqueue
 }
 
 // blockLoadingLoop
