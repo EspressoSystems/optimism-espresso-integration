@@ -229,7 +229,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
 		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)
-		go l.espressoBatchLoadingLoop(l.shutdownCtx, l.wg, publishSignal)
+		go l.espressoBatchLoadingLoop(l.shutdownCtx, l.wg, pendingBytesUpdated, publishSignal)
 		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal) // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
 
 		l.Log.Info("Batch Submitter started in Espresso mode")
