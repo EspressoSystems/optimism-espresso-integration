@@ -305,9 +305,31 @@ services:
       - --max-channel-duration=1
       - --target-num-frames=1
 
+  # HTTP proxy for enclave Odyn proxy requirement
+  http-proxy:
+    image: alpine:latest
+    command: >
+      sh -c "
+      apk add --no-cache tinyproxy &&
+      echo 'Allow 127.0.0.1' >> /etc/tinyproxy/tinyproxy.conf &&
+      echo 'Allow 0.0.0.0/0' >> /etc/tinyproxy/tinyproxy.conf &&
+      echo 'DisableViaHeader Yes' >> /etc/tinyproxy/tinyproxy.conf &&
+      tinyproxy -d
+      "
+    ports:
+      - "3128:8888"
+    networks:
+      default:
+        aliases:
+          - proxy
+
   op-batcher-tee:
     profiles: ["tee"]
-    image: ${OP_BATCHER_ENCLAVE_IMAGE:-op-batcher-enclaver:tests}
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-batcher-enclave-target
+    image: op-batcher-tee:espresso
     depends_on:
       l1-geth:
         condition: service_healthy
@@ -319,11 +341,29 @@ services:
         condition: service_started
       l2-genesis:
         condition: service_completed_successfully
+      http-proxy:
+        condition: service_started
     network_mode: "host"
+    environment:
+      L1_RPC: http://127.0.0.1:${L1_HTTP_PORT}
+      OP_BATCHER_L1_ETH_RPC: http://127.0.0.1:${L1_HTTP_PORT}
+      OP_BATCHER_L2_ETH_RPC: http://127.0.0.1:${OP_HTTP_PORT}
+      OP_BATCHER_ROLLUP_RPC: http://127.0.0.1:${ROLLUP_PORT}
+      OP_BATCHER_ESPRESSO_URL: http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}
+      HOST_IP: 127.0.0.1
+      http_proxy: http://127.0.0.1:3128
+      HTTP_PROXY: http://127.0.0.1:3128
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ..:/source:ro
+      - ./scripts/batcher-enclave-tool-image.sh:/app/espresso/scripts/batcher-enclave-tool-image.sh:ro
+      - /tmp:/tmp
     privileged: true
     devices:
       - /dev/nitro_enclaves:/dev/nitro_enclaves
     restart: "no"
+    command:
+      - /app/espresso/scripts/batcher-enclave-tool-image.sh
 
 
   op-proposer:

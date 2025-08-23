@@ -296,7 +296,7 @@ docker compose down -v --remove-orphans
 
 * Make sure you're on a machine with AWS Nitro Enclaves enabled. Build the enclave image.
 ```console
-./scripts/batcher-enclave-image.sh
+./scripts/batcher-enclave-tool-image.sh
 ```
 
 * Build and start all services in the background.
