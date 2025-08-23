@@ -120,6 +120,9 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
+# Include the deployment and contarcts.
+COPY espresso/deployment/ /deployment/
+
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
@@ -183,6 +186,7 @@ CMD ["enclave-tools"]
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 RUN apk add jq
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
+COPY --from=op-proposer-builder /app/espresso/deployment/deployer /deployer
 CMD ["op-proposer"]
 
 FROM $TARGET_BASE_IMAGE AS op-deployer-target
