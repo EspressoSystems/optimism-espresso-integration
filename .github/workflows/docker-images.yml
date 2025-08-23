@@ -2,7 +2,7 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main, celo*]
+    branches: [main, celo*, sishan/*]
     paths:
       - "espresso/docker/**"
       - "espresso/docker-compose.yml"
