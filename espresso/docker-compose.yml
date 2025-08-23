@@ -345,12 +345,6 @@ services:
         condition: service_started
     network_mode: "host"
     environment:
-      L1_RPC: http://127.0.0.1:${L1_HTTP_PORT}
-      OP_BATCHER_L1_ETH_RPC: http://127.0.0.1:${L1_HTTP_PORT}
-      OP_BATCHER_L2_ETH_RPC: http://127.0.0.1:${OP_HTTP_PORT}
-      OP_BATCHER_ROLLUP_RPC: http://127.0.0.1:${ROLLUP_PORT}
-      OP_BATCHER_ESPRESSO_URL: http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}
-      HOST_IP: 127.0.0.1
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
     volumes:
@@ -364,6 +358,10 @@ services:
     restart: "no"
     command:
       - /app/espresso/scripts/batcher-enclave-tool-image.sh
+      - "http://127.0.0.1:${L1_HTTP_PORT}"
+      - "http://127.0.0.1:${OP_HTTP_PORT}"
+      - "http://127.0.0.1:${ROLLUP_PORT}"
+      - "http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
 
 
   op-proposer:
