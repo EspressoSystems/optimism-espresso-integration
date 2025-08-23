@@ -150,35 +150,33 @@ COPY --from=enclave-tools-builder /app/ops /app/ops
 COPY --from=enclave-tools-builder /app/espresso /app/espresso
 COPY --from=enclave-tools-builder /app/op-batcher /app/op-batcher
 # Create .env file with necessary variables (since it's excluded by .gitignore)
-RUN cat > /app/espresso/.env << 'EOF'
-# Environment variables for enclave
-ESPRESSO_DEV_NODE_L1_DEPLOYMENT=skip
-ESPRESSO_SEQUENCER_ESP_TOKEN_ADDRESS=0x00c042c4d5d913277ce16611a2ce6e9003554ad5
-ESPRESSO_SEQUENCER_PLONK_VERIFIER_V2_ADDRESS=0x422a3492e218383753d8006c7bfa97815b44373f
-ESPRESSO_SEQUENCER_STAKE_TABLE_ADDRESS=0x63e6dde6763c3466c7b45be880f7ee5dc2ca3e25
-ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-ESPRESSO_SEQUENCER_FEE_CONTRACT_PROXY_ADDRESS=0x72ae2643518179cf01bca3278a37cead408de8b2
-ESPRESSO_SEQUENCER_FEE_CONTRACT_ADDRESS=0x8f0342a7060e76dfc7f6e9debfad9b9ec919952c
-ESPRESSO_SEQUENCER_STAKE_TABLE_PROXY_ADDRESS=0x9f5eac3d8e082f47631f1551f1343f23cd427162
-ESPRESSO_SEQUENCER_ESP_TOKEN_PROXY_ADDRESS=0x9fcf7d13d10dedf17d0f24c62f0cf4ed462f65b7
-ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS=0xb4b46bdaa835f8e4b4d8e208b6559cd267851051
-ESPRESSO_SEQUENCER_API_PORT=24000
-ESPRESSO_DEV_NODE_PORT=24002
-ESPRESSO_BUILDER_PORT=31003
-L1_ENGINE_PORT=8551
-L1_HTTP_PORT=8545
-L1_BEACON_PORT=5052
-ROLLUP_PORT=9545
-VERIFIER_PORT=9546
-CAFF_PORT=9547
-OP_ENGINE_PORT=8552
-OP_HTTP_PORT=8546
-OPERATOR_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-L1_CHAIN_ID=11155111
-L2_CHAIN_ID=22266222
-COMPOSE_PROFILES=default
-EOF
+RUN echo "# Environment variables for enclave" > /app/espresso/.env && \
+    echo "ESPRESSO_DEV_NODE_L1_DEPLOYMENT=skip" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_ESP_TOKEN_ADDRESS=0x00c042c4d5d913277ce16611a2ce6e9003554ad5" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_PLONK_VERIFIER_V2_ADDRESS=0x422a3492e218383753d8006c7bfa97815b44373f" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_STAKE_TABLE_ADDRESS=0x63e6dde6763c3466c7b45be880f7ee5dc2ca3e25" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_FEE_CONTRACT_PROXY_ADDRESS=0x72ae2643518179cf01bca3278a37cead408de8b2" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_FEE_CONTRACT_ADDRESS=0x8f0342a7060e76dfc7f6e9debfad9b9ec919952c" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_STAKE_TABLE_PROXY_ADDRESS=0x9f5eac3d8e082f47631f1551f1343f23cd427162" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_ESP_TOKEN_PROXY_ADDRESS=0x9fcf7d13d10dedf17d0f24c62f0cf4ed462f65b7" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS=0xb4b46bdaa835f8e4b4d8e208b6559cd267851051" >> /app/espresso/.env && \
+    echo "ESPRESSO_SEQUENCER_API_PORT=24000" >> /app/espresso/.env && \
+    echo "ESPRESSO_DEV_NODE_PORT=24002" >> /app/espresso/.env && \
+    echo "ESPRESSO_BUILDER_PORT=31003" >> /app/espresso/.env && \
+    echo "L1_ENGINE_PORT=8551" >> /app/espresso/.env && \
+    echo "L1_HTTP_PORT=8545" >> /app/espresso/.env && \
+    echo "L1_BEACON_PORT=5052" >> /app/espresso/.env && \
+    echo "ROLLUP_PORT=9545" >> /app/espresso/.env && \
+    echo "VERIFIER_PORT=9546" >> /app/espresso/.env && \
+    echo "CAFF_PORT=9547" >> /app/espresso/.env && \
+    echo "OP_ENGINE_PORT=8552" >> /app/espresso/.env && \
+    echo "OP_HTTP_PORT=8546" >> /app/espresso/.env && \
+    echo "OPERATOR_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" >> /app/espresso/.env && \
+    echo "OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" >> /app/espresso/.env && \
+    echo "L1_CHAIN_ID=11155111" >> /app/espresso/.env && \
+    echo "L2_CHAIN_ID=22266222" >> /app/espresso/.env && \
+    echo "COMPOSE_PROFILES=default" >> /app/espresso/.env
 RUN chmod +x /app/espresso/scripts/batcher-enclave-tool-image.sh /app/espresso/scripts/prepare-allocs.sh
 WORKDIR /app
 CMD ["enclave-tools"]
