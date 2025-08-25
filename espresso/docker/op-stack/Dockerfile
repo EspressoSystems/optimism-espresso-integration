@@ -139,46 +139,6 @@ RUN curl -L https://github.com/enclaver-io/enclaver/releases/download/v0.5.0/enc
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/
-# Copy go.mod to establish monorepo root for enclave-tools
-COPY --from=enclave-tools-builder /app/go.mod /app/go.mod
-# Copy entire packages and op-e2e directories to satisfy op-e2e config dependencies
-COPY --from=enclave-tools-builder /app/packages /app/packages
-COPY --from=enclave-tools-builder /app/op-e2e /app/op-e2e
-# Copy ops directory required by enclave-tools
-COPY --from=enclave-tools-builder /app/ops /app/ops
-# Copy entire espresso directory and op-batcher to get all dependencies
-COPY --from=enclave-tools-builder /app/espresso /app/espresso
-COPY --from=enclave-tools-builder /app/op-batcher /app/op-batcher
-# Create .env file with necessary variables (since it's excluded by .gitignore)
-RUN echo "# Environment variables for enclave" > /app/espresso/.env && \
-    echo "ESPRESSO_DEV_NODE_L1_DEPLOYMENT=skip" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_ESP_TOKEN_ADDRESS=0x00c042c4d5d913277ce16611a2ce6e9003554ad5" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_PLONK_VERIFIER_V2_ADDRESS=0x422a3492e218383753d8006c7bfa97815b44373f" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_STAKE_TABLE_ADDRESS=0x63e6dde6763c3466c7b45be880f7ee5dc2ca3e25" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_FEE_CONTRACT_PROXY_ADDRESS=0x72ae2643518179cf01bca3278a37cead408de8b2" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_FEE_CONTRACT_ADDRESS=0x8f0342a7060e76dfc7f6e9debfad9b9ec919952c" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_STAKE_TABLE_PROXY_ADDRESS=0x9f5eac3d8e082f47631f1551f1343f23cd427162" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_ESP_TOKEN_PROXY_ADDRESS=0x9fcf7d13d10dedf17d0f24c62f0cf4ed462f65b7" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_PLONK_VERIFIER_ADDRESS=0xb4b46bdaa835f8e4b4d8e208b6559cd267851051" >> /app/espresso/.env && \
-    echo "ESPRESSO_SEQUENCER_API_PORT=24000" >> /app/espresso/.env && \
-    echo "ESPRESSO_DEV_NODE_PORT=24002" >> /app/espresso/.env && \
-    echo "ESPRESSO_BUILDER_PORT=31003" >> /app/espresso/.env && \
-    echo "L1_ENGINE_PORT=8551" >> /app/espresso/.env && \
-    echo "L1_HTTP_PORT=8545" >> /app/espresso/.env && \
-    echo "L1_BEACON_PORT=5052" >> /app/espresso/.env && \
-    echo "ROLLUP_PORT=9545" >> /app/espresso/.env && \
-    echo "VERIFIER_PORT=9546" >> /app/espresso/.env && \
-    echo "CAFF_PORT=9547" >> /app/espresso/.env && \
-    echo "OP_ENGINE_PORT=8552" >> /app/espresso/.env && \
-    echo "OP_HTTP_PORT=8546" >> /app/espresso/.env && \
-    echo "OPERATOR_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" >> /app/espresso/.env && \
-    echo "OPERATOR_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" >> /app/espresso/.env && \
-    echo "L1_CHAIN_ID=11155111" >> /app/espresso/.env && \
-    echo "L2_CHAIN_ID=22266222" >> /app/espresso/.env && \
-    echo "COMPOSE_PROFILES=default" >> /app/espresso/.env
-RUN chmod +x /app/espresso/scripts/batcher-enclave-tool-image.sh /app/espresso/scripts/prepare-allocs.sh
-WORKDIR /app
 CMD ["enclave-tools"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target

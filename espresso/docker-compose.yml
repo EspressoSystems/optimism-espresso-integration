@@ -357,11 +357,82 @@ services:
       - /dev/nitro_enclaves:/dev/nitro_enclaves
     restart: "no"
     command:
-      - /app/espresso/scripts/batcher-enclave-tool-image.sh
-      - "http://127.0.0.1:${L1_HTTP_PORT}"
-      - "http://127.0.0.1:${OP_HTTP_PORT}"
-      - "http://127.0.0.1:${ROLLUP_PORT}"
-      - "http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+      - sh
+      - -c
+      - |
+        # Configuration
+        TAG="${TAG:-op-batcher-enclavetool}"
+        L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
+        L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
+        ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
+        ESPRESSO_URL="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+
+        # Batcher arguments for run
+        BATCHER_ARGS="--l1-eth-rpc=$$L1_RPC_URL,--l2-eth-rpc=$$L2_RPC_URL,--rollup-rpc=$$ROLLUP_RPC_URL,--espresso-url=$$ESPRESSO_URL,--espresso-url=$$ESPRESSO_URL,--testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80,--mnemonic=test test test test test test test test test test test junk,--hd-path=m/44'/60'/0'/0/0,--throttle-threshold=0,--max-channel-duration=1,--target-num-frames=1,--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+
+        # Build the enclave image
+        echo "Building enclave image..."
+        cd /source
+        if ! enclave-tools build \
+            --op-root /source \
+            --tag "$$TAG" 2>&1 | tee /tmp/build_output.log; then
+            echo "Failed to build enclave image"
+            echo "Build output was:"
+            cat /tmp/build_output.log
+            exit 1
+        fi
+
+        echo "Build completed successfully"
+
+        # # Extract PCR0 from build output
+        # PCR0=$$(grep "PCR0:" /tmp/build_output.log | sed 's/.*PCR0: //')
+
+        # # Get batch authenticator address from deployment state
+        # BATCH_AUTHENTICATOR_ADDRESS=$$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json)
+
+        # if [[ -n "$$PCR0" && -n "$$BATCH_AUTHENTICATOR_ADDRESS" && -n "$$OPERATOR_PRIVATE_KEY" ]]; then
+        #     echo "Registering PCR0: $$PCR0 with authenticator: $$BATCH_AUTHENTICATOR_ADDRESS"
+        #     /app/op-batcher/bin/enclave-tools register \
+        #         --authenticator "$$BATCH_AUTHENTICATOR_ADDRESS" \
+        #         --l1-url "$$L1_RPC_URL" \
+        #         --private-key "$$OPERATOR_PRIVATE_KEY" \
+        #         --pcr0 "$$PCR0"
+
+        #     if [ $$? -ne 0 ]; then
+        #         echo "Failed to register PCR0, continuing anyway..."
+        #     fi
+        # else
+        #     echo "Skipping registration - missing PCR0 ($$PCR0), BATCH_AUTHENTICATOR_ADDRESS ($$BATCH_AUTHENTICATOR_ADDRESS), or OPERATOR_PRIVATE_KEY"
+        # fi
+
+        # Run the enclave
+        echo "Running enclave..."
+        echo "Command: enclave-tools run --image \"$$TAG\" --args \"$$BATCHER_ARGS\""
+        enclave-tools run \
+            --image "$$TAG" \
+            --args "$$BATCHER_ARGS" &
+
+        # Get the enclave-tools PID
+        ENCLAVE_TOOLS_PID=$$!
+        echo "Enclave-tools started with PID: $$ENCLAVE_TOOLS_PID"
+
+        # Keep the script running and monitor the enclave
+        echo "Monitoring enclave..."
+        while true; do
+            # Check if enclave-tools process is still running
+            if ! kill -0 $$ENCLAVE_TOOLS_PID 2>/dev/null; then
+                echo "Enclave-tools process has exited"
+                break
+            fi
+
+            # Check if any enclave is running
+            RUNNING_ENCLAVES=$$(sudo nitro-cli describe-enclaves 2>/dev/null | jq length 2>/dev/null || echo "0")
+            echo "$$(date): Running enclaves: $$RUNNING_ENCLAVES"
+
+            sleep 10
+        done
+
+         echo "Script exiting..."
 
 
   op-proposer:
