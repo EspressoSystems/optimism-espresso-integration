@@ -36,6 +36,7 @@ import (
 
 type Devnet struct {
 	ctx           context.Context
+	tee           bool
 	secrets       secrets.Secrets
 	outageTime    time.Duration
 	successTime   time.Duration
@@ -128,10 +129,15 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		// up any existing state.
 		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
 	}
-
+	var profile string
+	if d.tee {
+		profile = "tee"
+	} else {
+		profile = "default"
+	}
 	cmd := exec.CommandContext(
 		d.ctx,
-		"docker", "compose", "up", "-d",
+		"docker", "compose", "--profile", profile, "up", "-d",
 	)
 	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
 	cmd.Env = append(

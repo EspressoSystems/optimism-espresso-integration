@@ -6,9 +6,20 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/require"
+
+	env "github.com/ethereum-optimism/optimism/espresso/environment"
 )
 
 func TestBatcherRestart(t *testing.T) {
+	testRestart(t, false)
+}
+
+func TestEnclaveRestart(t *testing.T) {
+	env.RunOnlyWithEnclave(t)
+	testRestart(t, true)
+}
+
+func testRestart(t *testing.T, tee bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -17,6 +28,8 @@ func TestBatcherRestart(t *testing.T) {
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
+
+	d.tee = tee
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())
