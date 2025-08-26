@@ -33,7 +33,7 @@ TAG="${TAG:-op-batcher-enclavetool}"
 
 echo "Service URLs:"
 echo "  L1 RPC: $L1_RPC_URL"
-echo "  L2 RPC: $L2_RPC_URL" 
+echo "  L2 RPC: $L2_RPC_URL"
 echo "  Rollup RPC: $ROLLUP_RPC_URL"
 echo "  Espresso API: $ESPRESSO_URL"
 echo "  Host IP (for registration): $HOST_IP"
@@ -120,11 +120,11 @@ while true; do
         echo "Enclave-tools process has exited"
         break
     fi
-    
+
     # Check if any enclave is running
     RUNNING_ENCLAVES=$(sudo nitro-cli describe-enclaves 2>/dev/null | jq length 2>/dev/null || echo "0")
     echo "$(date): Running enclaves: $RUNNING_ENCLAVES"
-    
+
     sleep 10
 done
 

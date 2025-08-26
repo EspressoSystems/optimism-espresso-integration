@@ -330,6 +330,12 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-enclave-target
     image: op-batcher-tee:espresso
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       l1-geth:
         condition: service_healthy
@@ -347,6 +353,11 @@ services:
     environment:
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
+      OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
+      ENCLAVE_DEBUG: ${ENCLAVE_DEBUG:-false}
+      CONTAINER_MONITOR_INTERVAL: ${CONTAINER_MONITOR_INTERVAL:-1}
+      ENCLAVE_MEMORY_MB: ${ENCLAVE_MEMORY_MB:-4096}
+      ENCLAVE_CPU_COUNT: ${ENCLAVE_CPU_COUNT:-2}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ..:/source:ro
@@ -367,8 +378,25 @@ services:
         ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
         ESPRESSO_URL="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
 
+        # Read environment variables with defaults
+        DEBUG_MODE="${ENCLAVE_DEBUG:-false}"
+        MONITOR_INTERVAL="${CONTAINER_MONITOR_INTERVAL:-1}"
+        MEMORY_MB="${ENCLAVE_MEMORY_MB:-4096}"
+        CPU_COUNT="${ENCLAVE_CPU_COUNT:-2}"
+
+        echo "Enclave Configuration:"
+        echo "  Debug Mode: $$DEBUG_MODE"
+        echo "  Monitor Interval: $$MONITOR_INTERVAL seconds"
+        echo "  Memory: $${MEMORY_MB}MB"
+        echo "  CPU Count: $$CPU_COUNT"
+
         # Batcher arguments for run
         BATCHER_ARGS="--l1-eth-rpc=$$L1_RPC_URL,--l2-eth-rpc=$$L2_RPC_URL,--rollup-rpc=$$ROLLUP_RPC_URL,--espresso-url=$$ESPRESSO_URL,--espresso-url=$$ESPRESSO_URL,--testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80,--mnemonic=test test test test test test test test test test test junk,--hd-path=m/44'/60'/0'/0/0,--throttle-threshold=0,--max-channel-duration=1,--target-num-frames=1,--espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+
+        # Add debug arguments if enabled
+        if [ "$$DEBUG_MODE" = "true" ]; then
+            BATCHER_ARGS="$$BATCHER_ARGS,--log.level=debug"
+        fi
 
         # Build the enclave image
         echo "Building enclave image..."
@@ -384,58 +412,212 @@ services:
 
         echo "Build completed successfully"
 
-        # # Extract PCR0 from build output
-        # PCR0=$$(grep "PCR0:" /tmp/build_output.log | sed 's/.*PCR0: //')
+        # Extract PCR0 from build output
+        PCR0=$$(grep "PCR0:" /tmp/build_output.log | sed 's/.*PCR0: //')
 
-        # # Get batch authenticator address from deployment state
-        # BATCH_AUTHENTICATOR_ADDRESS=$$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json)
+        # Get batch authenticator address from deployment state
+        BATCH_AUTHENTICATOR_ADDRESS=$$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json)
 
-        # if [[ -n "$$PCR0" && -n "$$BATCH_AUTHENTICATOR_ADDRESS" && -n "$$OPERATOR_PRIVATE_KEY" ]]; then
-        #     echo "Registering PCR0: $$PCR0 with authenticator: $$BATCH_AUTHENTICATOR_ADDRESS"
-        #     /app/op-batcher/bin/enclave-tools register \
-        #         --authenticator "$$BATCH_AUTHENTICATOR_ADDRESS" \
-        #         --l1-url "$$L1_RPC_URL" \
-        #         --private-key "$$OPERATOR_PRIVATE_KEY" \
-        #         --pcr0 "$$PCR0"
+        if [[ -n "$$PCR0" && -n "$$BATCH_AUTHENTICATOR_ADDRESS" && -n "$$OPERATOR_PRIVATE_KEY" ]]; then
+            echo "Registering PCR0: $$PCR0 with authenticator: $$BATCH_AUTHENTICATOR_ADDRESS"
+            /usr/local/bin/enclave-tools register \
+                --authenticator "$$BATCH_AUTHENTICATOR_ADDRESS" \
+                --l1-url "$$L1_RPC_URL" \
+                --private-key "$$OPERATOR_PRIVATE_KEY" \
+                --pcr0 "$$PCR0"
 
-        #     if [ $$? -ne 0 ]; then
-        #         echo "Failed to register PCR0, continuing anyway..."
-        #     fi
-        # else
-        #     echo "Skipping registration - missing PCR0 ($$PCR0), BATCH_AUTHENTICATOR_ADDRESS ($$BATCH_AUTHENTICATOR_ADDRESS), or OPERATOR_PRIVATE_KEY"
-        # fi
+            if [ $$? -ne 0 ]; then
+                echo "Failed to register PCR0, continuing anyway..."
+            fi
+        else
+            echo "Skipping registration - missing PCR0 ($$PCR0), BATCH_AUTHENTICATOR_ADDRESS ($$BATCH_AUTHENTICATOR_ADDRESS), or OPERATOR_PRIVATE_KEY"
+        fi
+
+        # Create tracking files
+        PID_FILE="/tmp/enclave-tools.pid"
+        CONTAINER_TRACKER_FILE="/tmp/enclave-containers.txt"
+        STATUS_FILE="/tmp/enclave-status.json"
+
+        # Cleanup function
+        cleanup() {
+            echo "Cleaning up enclave resources..."
+            if [ -f "$$PID_FILE" ]; then
+                STORED_PID=$$(cat "$$PID_FILE")
+                if kill -0 "$$STORED_PID" 2>/dev/null; then
+                    echo "Terminating enclave-tools process (PID: $$STORED_PID)"
+                    kill -TERM "$$STORED_PID" 2>/dev/null || true
+                    sleep 5
+                    kill -KILL "$$STORED_PID" 2>/dev/null || true
+                fi
+                rm -f "$$PID_FILE"
+            fi
+
+            # Clean up any remaining enclave containers
+            if [ -f "$$CONTAINER_TRACKER_FILE" ]; then
+                while IFS= read -r container_id; do
+                    if [ -n "$$container_id" ] && docker ps -q --filter id="$$container_id" | grep -q "$$container_id"; then
+                        echo "Stopping tracked enclave container: $$container_id"
+                        docker stop "$$container_id" 2>/dev/null || true
+                        docker rm "$$container_id" 2>/dev/null || true
+                    fi
+                done < "$$CONTAINER_TRACKER_FILE"
+                rm -f "$$CONTAINER_TRACKER_FILE"
+            fi
+            exit 0
+        }
+
+        # Setup signal handlers
+        trap cleanup SIGTERM SIGINT EXIT
+
+        # Get the current Docker network name for enclave container
+        DOCKER_NETWORK=$$(docker network ls --filter name=espresso --format "{{.Name}}" | head -1)
+        if [ -z "$$DOCKER_NETWORK" ]; then
+            DOCKER_NETWORK="espresso_default"
+        fi
+        echo "Using Docker network: $$DOCKER_NETWORK"
 
         # Run the enclave
         echo "Running enclave..."
         echo "Command: enclave-tools run --image \"$$TAG\" --args \"$$BATCHER_ARGS\""
-        enclave-tools run \
-            --image "$$TAG" \
-            --args "$$BATCHER_ARGS" &
+
+        # Set environment variables that might be used by enclave-tools
+        export DOCKER_DEFAULT_NETWORK="$$DOCKER_NETWORK"
+        export ENCLAVE_DOCKER_NETWORK="$$DOCKER_NETWORK"
+
+        enclave-tools run --image "$$TAG" --args "$$BATCHER_ARGS" &
 
         # Get the enclave-tools PID
         ENCLAVE_TOOLS_PID=$$!
-        echo "Enclave-tools started with PID: $$ENCLAVE_TOOLS_PID"
+        echo "$$ENCLAVE_TOOLS_PID" > "$$PID_FILE"
+        echo "Enclave-tools started with PID: $$ENCLAVE_TOOLS_PID (stored in $$PID_FILE)"
 
-        # Keep the script running and monitor the enclave
-        echo "Monitoring enclave..."
+        # Wait for enclave-tools to finish starting the enclave container
+        echo "Waiting for enclave-tools to complete startup..."
+        wait $$ENCLAVE_TOOLS_PID
+        ENCLAVE_TOOLS_EXIT_CODE=$$?
+        echo "Enclave-tools process completed with exit code: $$ENCLAVE_TOOLS_EXIT_CODE"
+
+        # Clean up PID file since process has completed
+        rm -f "$$PID_FILE"
+
+        # If enclave-tools failed, exit early
+        if [ $$ENCLAVE_TOOLS_EXIT_CODE -ne 0 ]; then
+            echo "ERROR: enclave-tools failed with exit code $$ENCLAVE_TOOLS_EXIT_CODE"
+            exit $$ENCLAVE_TOOLS_EXIT_CODE
+        fi
+
+        # Wait a bit more for container to fully initialize
+        sleep 5
+
+        # Find the enclave container that was started
+        echo "Looking for running enclave container..."
+        CONTAINER_NAME=$$(docker ps --format "table {{.Names}}" | grep "batcher-enclaver-" | head -1)
+
+        if [ -z "$$CONTAINER_NAME" ]; then
+            echo "ERROR: No enclave container found after waiting."
+            echo "Checking all Docker containers:"
+            docker ps -a
+            exit 1
+        fi
+
+        echo "Found enclave container: $$CONTAINER_NAME"
+        echo "$$CONTAINER_NAME" >> "$$CONTAINER_TRACKER_FILE"
+
+        # Get container details and update status
+        CONTAINER_ID=$$(docker ps --filter "name=$$CONTAINER_NAME" --format "{{.ID}}" | head -1)
+        CONTAINER_IMAGE=$$(docker inspect "$$CONTAINER_NAME" --format '{{.Config.Image}}' 2>/dev/null)
+        STARTED_AT=$$(docker inspect "$$CONTAINER_NAME" --format '{{.State.StartedAt}}' 2>/dev/null)
+
+        echo "  Container ID: $$CONTAINER_ID"
+        echo "  Container Image: $$CONTAINER_IMAGE"
+        echo "  Container Started: $$STARTED_AT"
+
+        # Update status file
+        echo "{" > "$$STATUS_FILE"
+        echo "  \"container_id\": \"$$CONTAINER_ID\"," >> "$$STATUS_FILE"
+        echo "  \"container_name\": \"$$CONTAINER_NAME\"," >> "$$STATUS_FILE"
+        echo "  \"container_image\": \"$$CONTAINER_IMAGE\"," >> "$$STATUS_FILE"
+        echo "  \"started_at\": \"$$STARTED_AT\"," >> "$$STATUS_FILE"
+        echo "  \"last_updated\": \"$$(date -Iseconds)\"," >> "$$STATUS_FILE"
+        echo "  \"status\": \"running\"," >> "$$STATUS_FILE"
+        echo "  \"enclave_tools_exit_code\": $$ENCLAVE_TOOLS_EXIT_CODE" >> "$$STATUS_FILE"
+        echo "}" >> "$$STATUS_FILE"
+
+        # Start capturing container logs in background
+        echo "Starting log capture for container $$CONTAINER_NAME"
+        (
+            docker logs -f "$$CONTAINER_NAME" 2>&1 | while read line; do
+                echo "[ENCLAVE] $$line"
+            done
+        ) &
+
+        LOG_PID=$$!
+        echo "Log capture started with PID: $$LOG_PID"
+
+        # Keep the script running and monitor the container
+        echo "Monitoring enclave container $$CONTAINER_NAME..."
+        MONITOR_COUNT=0
+
         while true; do
-            # Check if enclave-tools process is still running
-            if ! kill -0 $$ENCLAVE_TOOLS_PID 2>/dev/null; then
-                echo "Enclave-tools process has exited"
+            # Check if the container is still running
+            CONTAINER_STATUS=$$(docker inspect "$$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.Status' 2>/dev/null || echo "")
+
+            if [ -z "$$CONTAINER_STATUS" ] || [ "$$CONTAINER_STATUS" != "running" ]; then
+                echo "$$(date): Container $$CONTAINER_NAME is no longer running (status: $$CONTAINER_STATUS)"
+                # Get exit code if available
+                EXIT_CODE=$$(docker inspect "$$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.ExitCode' 2>/dev/null || echo "unknown")
+                echo "Container exit code: $$EXIT_CODE"
+
+                # Update status file
+                echo "{" > "$$STATUS_FILE"
+                echo "  \"container_id\": \"$$CONTAINER_ID\"," >> "$$STATUS_FILE"
+                echo "  \"container_name\": \"$$CONTAINER_NAME\"," >> "$$STATUS_FILE"
+                echo "  \"container_image\": \"$$CONTAINER_IMAGE\"," >> "$$STATUS_FILE"
+                echo "  \"started_at\": \"$$STARTED_AT\"," >> "$$STATUS_FILE"
+                echo "  \"last_updated\": \"$$(date -Iseconds)\"," >> "$$STATUS_FILE"
+                echo "  \"status\": \"exited\"," >> "$$STATUS_FILE"
+                echo "  \"exit_code\": \"$$EXIT_CODE\"," >> "$$STATUS_FILE"
+                echo "  \"enclave_tools_exit_code\": $$ENCLAVE_TOOLS_EXIT_CODE" >> "$$STATUS_FILE"
+                echo "}" >> "$$STATUS_FILE"
                 break
             fi
 
-            # Check if any enclave is running
-            RUNNING_ENCLAVES=$$(sudo nitro-cli describe-enclaves 2>/dev/null | jq length 2>/dev/null || echo "0")
-            echo "$$(date): Running enclaves: $$RUNNING_ENCLAVES"
+            # Periodic status reporting
+            if [ $$((MONITOR_COUNT % 30)) -eq 0 ]; then  # Every 30 monitor intervals
+                echo "$$(date): Container $$CONTAINER_NAME status: $$CONTAINER_STATUS"
 
-            sleep 10
+                # Show container resource usage
+                docker stats --no-stream "$$CONTAINER_NAME" 2>/dev/null || echo "Could not get container stats"
+
+                # Update status file with current info
+                echo "{" > "$$STATUS_FILE"
+                echo "  \"container_id\": \"$$CONTAINER_ID\"," >> "$$STATUS_FILE"
+                echo "  \"container_name\": \"$$CONTAINER_NAME\"," >> "$$STATUS_FILE"
+                echo "  \"container_image\": \"$$CONTAINER_IMAGE\"," >> "$$STATUS_FILE"
+                echo "  \"started_at\": \"$$STARTED_AT\"," >> "$$STATUS_FILE"
+                echo "  \"last_updated\": \"$$(date -Iseconds)\"," >> "$$STATUS_FILE"
+                echo "  \"status\": \"$$CONTAINER_STATUS\"," >> "$$STATUS_FILE"
+                echo "  \"monitor_count\": $$MONITOR_COUNT," >> "$$STATUS_FILE"
+                echo "  \"enclave_tools_exit_code\": $$ENCLAVE_TOOLS_EXIT_CODE" >> "$$STATUS_FILE"
+                echo "}" >> "$$STATUS_FILE"
+            fi
+
+            MONITOR_COUNT=$$((MONITOR_COUNT + 1))
+            sleep "$$MONITOR_INTERVAL"
         done
+
+        echo "Enclave monitoring ended"
+        # Clean up log capture if still running
+        if kill -0 $$LOG_PID 2>/dev/null; then
+            echo "Stopping log capture..."
+            kill $$LOG_PID 2>/dev/null || true
+        fi
 
          echo "Script exiting..."
 
 
   op-proposer:
+    profiles: ["default"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
