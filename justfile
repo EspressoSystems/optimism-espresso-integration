@@ -14,6 +14,13 @@ tests:
 fast-tests:
  ./run_fast_tests.sh
 
+devnet-tests: build-devnet
+  go test -timeout 30m -p 1 -count 1 -v  ./espresso/devnet-tests/...
+
+build-devnet: compile-contracts
+  (cd op-deployer && just)
+  (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
+
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
 
