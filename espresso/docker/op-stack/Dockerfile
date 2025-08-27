@@ -144,6 +144,9 @@ WORKDIR /source
 # Copy pre-built forge-artifacts from host (faster for development)
 COPY packages/contracts-bedrock/forge-artifacts /source/packages/contracts-bedrock/forge-artifacts
 
+# Include the deployment state for contract addresses
+COPY espresso/deployment/ /source/espresso/deployment/
+
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/
