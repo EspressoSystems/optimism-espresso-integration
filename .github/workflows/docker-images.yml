@@ -381,7 +381,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_PREFIX }}/op-batcher-tee.g
+          images: ${{ env.IMAGE_PREFIX }}/op-batcher-tee
           tags: |
             type=ref,event=branch
             type=ref,event=pr
