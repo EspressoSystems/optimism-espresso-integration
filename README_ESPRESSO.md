@@ -59,6 +59,11 @@ To run a subset of the tests above (fast):
 > just fast-tests
 ```
 
+To run the devnet tests:
+```console
+> just devnet-tests
+```
+
 ### Run the Kurtosis devnet
 
 - Install tools.
