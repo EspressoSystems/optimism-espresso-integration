@@ -77,7 +77,7 @@ FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/c
 
 # Download and build the espresso-network go crypto helper library
 FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
-ARG ESPRESSO_SDK_VER=v0.2.1
+ARG ESPRESSO_SDK_VER=v0.3.1
 # Download the prebuilt static libraries for both archs (change arch as needed)
 RUN apk add --no-cache curl
 RUN set -e; \
