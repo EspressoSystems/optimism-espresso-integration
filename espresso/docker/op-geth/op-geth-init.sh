@@ -17,7 +17,9 @@ if [ "$MODE" = "genesis" ]; then
   op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
 
   echo "Updating genesis timestamp..."
-  dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+  # Use environment variable or fallback to the current time.
+  GENESIS_TIMESTAMP=${GENESIS_TIMESTAMP:-$(printf '0x%x\n' $(date +%s))}
+  dasel put -f /config/genesis.json -s .timestamp -v "$GENESIS_TIMESTAMP"
 
   if [[ ! -f /config/jwt.txt ]]; then
       echo "Generating JWT token..."
