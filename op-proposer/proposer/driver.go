@@ -278,8 +278,7 @@ func (l *L2OutputSubmitter) FetchDGFOutput(ctx context.Context) (source.Proposal
 	}
 
 	if currentBlockNumber == 0 {
-		// TODO: Fix upstream compatibility for logs.
-		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+		l.Log.Info("Skipping proposal for genesis block")
 		return source.Proposal{}, false, nil
 	}
 
