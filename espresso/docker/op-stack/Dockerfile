@@ -91,6 +91,13 @@ WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
 
+# Build enclave-tools
+FROM op-cgo-builder AS enclave-tools-builder
+ARG ENCLAVE_TOOLS_VERSION=v0.0.0
+WORKDIR /app/op-batcher
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just enclave-tools
+
 # Build op-proposer
 FROM builder AS op-proposer-builder
 ARG OP_PROPOSER_VERSION=v0.0.0
@@ -124,6 +131,25 @@ ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
+
+FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-target
+RUN apk add gcc docker bash jq curl wget
+# Install enclaver for EIF creation
+RUN curl -L https://github.com/enclaver-io/enclaver/releases/download/v0.5.0/enclaver-linux-x86_64-v0.5.0.tar.gz | tar xz --strip-components=1 -C /usr/local/bin enclaver-linux-x86_64-v0.5.0/enclaver
+# Copy source code
+COPY --from=op-cgo-builder /app /source
+WORKDIR /source
+# Copy pre-built forge-artifacts from host (faster for development)
+COPY packages/contracts-bedrock/forge-artifacts /source/packages/contracts-bedrock/forge-artifacts
+# Include the deployment state for contract addresses
+COPY espresso/deployment/ /source/espresso/deployment/
+# Copy the run-enclave.sh script
+COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
+RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/
+CMD ["enclave-tools"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 RUN apk add jq
