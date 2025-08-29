@@ -348,6 +348,7 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 		case BatchFuture:
 			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
 			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
+			continue
 		}
 
 		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
@@ -397,6 +398,7 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 		case BatchFuture:
 			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
 			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
+			continue
 		}
 
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
