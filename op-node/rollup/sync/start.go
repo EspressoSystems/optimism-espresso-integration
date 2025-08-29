@@ -169,7 +169,8 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 				// Exit, find-sync start should start over, to move to an available L1 chain with block-by-number / not-found case.
 				return nil, fmt.Errorf("failed to retrieve L1 block: %w", err)
 			}
-			lgr.Info("Walking back L1Block by hash", "curr", l1Block, "next", b, "l2block", n)
+			// TODO: Fix upstream compatibility for logs.
+			// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
 			l1Block = b
 			ahead = false
 		} else if l1Block == (eth.L1BlockRef{}) || n.L1Origin.Hash != l1Block.Hash {
@@ -181,7 +182,8 @@ func FindL2Heads(ctx context.Context, cfg *rollup.Config, l1 L1Chain, l2 L2Chain
 			}
 			l1Block = b
 			ahead = notFound
-			lgr.Info("Walking back L1Block by number", "curr", l1Block, "next", b, "l2block", n)
+			// TODO: Fix upstream compatibility for logs.
+			// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
 		}
 
 		lgr.Trace("walking sync start", "l2block", n)
