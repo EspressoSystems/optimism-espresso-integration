@@ -20,6 +20,3 @@ services:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT:?err}
       OP_HTTP_PORT: ${OP_HTTP_PORT:?err}
       OP_ENGINE_PORT: ${OP_ENGINE_PORT:?err}
-    ports:
-      - "${OP_HTTP_PORT}"
-      - "${OP_ENGINE_PORT}"
