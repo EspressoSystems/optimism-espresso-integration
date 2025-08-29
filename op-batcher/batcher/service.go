@@ -191,7 +191,8 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 		return err
 	}
 
-	if len(cfg.EspressoUrls) > 0 {
+	// MultipleNodesClient requires at least 2 URLs.
+	if len(cfg.EspressoUrls) > 1 {
 		bs.EspressoPollInterval = cfg.EspressoPollInterval
 		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)
 		if err != nil {
