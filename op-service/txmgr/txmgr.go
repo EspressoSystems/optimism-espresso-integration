@@ -335,9 +335,8 @@ func (m *SimpleTxManager) prepare(ctx context.Context, candidate TxCandidate) (*
 			return nil, ErrClosed
 		}
 		tx, err := m.craftTx(ctx, candidate)
-		if err != nil {
-			m.l.Warn("Failed to create a transaction, will retry", "err", err)
-		}
+		// TODO: Fix upstream compatibility for logs.
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=tr
 		return tx, err
 	})
 	if err != nil {
