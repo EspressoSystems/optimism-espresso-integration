@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,15 +58,11 @@ func TestWithdraw(t *testing.T) {
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 
 	// Check Alice's balance on L1 before withdrawal
-	l1Client, err := ethclient.Dial("http://localhost:8545")
-	require.NoError(t, err)
-	defer l1Client.Close()
-
-	aliceL1Balance, err := l1Client.BalanceAt(ctx, aliceAddress, nil)
+	aliceL1Balance, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
 	require.NoError(t, err)
 	expectedBalance := new(big.Int)
 	expectedBalance.SetString("10000000000000000000000", 10) // 10,000 ETH in wei
 	require.True(t, aliceL1Balance.Cmp(expectedBalance) == 0, "Alice should have exactly 10,000 ETH")
-	t.Logf("Alice's L1 balance: %s wei", aliceL1Balance.String())
+	t.Logf("Alice's L1 balance before withdrawal: %s wei", aliceL1Balance.String())
 
 }

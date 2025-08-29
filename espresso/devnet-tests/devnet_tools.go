@@ -151,6 +151,10 @@ func (d *Devnet) Up() (err error) {
 	}
 
 	// Open RPC clients for the different nodes.
+	d.L1, err = d.serviceClient("l1-geth", 8545)
+	if err != nil {
+		return err
+	}
 	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
 	if err != nil {
 		return err
