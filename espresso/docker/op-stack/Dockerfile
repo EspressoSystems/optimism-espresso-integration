@@ -136,17 +136,16 @@ FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-target
 RUN apk add gcc docker bash jq curl wget
 # Install enclaver for EIF creation
 RUN curl -L https://github.com/enclaver-io/enclaver/releases/download/v0.5.0/enclaver-linux-x86_64-v0.5.0.tar.gz | tar xz --strip-components=1 -C /usr/local/bin enclaver-linux-x86_64-v0.5.0/enclaver
-
 # Copy source code
 COPY --from=op-cgo-builder /app /source
 WORKDIR /source
-
 # Copy pre-built forge-artifacts from host (faster for development)
 COPY packages/contracts-bedrock/forge-artifacts /source/packages/contracts-bedrock/forge-artifacts
-
 # Include the deployment state for contract addresses
 COPY espresso/deployment/ /source/espresso/deployment/
-
+# Copy the run-enclave.sh script
+COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
+RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/

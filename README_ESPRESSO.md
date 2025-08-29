@@ -294,11 +294,6 @@ docker compose down -v --remove-orphans
 ./scripts/prepare-allocs.sh
 ```
 
-* Make sure you're on a machine with AWS Nitro Enclaves enabled. Build the enclave image.
-```console
-./scripts/batcher-enclave-tool-image.sh
-```
-
 * Build and start all services in the background.
 ```console
 docker compose up --build -d
