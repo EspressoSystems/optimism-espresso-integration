@@ -298,7 +298,7 @@ docker compose down -v --remove-orphans
 ```console
 docker compose up --build -d
 ```
-If you're on a machine with AWS Nitro Enclaves enabled, use the `tee` profile instead to start the enclave batcher.
+If you're on a machine with [AWS Nitro Enclaves enabled](#guide-setting-up-an-enclave-enabled-nitro-ec2-instance), use the `tee` profile instead to start the enclave batcher.
 ```console
 COMPOSE_PROFILES=tee docker compose up --build -d
 ```
