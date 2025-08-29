@@ -142,6 +142,9 @@ services:
       service: op-geth
     volumes:
       - op-data-seq:/data
+    ports:
+      - "${OP_HTTP_PORT}:${OP_HTTP_PORT}"
+      - "${OP_ENGINE_PORT}:${OP_ENGINE_PORT}"
 
   op-geth-verifier:
     extends:
@@ -149,6 +152,9 @@ services:
       service: op-geth
     volumes:
       - op-data-verifier:/data
+    ports:
+      - "8547:${OP_HTTP_PORT}"
+      - "8553:${OP_ENGINE_PORT}"
 
   op-geth-caff-node:
     extends:
@@ -156,6 +162,9 @@ services:
       service: op-geth
     volumes:
       - op-data-caff-node:/data
+    ports:
+      - "8548:${OP_HTTP_PORT}"
+      - "8554:${OP_ENGINE_PORT}"
 
   op-node-sequencer:
     build:
@@ -269,6 +278,7 @@ services:
     restart: "no"
 
   op-batcher:
+    profiles: ["default"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -304,7 +314,82 @@ services:
       - --max-channel-duration=1
       - --target-num-frames=1
 
+  # HTTP proxy for enclave Odyn proxy requirement
+  http-proxy:
+    image: alpine:latest
+    command: >
+      sh -c "
+      apk add --no-cache tinyproxy &&
+      echo 'Allow 127.0.0.1' >> /etc/tinyproxy/tinyproxy.conf &&
+      echo 'Allow 0.0.0.0/0' >> /etc/tinyproxy/tinyproxy.conf &&
+      echo 'DisableViaHeader Yes' >> /etc/tinyproxy/tinyproxy.conf &&
+      tinyproxy -d
+      "
+    ports:
+      - "3128:8888"
+    networks:
+      default:
+        aliases:
+          - proxy
+
+  op-batcher-tee:
+    profiles: ["tee"]
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-batcher-enclave-target
+    image: op-batcher-tee:espresso
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      op-geth-sequencer:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      espresso-dev-node:
+        condition: service_started
+      l2-genesis:
+        condition: service_completed_successfully
+      http-proxy:
+        condition: service_started
+    network_mode: "host"
+    environment:
+      http_proxy: http://127.0.0.1:3128
+      HTTP_PROXY: http://127.0.0.1:3128
+      OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
+      ENCLAVE_DEBUG: ${ENCLAVE_DEBUG:-false}
+      CONTAINER_MONITOR_INTERVAL: ${CONTAINER_MONITOR_INTERVAL:-1}
+      ENCLAVE_MEMORY_MB: ${ENCLAVE_MEMORY_MB:-4096}
+      ENCLAVE_CPU_COUNT: ${ENCLAVE_CPU_COUNT:-2}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ..:/source:ro
+      - ./scripts/batcher-enclave-tool-image.sh:/app/espresso/scripts/batcher-enclave-tool-image.sh:ro
+      - /tmp:/tmp
+    privileged: true
+    devices:
+      - /dev/nitro_enclaves:/dev/nitro_enclaves
+    restart: "no"
+    command:
+    - sh
+    - -c
+    - |
+      export DEPLOYMENT_MODE=local
+      export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
+      export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
+      export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
+      export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+      /source/espresso/docker/op-batcher-tee/run-enclave.sh 
+
+
   op-proposer:
+    profiles: ["default"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
