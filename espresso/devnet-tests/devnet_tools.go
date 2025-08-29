@@ -101,7 +101,9 @@ func (d *Devnet) Up(verbose bool) (err error) {
 		go func() {
 			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
 			cmd.Stdout = os.Stdout
-			cmd.Run()
+			// We don't care about the error return of this command, since it's always going to be
+			// killed by the context cancellation.
+			_ = cmd.Run()
 		}()
 	}
 
