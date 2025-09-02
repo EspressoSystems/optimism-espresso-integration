@@ -311,8 +311,11 @@ services:
       - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
       - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
       - --throttle-threshold=0
-      - --max-channel-duration=1
+      - --max-channel-duration=2
       - --target-num-frames=1
+      - --max-pending-tx=32
+      - --altda.max-concurrent-da-requests=32
+      - --espresso-poll-interval=1s
 
   # HTTP proxy for enclave Odyn proxy requirement
   http-proxy:
