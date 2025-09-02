@@ -65,7 +65,7 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	return d
 }
 
-func (d *Devnet) Up() (err error) {
+func (d *Devnet) Up(verbose bool) (err error) {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
@@ -94,6 +94,18 @@ func (d *Devnet) Up() (err error) {
 			log.Error("error shutting down devnet asynchronously", "error", err)
 		}
 	}()
+
+	if verbose {
+		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
+		// the context is cancelled.
+		go func() {
+			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
+			cmd.Stdout = os.Stdout
+			// We don't care about the error return of this command, since it's always going to be
+			// killed by the context cancellation.
+			_ = cmd.Run()
+		}()
+	}
 
 	// Open RPC clients for the different nodes.
 	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
@@ -195,6 +207,8 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 	if opts.ExpectedStatus != receipt.Status {
 		return nil, fmt.Errorf("wrong status: have %d, want %d", receipt.Status, opts.ExpectedStatus)
 	}
+
+	log.Info("submitted transaction to sequencer", "hash", tx.Hash(), "receipt", receipt)
 
 	return receipt, nil
 }
