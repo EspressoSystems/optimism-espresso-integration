@@ -1126,10 +1126,42 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
+	l.Log.Info("About to call registerSigner", 
+		"attestationTbsLength", len(l.Attestation.COSESign1), 
+		"signatureLength", len(l.Attestation.Signature))
+	
+	// Debug: try to extract PCR0 that the contract would see
+	if len(l.Attestation.COSESign1) > 100 {
+		// Log some attestation details for debugging
+		l.Log.Info("Attestation debug info",
+			"attestationTbsHex", fmt.Sprintf("%x", l.Attestation.COSESign1[:100]), // first 100 bytes
+			"signatureHex", fmt.Sprintf("%x", l.Attestation.Signature))
+		
+		// Try to find PCR0 in the attestation using simple pattern matching
+		attestationHex := fmt.Sprintf("%x", l.Attestation.COSESign1)
+		// Look for "pcrs" field which should be followed by PCR0
+		pcrsIndex := strings.Index(attestationHex, "70637273") // "pcrs" in hex
+		if pcrsIndex != -1 {
+			// PCR0 should be 48 bytes (96 hex chars) after some header bytes
+			// This is a rough approximation to find where PCR0 might be
+			searchStart := pcrsIndex + 20 // skip past "pcrs" and some header
+			if searchStart+96 <= len(attestationHex) {
+				possiblePCR0 := attestationHex[searchStart:searchStart+96]
+				pcr0Hash := crypto.Keccak256Hash(hexutil.MustDecode("0x" + possiblePCR0))
+				l.Log.Info("Potential PCR0 extracted from attestation", 
+					"pcr0Raw", possiblePCR0,
+					"pcr0Hash", pcr0Hash.Hex(),
+					"searchStart", searchStart)
+			}
+		}
+	}
+
 	txData, err = abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
+
+	l.Log.Info("Successfully created registerSigner transaction data", "txDataLength", len(txData))
 
 	candidate := txmgr.TxCandidate{
 		TxData: txData,
