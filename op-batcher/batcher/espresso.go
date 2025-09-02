@@ -736,7 +736,7 @@ func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *
 
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan struct{}) {
-	l.Log.Info("Starting EspressoBatchLoadingLoop")
+	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
 
 	defer wg.Done()
 	ticker := time.NewTicker(l.Config.EspressoPollInterval)
