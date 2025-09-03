@@ -10,10 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/stretchr/testify/require"
 
 	bindings "github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
+	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 )
 
 func TestWithdraw(t *testing.T) {
@@ -107,4 +111,84 @@ func TestWithdraw(t *testing.T) {
 	} else {
 		t.Logf("Dispute game published for block %d", blockNumber)
 	}
+
+	// Generate withdrawal proof using fault proofs
+	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
+	
+	// Set up clients for proof generation
+	receiptCl := d.L2Seq
+	headerCl := d.L2Seq
+	proofCl := gethclient.New(receiptCl.Client())
+
+	// Set up contract bindings for proof generation
+	factory, err := nodebindings.NewDisputeGameFactoryCaller(disputeGameFactoryAddr, d.L1)
+	require.NoError(t, err)
+
+	portal2, err := nodepreview.NewOptimismPortal2Caller(optimismPortalAddr, d.L1)
+	require.NoError(t, err)
+
+	// Get the block header for proof generation
+	header, err := receiptCl.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
+	require.NoError(t, err)
+	t.Logf("Using block %d (hash: %s) for withdrawal proof", blockNumber, header.Hash().Hex())
+
+	// Generate withdrawal proof parameters using fault proofs
+	t.Logf("Generating withdrawal proof using fault proofs...")
+	params, err := withdrawals.ProveWithdrawalParametersFaultProofs(ctx, proofCl, receiptCl, headerCl, tx.Hash(), factory, portal2)
+	require.NoError(t, err)
+	t.Logf("Fault proofs withdrawal parameters generated successfully")
+
+	// Bind to OptimismPortal contract on L1
+	portal, err := bindings.NewOptimismPortal(optimismPortalAddr, d.L1)
+	require.NoError(t, err)
+
+	// Create transaction options for Alice on L1
+	l1ChainID, err := d.L1.ChainID(ctx)
+	require.NoError(t, err)
+
+	l1Opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+	require.NoError(t, err)
+
+	// Set proper gas configuration
+	l1Opts.GasLimit = 500000
+	gasPrice, err := d.L1.SuggestGasPrice(ctx)
+	if err != nil {
+		t.Logf("Warning: Could not get suggested gas price: %v", err)
+		l1Opts.GasPrice = big.NewInt(20000000000) // 20 gwei fallback
+	} else {
+		l1Opts.GasPrice = gasPrice
+	}
+	t.Logf("Set gas limit: %d, gas price: %s", l1Opts.GasLimit, l1Opts.GasPrice.String())
+
+	// Submit the withdrawal proof transaction
+	t.Logf("Submitting ProveWithdrawalTransaction to L1...")
+	proveTx, err := portal.ProveWithdrawalTransaction(
+		l1Opts,
+		bindings.TypesWithdrawalTransaction{
+			Nonce:    params.Nonce,
+			Sender:   params.Sender,
+			Target:   params.Target,
+			Value:    params.Value,
+			GasLimit: params.GasLimit,
+			Data:     params.Data,
+		},
+		params.L2OutputIndex,
+		bindings.TypesOutputRootProof{
+			Version:                  params.OutputRootProof.Version,
+			StateRoot:                params.OutputRootProof.StateRoot,
+			MessagePasserStorageRoot: params.OutputRootProof.MessagePasserStorageRoot,
+			LatestBlockhash:          params.OutputRootProof.LatestBlockhash,
+		},
+		params.WithdrawalProof,
+	)
+	require.NoError(t, err)
+
+	// Wait for the proof transaction to be mined
+	proveReceipt, err := bind.WaitMined(ctx, d.L1, proveTx)
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, proveReceipt.Status)
+
+	t.Logf("Withdrawal proof transaction successful: %s", proveTx.Hash().Hex())
+	t.Logf("Gas used: %d", proveReceipt.GasUsed)
+	t.Logf("Withdrawal can now be finalized after the finalization period")
 }
