@@ -221,23 +221,47 @@ func TestWithdraw(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Using block %d (hash: %s) for withdrawal proof", blockNumber, header.Hash().Hex())
 
-	// Generate withdrawal proof parameters using fault proofs
-	params, err := withdrawals.ProveWithdrawalParametersFaultProofs(ctx, proofCl, receiptCl, headerCl, tx.Hash(), factory2, portal2)
+	// Try legacy withdrawal proof first (more compatible)
+	t.Logf("Attempting legacy withdrawal proof generation...")
+	
+	// For legacy proofs, we need an L2OutputOracle instead of dispute game factory
+	// Check if we can use legacy method
+	params, err := withdrawals.ProveWithdrawalParameters(ctx, proofCl, receiptCl, tx.Hash(), header, nil)
 	if err != nil {
-		t.Logf("Failed to generate fault proof parameters: %v", err)
-		t.Logf("Trying legacy proof generation instead...")
-		// Fall back to legacy proof generation if fault proofs fail
-		oracle, err := nodebindings.NewL2OutputOracleCaller(common.Address{}, d.L1) // Use zero address as fallback
-		if err != nil {
-			t.Fatalf("Failed to create oracle caller: %v", err)
-		}
-		params, err = withdrawals.ProveWithdrawalParameters(ctx, proofCl, receiptCl, tx.Hash(), header, oracle)
+		t.Logf("Legacy withdrawal proof failed: %v", err)
+		t.Logf("Falling back to fault proofs...")
+		
+		// Fallback to fault proofs
+		params, err = withdrawals.ProveWithdrawalParametersFaultProofs(ctx, proofCl, receiptCl, headerCl, tx.Hash(), factory2, portal2)
 		require.NoError(t, err)
+		t.Logf("Using fault proofs for withdrawal")
+	} else {
+		t.Logf("Using legacy withdrawal proof")
 	}
 
 	// Bind to OptimismPortal contract on L1
 	portal, err := bindings.NewOptimismPortal(optimismPortalAddr, d.L1)
 	require.NoError(t, err)
+	
+	// Validate contract deployment
+	t.Logf("=== Contract Validation ===")
+	contractCode, err := d.L1.CodeAt(ctx, optimismPortalAddr, nil)
+	if err != nil {
+		t.Fatalf("Failed to get contract code: %v", err)
+	}
+	if len(contractCode) == 0 {
+		t.Fatalf("No contract deployed at OptimismPortal address %s", optimismPortalAddr.Hex())
+	}
+	t.Logf("OptimismPortal contract verified at %s (code length: %d)", optimismPortalAddr.Hex(), len(contractCode))
+	
+	// Try to get contract version to verify it's the right contract
+	version, err := portal.Version(&bind.CallOpts{})
+	if err != nil {
+		t.Logf("Warning: Could not get contract version: %v", err)
+	} else {
+		t.Logf("OptimismPortal version: %s", version)
+	}
+	t.Logf("=== End Contract Validation ===")
 
 	// Create transaction options for Alice on L1
 	l1ChainID, err := d.L1.ChainID(ctx)
@@ -245,11 +269,162 @@ func TestWithdraw(t *testing.T) {
 
 	l1Opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
 	require.NoError(t, err)
+	
+	// Set proper gas configuration
+	l1Opts.GasLimit = 500000 // Set a reasonable gas limit
+	gasPrice, err := d.L1.SuggestGasPrice(ctx)
+	if err != nil {
+		t.Logf("Warning: Could not get suggested gas price: %v", err)
+		l1Opts.GasPrice = big.NewInt(20000000000) // 20 gwei fallback
+	} else {
+		l1Opts.GasPrice = gasPrice
+	}
+	t.Logf("Set gas limit: %d, gas price: %s", l1Opts.GasLimit, l1Opts.GasPrice.String())
 
 	// Log basic withdrawal proof info
 	t.Logf("Attempting to prove withdrawal with L2OutputIndex: %s", params.L2OutputIndex.String())
 
+	// Pre-flight validation checks
+	t.Logf("=== Pre-flight Validation ===")
+
+	// 1. Check if withdrawal is already proven
+	withdrawalHash := crypto.Keccak256Hash(
+		params.Nonce.Bytes(),
+		params.Sender.Bytes(),
+		params.Target.Bytes(),
+		params.Value.Bytes(),
+		params.GasLimit.Bytes(),
+		params.Data,
+	)
+	t.Logf("Withdrawal hash: %s", withdrawalHash.Hex())
+
+	// Check if this is a fault proofs vs legacy contract issue
+	t.Logf("Checking contract compatibility...")
+	
+	provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	if err != nil {
+		t.Logf("Warning: Could not check proven withdrawals: %v", err)
+		t.Logf("This may indicate a contract version mismatch or fault proofs not enabled")
+		
+		// Try to check if this is a legacy vs fault proofs issue
+		// In fault proofs, the contract interface may be different
+		if strings.Contains(err.Error(), "execution reverted") {
+			t.Logf("CRITICAL: Contract calls are reverting - possible causes:")
+			t.Logf("  1. Wrong contract address")
+			t.Logf("  2. Contract not properly initialized")
+			t.Logf("  3. Fault proofs not enabled/configured")
+			t.Logf("  4. Contract ABI mismatch")
+		}
+	} else {
+		t.Logf("Proven withdrawal status - OutputRoot: %s, Timestamp: %s, L2OutputIndex: %s",
+			common.Bytes2Hex(provenWithdrawal.OutputRoot[:]),
+			provenWithdrawal.Timestamp.String(),
+			provenWithdrawal.L2OutputIndex.String())
+
+		if provenWithdrawal.Timestamp.Cmp(big.NewInt(0)) > 0 {
+			t.Logf("WARNING: Withdrawal may already be proven (timestamp > 0)")
+		}
+	}
+
+	// 2. Check if output is finalized
+	isFinalized, err := portal.IsOutputFinalized(&bind.CallOpts{}, params.L2OutputIndex)
+	if err != nil {
+		t.Logf("Warning: Could not check if output is finalized: %v", err)
+	} else {
+		t.Logf("L2 Output %s finalized: %t", params.L2OutputIndex.String(), isFinalized)
+		if isFinalized {
+			t.Logf("WARNING: Output is already finalized - this may cause issues")
+		}
+	}
+
+	// 3. Validate proof parameters
+	t.Logf("Withdrawal transaction details:")
+	t.Logf("  Nonce: %s", params.Nonce.String())
+	t.Logf("  Sender: %s", params.Sender.Hex())
+	t.Logf("  Target: %s", params.Target.Hex())
+	t.Logf("  Value: %s", params.Value.String())
+	t.Logf("  GasLimit: %s", params.GasLimit.String())
+	t.Logf("  Data length: %d", len(params.Data))
+	t.Logf("  WithdrawalProof length: %d", len(params.WithdrawalProof))
+
+	// 4. Check account balance and gas estimation
+	balance, err := d.L1.BalanceAt(ctx, crypto.PubkeyToAddress(d.secrets.Alice.PublicKey), nil)
+	if err != nil {
+		t.Logf("Warning: Could not check account balance: %v", err)
+	} else {
+		t.Logf("Account balance: %s wei", balance.String())
+	}
+
+	// 5. Try to estimate gas for the transaction
+	l1Opts.NoSend = true // Don't actually send, just estimate
+	_, err = portal.ProveWithdrawalTransaction(
+		l1Opts,
+		bindings.TypesWithdrawalTransaction{
+			Nonce:    params.Nonce,
+			Sender:   params.Sender,
+			Target:   params.Target,
+			Value:    params.Value,
+			GasLimit: params.GasLimit,
+			Data:     params.Data,
+		},
+		params.L2OutputIndex,
+		bindings.TypesOutputRootProof{
+			Version:                  params.OutputRootProof.Version,
+			StateRoot:                params.OutputRootProof.StateRoot,
+			MessagePasserStorageRoot: params.OutputRootProof.MessagePasserStorageRoot,
+			LatestBlockhash:          params.OutputRootProof.LatestBlockhash,
+		},
+		params.WithdrawalProof,
+	)
+	l1Opts.NoSend = false // Reset for actual transaction
+
+	if err != nil {
+		t.Logf("Gas estimation failed: %v", err)
+		t.Logf("This indicates the transaction will likely fail")
+	} else {
+		t.Logf("Gas estimation successful")
+	}
+
+	t.Logf("=== End Pre-flight Validation ===")
+
+	// Contract state inspection
+	t.Logf("=== Contract State Inspection ===")
+
+	// Check portal contract state
+	paused, err := portal.Paused(&bind.CallOpts{})
+	if err != nil {
+		t.Logf("Warning: Could not check if portal is paused: %v", err)
+	} else {
+		t.Logf("OptimismPortal paused: %t", paused)
+		if paused {
+			t.Logf("ERROR: Portal is paused - transactions will fail")
+		}
+	}
+
+	// Check L2 Oracle address
+	l2Oracle, err := portal.L2Oracle(&bind.CallOpts{})
+	if err != nil {
+		t.Logf("Warning: Could not get L2Oracle address: %v", err)
+	} else {
+		t.Logf("L2Oracle address: %s", l2Oracle.Hex())
+	}
+
+	// Check guardian address
+	guardian, err := portal.Guardian(&bind.CallOpts{})
+	if err != nil {
+		t.Logf("Warning: Could not get guardian address: %v", err)
+	} else {
+		t.Logf("Guardian address: %s", guardian.Hex())
+	}
+
+	t.Logf("=== End Contract State Inspection ===")
+
 	// Submit the withdrawal proof transaction
+	t.Logf("=== Submitting ProveWithdrawalTransaction ===")
+	t.Logf("Transaction will be sent from: %s", crypto.PubkeyToAddress(d.secrets.Alice.PublicKey).Hex())
+	t.Logf("Gas limit: %d", l1Opts.GasLimit)
+	t.Logf("Gas price: %s", l1Opts.GasPrice.String())
+
 	proveTx, err := portal.ProveWithdrawalTransaction(
 		l1Opts,
 		bindings.TypesWithdrawalTransaction{
@@ -271,14 +446,39 @@ func TestWithdraw(t *testing.T) {
 	)
 	if err != nil {
 		t.Logf("ProveWithdrawalTransaction failed: %v", err)
-		// Try to get more detailed error information
-		if strings.Contains(err.Error(), "execution reverted") {
-			t.Logf("Transaction reverted - possible causes:")
-			t.Logf("  1. Withdrawal already proven")
-			t.Logf("  2. Invalid proof data")
-			t.Logf("  3. L2 output not yet finalized")
-			t.Logf("  4. Incorrect dispute game reference")
+
+		// Enhanced error analysis
+		errorStr := err.Error()
+		t.Logf("Full error string: %s", errorStr)
+
+		if strings.Contains(errorStr, "execution reverted") {
+			t.Logf("Transaction reverted - analyzing revert reason...")
+
+			// Common revert reasons for proveWithdrawalTransaction:
+			if strings.Contains(errorStr, "OptimismPortal: withdrawal hash has already been proven") {
+				t.Logf("ERROR: Withdrawal already proven")
+			} else if strings.Contains(errorStr, "OptimismPortal: invalid output root proof") {
+				t.Logf("ERROR: Invalid output root proof")
+			} else if strings.Contains(errorStr, "OptimismPortal: output root proof is not valid") {
+				t.Logf("ERROR: Output root proof validation failed")
+			} else if strings.Contains(errorStr, "OptimismPortal: cannot prove a withdrawal with a finalized output") {
+				t.Logf("ERROR: Output already finalized")
+			} else {
+				t.Logf("Generic revert - possible causes:")
+				t.Logf("  1. Withdrawal already proven")
+				t.Logf("  2. Invalid proof data")
+				t.Logf("  3. L2 output not yet finalized")
+				t.Logf("  4. Incorrect dispute game reference")
+				t.Logf("  5. Invalid withdrawal proof")
+			}
+		} else if strings.Contains(errorStr, "insufficient funds") {
+			t.Logf("ERROR: Insufficient gas funds")
+		} else if strings.Contains(errorStr, "nonce too low") {
+			t.Logf("ERROR: Nonce issue")
 		}
+
+		// Run comprehensive debugging
+		debugWithdrawalTransaction(t, ctx, portal, params, tx.Hash())
 	}
 	require.NoError(t, err)
 
@@ -290,4 +490,70 @@ func TestWithdraw(t *testing.T) {
 	t.Logf("Withdrawal proof transaction successful: %s", proveTx.Hash().Hex())
 	t.Logf("Withdrawal can now be finalized after the finalization period")
 
+}
+
+// debugWithdrawalTransaction provides comprehensive debugging for withdrawal proof failures
+func debugWithdrawalTransaction(t *testing.T, ctx context.Context, portal *bindings.OptimismPortal, params withdrawals.ProvenWithdrawalParameters, txHash common.Hash) {
+	t.Logf("=== Comprehensive Withdrawal Debug ===")
+
+	// 1. Validate withdrawal hash calculation
+	withdrawalHash := crypto.Keccak256Hash(
+		params.Nonce.Bytes(),
+		params.Sender.Bytes(),
+		params.Target.Bytes(),
+		params.Value.Bytes(),
+		params.GasLimit.Bytes(),
+		params.Data,
+	)
+	t.Logf("Calculated withdrawal hash: %s", withdrawalHash.Hex())
+
+	// 2. Check proven withdrawals mapping
+	provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	if err != nil {
+		t.Logf("ERROR: Could not query proven withdrawals: %v", err)
+	} else {
+		t.Logf("Proven withdrawal details:")
+		t.Logf("  OutputRoot: %s", common.Bytes2Hex(provenWithdrawal.OutputRoot[:]))
+		t.Logf("  Timestamp: %s", provenWithdrawal.Timestamp.String())
+		t.Logf("  L2OutputIndex: %s", provenWithdrawal.L2OutputIndex.String())
+
+		if provenWithdrawal.Timestamp.Cmp(big.NewInt(0)) > 0 {
+			t.Logf("ISSUE: Withdrawal already proven at timestamp %s", provenWithdrawal.Timestamp.String())
+		}
+	}
+
+	// 3. Validate output root proof components
+	t.Logf("Output root proof validation:")
+	t.Logf("  Version: %s", common.Bytes2Hex(params.OutputRootProof.Version[:]))
+	t.Logf("  StateRoot: %s", common.Bytes2Hex(params.OutputRootProof.StateRoot[:]))
+	t.Logf("  MessagePasserStorageRoot: %s", common.Bytes2Hex(params.OutputRootProof.MessagePasserStorageRoot[:]))
+	t.Logf("  LatestBlockhash: %s", common.Bytes2Hex(params.OutputRootProof.LatestBlockhash[:]))
+
+	// 4. Check withdrawal proof structure
+	t.Logf("Withdrawal proof structure:")
+	t.Logf("  Proof elements: %d", len(params.WithdrawalProof))
+	for i, proof := range params.WithdrawalProof {
+		t.Logf("  Proof[%d]: %s (length: %d)", i, common.Bytes2Hex(proof), len(proof))
+	}
+
+	// 5. Check L2 output finalization status
+	isFinalized, err := portal.IsOutputFinalized(&bind.CallOpts{}, params.L2OutputIndex)
+	if err != nil {
+		t.Logf("ERROR: Could not check output finalization: %v", err)
+	} else {
+		t.Logf("L2 Output %s finalized: %t", params.L2OutputIndex.String(), isFinalized)
+	}
+
+	// 6. Check contract pause status
+	paused, err := portal.Paused(&bind.CallOpts{})
+	if err != nil {
+		t.Logf("ERROR: Could not check pause status: %v", err)
+	} else {
+		t.Logf("Portal paused: %t", paused)
+		if paused {
+			t.Logf("ISSUE: Portal is paused - all transactions will fail")
+		}
+	}
+
+	t.Logf("=== End Comprehensive Debug ===")
 }
