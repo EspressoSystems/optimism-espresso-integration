@@ -5,21 +5,22 @@ import (
 	"encoding/json"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
-	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
-	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/stretchr/testify/require"
+
+	bindings "github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
+	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
+	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
 )
 
 func TestWithdraw(t *testing.T) {
@@ -45,7 +46,8 @@ func TestWithdraw(t *testing.T) {
 	withdrawalAmount := big.NewInt(1000000) // Withdraw 1 000 000 wei
 
 	// Bind to L2ToL1MessagePasser contract
-	l2MessagePasser, err := bindings.NewL2ToL1MessagePasser(predeploys.L2ToL1MessagePasserAddr, d.L2Seq)
+	l2ToL1MessagePasserAddr := common.HexToAddress("0x4200000000000000000000000000000000000016") // L2ToL1MessagePasser predeploy
+	l2MessagePasser, err := bindings.NewL2ToL1MessagePasser(l2ToL1MessagePasserAddr, d.L2Seq)
 	require.NoError(t, err)
 
 	// Get the correct L2 chain ID from the sequencer
@@ -244,6 +246,9 @@ func TestWithdraw(t *testing.T) {
 	l1Opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
 	require.NoError(t, err)
 
+	// Log basic withdrawal proof info
+	t.Logf("Attempting to prove withdrawal with L2OutputIndex: %s", params.L2OutputIndex.String())
+
 	// Submit the withdrawal proof transaction
 	proveTx, err := portal.ProveWithdrawalTransaction(
 		l1Opts,
@@ -264,6 +269,17 @@ func TestWithdraw(t *testing.T) {
 		},
 		params.WithdrawalProof,
 	)
+	if err != nil {
+		t.Logf("ProveWithdrawalTransaction failed: %v", err)
+		// Try to get more detailed error information
+		if strings.Contains(err.Error(), "execution reverted") {
+			t.Logf("Transaction reverted - possible causes:")
+			t.Logf("  1. Withdrawal already proven")
+			t.Logf("  2. Invalid proof data")
+			t.Logf("  3. L2 output not yet finalized")
+			t.Logf("  4. Incorrect dispute game reference")
+		}
+	}
 	require.NoError(t, err)
 
 	// Wait for the proof transaction to be mined
