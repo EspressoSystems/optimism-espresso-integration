@@ -3,7 +3,6 @@ package devnet_tests
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -599,11 +598,50 @@ func (d *Devnet) serviceClient(service string, port uint16) (*ethclient.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("could not get %s port: %w", service, err)
 	}
-	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://127.0.0.1:%d", port))
+	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://localhost:%d", port))
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
 	}
 	return client, nil
+}
+
+// TODO Philippe Document, find a better name
+func (d *Devnet) getOPAddresses() (common.Address, common.Address) {
+	// Read actual deployed contract addresses from deployment state
+	// This matches what the op-proposer service does in docker-compose.yml
+	deploymentStateFile := "../deployment/deployer/state.json"
+
+	// Check if deployment state file exists
+	if _, err := os.Stat(deploymentStateFile); os.IsNotExist(err) {
+		log.Error("Deployment state file not found: %s. Make sure devnet is properly deployed.", deploymentStateFile)
+		return common.Address{}, common.Address{}
+	}
+
+	// Read and parse the deployment state
+	stateData, err := os.ReadFile(deploymentStateFile)
+	if err != nil {
+		log.Error("Failed to read deployment state: %v", err)
+	}
+
+	var deploymentState struct {
+		OpChainDeployments []struct {
+			DisputeGameFactoryProxyAddress string `json:"disputeGameFactoryProxyAddress"`
+			OptimismPortalProxyAddress     string `json:"optimismPortalProxyAddress"`
+		} `json:"opChainDeployments"`
+	}
+
+	if err := json.Unmarshal(stateData, &deploymentState); err != nil {
+		log.Error("Failed to parse deployment state: %v", err)
+	}
+
+	if len(deploymentState.OpChainDeployments) == 0 {
+		log.Error("No OP chain deployments found in state file")
+	}
+
+	disputeGameFactoryAddr := common.HexToAddress(deploymentState.OpChainDeployments[0].DisputeGameFactoryProxyAddress)
+	optimismPortalAddr := common.HexToAddress(deploymentState.OpChainDeployments[0].OptimismPortalProxyAddress)
+
+	return disputeGameFactoryAddr, optimismPortalAddr
 }
 
 func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClient, error) {
