@@ -6,12 +6,16 @@ on:
     paths:
       - "espresso/docker/**"
       - "espresso/docker-compose.yml"
+      - "espresso/scripts/**"
       - "config/**"
+      - "op-batcher/**"
   pull_request:
     paths:
       - "espresso/docker/**"
       - "espresso/docker-compose.yml"
+      - "espresso/scripts/**"
       - "config/**"
+      - "op-batcher/**"
   workflow_dispatch:
 
 env:
@@ -363,6 +367,26 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build enclave-tools
+        run: |
+          cd op-batcher
+          just enclave-tools
+          ls -la bin/
 
       - name: Copy config for op-batcher
         run: |
