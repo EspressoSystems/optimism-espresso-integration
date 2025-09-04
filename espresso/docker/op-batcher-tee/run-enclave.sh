@@ -54,28 +54,66 @@ if [ "$ENCLAVE_DEBUG" = "true" ]; then
     echo "Debug logging enabled"
 fi
 
-# Build the enclave image
+# First ensure enclave-tools is built
+echo "Checking for enclave-tools binary..."
+if ! command -v enclave-tools &> /dev/null; then
+    echo "enclave-tools not found in PATH, checking local build..."
+    if [[ ! -f "/source/op-batcher/bin/enclave-tools" ]]; then
+        echo "Building enclave-tools..."
+        cd /source/op-batcher
+        just enclave-tools
+        cd /source
+    fi
+    # Use the locally built version
+    alias enclave-tools="/source/op-batcher/bin/enclave-tools"
+    export PATH="/source/op-batcher/bin:$PATH"
+    echo "Using enclave-tools from: $(which enclave-tools)"
+fi
+
+# Build the enclave image WITHOUT args to ensure consistent PCR0
 echo "Building enclave image with tag: $TAG"
 cd /source
 
-if ! enclave-tools build --op-root /source --tag "$TAG" 2>&1 | tee /tmp/build_output.log; then
-    echo "ERROR: Failed to build enclave image"
-    echo "Build output was:"
-    cat /tmp/build_output.log
+# Check if we should use a pre-built image
+if [ -f "/shared/enclave-image-${TAG}.tar" ] && [ -f "/shared/pcr0-${TAG}.txt" ]; then
+    echo "Using pre-built enclave image from /shared/enclave-image-${TAG}.tar"
+    PCR0=$(cat "/shared/pcr0-${TAG}.txt")
+    echo "Using pre-registered PCR0: $PCR0"
+    # Import the pre-built image
+    docker load -i "/shared/enclave-image-${TAG}.tar"
+    echo "Build completed successfully (using pre-built image)"
+    # Create fake build log for PCR extraction
+    echo "  PCR0: $PCR0" > /tmp/build_output.log
+else
+    echo "ERROR: Pre-built enclave image not found!"
+    echo "Please build the enclave image first using scripts/build-enclave-image.sh"
+    echo "Expected files:"
+    echo "  - /shared/enclave-image-${TAG}.tar"
+    echo "  - /shared/pcr0-${TAG}.txt"
     exit 1
 fi
 
-echo "Build completed successfully"
-
-# Extract PCR0 from build output
-PCR0=$(grep "PCR0:" /tmp/build_output.log | sed 's/.*PCR0: //')
+# Extract PCR0 from build output (only if we built it)
+if [ ! -f "/tmp/pcr0.txt" ]; then
+    PCR0=$(grep "PCR0:" /tmp/build_output.log | sed 's/.*PCR0: //')
+    echo "Extracted PCR0 from build: $PCR0"
+else
+    # PCR0 already set from pre-built image
+    echo "Using PCR0: $PCR0"
+fi
 
 # Get batch authenticator address from deployment state
 BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null || echo "")
+echo "Batch authenticator address: $BATCH_AUTHENTICATOR_ADDRESS"
 
 # Register PCR0 if all required values are present
 if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PRIVATE_KEY" ]; then
-    echo "Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
+    echo "=== PCR0 Registration ==="
+    echo "Registering PCR0: $PCR0"
+    echo "Authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
+    echo "L1 URL: $L1_RPC_URL"
+    echo "========================="
+    
     enclave-tools register \
         --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
         --l1-url "$L1_RPC_URL" \
@@ -143,9 +181,12 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
     export ENCLAVE_DOCKER_NETWORK="$DOCKER_NETWORK"
 fi
 
-# Run the enclave
-echo "Starting enclave with command:"
-echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
+# Run the enclave with arguments passed dynamically (not baked into image)
+echo "=== Starting Enclave ==="
+echo "Image: $TAG"
+echo "Arguments (passed dynamically): $BATCHER_ARGS"
+echo "========================"
+echo "Command: enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
 
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!

@@ -375,6 +375,7 @@ services:
       - ..:/source:ro
       - ./scripts/batcher-enclave-tool-image.sh:/app/espresso/scripts/batcher-enclave-tool-image.sh:ro
       - /tmp:/tmp
+      - ./shared:/shared:ro
     privileged: true
     devices:
       - /dev/nitro_enclaves:/dev/nitro_enclaves
@@ -388,7 +389,7 @@ services:
       export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
       export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
       export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
-      /source/espresso/docker/op-batcher-tee/run-enclave.sh 
+      /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
 
   op-proposer:
