@@ -1126,17 +1126,17 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	l.Log.Info("About to call registerSigner", 
-		"attestationTbsLength", len(l.Attestation.COSESign1), 
+	l.Log.Info("About to call registerSigner",
+		"attestationTbsLength", len(l.Attestation.COSESign1),
 		"signatureLength", len(l.Attestation.Signature))
-	
+
 	// Debug: try to extract PCR0 that the contract would see
 	if len(l.Attestation.COSESign1) > 100 {
 		// Log some attestation details for debugging
 		l.Log.Info("Attestation debug info",
 			"attestationTbsHex", fmt.Sprintf("%x", l.Attestation.COSESign1[:100]), // first 100 bytes
 			"signatureHex", fmt.Sprintf("%x", l.Attestation.Signature))
-		
+
 		// More precise PCR0 extraction - look for the exact pattern
 		attestationHex := fmt.Sprintf("%x", l.Attestation.COSESign1)
 		// PCRs are typically after "digest" and before "timestamp"
@@ -1147,38 +1147,38 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 			// PCR0 is the first 48-byte (96 hex char) value in the PCRs array
 			searchStart := digestIndex + 30 // skip past "digest" and some CBOR headers
 			if searchStart+96 <= len(attestationHex) {
-				possiblePCR0 := attestationHex[searchStart:searchStart+96]
+				possiblePCR0 := attestationHex[searchStart : searchStart+96]
 				pcr0Hash := crypto.Keccak256Hash(hexutil.MustDecode("0x" + possiblePCR0))
-				l.Log.Info("PCR0 extracted from attestation (method 1)", 
+				l.Log.Info("PCR0 extracted from attestation (method 1)",
 					"pcr0Raw", possiblePCR0,
 					"pcr0Hash", pcr0Hash.Hex(),
 					"searchStart", searchStart)
 			}
 		}
-		
+
 		// Search for the exact registered PCR0 in the attestation
 		// Note: This PCR0 should match what was registered with the smart contract
 		expectedPCR0 := "57f001749a496654a2a4d177de2aa501b79d80794702c405aaf39510507ab000b74ce9c396e290e9c25fb4a5130b0618"
 		pcr0Index := strings.Index(attestationHex, expectedPCR0)
 		if pcr0Index != -1 {
-			actualPCR0 := attestationHex[pcr0Index:pcr0Index+96]
+			actualPCR0 := attestationHex[pcr0Index : pcr0Index+96]
 			actualHash := crypto.Keccak256Hash(hexutil.MustDecode("0x" + actualPCR0))
-			l.Log.Info("FOUND EXACT PCR0 in attestation!", 
+			l.Log.Info("FOUND EXACT PCR0 in attestation!",
 				"offset", pcr0Index,
 				"pcr0Raw", actualPCR0,
 				"pcr0Hash", actualHash.Hex())
 		} else {
 			l.Log.Info("Expected PCR0 NOT FOUND in attestation", "expectedPCR0", expectedPCR0)
-			
+
 			// Alternative approach - look for 48-byte sequences that could be PCR0
 			l.Log.Info("Searching for PCR0 candidates in attestation...")
 			candidatesFound := 0
 			for i := 200; i < len(attestationHex)-96 && candidatesFound < 5; i += 2 {
-				candidate := attestationHex[i:i+96]
+				candidate := attestationHex[i : i+96]
 				// Check if this looks like a PCR0 (starts with reasonable hex and full length)
 				if len(candidate) == 96 {
 					hash := crypto.Keccak256Hash(hexutil.MustDecode("0x" + candidate))
-					l.Log.Info("PCR0 candidate from attestation", 
+					l.Log.Info("PCR0 candidate from attestation",
 						"offset", i,
 						"pcr0Raw", candidate,
 						"pcr0Hash", hash.Hex())

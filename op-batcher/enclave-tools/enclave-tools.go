@@ -95,10 +95,10 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 	if err != nil {
 		return fmt.Errorf("failed to create transactor: %w", err)
 	}
-	
+
 	pcr0Hash := crypto.Keccak256Hash(pcr0Bytes)
 	fmt.Printf("DEBUG: Registering PCR0 hash: %s (from PCR0: %x)\n", pcr0Hash.Hex(), pcr0Bytes)
-	
+
 	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, pcr0Hash, true)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
