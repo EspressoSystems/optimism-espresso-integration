@@ -64,7 +64,12 @@ FROM alpine:3.22 AS op-cgo-builder
 RUN apk add musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
 # Install just from mise
 COPY ./mise.toml .
-RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
+RUN uname -m
+RUN case $(uname -m) in \
+  "arm64"|"aarch64") JUST_ARCH="aarch64" ;; \
+  *) JUST_ARCH="x86_64" ;; \
+  esac && \
+  curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-$JUST_ARCH-unknown-linux-musl.tar.gz | \
   tar xz -C /usr/local/bin just
 # Go sources
 COPY ./go.mod /app/go.mod
@@ -105,6 +110,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
 FROM golang:1.24-alpine AS deployment-utils-builder
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE
 RUN apk add gcc lld musl-dev # For CGO
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/tomwright/dasel/v2/cmd/dasel@v2.8.1
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/mikefarah/yq/v4@v4.47.1
