@@ -59,8 +59,12 @@ RUN echo "Cache bust: $(date)" > /cache-bust.txt
 RUN apk add curl jq openssl
 
 # Install dasel for JSON manipulation.
-RUN curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /usr/local/bin/dasel && \
-    chmod +x /usr/local/bin/dasel
+RUN case $(uname -m) in \
+  "arm64"|"aarch64") ARCH="arm64" ;; \
+  *) ARCH="amd64" ;; \
+  esac && \
+  curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_$ARCH" -o /usr/local/bin/dasel && \
+  chmod +x /usr/local/bin/dasel
 
 # Copy binary from builder stage.
 COPY --from=op-deployer-builder /op-deployer /usr/local/bin/
