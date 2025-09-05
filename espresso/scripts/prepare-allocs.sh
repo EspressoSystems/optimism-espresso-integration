@@ -75,6 +75,8 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].preApprovedBatcherKey 
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .fundDevAccounts -t bool -v true
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.disputeGameFinalityDelaySeconds -t int -v 12
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.proofMaturityDelaySeconds -t int -v 12
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].baseFeeVaultRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].l1FeeVaultRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].sequencerFeeVaultRecipient -v "${OPERATOR_ADDRESS}"

@@ -3,6 +3,7 @@ package devnet_tests
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -23,11 +24,16 @@ import (
 	opclient "github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+
+	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	bindingspreview "github.com/ethereum-optimism/optimism/op-e2e/bindingspreview"
+	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 )
 
 type Devnet struct {
@@ -107,10 +113,6 @@ func (d *Devnet) Up() (err error) {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
-	)
-	cmd.Env = append(
-		cmd.Env,
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
@@ -656,4 +658,32 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 
 	client := sources.NewRollupClient(rpc)
 	return client, nil
+}
+
+func (d *Devnet) getWithdrawalDelay() (time.Duration, error) {
+	_, optimismPortalAddr := d.getOPAddresses()
+
+	// Check if there's code at the address
+	code, err := d.L1.CodeAt(context.Background(), optimismPortalAddr, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to check contract code: %v", err)
+	}
+	if len(code) == 0 {
+		return 0, fmt.Errorf("no contract code at address %s - contract may not be deployed yet", optimismPortalAddr.Hex())
+	}
+	log.Info("Contract code found", "address", optimismPortalAddr.Hex(), "codeSize", len(code))
+
+	// Create OptimismPortal2 binding to get dispute game finality delay
+	optimismPortal2, err := bindingspreview.NewOptimismPortal2(optimismPortalAddr, d.L1)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create OptimismPortal2 binding: %v", err)
+	}
+
+	// Query the proof maturity delay from the contract (this is the finalization period)
+	finalizationPeriod, err := optimismPortal2.DisputeGameFinalityDelaySeconds(&bind.CallOpts{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to query proof maturity delay from contract: %v", err)
+	}
+
+	return time.Duration(finalizationPeriod.Int64()) * time.Second, nil
 }
