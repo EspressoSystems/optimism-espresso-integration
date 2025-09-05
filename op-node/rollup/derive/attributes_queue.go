@@ -141,7 +141,6 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 //
 // This is similar to the batcher's flow: espressoBatchLoadingLoop -> getSyncStatus -> refresh -> Update -> Next,
 // but with a few key differences:
-// - CaffNextBatch obtains sync state differently from the batcher, it treated parent.Number() as the latest safe batch number.
 // - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
 func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
