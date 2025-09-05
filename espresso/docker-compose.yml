@@ -80,7 +80,7 @@ services:
       l1-genesis:
         condition: service_completed_successfully
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}" ]
+      test: ["CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -171,6 +171,11 @@ services:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${ROLLUP_PORT}"]
+      interval: 3s
+      timeout: 2s
+      retries: 40
     image: op-node-sequencer:espresso
     depends_on:
       l2-rollup:
@@ -205,6 +210,11 @@ services:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${VERIFIER_PORT}"]
+      interval: 3s
+      timeout: 2s
+      retries: 40
     image: op-node-verifier:espresso
     depends_on:
       l2-rollup:
@@ -237,6 +247,11 @@ services:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${CAFF_PORT}"]
+      interval: 3s
+      timeout: 2s
+      retries: 40
     image: caff-node:espresso
     depends_on:
       op-geth-caff-node:
@@ -307,9 +322,8 @@ services:
     command:
       - op-batcher
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-      - --testing-espresso-batcher-private-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 # Default value for testing
-      - --mnemonic=test test test test test test test test test test test junk # Arbitrary value for testing
-      - --hd-path=m/44'/60'/0'/0/0 # Arbitrary value for testing
+      - --testing-espresso-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80} # Default value for testing
+      - --private-key=${OP_BATCHER_PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"} # Arbitrary value for testing
       - --throttle-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
@@ -343,7 +357,11 @@ services:
       target: op-batcher-enclave-target
     image: op-batcher-tee:espresso
     healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -380,16 +398,15 @@ services:
       - /dev/nitro_enclaves:/dev/nitro_enclaves
     restart: "no"
     command:
-    - sh
-    - -c
-    - |
-      export DEPLOYMENT_MODE=local
-      export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
-      export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
-      export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
-      export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
-      /source/espresso/docker/op-batcher-tee/run-enclave.sh 
-
+      - sh
+      - -c
+      - |
+        export DEPLOYMENT_MODE=local
+        export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
+        export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
+        export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
+        export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+        /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   op-proposer:
     profiles: ["default"]
@@ -443,7 +460,7 @@ services:
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
       ESPRESSO_SEQUENCER_L1_PROVIDER: http://l1-geth:${L1_HTTP_PORT}
       ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
-      ESPRESSO_DEV_NODE_EPOCH_HEIGHT: '4294967295'
+      ESPRESSO_DEV_NODE_EPOCH_HEIGHT: "4294967295"
       ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
 
 volumes:
