@@ -305,6 +305,7 @@ docker compose up --build -d
 ```
 If you're on a machine with [AWS Nitro Enclaves enabled](#guide-setting-up-an-enclave-enabled-nitro-ec2-instance), use the `tee` profile instead to start the enclave batcher.
 ```console
+./scripts/build-enclave-image.sh # to build persistent PCR0
 COMPOSE_PROFILES=tee docker compose up --build -d
 ```
 
