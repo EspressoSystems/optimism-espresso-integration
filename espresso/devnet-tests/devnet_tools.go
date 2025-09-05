@@ -3,6 +3,7 @@ package devnet_tests
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"os"
@@ -13,16 +14,20 @@ import (
 	"testing"
 	"time"
 
+	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	opclient "github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-
-	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 )
 
 type Devnet struct {
@@ -31,8 +36,11 @@ type Devnet struct {
 	outageTime  time.Duration
 	successTime time.Duration
 
-	L2Seq   *ethclient.Client
-	L2Verif *ethclient.Client
+	L1            *ethclient.Client
+	L2Seq         *ethclient.Client
+	L2SeqRollup   *sources.RollupClient
+	L2Verif       *ethclient.Client
+	L2VerifRollup *sources.RollupClient
 }
 
 func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
@@ -69,6 +77,10 @@ func (d *Devnet) Up(verbose bool) (err error) {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
+	)
+	cmd.Env = append(
+		cmd.Env,
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
@@ -112,7 +124,19 @@ func (d *Devnet) Up(verbose bool) (err error) {
 	if err != nil {
 		return err
 	}
+	d.L2SeqRollup, err = d.rollupClient("op-node-sequencer", 9545)
+	if err != nil {
+		return err
+	}
 	d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
+	if err != nil {
+		return err
+	}
+	d.L2VerifRollup, err = d.rollupClient("op-node-verifier", 9546)
+	if err != nil {
+		return err
+	}
+	d.L1, err = d.serviceClient("l1-geth", 8545)
 	if err != nil {
 		return err
 	}
@@ -146,6 +170,28 @@ func (d *Devnet) ServiceRestart(service string) error {
 		return err
 	}
 	return nil
+}
+
+func (d *Devnet) RollupConfig(ctx context.Context) (*rollup.Config, error) {
+	return d.L2SeqRollup.RollupConfig(ctx)
+}
+
+func (d *Devnet) SystemConfig(ctx context.Context) (*bindings.SystemConfig, *bind.TransactOpts, error) {
+	config, err := d.RollupConfig(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	contract, err := bindings.NewSystemConfig(config.L1SystemConfigAddress, d.L1)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	owner, err := bind.NewKeyedTransactorWithChainID(d.secrets.Deployer, config.L1ChainID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return contract, owner, nil
 }
 
 // Submits a transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
@@ -236,6 +282,15 @@ func (d *Devnet) RunL2Tx(applyTxOpts helpers.TxOptsFn) error {
 		return err
 	}
 	return d.VerifyL2Tx(receipt)
+}
+
+func (d *Devnet) SendL1Tx(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
+	err := d.L1.SendTransaction(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return wait.ForReceiptOK(ctx, d.L1, tx.Hash())
 }
 
 type BurnReceipt struct {
@@ -354,9 +409,23 @@ func (d *Devnet) serviceClient(service string, port uint16) (*ethclient.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("could not get %s port: %w", service, err)
 	}
-	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://localhost:%d", port))
+	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://127.0.0.1:%d", port))
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
 	}
+	return client, nil
+}
+
+func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClient, error) {
+	port, err := d.hostPort(service, port)
+	if err != nil {
+		return nil, fmt.Errorf("could not get %s port: %w", service, err)
+	}
+	rpc, err := opclient.NewRPC(d.ctx, log.Root(), fmt.Sprintf("http://127.0.0.1:%d", port), opclient.WithDialAttempts(10))
+	if err != nil {
+		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
+	}
+
+	client := sources.NewRollupClient(rpc)
 	return client, nil
 }
