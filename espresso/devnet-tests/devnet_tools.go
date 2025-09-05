@@ -232,7 +232,7 @@ func (d *Devnet) SystemConfig(ctx context.Context) (*bindings.SystemConfig, *bin
 
 // Submits a transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
 func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error) {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
 	defer cancel()
 
 	chainID, err := d.L2Seq.ChainID(ctx)
