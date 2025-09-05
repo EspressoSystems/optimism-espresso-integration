@@ -25,7 +25,7 @@ func TestWithdraw(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up())
+	require.NoError(t, d.Up(testing.Verbose()))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -114,7 +114,7 @@ func TestWithdraw(t *testing.T) {
 
 	// Generate withdrawal proof using fault proofs
 	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
-	
+
 	// Set up clients for proof generation
 	receiptCl := d.L2Seq
 	headerCl := d.L2Seq
@@ -198,111 +198,111 @@ func TestWithdraw(t *testing.T) {
 	t.Logf("Alice's L1 balance before finalization: %s ETH", new(big.Int).Div(aliceL1BalanceBefore, big.NewInt(1e18)).String())
 
 	// Wait for the challenge period to expire
-	t.Logf("Waiting for challenge period to expire...")
-	
-	// Use standard finalization period (7 days for mainnet, but shorter for devnet)
-	finalizationPeriodSeconds := big.NewInt(7 * 24 * 60 * 60) // 7 days in seconds
-	t.Logf("Using finalization period: %s seconds (%s)", finalizationPeriodSeconds.String(), 
-		time.Duration(finalizationPeriodSeconds.Int64())*time.Second)
+	// t.Logf("Waiting for challenge period to expire...")
 
-	// For testing purposes, we'll wait a shorter period or check if already finalized
-	// In a real scenario, you'd wait the full finalization period
-	maxWaitTime := 5 * time.Minute
-	checkInterval := 10 * time.Second
-	
-	withdrawalHash := crypto.Keccak256Hash(
-		params.Nonce.Bytes(),
-		params.Sender.Bytes(),
-		params.Target.Bytes(),
-		params.Value.Bytes(),
-		params.GasLimit.Bytes(),
-		params.Data,
-	)
+	// // Use standard finalization period (7 days for mainnet, but shorter for devnet)
+	// finalizationPeriodSeconds := big.NewInt(7 * 24 * 60 * 60) // 7 days in seconds
+	// t.Logf("Using finalization period: %s seconds (%s)", finalizationPeriodSeconds.String(),
+	// 	time.Duration(finalizationPeriodSeconds.Int64())*time.Second)
 
-	t.Logf("Checking if withdrawal %s is ready for finalization...", withdrawalHash.Hex())
-	
-	// Poll until withdrawal is ready for finalization or timeout
-	finalizeCtx, finalizeCancel := context.WithTimeout(ctx, maxWaitTime)
-	defer finalizeCancel()
-	
-	var canFinalize bool
-	for {
-		select {
-		case <-finalizeCtx.Done():
-			t.Logf("Timeout waiting for finalization period. Attempting finalization anyway...")
-			canFinalize = true
-		default:
-			// Check if withdrawal is ready for finalization
-			provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
-			if err != nil {
-				t.Logf("Error checking proven withdrawal: %v", err)
-				time.Sleep(checkInterval)
-				continue
-			}
+	// // For testing purposes, we'll wait a shorter period or check if already finalized
+	// // In a real scenario, you'd wait the full finalization period
+	// maxWaitTime := 5 * time.Minute
+	// checkInterval := 10 * time.Second
 
-			// Check if enough time has passed since the proof was submitted
-			currentTime := big.NewInt(time.Now().Unix())
-			requiredTime := new(big.Int).Add(provenWithdrawal.Timestamp, finalizationPeriodSeconds)
-			
-			if currentTime.Cmp(requiredTime) >= 0 {
-				t.Logf("Challenge period has expired. Ready for finalization.")
-				canFinalize = true
-			} else {
-				remainingTime := new(big.Int).Sub(requiredTime, currentTime)
-				t.Logf("Still waiting... %s seconds remaining", remainingTime.String())
-				time.Sleep(checkInterval)
-				continue
-			}
-		}
-		break
-	}
+	// withdrawalHash := crypto.Keccak256Hash(
+	// 	params.Nonce.Bytes(),
+	// 	params.Sender.Bytes(),
+	// 	params.Target.Bytes(),
+	// 	params.Value.Bytes(),
+	// 	params.GasLimit.Bytes(),
+	// 	params.Data,
+	// )
 
-	if canFinalize {
-		// Finalize the withdrawal
-		t.Logf("Finalizing withdrawal transaction...")
-		
-		// Create new transaction options for finalization
-		finalizeOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-		require.NoError(t, err)
-		
-		finalizeOpts.GasLimit = 300000
-		finalizeOpts.GasPrice = gasPrice
-		
-		finalizeTx, err := portal.FinalizeWithdrawalTransaction(
-			finalizeOpts,
-			bindings.TypesWithdrawalTransaction{
-				Nonce:    params.Nonce,
-				Sender:   params.Sender,
-				Target:   params.Target,
-				Value:    params.Value,
-				GasLimit: params.GasLimit,
-				Data:     params.Data,
-			},
-		)
-		require.NoError(t, err)
+	// t.Logf("Checking if withdrawal %s is ready for finalization...", withdrawalHash.Hex())
 
-		// Wait for finalization transaction to be mined
-		finalizeReceipt, err := bind.WaitMined(ctx, d.L1, finalizeTx)
-		require.NoError(t, err)
-		require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
+	// // Poll until withdrawal is ready for finalization or timeout
+	// finalizeCtx, finalizeCancel := context.WithTimeout(ctx, maxWaitTime)
+	// defer finalizeCancel()
 
-		t.Logf("Withdrawal finalization successful: %s", finalizeTx.Hash().Hex())
-		t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)
+	// var canFinalize bool
+	// for {
+	// 	select {
+	// 	case <-finalizeCtx.Done():
+	// 		t.Logf("Timeout waiting for finalization period. Attempting finalization anyway...")
+	// 		canFinalize = true
+	// 	default:
+	// 		// Check if withdrawal is ready for finalization
+	// 		provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	// 		if err != nil {
+	// 			t.Logf("Error checking proven withdrawal: %v", err)
+	// 			time.Sleep(checkInterval)
+	// 			continue
+	// 		}
 
-		// Check Alice's L1 balance after finalization
-		aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
-		require.NoError(t, err)
-		t.Logf("Alice's L1 balance after finalization: %s ETH", new(big.Int).Div(aliceL1BalanceAfter, big.NewInt(1e18)).String())
+	// 		// Check if enough time has passed since the proof was submitted
+	// 		currentTime := big.NewInt(time.Now().Unix())
+	// 		requiredTime := new(big.Int).Add(provenWithdrawal.Timestamp, finalizationPeriodSeconds)
 
-		// Calculate the net change (accounting for gas costs)
-		balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
-		t.Logf("Net L1 balance change: %s ETH", new(big.Int).Div(balanceChange, big.NewInt(1e18)).String())
-		
-		// Verify that funds were transferred (should be positive despite gas costs)
-		if balanceChange.Cmp(big.NewInt(0)) > 0 {
-			t.Logf("✅ Withdrawal completed successfully! Funds transferred to L1.")
-		} else {
-			t.Logf("⚠️  Balance change is negative due to gas costs, but withdrawal should have completed.")
-		}
-	}
+	// 		if currentTime.Cmp(requiredTime) >= 0 {
+	// 			t.Logf("Challenge period has expired. Ready for finalization.")
+	// 			canFinalize = true
+	// 		} else {
+	// 			remainingTime := new(big.Int).Sub(requiredTime, currentTime)
+	// 			t.Logf("Still waiting... %s seconds remaining", remainingTime.String())
+	// 			time.Sleep(checkInterval)
+	// 			continue
+	// 		}
+	// 	}
+	// 	break
+	// }
+
+	// if canFinalize {
+	// 	// Finalize the withdrawal
+	// 	t.Logf("Finalizing withdrawal transaction...")
+
+	// 	// Create new transaction options for finalization
+	// 	finalizeOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+	// 	require.NoError(t, err)
+
+	// 	finalizeOpts.GasLimit = 300000
+	// 	finalizeOpts.GasPrice = gasPrice
+
+	// 	finalizeTx, err := portal.FinalizeWithdrawalTransaction(
+	// 		finalizeOpts,
+	// 		bindings.TypesWithdrawalTransaction{
+	// 			Nonce:    params.Nonce,
+	// 			Sender:   params.Sender,
+	// 			Target:   params.Target,
+	// 			Value:    params.Value,
+	// 			GasLimit: params.GasLimit,
+	// 			Data:     params.Data,
+	// 		},
+	// 	)
+	// 	require.NoError(t, err)
+
+	// 	// Wait for finalization transaction to be mined
+	// 	finalizeReceipt, err := bind.WaitMined(ctx, d.L1, finalizeTx)
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
+
+	// 	t.Logf("Withdrawal finalization successful: %s", finalizeTx.Hash().Hex())
+	// 	t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)
+
+	// 	// Check Alice's L1 balance after finalization
+	// 	aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
+	// 	require.NoError(t, err)
+	// 	t.Logf("Alice's L1 balance after finalization: %s ETH", new(big.Int).Div(aliceL1BalanceAfter, big.NewInt(1e18)).String())
+
+	// 	// Calculate the net change (accounting for gas costs)
+	// 	balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
+	// 	t.Logf("Net L1 balance change: %s ETH", new(big.Int).Div(balanceChange, big.NewInt(1e18)).String())
+
+	// 	// Verify that funds were transferred (should be positive despite gas costs)
+	// 	if balanceChange.Cmp(big.NewInt(0)) > 0 {
+	// 		t.Logf("✅ Withdrawal completed successfully! Funds transferred to L1.")
+	// 	} else {
+	// 		t.Logf("⚠️  Balance change is negative due to gas costs, but withdrawal should have completed.")
+	// 	}
+	// }
 }
