@@ -61,7 +61,6 @@ smoke-tests: compile-contracts
 # Clean up everything before running the tests
 nuke:
  make nuke
- rm op-deployer/bin/*
 
 # Stop the containers
 stop-containers:
