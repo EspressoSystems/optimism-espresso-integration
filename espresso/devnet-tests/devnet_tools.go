@@ -3,6 +3,7 @@ package devnet_tests
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -111,6 +112,10 @@ func (d *Devnet) Up() (err error) {
 		d.ctx,
 		"docker", "compose", "up", "-d",
 	)
+	cmd.Env = append(
+		cmd.Env,
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
@@ -149,10 +154,6 @@ func (d *Devnet) Up() (err error) {
 	}
 
 	// Open RPC clients for the different nodes.
-	d.L1, err = d.serviceClient("l1-geth", 8545)
-	if err != nil {
-		return err
-	}
 	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
 	if err != nil {
 		return err
@@ -597,7 +598,7 @@ func (d *Devnet) serviceClient(service string, port uint16) (*ethclient.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("could not get %s port: %w", service, err)
 	}
-	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://localhost:%d", port))
+	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://127.0.0.1:%d", port))
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
 	}
