@@ -324,8 +324,8 @@ services:
     command:
       - op-batcher
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-      - --testing-espresso-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80} # Default value for testing
-      - --private-key=${OP_BATCHER_PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"} # Arbitrary value for testing
+      - --testing-espresso-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
+      - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --throttle-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1

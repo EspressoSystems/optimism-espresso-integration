@@ -51,9 +51,15 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 
 	d := new(Devnet)
 	d.ctx = ctx
-	d.secrets = *secrets.DefaultSecrets
 
-	var err error
+	mnemonics := *secrets.DefaultMnemonicConfig
+	mnemonics.Batcher = "m/44'/60'/0'/0/0"
+	secrets, err := mnemonics.Secrets()
+	if err != nil {
+		panic(fmt.Sprintf("failed to create default secrets: %e", err))
+	}
+	d.secrets = *secrets
+
 	if outageTime, ok := os.LookupEnv("ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD"); ok {
 		d.outageTime, err = time.ParseDuration(outageTime)
 		if err != nil {
