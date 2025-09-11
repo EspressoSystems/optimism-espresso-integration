@@ -134,7 +134,7 @@ type BatchSubmitter struct {
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 
 	espressoSubmitter *espressoTransactionSubmitter
-	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
+	espressoStreamer  espresso.EspressoStreamerIFace[derive.EspressoBatch]
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -149,16 +149,18 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		channelMgr:  state,
 	}
 
-	batchSubmitter.espressoStreamer = espresso.NewEspressoStreamer(
-		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-		NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
-		batchSubmitter.Espresso,
-		batchSubmitter.EspressoLightClient,
-		batchSubmitter.Log,
-		func(data []byte) (*derive.EspressoBatch, error) {
-			return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
-		},
-		2*time.Second,
+	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(
+		espresso.NewEspressoStreamer(
+			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
+			NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
+			batchSubmitter.Espresso,
+			batchSubmitter.EspressoLightClient,
+			batchSubmitter.Log,
+			func(data []byte) (*derive.EspressoBatch, error) {
+				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
+			},
+			2*time.Second,
+		),
 	)
 
 	log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
