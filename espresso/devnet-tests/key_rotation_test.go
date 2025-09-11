@@ -68,10 +68,16 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
 
+	// Get the deployer's account to sign our next transaction with
+	_, deployer, err := d.SystemConfig(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Change the BatchAuthenticator's owner
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
 	require.NoError(t, err)
-	tx, err := batchAuthenticator.TransferOwnership(&bind.TransactOpts{}, d.secrets.Addresses().Bob)
+	tx, err := batchAuthenticator.TransferOwnership(deployer, d.secrets.Addresses().Bob)
 	require.NoError(t, err)
 	_, err = d.SendL1Tx(ctx, tx)
 	require.NoError(t, err)
