@@ -9,6 +9,7 @@ devnet-tests: build-devnet
   go test -timeout 30m -p 1 -count 1 -v  ./espresso/devnet-tests/...
 
 build-devnet: compile-contracts
+  rm -Rf espresso/deployment
   (cd op-deployer && just)
   (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
 
