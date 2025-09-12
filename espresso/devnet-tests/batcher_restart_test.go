@@ -13,7 +13,7 @@ func TestBatcherRestart(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(testing.Verbose()))
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
