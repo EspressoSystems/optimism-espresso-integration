@@ -2,6 +2,7 @@
 
 services:
   l1-genesis:
+    user: ${U_ID:-1000}:${GID:-1000}
     restart: on-failure
     build:
       context: ../
@@ -80,7 +81,7 @@ services:
       l1-genesis:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}"]
+      test: [ "CMD", "curl", "-f", "http://localhost:${L1_HTTP_PORT}" ]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -121,6 +122,7 @@ services:
       - ./deployment/deployer:/deployer:ro
 
   l2-genesis:
+    user: "${U_ID:-1000}:${GID:-1000}"
     restart: on-failure
     build:
       context: ../
@@ -172,7 +174,7 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${ROLLUP_PORT}"]
+      test: [ "CMD", "curl", "-f", "http://localhost:${ROLLUP_PORT}" ]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -189,11 +191,13 @@ services:
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-sequencer:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${ROLLUP_PORT}
+      OP_NODE_SAFEDB_PATH: /data/safedb
     ports:
       - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     volumes:
       - ./deployment/l2-config:/config:ro
       - /etc/localtime:/etc/localtime:ro
+      - op-node-seq:/data
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
@@ -211,7 +215,7 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${VERIFIER_PORT}"]
+      test: [ "CMD", "curl", "-f", "http://localhost:${VERIFIER_PORT}" ]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -248,7 +252,7 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${CAFF_PORT}"]
+      test: [ "CMD", "curl", "-f", "http://localhost:${CAFF_PORT}" ]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -293,7 +297,7 @@ services:
     restart: "no"
 
   op-batcher:
-    profiles: ["default"]
+    profiles: [ "default" ]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -322,8 +326,8 @@ services:
     command:
       - op-batcher
       - --espresso-light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
-      - --testing-espresso-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80} # Default value for testing
-      - --private-key=${OP_BATCHER_PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"} # Arbitrary value for testing
+      - --testing-espresso-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
+      - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --throttle-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
@@ -335,13 +339,7 @@ services:
   http-proxy:
     image: alpine:latest
     command: >
-      sh -c "
-      apk add --no-cache tinyproxy &&
-      echo 'Allow 127.0.0.1' >> /etc/tinyproxy/tinyproxy.conf &&
-      echo 'Allow 0.0.0.0/0' >> /etc/tinyproxy/tinyproxy.conf &&
-      echo 'DisableViaHeader Yes' >> /etc/tinyproxy/tinyproxy.conf &&
-      tinyproxy -d
-      "
+      sh -c " apk add --no-cache tinyproxy && echo 'Allow 127.0.0.1' >> /etc/tinyproxy/tinyproxy.conf && echo 'Allow 0.0.0.0/0' >> /etc/tinyproxy/tinyproxy.conf && echo 'DisableViaHeader Yes' >> /etc/tinyproxy/tinyproxy.conf && tinyproxy -d "
     ports:
       - "3128:8888"
     networks:
@@ -350,18 +348,14 @@ services:
           - proxy
 
   op-batcher-tee:
-    profiles: ["tee"]
+    profiles: [ "tee" ]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-enclave-target
     image: op-batcher-tee:espresso
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1",
-        ]
+      test: [ "CMD-SHELL", "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -409,7 +403,7 @@ services:
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   op-proposer:
-    profiles: ["default"]
+    profiles: [ "default" ]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -422,23 +416,48 @@ services:
         condition: service_started
       op-batcher:
         condition: service_started
-    environment:
-      OP_PROPOSER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
-      OP_PROPOSER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
       - ./deployment/deployer:/deployer
-    command:
-      - sh
-      - -c
-      - |
-        GAME_FACTORY=$(jq -r '.opChainDeployments[0].disputeGameFactoryProxyAddress' ./deployer/state.json)
-        op-proposer \
-          --proposal-interval 6s \
-          --mnemonic "test test test test test test test test test test test junk" \
-          --hd-path "m/44'/60'/0'/0/0" \
-          --game-type 1 \
-          --game-factory-address $$GAME_FACTORY
+    environment:
+      OP_PROPOSER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_PROPOSER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_PROPOSER_PROPOSAL_INTERVAL: 6s
+      OP_PROPOSER_MNEMONIC: "test test test test test test test test test test test junk"
+      OP_PROPOSER_HD_PATH: "m/44'/60'/0'/0/1"
+      OP_PROPOSER_GAME_TYPE: '1'
+
+  op-challenger:
+    profiles: [ "default" ]
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-challenger-target
+    image: op-challenger:espresso
+    depends_on:
+      l1-geth:
+        condition: service_started
+      l1-beacon:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      op-geth-sequencer:
+        condition: service_started
+    volumes:
+      - ./deployment/deployer:/deployer:ro
+      - ./deployment/l2-config:/config:ro
+      - op-data-challenger:/data
+    environment:
+      OP_CHALLENGER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_CHALLENGER_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
+      OP_CHALLENGER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_CHALLENGER_L2_ETH_RPC: http://op-geth-sequencer:${OP_HTTP_PORT}
+      OP_CHALLENGER_MNEMONIC: "test test test test test test test test test test test junk"
+      OP_CHALLENGER_HD_PATH: "m/44'/60'/0'/0/1"
+      OP_CHALLENGER_DATADIR: /data
+      OP_CHALLENGER_CANNON_ROLLUP_CONFIG: /config/rollup.json
+      OP_CHALLENGER_CANNON_L2_GENESIS: /config/genesis.json
+      OP_CHALLENGER_TRACE_TYPE: permissioned
 
   espresso-dev-node:
     image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
@@ -468,4 +487,6 @@ volumes:
   op-data-seq:
   op-data-verifier:
   op-data-caff-node:
+  op-data-challenger:
+  op-node-seq:
   espresso-data:
