@@ -397,6 +397,9 @@ func NewTaggedWriter(tag string, inner io.Writer) *TaggedWriter {
 	}
 }
 
+// Implementation of io.Write interface for TaggedWriter.
+// Allows to prepend a tag to each line of output.
+// The `p` parameter is the tag to add at the beginning of each line.
 func (w *TaggedWriter) Write(p []byte) (int, error) {
 	if w.newline {
 		if _, err := fmt.Fprintf(w.inner, "%s | ", w.tag); err != nil {
