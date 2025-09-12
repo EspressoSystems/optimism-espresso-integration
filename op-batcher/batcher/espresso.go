@@ -928,10 +928,6 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		return inclusiveBlockRange{}, ActionReset
 	}
 
-	if newSyncStatus.UnsafeL2.Number <= lastQueuedBlock.Number+1 {
-		return inclusiveBlockRange{}, ActionRetry
-	}
-
 	if safeL2.Number > firstQueuedBlock.Number {
 		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
 		l.batcher.Log.Warn(
