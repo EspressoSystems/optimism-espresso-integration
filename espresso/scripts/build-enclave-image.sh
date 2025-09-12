@@ -58,35 +58,6 @@ echo "Saving enclave image..."
 docker save "$TAG" -o "$SHARED_DIR/enclave-image-${TAG}.tar"
 echo "Saved image to $SHARED_DIR/enclave-image-${TAG}.tar"
 
-# Now register the PCR0
-HOST_IP="${HOST_IP:-127.0.0.1}"
-BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' deployment/deployer/state.json)
-
-if [[ -n "$PCR0" && -n "$BATCH_AUTHENTICATOR_ADDRESS" && -n "$OPERATOR_PRIVATE_KEY" ]]; then
-    echo "=== Registering PCR0 ==="
-    echo "PCR0: $PCR0"
-    echo "Authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
-    echo "L1 URL: http://$HOST_IP:$L1_HTTP_PORT"
-    
-    ../op-batcher/bin/enclave-tools register \
-        --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
-        --l1-url "http://$HOST_IP:$L1_HTTP_PORT" \
-        --private-key "$OPERATOR_PRIVATE_KEY" \
-        --pcr0 "$PCR0"
-    
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to register PCR0"
-        exit 1
-    fi
-    echo "PCR0 registered successfully!"
-else
-    echo "ERROR: Missing required values for registration"
-    echo "  PCR0: ${PCR0:-[missing]}"
-    echo "  BATCH_AUTHENTICATOR_ADDRESS: ${BATCH_AUTHENTICATOR_ADDRESS:-[missing]}"
-    echo "  OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY:+[set]}"
-    exit 1
-fi
-
 echo "=== Build Complete ==="
 echo "Files created:"
 echo "  - $SHARED_DIR/pcr0-${TAG}.txt"

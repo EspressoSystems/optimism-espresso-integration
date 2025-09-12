@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	_ "embed"
 	"fmt"
-	"math/big"
 	"path/filepath"
 	"strings"
 	"time"
@@ -97,12 +96,8 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 		return fmt.Errorf("failed to create transactor: %w", err)
 	}
 
-	// Set explicit gas price and gas limit for reliable transaction inclusion
-	opts.GasPrice = big.NewInt(20000000000) // 20 Gwei
-	opts.GasLimit = uint64(300000)          // 300k gas limit
-
 	pcr0Hash := crypto.Keccak256Hash(pcr0Bytes)
-	fmt.Printf("DEBUG: Registering PCR0 hash: %s (from PCR0: %x)\n", pcr0Hash.Hex(), pcr0Bytes)
+	fmt.Printf("Registering PCR0 hash: %s (from PCR0: %x)\n", pcr0Hash.Hex(), pcr0Bytes)
 
 	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, pcr0Hash, true)
 	if err != nil {

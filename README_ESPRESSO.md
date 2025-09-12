@@ -305,7 +305,12 @@ docker compose up --build -d
 ```
 If you're on a machine with [AWS Nitro Enclaves enabled](#guide-setting-up-an-enclave-enabled-nitro-ec2-instance), use the `tee` profile instead to start the enclave batcher.
 ```console
-./scripts/build-enclave-image.sh # to build persistent PCR0
+docker system prune -f
+cd .. && rm -f espresso/shared/*
+cd op-batcher && just op-batcher && cd ../espresso
+docker compose stop op-batcher-tee
+docker compose rm -f op-batcher-tee # make sure any cached PCR0 is deleted
+./scripts/build-enclave-image.sh # to build persistent PCR0 outside of docker
 COMPOSE_PROFILES=tee docker compose up --build -d
 ```
 

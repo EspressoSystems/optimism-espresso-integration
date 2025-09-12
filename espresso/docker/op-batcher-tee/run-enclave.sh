@@ -113,13 +113,13 @@ if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PR
     echo "Authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
     echo "L1 URL: $L1_RPC_URL"
     echo "========================="
-    
+
     enclave-tools register \
         --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
         --l1-url "$L1_RPC_URL" \
         --private-key "$OPERATOR_PRIVATE_KEY" \
         --pcr0 "$PCR0"
-    
+
     if [ $? -ne 0 ]; then
         echo "WARNING: Failed to register PCR0, continuing anyway..."
     else
@@ -137,7 +137,7 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
     PID_FILE="/tmp/enclave-tools.pid"
     CONTAINER_TRACKER_FILE="/tmp/enclave-containers.txt"
     STATUS_FILE="/tmp/enclave-status.json"
-    
+
     # Cleanup function for local deployment
     cleanup() {
         echo "Cleaning up enclave resources..."
@@ -151,7 +151,7 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
             fi
             rm -f "$PID_FILE"
         fi
-        
+
         # Clean up any remaining enclave containers
         if [ -f "$CONTAINER_TRACKER_FILE" ]; then
             while IFS= read -r container_id; do
@@ -163,14 +163,14 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
             done < "$CONTAINER_TRACKER_FILE"
             rm -f "$CONTAINER_TRACKER_FILE"
         fi
-        
+
         rm -f "$STATUS_FILE"
         exit 0
     }
-    
+
     # Setup signal handlers for local deployment
     trap cleanup SIGTERM SIGINT EXIT
-    
+
     # Get Docker network for local deployment
     DOCKER_NETWORK=$(docker network ls --filter name=espresso --format "{{.Name}}" | head -1)
     if [ -z "$DOCKER_NETWORK" ]; then
@@ -191,22 +191,14 @@ echo "Command: enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!
 
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    echo "$ENCLAVE_TOOLS_PID" > "$PID_FILE"
-    echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID (stored in $PID_FILE)"
-else
-    echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID"
-fi
+
+echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID (stored in $PID_FILE)"
 
 # Wait for enclave-tools to finish starting the enclave container
 echo "Waiting for enclave-tools to complete startup..."
 wait $ENCLAVE_TOOLS_PID
 ENCLAVE_TOOLS_EXIT_CODE=$?
 echo "Enclave-tools process completed with exit code: $ENCLAVE_TOOLS_EXIT_CODE"
-
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    rm -f "$PID_FILE"
-fi
 
 # Check if enclave-tools failed
 if [ $ENCLAVE_TOOLS_EXIT_CODE -ne 0 ]; then
@@ -243,7 +235,7 @@ echo "  Started: $STARTED_AT"
 # Setup status tracking for local deployment
 if [ "$DEPLOYMENT_MODE" = "local" ]; then
     echo "$CONTAINER_NAME" >> "$CONTAINER_TRACKER_FILE"
-    
+
     # Create initial status file
     cat > "$STATUS_FILE" <<EOF
 {
@@ -275,14 +267,14 @@ MONITOR_COUNT=0
 while true; do
     # Check if the container is still running
     CONTAINER_STATUS=$(docker inspect "$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.Status' 2>/dev/null || echo "")
-    
+
     if [ -z "$CONTAINER_STATUS" ] || [ "$CONTAINER_STATUS" != "running" ]; then
         echo "$(date): Container $CONTAINER_NAME is no longer running (status: $CONTAINER_STATUS)"
-        
+
         # Get exit code if available
         EXIT_CODE=$(docker inspect "$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.ExitCode' 2>/dev/null || echo "unknown")
         echo "Container exit code: $EXIT_CODE"
-        
+
         # Update status file for local deployment
         if [ "$DEPLOYMENT_MODE" = "local" ] && [ -n "$STATUS_FILE" ]; then
             cat > "$STATUS_FILE" <<EOF
@@ -300,14 +292,14 @@ EOF
         fi
         break
     fi
-    
+
     # Log current status periodically
     if [ $(($MONITOR_COUNT % 10)) -eq 0 ]; then
         echo "$(date): Container $CONTAINER_NAME status: $CONTAINER_STATUS"
-        
+
         # Show container resource usage
         docker stats --no-stream "$CONTAINER_NAME" 2>/dev/null || echo "Could not get container stats"
-        
+
         # Update status file for local deployment
         if [ "$DEPLOYMENT_MODE" = "local" ] && [ -n "$STATUS_FILE" ]; then
             cat > "$STATUS_FILE" <<EOF
@@ -324,7 +316,7 @@ EOF
 EOF
         fi
     fi
-    
+
     MONITOR_COUNT=$((MONITOR_COUNT + 1))
     sleep "$MONITOR_INTERVAL"
 done
