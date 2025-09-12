@@ -35,10 +35,11 @@ func TestChallengeGame(t *testing.T) {
 	require.NoError(t, d.OpChallenger("move", "--attack", "--game-address", games[0].Address.Hex()))
 
 	// Check that the proposer correctly responds.
+	CLAIMS_NUMBER := uint64(3) // First claim by the proposer + attack + response
 	for {
 		updatedGames, err := d.ListChallengeGames()
 		require.NoError(t, err)
-		if updatedGames[0].Claims == 3 {
+		if updatedGames[0].Claims == CLAIMS_NUMBER {
 			require.Equal(t, updatedGames[0].OutputRoot, games[0].OutputRoot)
 			break
 		}
