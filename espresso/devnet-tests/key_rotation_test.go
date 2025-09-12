@@ -19,7 +19,7 @@ func TestRotateBatcherKey(t *testing.T) {
 	// We're going to change batcher key to Bob's, verify that it won't be a no-op
 	require.NotEqual(t, d.secrets.Batcher, d.secrets.Bob)
 
-	require.NoError(t, d.Up(testing.Verbose()))
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -57,7 +57,7 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 
 	d := NewDevnet(ctx, t)
 
-	require.NoError(t, d.Up(testing.Verbose()))
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
