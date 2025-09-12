@@ -2,7 +2,7 @@
 
 services:
   l1-genesis:
-    user: ${U_ID}:${GID}
+    user: ${U_ID:-1000}:${GID:-1000}
     restart: on-failure
     build:
       context: ../
@@ -122,7 +122,7 @@ services:
       - ./deployment/deployer:/deployer:ro
 
   l2-genesis:
-    user: "${U_ID}:${GID}"
+    user: "${U_ID:-1000}:${GID:-1000}"
     restart: on-failure
     build:
       context: ../
