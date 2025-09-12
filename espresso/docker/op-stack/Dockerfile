@@ -64,7 +64,6 @@ FROM alpine:3.22 AS op-cgo-builder
 RUN apk add musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
 # Install just from mise
 COPY ./mise.toml .
-RUN uname -m
 RUN case $(uname -m) in \
   "arm64"|"aarch64") JUST_ARCH="aarch64" ;; \
   *) JUST_ARCH="x86_64" ;; \
@@ -107,6 +106,10 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM builder AS op-proposer-builder
 ARG OP_PROPOSER_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-proposer && make op-proposer  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-challenger && make op-challenger  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make cannon-prestate  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
 FROM golang:1.24-alpine AS deployment-utils-builder
@@ -159,9 +162,30 @@ CMD ["enclave-tools"]
 
 FROM $TARGET_BASE_IMAGE AS op-proposer-target
 RUN apk add jq
+COPY espresso/docker/op-stack/entrypoint.sh /bin/entrypoint.sh
+RUN chmod +x /bin/entrypoint.sh
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
 COPY --from=op-proposer-builder /app/espresso/deployment/deployer /deployer
+ENV ENV_PREFIX OP_PROPOSER
+ENTRYPOINT [ "/bin/entrypoint.sh" ]
 CMD ["op-proposer"]
+
+FROM $TARGET_BASE_IMAGE AS op-challenger-target
+RUN apk add jq
+COPY espresso/docker/op-stack/entrypoint.sh /bin/entrypoint.sh
+RUN chmod +x /bin/entrypoint.sh
+COPY --from=op-proposer-builder /app/op-challenger/bin/op-challenger /usr/local/bin
+COPY --from=op-proposer-builder /app/cannon/bin/cannon /usr/local/bin
+COPY --from=op-proposer-builder /app/op-program/bin/op-program /usr/local/bin
+COPY --from=op-proposer-builder /app/op-program/bin/prestate-proof.json /app/prestate-proof.json
+
+ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
+ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
+ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
+ENV ENV_PREFIX OP_CHALLENGER
+
+ENTRYPOINT [ "/bin/entrypoint.sh" ]
+CMD ["op-challenger"]
 
 FROM $TARGET_BASE_IMAGE AS op-deployer-target
 RUN apk add jq curl bash openssl
