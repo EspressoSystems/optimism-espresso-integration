@@ -33,6 +33,12 @@ Provide Docker with the PAT.
 > echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 ```
 
+Run docker as a non root user:
+```console
+> sudo add group docker
+> sudo usermod -aG docker $USER
+```
+
 ### Run the tests
 
 Run the Espresso smoke tests:

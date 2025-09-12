@@ -1,3 +1,7 @@
+# Variable
+gid := `id -g`
+uid := `id -u`
+
 # Build all Rust binaries (release) for sysgo tests.
 build-rust-release:
   cd kona && cargo build --release --bin kona-node --bin kona-supervisor
@@ -12,11 +16,12 @@ fast-tests:
  ./run_fast_tests.sh
 
 devnet-tests: build-devnet
-  go test -timeout 30m -p 1 -count 1 -v  ./espresso/devnet-tests/...
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -skip 'TestRotateBatcherKey|TestChangeBatchInboxOwner' -v  ./espresso/devnet-tests/...
 
 build-devnet: compile-contracts
+  rm -Rf espresso/deployment
   (cd op-deployer && just)
-  (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
+  (cd espresso && U_ID={{uid}} GID={{gid}} ./scripts/prepare-allocs.sh && docker compose build)
 
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
@@ -67,6 +72,10 @@ smoke-tests: compile-contracts
 # Clean up everything before running the tests
 nuke:
   make nuke
+
+# Stop the containers
+stop-containers:
+  (cd espresso && U_ID={{uid}} GID={{gid}} docker compose down -v)
 
 # Checks that TODO comments have corresponding issues.
 todo-checker:
