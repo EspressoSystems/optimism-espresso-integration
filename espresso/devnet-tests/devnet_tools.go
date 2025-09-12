@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"os/exec"
@@ -50,9 +51,15 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 
 	d := new(Devnet)
 	d.ctx = ctx
-	d.secrets = *secrets.DefaultSecrets
 
-	var err error
+	mnemonics := *secrets.DefaultMnemonicConfig
+	mnemonics.Batcher = "m/44'/60'/0'/0/0"
+	secrets, err := mnemonics.Secrets()
+	if err != nil {
+		panic(fmt.Sprintf("failed to create default secrets: %e", err))
+	}
+	d.secrets = *secrets
+
 	if outageTime, ok := os.LookupEnv("ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD"); ok {
 		d.outageTime, err = time.ParseDuration(outageTime)
 		if err != nil {
@@ -73,7 +80,7 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	return d
 }
 
-func (d *Devnet) Up(verbose bool) (err error) {
+func (d *Devnet) Up() (err error) {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
@@ -107,7 +114,7 @@ func (d *Devnet) Up(verbose bool) (err error) {
 		}
 	}()
 
-	if verbose {
+	if testing.Verbose() {
 		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
 		// the context is cancelled.
 		go func() {
@@ -374,6 +381,161 @@ func (d *Devnet) Down() error {
 		"docker", "compose", "down", "-v", "--remove-orphans",
 	)
 	return cmd.Run()
+}
+
+type TaggedWriter struct {
+	inner   io.Writer
+	tag     string
+	newline bool
+}
+
+func NewTaggedWriter(tag string, inner io.Writer) *TaggedWriter {
+	return &TaggedWriter{
+		inner:   inner,
+		tag:     tag,
+		newline: true,
+	}
+}
+
+// Implementation of io.Write interface for TaggedWriter.
+// Allows to prepend a tag to each line of output.
+// The `p` parameter is the tag to add at the beginning of each line.
+func (w *TaggedWriter) Write(p []byte) (int, error) {
+	if w.newline {
+		if _, err := fmt.Fprintf(w.inner, "%s | ", w.tag); err != nil {
+			return 0, err
+		}
+		w.newline = false
+	}
+
+	written := 0
+	for i := range len(p) {
+		// Buffer bytes until we hit a newline.
+		if p[i] == '\n' {
+			// Print everything we've buffered up to and including the newline.
+			line := p[written : i+1]
+			n, err := w.inner.Write(line)
+			written += n
+			if err != nil || n < len(line) {
+				return written, err
+			}
+
+			// If that's the end of the output, return, but make a note that the buffer ended with a
+			// newline and we need to print the tag before the next message.
+			if written == len(p) {
+				w.newline = true
+				return written, nil
+			}
+
+			// Otherwise print the tag now before proceeding with the next line in `p`.
+			if _, err := fmt.Fprintf(w.inner, "%s | ", w.tag); err != nil {
+				return written, err
+			}
+		}
+	}
+
+	// Print anything that was buffered after the final newline.
+	if written < len(p) {
+		line := p[written:]
+		n, err := w.inner.Write(line)
+		written += n
+		if err != nil || n < len(line) {
+			return written, err
+		}
+	}
+
+	return written, nil
+}
+
+func (d *Devnet) OpChallenger(opts ...string) error {
+	return d.opChallengerCmd(opts...).Run()
+}
+
+type ChallengeGame struct {
+	Index      uint64
+	Address    common.Address
+	OutputRoot []byte
+	Claims     uint64
+}
+
+func ParseChallengeGame(s string) (ChallengeGame, error) {
+	fields := strings.Fields(s)
+	if len(fields) < 8 {
+		return ChallengeGame{}, fmt.Errorf("challenge game is missing fields; expected at least 8 but got only %v", len(fields))
+	}
+
+	index, err := strconv.ParseUint(fields[0], 10, 64)
+	if err != nil {
+		return ChallengeGame{}, fmt.Errorf("index invalid: %w", err)
+	}
+
+	address := common.HexToAddress(fields[1])
+
+	outputRoot := common.Hex2Bytes(fields[6])
+
+	claims, err := strconv.ParseUint(fields[7], 10, 64)
+	if err != nil {
+		return ChallengeGame{}, fmt.Errorf("claims count invalid: %w", err)
+	}
+
+	return ChallengeGame{
+		Index:      index,
+		Address:    address,
+		OutputRoot: outputRoot,
+		Claims:     claims,
+	}, nil
+}
+
+func (d *Devnet) ListChallengeGames() ([]ChallengeGame, error) {
+	output, err := d.OpChallengerOutput("list-games")
+	if err != nil {
+		return nil, err
+	}
+
+	var games []ChallengeGame
+	for i, line := range strings.Split(output, "\n") {
+		if i == 0 {
+			// Ignore header.
+			continue
+		}
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			// Ignore empty lines (e.g. trailing newline)
+			continue
+		}
+
+		game, err := ParseChallengeGame(line)
+		if err != nil {
+			return nil, fmt.Errorf("game %v is invalid: %w", i, err)
+		}
+		games = append(games, game)
+	}
+	return games, nil
+}
+
+func (d *Devnet) OpChallengerOutput(opts ...string) (string, error) {
+	cmd := d.opChallengerCmd(opts...)
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
+	opts = append([]string{"compose", "exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker",
+		opts...,
+	)
+	if testing.Verbose() {
+		cmd.Stdout = NewTaggedWriter("op-challenger-cmd", os.Stdout)
+		cmd.Stderr = NewTaggedWriter("op-challenger-cmd", os.Stderr)
+	}
+	log.Info("invoking op-challenger", "cmd", cmd)
+	return cmd
 }
 
 // Get the host port mapped to `privatePort` for the given Docker service.
