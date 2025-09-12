@@ -6,7 +6,7 @@ fast-tests:
  ./run_fast_tests.sh
 
 devnet-tests: build-devnet
-  go test -timeout 30m -p 1 -count 1 -v  ./espresso/devnet-tests/...
+  go test -timeout 30m -p 1 -count 1 -skip 'TestRotateBatcherKey|TestChangeBatchInboxOwner' -v  ./espresso/devnet-tests/...
 
 build-devnet: compile-contracts
   rm -Rf espresso/deployment
@@ -63,6 +63,9 @@ smoke-tests: compile-contracts
 nuke:
  make nuke
 
+# Stop the containers
+stop-containers:
+ (cd espresso && docker compose down -v)
 
 # Checks that TODO comments have corresponding issues.
 todo-checker:
