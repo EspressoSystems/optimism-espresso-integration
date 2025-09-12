@@ -44,7 +44,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9  # same as for the nix environment
 
       - name: Install dasel
         run: |

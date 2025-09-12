@@ -51,7 +51,7 @@ jobs:
           docker compose build
 
       # - name: Run Devnet tests
-      #   run: go test -timeout 30m -p 1 -count 1 -v  ./espresso/devnet-tests/...
+      # run: go test -timeout 30m -p 1 -count 1 -v  ./espresso/devnet-tests/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
