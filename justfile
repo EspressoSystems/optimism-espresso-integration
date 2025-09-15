@@ -13,12 +13,12 @@ devnet-tests: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
 
 devnet-smoke-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v  ./espresso/devnet-tests/...
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
 
 build-devnet: compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)
-  (cd espresso && U_ID={{uid}} GID={{gid}} ./scripts/prepare-allocs.sh && docker compose build)
+  (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
 
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
