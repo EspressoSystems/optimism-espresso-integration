@@ -34,21 +34,6 @@ echo "👉 Step 4: Preparing contract allocations..."
 ./scripts/prepare-allocs.sh
 echo "✅ Contract allocations prepared"
 
-# Step 5: Prepare op-batcher-enclave image
-echo "👉 Step 5: Preparing op-batcher-enclave image..."
-docker system prune -f
-cd .. && rm -f espresso/shared/*
-cd op-batcher && just op-batcher && just enclave-tools && cd ../espresso
-docker compose stop op-batcher-tee
-docker compose rm -f op-batcher-tee
-./scripts/build-enclave-image.sh
-echo "✅ op-batcher-enclave image prepared"
-
-# Step 6: Build docker compose
-echo "👉 Step 6: Building docker compose..."
-COMPOSE_PROFILES=tee docker compose build
-echo "✅ Docker compose build complete"
-
 # Check for AWS Nitro Enclave support
 echo "👉 Checking for AWS Nitro Enclave support..."
 if command -v nitro-cli &>/dev/null && \
@@ -60,6 +45,27 @@ else
     echo ""
     [[ ! $REPLY =~ ^[Yy]$ ]] && { echo "❌ Startup cancelled."; exit 1; }
 fi
+
+# Step 5: Prepare op-batcher-enclave image
+echo "👉 Step 5: Preparing op-batcher-enclave image..."
+docker system prune -f
+cd .. && rm -f espresso/shared/*
+# Ensure required tools are installed
+if ! command -v nitro-cli &>/dev/null; then
+    echo "Installing nitro-cli..."
+    sudo amazon-linux-extras install aws-nitro-enclaves-cli -y
+    sudo yum install aws-nitro-enclaves-cli-devel -y
+fi
+cd op-batcher && just op-batcher && just enclave-tools && cd ../espresso
+docker compose stop op-batcher-tee
+docker compose rm -f op-batcher-tee
+./scripts/build-enclave-image.sh
+echo "✅ op-batcher-enclave image prepared"
+
+# Step 6: Build docker compose
+echo "👉 Step 6: Building docker compose..."
+COMPOSE_PROFILES=tee docker compose build
+echo "✅ Docker compose build complete"
 
 # Step 7: Start services
 echo "👉 Step 7: Starting services..."
