@@ -12,9 +12,6 @@ services:
     volumes:
       - ./deployment:/deployment
       - l1-data:/data
-    environment:
-      - U_ID=${U_ID:-1000}
-      - GID=${GID:-1000}
 
   l1-genesis:
     user: ${U_ID:-1000}:${GID:-1000}
