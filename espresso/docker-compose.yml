@@ -1,9 +1,24 @@
 # Espresso OP Integration Docker Setup
 
 services:
+  l1-data-init:
+    image: busybox
+    command: >
+      sh -c '
+        mkdir -p /deployment/l1-config /deployment/l2-config /deployment/deployer
+        mkdir -p /data/lighthouse-validator /data/lighthouse-beacon
+        chown -R ${U_ID:-1000}:${GID:-1000} /deployment /data
+        '
+    volumes:
+      - ./deployment:/deployment
+      - l1-data:/data
+
   l1-genesis:
     user: ${U_ID:-1000}:${GID:-1000}
     restart: on-failure
+    depends_on:
+      l1-data-init:
+        condition: service_completed_successfully
     build:
       context: ../
       dockerfile: espresso/docker/l1-geth/Dockerfile
@@ -124,6 +139,11 @@ services:
   l2-genesis:
     user: "${U_ID:-1000}:${GID:-1000}"
     restart: on-failure
+    depends_on:
+      l1-data-init:
+        condition: service_completed_successfully
+      l1-geth:
+        condition: service_healthy
     build:
       context: ../
       dockerfile: espresso/docker/op-geth/Dockerfile
@@ -131,9 +151,6 @@ services:
     environment:
       - MODE=genesis
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
-    depends_on:
-      l1-geth:
-        condition: service_healthy
     volumes:
       - ./deployment/l2-config:/config
       - ./deployment/deployer:/deployer:ro
@@ -410,6 +427,8 @@ services:
       target: op-proposer-target
     image: op-proposer:espresso
     depends_on:
+      l1-data-init:
+        condition: service_completed_successfully
       l2-rollup:
         condition: service_completed_successfully
       op-node-sequencer:
