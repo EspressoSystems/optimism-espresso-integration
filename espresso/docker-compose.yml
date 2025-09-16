@@ -8,8 +8,7 @@ services:
         mkdir -p /deployment/l1-config /deployment/l2-config /deployment/deployer
         mkdir -p /data/lighthouse-validator /data/lighthouse-beacon
         chown -R ${U_ID:-1000}:${GID:-1000} /deployment /data
-        chmod -R 755 /deployment /data
-      '
+        '
     volumes:
       - ./deployment:/deployment
       - l1-data:/data
