@@ -35,7 +35,7 @@ fi
 echo "Building enclave image WITHOUT args for consistent PCR0..."
 BUILD_OUTPUT=$(../op-batcher/bin/enclave-tools build \
     --op-root ../ \
-    --tag "$TAG" 2>&1)
+    --tag "$TAG" )
 
 if [ $? -ne 0 ]; then
     echo "Failed to build enclave image"
