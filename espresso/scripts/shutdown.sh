@@ -16,3 +16,15 @@ if [ ! -z "$CONTAINERS" ]; then
 else
     echo "No running containers found with op-batcher-tee:espresso image"
 fi
+
+# Stop and remove batcher-enclaver containers that run the eif
+echo "Stopping batcher-enclaver containers..."
+ENCLAVE_CONTAINERS=$(docker ps -aq --filter "name=batcher-enclaver-")
+if [ ! -z "$ENCLAVE_CONTAINERS" ]; then
+    echo "Stopping enclave containers: $ENCLAVE_CONTAINERS"
+    docker stop $ENCLAVE_CONTAINERS 2>/dev/null || true
+    docker rm $ENCLAVE_CONTAINERS 2>/dev/null || true
+    echo "Enclave containers stopped and removed"
+else
+    echo "No batcher-enclaver containers found"
+fi
