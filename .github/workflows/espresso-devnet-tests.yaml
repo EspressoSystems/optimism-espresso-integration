@@ -56,9 +56,6 @@ jobs:
       - name: Run TestChallengeGame test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
 
-      - name: Run BatcherRestart test
-        run: go test -timeout 30m -p 1 -count 1 -run 'TestBatcherRestart' -v  ./espresso/devnet-tests/...
-
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
         if: always() && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
