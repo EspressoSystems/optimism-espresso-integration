@@ -307,7 +307,7 @@ If you're on a machine with [AWS Nitro Enclaves enabled](#guide-setting-up-an-en
 ```console
 docker system prune -f
 cd .. && rm -f espresso/shared/*
-cd op-batcher && just op-batcher && cd ../espresso
+cd op-batcher && just op-batcher && just enclave-tools && cd ../espresso
 docker compose stop op-batcher-tee
 docker compose rm -f op-batcher-tee # make sure any cached PCR0 is deleted
 ./scripts/build-enclave-image.sh # to build persistent PCR0 outside of docker

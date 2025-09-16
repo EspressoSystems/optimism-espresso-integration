@@ -38,7 +38,7 @@ echo "✅ Contract allocations prepared"
 echo "👉 Step 5: Preparing op-batcher-enclave image..."
 docker system prune -f
 cd .. && rm -f espresso/shared/*
-cd op-batcher && just op-batcher && cd ../espresso
+cd op-batcher && just op-batcher && just enclave-tools && cd ../espresso
 docker compose stop op-batcher-tee
 docker compose rm -f op-batcher-tee
 ./scripts/build-enclave-image.sh
@@ -48,6 +48,18 @@ echo "✅ op-batcher-enclave image prepared"
 echo "👉 Step 6: Building docker compose..."
 COMPOSE_PROFILES=tee docker compose build
 echo "✅ Docker compose build complete"
+
+# Check for AWS Nitro Enclave support
+echo "👉 Checking for AWS Nitro Enclave support..."
+if command -v nitro-cli &>/dev/null && \
+   (nitro-cli describe-enclaves 2>/dev/null | grep -qE "EnclaveID|\[\]" || [ -e /dev/nitro_enclaves ]); then
+    echo "✅ AWS Nitro Enclave support detected"
+else
+    echo "⚠️  WARNING: AWS Nitro Enclave support not detected! TEE components will fail."
+    read -p "Continue anyway? (y/N): " -n 1 -r
+    echo ""
+    [[ ! $REPLY =~ ^[Yy]$ ]] && { echo "❌ Startup cancelled."; exit 1; }
+fi
 
 # Step 7: Start services
 echo "👉 Step 7: Starting services..."
