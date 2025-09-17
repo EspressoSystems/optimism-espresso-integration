@@ -19,12 +19,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWithdraw(t *testing.T) {
+func TestWithdrawal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(testing.Verbose()))
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -203,7 +203,7 @@ func TestWithdraw(t *testing.T) {
 	require.Equal(t, time.Duration(12*time.Second), withdrawalDelay)
 
 	// Wait for the challenge period to expire
-	// t.Logf("Waiting for challenge period to expire...")
+	t.Logf("Waiting for challenge period to expire...")
 
 	// // For testing purposes, we'll wait a shorter period or check if already finalized
 	// // In a real scenario, you'd wait the full finalization period
@@ -225,11 +225,12 @@ func TestWithdraw(t *testing.T) {
 	// finalizeCtx, finalizeCancel := context.WithTimeout(ctx, maxWaitTime)
 	// defer finalizeCancel()
 
+	// finalizationPeriodSeconds := big.NewInt(12)
 	// var canFinalize bool
 	// for {
 	// 	select {
 	// 	case <-finalizeCtx.Done():
-	// 		t.Logf("Timeout waiting for finalization period. Attempting finalization anyway...")
+	// 		t.Logf(" anyway...")
 	// 		canFinalize = true
 	// 	default:
 	// 		// Check if withdrawal is ready for finalization
