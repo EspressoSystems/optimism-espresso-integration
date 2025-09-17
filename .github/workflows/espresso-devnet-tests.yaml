@@ -51,10 +51,14 @@ jobs:
           docker compose build
           docker compose pull l1-validator espresso-dev-node l1-data-init
 
+<<<<<<< HEAD
       - name: Run Smoke test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v  ./espresso/devnet-tests/...
 
       - name: Run TestChallengeGame test
+=======
+      - name: Run smoke devnet test
+>>>>>>> 6f30c1a96 (Run smoke test in CI.)
         run: go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
 
       - name: Save Nix cache
