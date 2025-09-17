@@ -53,6 +53,7 @@ jobs:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
       - name: Run Smoke test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v  ./espresso/devnet-tests/...
 
@@ -62,11 +63,17 @@ jobs:
 >>>>>>> 6f30c1a96 (Run smoke test in CI.)
 =======
       - name: Run smoke test
+=======
+      - name: Run Smoke test
+>>>>>>> f7d845a59 (Adding batcher restart test to CI.)
         run: go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v  ./espresso/devnet-tests/...
 
       - name: Run TestChallengeGame test
 >>>>>>> 91f32386d (Run more tests in CI)
         run: go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
+
+      - name: Run BatcherRestart test
+        run: go test -timeout 30m -p 1 -count 1 -run 'TestBatcherRestart' -v  ./espresso/devnet-tests/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
