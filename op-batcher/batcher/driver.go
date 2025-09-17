@@ -134,7 +134,7 @@ type BatchSubmitter struct {
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 
 	espressoSubmitter *espressoTransactionSubmitter
-	espressoStreamer  espresso.EspressoStreamerIFace[derive.EspressoBatch]
+	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup

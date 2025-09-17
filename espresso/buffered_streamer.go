@@ -24,7 +24,7 @@ import (
 // This allows us to avoid needing to rewind the streamer, and instead just
 // adjust the read position of the buffered streamer.
 type BufferedEspressoStreamer[B Batch] struct {
-	streamer EspressoStreamerIFace[B]
+	streamer EspressoStreamer[B]
 
 	batches []*B
 
@@ -36,10 +36,10 @@ type BufferedEspressoStreamer[B Batch] struct {
 
 // Compile time assertion to ensure BufferedEspressoStreamer implements
 // EspressoStreamerIFace
-var _ EspressoStreamerIFace[Batch] = (*BufferedEspressoStreamer[Batch])(nil)
+var _ EspressoStreamer[Batch] = (*BufferedEspressoStreamer[Batch])(nil)
 
 // NewBufferedEspressoStreamer creates a new BufferedEspressoStreamer instance.
-func NewBufferedEspressoStreamer[B Batch](streamer EspressoStreamerIFace[B]) *BufferedEspressoStreamer[B] {
+func NewBufferedEspressoStreamer[B Batch](streamer EspressoStreamer[B]) *BufferedEspressoStreamer[B] {
 	return &BufferedEspressoStreamer[B]{
 		streamer: streamer,
 	}

@@ -649,7 +649,7 @@ func (s *espressoTransactionSubmitter) Start() {
 	go s.handleVerifyReceiptJobResponse()
 }
 
-func (bs *BatcherService) EspressoStreamer() espressoLocal.EspressoStreamerIFace[derive.EspressoBatch] {
+func (bs *BatcherService) EspressoStreamer() espressoLocal.EspressoStreamer[derive.EspressoBatch] {
 	return bs.driver.espressoStreamer
 }
 
@@ -664,7 +664,7 @@ func (bs *BatcherService) initKeyPair() error {
 }
 
 // EspressoStreamer returns the batch submitter's Espresso streamer instance
-func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamerIFace[derive.EspressoBatch] {
+func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
 	return l.espressoStreamer
 }
 

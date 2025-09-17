@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
-// EspressoStreamerIFace defines the interface for the Espresso streamer.
-type EspressoStreamerIFace[B Batch] interface {
+// EspressoStreamer defines the interface for the Espresso streamer.
+type EspressoStreamer[B Batch] interface {
 	// Update will update the `EspressoStreamer“ by attempting to ensure that
 	// the next call to the `Next` method will return a `Batch`.
 	//
