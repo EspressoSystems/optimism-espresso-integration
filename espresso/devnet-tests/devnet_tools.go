@@ -402,25 +402,23 @@ func (d *Devnet) SleepRecoveryDuration() {
 }
 
 func (d *Devnet) Down() error {
-	log.Info("devnet shutting down")
-	
-	// Close RPC clients first to prevent hanging I/O operations
+
 	if d.L1 != nil {
 		d.L1.Close()
 	}
 	if d.L2Seq != nil {
 		d.L2Seq.Close()
 	}
-	if d.L2Verif != nil {
-		d.L2Verif.Close()
-	}
 	if d.L2SeqRollup != nil {
 		d.L2SeqRollup.Close()
+	}
+	if d.L2Verif != nil {
+		d.L2Verif.Close()
 	}
 	if d.L2VerifRollup != nil {
 		d.L2VerifRollup.Close()
 	}
-	
+
 	// Use timeout flag for faster Docker shutdown
 	cmd := exec.CommandContext(
 		d.ctx,

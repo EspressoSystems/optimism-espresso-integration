@@ -210,7 +210,7 @@ func TestWithdrawal(t *testing.T) {
 	uint256Type, _ := abi.NewType("uint256", "", nil)
 	addressType, _ := abi.NewType("address", "", nil)
 	bytesType, _ := abi.NewType("bytes", "", nil)
-	
+
 	args := abi.Arguments{
 		{Name: "nonce", Type: uint256Type},
 		{Name: "sender", Type: addressType},
@@ -219,67 +219,27 @@ func TestWithdrawal(t *testing.T) {
 		{Name: "gasLimit", Type: uint256Type},
 		{Name: "data", Type: bytesType},
 	}
-	
+
 	enc, err := args.Pack(params.Nonce, params.Sender, params.Target, params.Value, params.GasLimit, params.Data)
 	require.NoError(t, err)
 	withdrawalHash := crypto.Keccak256Hash(enc)
 	t.Logf("Withdrawal hash (ABI encoded): %s", withdrawalHash.Hex())
 
-	// Also try the simple concatenation method for comparison
-	simpleHash := crypto.Keccak256Hash(
-		params.Nonce.Bytes(),
-		params.Sender.Bytes(),
-		params.Target.Bytes(),
-		params.Value.Bytes(),
-		params.GasLimit.Bytes(),
-		params.Data,
-	)
-	t.Logf("Withdrawal hash (simple concat): %s", simpleHash.Hex())
-
 	// Wait for challenge period + buffer time
-	waitTime := withdrawalDelay + 5*time.Second // Add 5s buffer
+	waitTime := withdrawalDelay + 300*time.Second
 	t.Logf("Waiting %v for challenge period to expire...", waitTime)
 	time.Sleep(waitTime)
 
-	// Check if withdrawal is ready for finalization (try both hash methods)
-	t.Logf("Checking proven withdrawals with ABI-encoded hash...")
-	provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
-	if err != nil {
-		t.Logf("ABI-encoded hash failed: %v", err)
-		t.Logf("Trying simple concatenation hash...")
-		provenWithdrawal, err = portal.ProvenWithdrawals(&bind.CallOpts{}, simpleHash)
-		if err != nil {
-			t.Logf("Simple hash also failed: %v", err)
-			t.Logf("Neither hash method found the withdrawal. Let's check what withdrawals exist...")
-			
-			// Try to find any proven withdrawals by checking recent events
-			t.Logf("This might indicate the withdrawal proof wasn't submitted correctly or is still processing")
-			// Continue anyway to see what happens with finalization
-		} else {
-			t.Logf("Simple concatenation hash worked!")
-			withdrawalHash = simpleHash // Use the working hash
-		}
+	// Check if withdrawal is ready for finalization
+	// Note: On some protocol versions the ABI for OptimismPortal differs (Portal vs Portal2),
+	// and the public getter may not exist or may revert if the entry is absent/cleared.
+	// Treat this as a best-effort check and proceed regardless; finalization+balances are the source of truth.
+	t.Logf("Checking proven withdrawals with ABI-encoded hash (best-effort)...")
+	if _, err = portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash); err != nil {
+		// Log and proceed; this can revert with empty errdata if selector mismatch or mapping was cleared.
+		t.Logf("ProvenWithdrawals call failed (non-fatal): %v", err)
 	} else {
-		t.Logf("ABI-encoded hash worked!")
-	}
-	
-	if err == nil {
-		t.Logf("Proven withdrawal timestamp: %s", provenWithdrawal.Timestamp.String())
-		
-		// Verify enough time has passed
-		currentTime := big.NewInt(time.Now().Unix())
-		finalizationPeriodSeconds := big.NewInt(int64(withdrawalDelay.Seconds()))
-		requiredTime := new(big.Int).Add(provenWithdrawal.Timestamp, finalizationPeriodSeconds)
-
-		if currentTime.Cmp(requiredTime) < 0 {
-			remainingTime := new(big.Int).Sub(requiredTime, currentTime)
-			t.Logf("Still need to wait %s more seconds", remainingTime.String())
-			time.Sleep(time.Duration(remainingTime.Int64()) * time.Second)
-		}
-	} else {
-		t.Logf("Could not find proven withdrawal, but continuing with finalization attempt")
-		t.Logf("Waiting the full withdrawal delay period as fallback: %v", withdrawalDelay)
-		time.Sleep(withdrawalDelay)
+		t.Logf("ProvenWithdrawals indicates entry exists; proceeding to finalize...")
 	}
 
 	// Finalize the withdrawal
@@ -307,15 +267,15 @@ func TestWithdrawal(t *testing.T) {
 	// Wait for finalization transaction to be mined
 	finalizeReceipt, err := bind.WaitMined(ctx, d.L1, finalizeTx)
 	require.NoError(t, err)
-	
+
 	if finalizeReceipt.Status != types.ReceiptStatusSuccessful {
 		t.Logf("Finalization transaction failed with status: %d", finalizeReceipt.Status)
 		t.Logf("This likely means the withdrawal wasn't properly proven or the challenge period hasn't expired")
 		t.Logf("The Espresso transaction missing errors suggest the L2 transaction hasn't been processed through Espresso yet")
-		
+
 		// Log the transaction receipt for debugging
 		t.Logf("Failed finalization receipt: %+v", finalizeReceipt)
-		
+
 		// Don't fail the test immediately - this helps us understand the timing issues
 		t.Logf("⚠️  Finalization failed, but this reveals the Espresso integration timing issue")
 	} else {
@@ -330,30 +290,41 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Alice's L1 balance after finalization: %s ETH", new(big.Int).Div(aliceL1BalanceAfter, big.NewInt(1e18)).String())
 
+	// Require that finalization was successful
+	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status, "Withdrawal finalization must succeed")
+
 	// Calculate the net change (accounting for gas costs)
 	balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
 	t.Logf("Net L1 balance change: %s wei", balanceChange.String())
 	t.Logf("Net L1 balance change: %s ETH", new(big.Int).Div(balanceChange, big.NewInt(1e18)).String())
 
-	// Verify that funds were transferred
-	// The balance should increase by the withdrawal amount minus gas costs
-	// Since withdrawal amount is 1,000,000 wei and gas costs are much higher,
-	// we expect a net negative change, but the withdrawal itself succeeded
-	t.Logf("Withdrawal amount: %s wei", withdrawalAmount.String())
-
 	// Calculate expected gas costs for both prove and finalize transactions
 	totalGasCost := new(big.Int).Mul(big.NewInt(int64(proveReceipt.GasUsed+finalizeReceipt.GasUsed)), gasPrice)
 	t.Logf("Total gas cost: %s wei", totalGasCost.String())
+	t.Logf("Withdrawal amount: %s wei", withdrawalAmount.String())
 
+	// Calculate expected balance change: withdrawal amount minus gas costs
 	expectedChange := new(big.Int).Sub(withdrawalAmount, totalGasCost)
 	t.Logf("Expected balance change: %s wei", expectedChange.String())
 
-	// The key verification is that the finalization transaction succeeded
-	// In a real scenario with larger withdrawal amounts, the balance would increase
-	t.Logf("✅ Withdrawal completed successfully! Transaction finalized on L1.")
+	// Verify the balance change matches expectations
+	// The balance should increase by exactly the withdrawal amount minus gas costs
+	require.Equal(t, expectedChange, balanceChange,
+		"Balance change should equal withdrawal amount (%s wei) minus gas costs (%s wei)",
+		withdrawalAmount.String(), totalGasCost.String())
+
+	// Additional verification: ensure Alice actually received the withdrawal amount
+	// by checking that the balance increased by at least the withdrawal amount minus reasonable gas costs
+	minExpectedIncrease := new(big.Int).Sub(withdrawalAmount, big.NewInt(1e15)) // Allow up to 0.001 ETH for gas
+	require.True(t, balanceChange.Cmp(minExpectedIncrease) >= 0,
+		"Balance should increase by at least %s wei (withdrawal minus reasonable gas), but only increased by %s wei",
+		minExpectedIncrease.String(), balanceChange.String())
+
+	t.Logf("✅ Withdrawal verification successful!")
+	t.Logf("✅ Alice's L1 balance increased by %s wei as expected", balanceChange.String())
 
 	// Note: After finalization, the ProvenWithdrawals mapping entry may be cleared
 	// so we don't query it again to avoid "execution reverted" errors.
-	// The successful finalization transaction receipt is sufficient proof of completion.
+	// The successful finalization transaction receipt and balance verification confirm completion.
 
 }
