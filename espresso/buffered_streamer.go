@@ -50,11 +50,6 @@ func (b *BufferedEspressoStreamer[B]) Update(ctx context.Context) error {
 	return b.streamer.Update(ctx)
 }
 
-// RemainingBatchesLen returns the number of batches remaining in the streamer.
-func (b *BufferedEspressoStreamer[B]) RemainingBatchesLen() int {
-	return b.streamer.RemainingBatchesLen()
-}
-
 // RefreshSafeL1Origin updates the safe L1 origin for the buffered streamer.
 // This method attempts to safely handle the adjustment of the safeL1Origin
 // without needing to defer to the underlying streamer unless necessary.

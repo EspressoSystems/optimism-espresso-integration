@@ -468,11 +468,6 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 	return shouldReset, nil
 }
 
-// RemainingBatchesLen returns the number of batches remaining in the streamer.
-func (s *BatchStreamer[B]) RemainingBatchesLen() int {
-	return len(s.RemainingBatches)
-}
-
 // UnmarshalBatch implements EspressoStreamerIFace
 func (s *BatchStreamer[B]) UnmarshalBatch(b []byte) (*B, error) {
 	return s.unmarshalBatch(b)

@@ -25,10 +25,6 @@ type EspressoStreamer[B Batch] interface {
 	//	occurs when communicating with HotShot.
 	Update(ctx context.Context) error
 
-	// RemainingBatchesLen returns the number of pending undecided batches
-	// remaining in the streamer.
-	RemainingBatchesLen() int
-
 	// Refresh updates the local references of the EspressoStreamer to the
 	// specified values.
 	//
