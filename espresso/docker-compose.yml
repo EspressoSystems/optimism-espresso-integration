@@ -412,6 +412,8 @@ services:
       - sh
       - -c
       - |
+        echo "Delaying op-batcher-tee for 45 minutes..."
+        sleep 2700
         export DEPLOYMENT_MODE=local
         export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
         export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
@@ -445,6 +447,34 @@ services:
       OP_PROPOSER_MNEMONIC: "test test test test test test test test test test test junk"
       OP_PROPOSER_HD_PATH: "m/44'/60'/0'/0/1"
       OP_PROPOSER_GAME_TYPE: '1'
+
+  op-proposer-tee:
+    profiles: [ "tee" ]
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-proposer-target
+    image: op-proposer:espresso
+    depends_on:
+      l1-data-init:
+        condition: service_completed_successfully
+      l2-rollup:
+        condition: service_completed_successfully
+      op-node-sequencer:
+        condition: service_started
+      op-batcher-tee:
+        condition: service_started
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+      - ./deployment/deployer:/deployer
+    environment:
+      OP_PROPOSER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_PROPOSER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_PROPOSER_PROPOSAL_INTERVAL: 6s
+      OP_PROPOSER_MNEMONIC: "test test test test test test test test test test test junk"
+      OP_PROPOSER_HD_PATH: "m/44'/60'/0'/0/1"
+      OP_PROPOSER_GAME_TYPE: '1'
+
 
   op-challenger:
     profiles: [ "default" ]
