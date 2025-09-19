@@ -885,7 +885,7 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 
 	if newSyncStatus.CurrentL1.Number < l.prevSyncStatus.CurrentL1.Number {
 		// sequencer restarted and hasn't caught up yet
-		l.batcher.Log.Warn("sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1)
+		l.batcher.Log.Warn("sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1.Number)
 		return inclusiveBlockRange{}, ActionRetry
 	}
 
