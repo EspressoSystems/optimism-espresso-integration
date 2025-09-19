@@ -25,7 +25,7 @@ echo "✅ Contracts compilation complete"
 # Step 3: Shut down all containers
 echo "👉 Step 3: Shutting down all containers..."
 cd espresso
-docker compose down -v --remove-orphans
+./scripts/shutdown.sh
 echo "✅ All containers shut down"
 
 # Step 4: Prepare contract allocations
@@ -36,7 +36,22 @@ echo "✅ Contract allocations prepared"
 
 # Step 5: Build docker compose
 echo "👉 Step 5: Building docker compose..."
-docker compose build
+if [ "$USE_TEE" = "True" ] || [ "$USE_TEE" = "true" ]; then
+    echo "👉 Checking for AWS Nitro Enclave support..."
+    if command -v nitro-cli &>/dev/null && \
+       (nitro-cli describe-enclaves 2>/dev/null | grep -qE "EnclaveID|\[\]" || [ -e /dev/nitro_enclaves ]); then
+        echo "✅ AWS Nitro Enclave support detected"
+    else
+        echo "⚠️  WARNING: AWS Nitro Enclave support not detected! TEE components will fail."
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo ""
+        [[ ! $REPLY =~ ^[Yy]$ ]] && { echo "❌ Startup cancelled."; exit 1; }
+    fi
+    echo "Building with TEE profile..."
+    COMPOSE_PROFILES=tee docker compose build
+else
+    docker compose build
+fi
 echo "✅ Docker compose build complete"
 
 # Step 6: Start services
