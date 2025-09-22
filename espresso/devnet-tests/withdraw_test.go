@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	configpkg "github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
 	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -116,7 +116,7 @@ func TestWithdrawal(t *testing.T) {
 		t.Logf("Dispute game published for block %d", blockNumber)
 	}
 
-	// Generate withdrawal proAlice's L1 balance increased byof using fault proofs
+	// Generate withdrawal proof using fault proofs
 	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
 
 	// Set up clients for proof generation
@@ -159,16 +159,26 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 	l1Opts.GasPrice = gasPrice
 
+	// Build the withdrawal message with correct field types
+	wd := crossdomain.NewWithdrawal(
+		params.Nonce,
+		&params.Sender,
+		&params.Target,
+		params.Value,
+		params.GasLimit,
+		params.Data,
+	)
+
 	t.Logf("Submitting ProveWithdrawalTransaction to L1...")
 	proveTx, err := portal.ProveWithdrawalTransaction(
 		l1Opts,
 		bindings.TypesWithdrawalTransaction{
-			Nonce:    params.Nonce,
-			Sender:   params.Sender,
-			Target:   params.Target,
-			Value:    params.Value,
-			GasLimit: params.GasLimit,
-			Data:     params.Data,
+			Nonce:    wd.Nonce,
+			Sender:   *wd.Sender,
+			Target:   *wd.Target,
+			Value:    wd.Value,
+			GasLimit: wd.GasLimit,
+			Data:     wd.Data,
 		},
 		params.L2OutputIndex,
 		bindings.TypesOutputRootProof{
@@ -204,41 +214,20 @@ func TestWithdrawal(t *testing.T) {
 	// Wait for the challenge period to expire
 	t.Logf("Waiting for challenge period to expire...")
 
-	// Calculate withdrawal hash using proper ABI encoding (like the official implementation)
-	uint256Type, _ := abi.NewType("uint256", "", nil)
-	addressType, _ := abi.NewType("address", "", nil)
-	bytesType, _ := abi.NewType("bytes", "", nil)
-
-	args := abi.Arguments{
-		{Name: "nonce", Type: uint256Type},
-		{Name: "sender", Type: addressType},
-		{Name: "target", Type: addressType},
-		{Name: "value", Type: uint256Type},
-		{Name: "gasLimit", Type: uint256Type},
-		{Name: "data", Type: bytesType},
-	}
-
-	enc, err := args.Pack(params.Nonce, params.Sender, params.Target, params.Value, params.GasLimit, params.Data)
+	withdrawalHash, err := wd.Hash()
 	require.NoError(t, err)
-	withdrawalHash := crypto.Keccak256Hash(enc)
 	t.Logf("Withdrawal hash (ABI encoded): %s", withdrawalHash.Hex())
 
-	// Wait for challenge period + buffer time
-	waitTime := withdrawalDelay + 10*time.Second
-	t.Logf("Waiting %v for challenge period to expire...", waitTime)
-	time.Sleep(waitTime)
+	// Wait until the portal reports the withdrawal is ready
+	wait.ForWithdrawalCheck(ctx, d.L1, *wd, optimismPortalAddr, aliceAddress)
 
 	// Check if withdrawal is ready for finalization
 	// Note: On some protocol versions the ABI for OptimismPortal differs (Portal vs Portal2),
 	// and the public getter may not exist or may revert if the entry is absent/cleared.
 	// Treat this as a best-effort check and proceed regardless; finalization+balances are the source of truth.
 	t.Logf("Checking proven withdrawals with ABI-encoded hash (best-effort)...")
-	if _, err = portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash); err != nil {
-		// Log and proceed; this can revert with empty errdata if selector mismatch or mapping was cleared.
-		t.Logf("ProvenWithdrawals call failed (non-fatal): %v", err)
-	} else {
-		t.Logf("ProvenWithdrawals indicates entry exists; proceeding to finalize...")
-	}
+	_, err = portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	require.NoError(t, err)
 
 	// TODO Philippe remove one of the two checks and config modification (DASEL)
 	// Additional observability: log configured delays from Portal2
