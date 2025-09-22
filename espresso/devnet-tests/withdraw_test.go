@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	configpkg "github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
 	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
@@ -32,6 +33,9 @@ func TestWithdrawal(t *testing.T) {
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())
+
+	// Ensure that the allocation type uses proofs (static config check)
+	require.True(t, configpkg.DefaultAllocType.UsesProofs(), "alloc type must use proofs; got %s", configpkg.DefaultAllocType)
 
 	//Check Alice's balance on L2 verifier before withdrawal
 	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
@@ -85,7 +89,7 @@ func TestWithdrawal(t *testing.T) {
 	proposerAddr := crypto.PubkeyToAddress(proposerPrivKey.PublicKey)
 	proposerBalance, err := d.L1.BalanceAt(ctx, proposerAddr, nil)
 	require.NoError(t, err)
-	t.Logf("Proposer account %s balance: %s ETH", proposerAddr.Hex(), new(big.Int).Div(proposerBalance, big.NewInt(1e18)).String())
+	t.Logf("Proposer account %s L1 balance: %s ETH", proposerAddr.Hex(), new(big.Int).Div(proposerBalance, big.NewInt(1e18)).String())
 
 	disputeGameFactoryAddr, optimismPortalAddr := d.getOPAddresses()
 
@@ -94,7 +98,7 @@ func TestWithdrawal(t *testing.T) {
 	time.Sleep(3 * time.Minute)
 
 	// Wait for the L2 output to be published as a dispute game on L1
-	t.Logf("Waiting for dispute game to be published for block %d", receipt.BlockNumber)
+	t.Logf("Waiting for dispute game to be published for block %d", receipt.BlockNumber.Uint64())
 	var blockNumber uint64
 
 	// Try waiting for dispute game first, but fall back if it times out
@@ -112,7 +116,7 @@ func TestWithdrawal(t *testing.T) {
 		t.Logf("Dispute game published for block %d", blockNumber)
 	}
 
-	// Generate withdrawal proof using fault proofs
+	// Generate withdrawal proAlice's L1 balance increased byof using fault proofs
 	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
 
 	// Set up clients for proof generation
@@ -152,15 +156,9 @@ func TestWithdrawal(t *testing.T) {
 	// Set proper gas configuration
 	l1Opts.GasLimit = 500000
 	gasPrice, err := d.L1.SuggestGasPrice(ctx)
-	if err != nil {
-		t.Logf("Warning: Could not get suggested gas price: %v", err)
-		l1Opts.GasPrice = big.NewInt(20000000000) // 20 gwei fallback
-	} else {
-		l1Opts.GasPrice = gasPrice
-	}
-	t.Logf("Set gas limit: %d, gas price: %s", l1Opts.GasLimit, l1Opts.GasPrice.String())
+	require.NoError(t, err)
+	l1Opts.GasPrice = gasPrice
 
-	// Submit the withdrawal proof transaction
 	t.Logf("Submitting ProveWithdrawalTransaction to L1...")
 	proveTx, err := portal.ProveWithdrawalTransaction(
 		l1Opts,
@@ -226,7 +224,7 @@ func TestWithdrawal(t *testing.T) {
 	t.Logf("Withdrawal hash (ABI encoded): %s", withdrawalHash.Hex())
 
 	// Wait for challenge period + buffer time
-	waitTime := withdrawalDelay + 300*time.Second
+	waitTime := withdrawalDelay + 10*time.Second
 	t.Logf("Waiting %v for challenge period to expire...", waitTime)
 	time.Sleep(waitTime)
 
@@ -240,6 +238,27 @@ func TestWithdrawal(t *testing.T) {
 		t.Logf("ProvenWithdrawals call failed (non-fatal): %v", err)
 	} else {
 		t.Logf("ProvenWithdrawals indicates entry exists; proceeding to finalize...")
+	}
+
+	// TODO Philippe remove one of the two checks and config modification (DASEL)
+	// Additional observability: log configured delays from Portal2
+	if pm, err := portal2.ProofMaturityDelaySeconds(&bind.CallOpts{}); err == nil {
+		t.Logf("Portal2 proofMaturityDelaySeconds: %ds", pm.Int64())
+	} else {
+		t.Logf("Warning: could not read proofMaturityDelaySeconds: %v", err)
+	}
+	if dgfd, err := portal2.DisputeGameFinalityDelaySeconds(&bind.CallOpts{}); err == nil {
+		t.Logf("Portal2 disputeGameFinalityDelaySeconds: %ds", dgfd.Int64())
+	} else {
+		t.Logf("Warning: could not read disputeGameFinalityDelaySeconds: %v", err)
+	}
+
+	// Query the proven-withdrawal record for this proof submitter (Alice)
+	proofSubmitter := l1Opts.From
+	if pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, proofSubmitter); err == nil {
+		t.Logf("ProvenWithdrawal record -> disputeGameProxy: %s, timestamp: %d", pw.DisputeGameProxy.Hex(), pw.Timestamp)
+	} else {
+		t.Logf("Warning: could not read ProvenWithdrawals record: %v", err)
 	}
 
 	// Finalize the withdrawal
@@ -265,22 +284,9 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for finalization transaction to be mined
-	finalizeReceipt, err := bind.WaitMined(ctx, d.L1, finalizeTx)
-	require.NoError(t, err)
-
-	if finalizeReceipt.Status != types.ReceiptStatusSuccessful {
-		t.Logf("Finalization transaction failed with status: %d", finalizeReceipt.Status)
-		t.Logf("This likely means the withdrawal wasn't properly proven or the challenge period hasn't expired")
-		t.Logf("The Espresso transaction missing errors suggest the L2 transaction hasn't been processed through Espresso yet")
-
-		// Log the transaction receipt for debugging
-		t.Logf("Failed finalization receipt: %+v", finalizeReceipt)
-
-		// Don't fail the test immediately - this helps us understand the timing issues
-		t.Logf("⚠️  Finalization failed, but this reveals the Espresso integration timing issue")
-	} else {
-		t.Logf("✅ Withdrawal finalization successful!")
-	}
+	finalizeReceipt, err := wait.ForReceiptOK(ctx, d.L1, finalizeTx.Hash())
+	require.NoError(t, err, "finalize withdrawal")
+	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
 
 	t.Logf("Withdrawal finalization successful: %s", finalizeTx.Hash().Hex())
 	t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)

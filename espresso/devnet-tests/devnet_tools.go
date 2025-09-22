@@ -676,7 +676,7 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 }
 
 func (d *Devnet) getWithdrawalDelay() (time.Duration, error) {
-	_, optimismPortalAddr := d.getOPAddresses()
+    _, optimismPortalAddr := d.getOPAddresses()
 
 	// Check if there's code at the address
 	code, err := d.L1.CodeAt(context.Background(), optimismPortalAddr, nil)
@@ -688,17 +688,17 @@ func (d *Devnet) getWithdrawalDelay() (time.Duration, error) {
 	}
 	log.Info("Contract code found", "address", optimismPortalAddr.Hex(), "codeSize", len(code))
 
-	// Create OptimismPortal2 binding to get dispute game finality delay
-	optimismPortal2, err := bindingspreview.NewOptimismPortal2(optimismPortalAddr, d.L1)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create OptimismPortal2 binding: %v", err)
-	}
+	    // Create OptimismPortal2 binding to get proof maturity delay (challenge period)
+    optimismPortal2, err := bindingspreview.NewOptimismPortal2(optimismPortalAddr, d.L1)
+    if err != nil {
+        return 0, fmt.Errorf("failed to create OptimismPortal2 binding: %v", err)
+    }
 
-	// Query the proof maturity delay from the contract (this is the finalization period)
-	finalizationPeriod, err := optimismPortal2.DisputeGameFinalityDelaySeconds(&bind.CallOpts{})
-	if err != nil {
-		return 0, fmt.Errorf("failed to query proof maturity delay from contract: %v", err)
-	}
+    // Query the proof maturity delay from the contract (challenge period before finalization)
+    finalizationPeriod, err := optimismPortal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
+    if err != nil {
+        return 0, fmt.Errorf("failed to query proof maturity delay from contract: %v", err)
+    }
 
-	return time.Duration(finalizationPeriod.Int64()) * time.Second, nil
+    return time.Duration(finalizationPeriod.Int64()) * time.Second, nil
 }
