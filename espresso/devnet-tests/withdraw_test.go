@@ -218,37 +218,25 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Withdrawal hash (ABI encoded): %s", withdrawalHash.Hex())
 
+	// TODO Philippe remove one of the two checks and config modification (DASEL)
+	// Additional observability: log configured delays from Portal2
+	pm, err := portal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(12), pm)
+
+	dgfd, err := portal2.DisputeGameFinalityDelaySeconds(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(12), dgfd)
+
 	// Wait until the portal reports the withdrawal is ready
 	wait.ForWithdrawalCheck(ctx, d.L1, *wd, optimismPortalAddr, aliceAddress)
 
-	// Check if withdrawal is ready for finalization
-	// Note: On some protocol versions the ABI for OptimismPortal differs (Portal vs Portal2),
-	// and the public getter may not exist or may revert if the entry is absent/cleared.
-	// Treat this as a best-effort check and proceed regardless; finalization+balances are the source of truth.
-	t.Logf("Checking proven withdrawals with ABI-encoded hash (best-effort)...")
-	_, err = portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
-	require.NoError(t, err)
-
-	// TODO Philippe remove one of the two checks and config modification (DASEL)
-	// Additional observability: log configured delays from Portal2
-	if pm, err := portal2.ProofMaturityDelaySeconds(&bind.CallOpts{}); err == nil {
-		t.Logf("Portal2 proofMaturityDelaySeconds: %ds", pm.Int64())
-	} else {
-		t.Logf("Warning: could not read proofMaturityDelaySeconds: %v", err)
-	}
-	if dgfd, err := portal2.DisputeGameFinalityDelaySeconds(&bind.CallOpts{}); err == nil {
-		t.Logf("Portal2 disputeGameFinalityDelaySeconds: %ds", dgfd.Int64())
-	} else {
-		t.Logf("Warning: could not read disputeGameFinalityDelaySeconds: %v", err)
-	}
-
 	// Query the proven-withdrawal record for this proof submitter (Alice)
 	proofSubmitter := l1Opts.From
-	if pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, proofSubmitter); err == nil {
-		t.Logf("ProvenWithdrawal record -> disputeGameProxy: %s, timestamp: %d", pw.DisputeGameProxy.Hex(), pw.Timestamp)
-	} else {
-		t.Logf("Warning: could not read ProvenWithdrawals record: %v", err)
-	}
+	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, proofSubmitter)
+	require.NoError(t, err)
+
+	t.Logf("ProvenWithdrawal record -> disputeGameProxy: %s, timestamp: %d", pw.DisputeGameProxy.Hex(), pw.Timestamp)
 
 	// Finalize the withdrawal
 	t.Logf("Finalizing withdrawal transaction...")
