@@ -235,8 +235,8 @@ func TestWithdrawal(t *testing.T) {
 	proofSubmitter := l1Opts.From
 	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, proofSubmitter)
 	require.NoError(t, err)
-
-	t.Logf("ProvenWithdrawal record -> disputeGameProxy: %s, timestamp: %d", pw.DisputeGameProxy.Hex(), pw.Timestamp)
+	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
+	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
 
 	// Finalize the withdrawal
 	t.Logf("Finalizing withdrawal transaction...")
