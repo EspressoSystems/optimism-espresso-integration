@@ -2,7 +2,6 @@ package devnet_tests
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -11,13 +10,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	configpkg "github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
 	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts/metrics"
-	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -112,14 +107,7 @@ func TestWithdrawal(t *testing.T) {
 	defer gameCancel()
 
 	blockNumber, err = wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
-	if err != nil {
-		t.Logf("Failed to wait for dispute game: %v. Using withdrawal block number for proof generation.", err)
-		// Use the receipt block number if game publication fails
-		blockNumber = receipt.BlockNumber.Uint64()
-		t.Logf("Proceeding with block number %d for withdrawal proof", blockNumber)
-	} else {
-		t.Logf("Dispute game published for block %d", blockNumber)
-	}
+	require.NoError(t, err)
 
 	// Generate withdrawal proof using fault proofs
 	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
@@ -212,56 +200,6 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, pwBeforeResolve.DisputeGameProxy, common.Address{0x0})
 
-	caller := batching.NewMultiCaller(d.L1.Client(), batching.DefaultBatchSize)
-	gameContract, err := contracts.NewFaultDisputeGameContract(context.Background(), metrics.NoopContractMetrics, pwBeforeResolve.DisputeGameProxy, caller)
-	require.NoError(t, err)
-
-	// Try to resolve a claim (id 0) until the call indicates it can be resolved
-	t.Logf("Attempting to resolve dispute game claim 0 for %s...", pwBeforeResolve.DisputeGameProxy.Hex())
-	resolveCtx, resolveCancel := context.WithTimeout(ctx, 30*time.Second)
-	defer resolveCancel()
-	require.NoError(t, wait.For(resolveCtx, time.Second, func() (bool, error) {
-		err := gameContract.CallResolveClaim(context.Background(), 0)
-		if err != nil {
-			t.Logf("Could not resolve dispute game claim yet: %v", err)
-		}
-		return err == nil, nil
-	}))
-
-	// Submit resolveClaim transaction (ignore already-resolved error patterns)
-	t.Log("Submitting resolveClaim transaction...")
-	txRc, err := gameContract.ResolveClaimTx(0)
-	require.NoError(t, err, "create resolveClaim tx")
-	_, rcReceipt, err := transactions.SendTx(ctx, d.L1, txRc, d.secrets.Alice)
-	if err != nil {
-		var rsErr *wait.ReceiptStatusError
-		if errors.As(err, &rsErr) {
-			t.Logf("resolveClaim tx had non-success status, continuing: %v", rsErr)
-		} else {
-			require.NoError(t, err)
-		}
-	}
-	if rcReceipt != nil {
-		t.Logf("resolveClaim receipt status: %d", rcReceipt.Status)
-	}
-
-	// Submit resolve transaction (tolerate if already resolved)
-	t.Log("Submitting resolve transaction...")
-	txRes, err := gameContract.ResolveTx()
-	require.NoError(t, err, "create resolve tx")
-	_, resReceipt, err := transactions.SendTx(ctx, d.L1, txRes, d.secrets.Alice)
-	if err != nil {
-		var rsErr *wait.ReceiptStatusError
-		if errors.As(err, &rsErr) {
-			t.Logf("resolve tx had non-success status, continuing: %v", rsErr)
-		} else {
-			require.NoError(t, err)
-		}
-	}
-	if resReceipt != nil && resReceipt.Status == types.ReceiptStatusFailed {
-		t.Logf("resolve failed (tx: %s)! But game may have resolved already.", resReceipt.TxHash)
-	}
-
 	// Check Alice's L1 balance before finalization
 	aliceL1BalanceBefore, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
 	require.NoError(t, err)
@@ -278,26 +216,8 @@ func TestWithdrawal(t *testing.T) {
 
 	withdrawalHash, err := wd.Hash()
 	require.NoError(t, err)
-	t.Logf("Withdrawal hash (ABI encoded): %s", withdrawalHash.Hex())
-
-	// TODO Philippe remove one of the two checks and config modification (DASEL)
-	// Additional observability: log configured delays from Portal2
-	pm, err := portal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(12), pm)
-
-	dgfd, err := portal2.DisputeGameFinalityDelaySeconds(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(12), dgfd)
-
-	// Wait until the portal reports the withdrawal is ready
-	wait.ForWithdrawalCheck(ctx, d.L1, *wd, optimismPortalAddr, aliceAddress)
-
-	proofSubmitter := l1Opts.From
-
 	// Query the proven-withdrawal record for this proof submitter (Alice)
-
-	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, proofSubmitter)
+	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, l1Opts.From)
 	require.NoError(t, err)
 	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
 	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
