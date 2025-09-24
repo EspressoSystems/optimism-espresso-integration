@@ -56,7 +56,11 @@ echo "✅ Docker compose build complete"
 
 # Step 6: Start services
 echo "👉 Step 6: Starting services..."
-docker compose up -d
+if [ "$USE_TEE" = "True" ] || [ "$USE_TEE" = "true" ]; then
+    COMPOSE_PROFILES=tee docker compose up -d
+else
+    docker compose up -d
+fi
 echo "✅ Services started in detached mode"
 
 echo "🎉 Startup complete! All services should now be running."
