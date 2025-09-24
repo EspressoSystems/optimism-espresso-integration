@@ -74,6 +74,9 @@ func TestWithdrawal(t *testing.T) {
 
 	wait.ForNextBlock(ctx, d.L2Verif)
 
+	// TODO philippe: can it be less
+	time.Sleep(3 * time.Minute)
+
 	// // Check proposer account balance and permissions
 	// // The proposer uses the same mnemonic as batcher: "test test test test test test test test test test test junk"
 	// proposerPrivKey := d.secrets.Alice // This should match the mnemonic account
@@ -91,8 +94,16 @@ func TestWithdrawal(t *testing.T) {
 	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
 	require.NoError(t, err)
 
+	t.Logf("Dispute game factory address: %s", disputeGameFactoryAddr)
+	t.Logf("Optimism portal address: %s", optimismPortalAddr)
+
+	// Wait for the L2 output to be published as a dispute game on L1
+	t.Logf("Waiting for dispute game to be published for block %d...", receipt.BlockNumber.Uint64())
+	gameCtx, gameCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer gameCancel()
+
 	// Wait for the finalization period, then we can finalize this withdrawal.
-	blockNumber, err := wait.ForGamePublished(ctx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
+	blockNumber, err := wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
 	require.Nil(t, err)
 
 	// Generate withdrawal proof using fault proofs
