@@ -12,8 +12,8 @@ fast-tests:
 devnet-tests: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v ./espresso/devnet-tests/...
 
-devnet-smoke-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v ./espresso/devnet-tests/...
+devnet-smoke-test-without-tee: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmokeWithoutTEE' -v ./espresso/devnet-tests/...
 
 build-devnet: compile-contracts
   rm -Rf espresso/deployment

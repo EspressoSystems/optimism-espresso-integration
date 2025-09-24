@@ -80,11 +80,14 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	return d
 }
 
-func (d *Devnet) Up() (err error) {
+func (d *Devnet) Up(tee bool) (err error) {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
 	)
+	if tee {
+		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES=tee")
+	}
 	cmd.Env = append(
 		cmd.Env,
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
