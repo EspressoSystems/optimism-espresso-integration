@@ -190,17 +190,134 @@ func TestWithdrawal(t *testing.T) {
 	t.Logf("Gas used: %d", proveReceipt.GasUsed)
 	t.Logf("Withdrawal can now be finalized after the finalization period")
 
-	// Resolve the dispute game before checking maturity to ensure the root claim is accepted.
-	wdHash, err := wd.Hash()
+	// Wait for the withdrawal delay period before finalization
+	withdrawalHash, err := wd.Hash()
 	require.NoError(t, err)
-	pwBeforeResolve, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, wdHash, l1Opts.From)
+	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, l1Opts.From)
 	require.NoError(t, err)
-	require.NotEqual(t, pwBeforeResolve.DisputeGameProxy, common.Address{0x0})
+	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
+	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
+
+	withdrawalDelay, err := d.getWithdrawalDelay()
+	require.NoError(t, err)
+	t.Logf("Withdrawal delay (disputeGameFinalityDelaySeconds): %v", withdrawalDelay)
+
+	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelay)
+	t.Logf("Waiting until L1 time passes target %s (pw.Timestamp=%d + delay)", targetTime.Format(time.RFC3339), pw.Timestamp)
+
+	// Poll L1 latest header time until we pass targetTime
+	err = wait.For(ctx, time.Second, func() (bool, error) {
+		hdr, err := d.L1.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		return int64(hdr.Time) >= targetTime.Unix(), nil
+	})
+	require.NoError(t, err)
+	t.Logf("Withdrawal delay period has passed, proceeding with finalization")
 
 	// Check Alice's L1 balance before finalization
 	aliceL1BalanceBefore, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
 	require.NoError(t, err)
 	t.Logf("Alice's L1 balance before finalization: %s ETH", new(big.Int).Div(aliceL1BalanceBefore, big.NewInt(1e18)).String())
+
+	// Double-check that the withdrawal is ready for finalization
+	t.Logf("Verifying withdrawal readiness for finalization...")
+
+	// Check current L1 block time
+	currentHeader, err := d.L1.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	currentTime := time.Unix(int64(currentHeader.Time), 0)
+	t.Logf("Current L1 block time: %s (timestamp: %d)", currentTime.Format(time.RFC3339), currentHeader.Time)
+	t.Logf("Target time was: %s (timestamp: %d)", targetTime.Format(time.RFC3339), targetTime.Unix())
+	t.Logf("Time difference: %v", currentTime.Sub(targetTime))
+
+	// Verify the proven withdrawal still exists and check its status
+	pwFinal, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, l1Opts.From)
+	require.NoError(t, err)
+	t.Logf("Proven withdrawal timestamp: %d", pwFinal.Timestamp)
+	t.Logf("Dispute game proxy: %s", pwFinal.DisputeGameProxy.Hex())
+
+	// Check if withdrawal has already been finalized
+	finalizedWithdrawals, err := portal2.FinalizedWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	require.NoError(t, err)
+	t.Logf("Withdrawal already finalized: %t", finalizedWithdrawals)
+
+	if finalizedWithdrawals {
+		t.Fatal("Withdrawal has already been finalized!")
+	}
+
+	// Check dispute game status
+	disputeGame, err := bindings.NewFaultDisputeGame(pwFinal.DisputeGameProxy, d.L1)
+	require.NoError(t, err)
+
+	// Check game status
+	gameStatus, err := disputeGame.Status(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("Dispute game status: %d (0=In Progress, 1=Challenger Wins, 2=Defender Wins)", gameStatus)
+
+	// Check if game is resolved
+	resolvedAt, err := disputeGame.ResolvedAt(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("Dispute game resolved at: %s", time.Unix(int64(resolvedAt), 0).Format(time.RFC3339))
+
+	if resolvedAt == 0 {
+		t.Logf("Dispute game is not resolved yet, attempting to resolve it...")
+		
+		// Try to resolve the dispute game
+		resolveOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+		require.NoError(t, err)
+		resolveOpts.GasLimit = 300000
+		resolveOpts.GasPrice = gasPrice
+		
+		// First try to resolve any claims if needed
+		claimCount, err := disputeGame.ClaimDataLen(&bind.CallOpts{})
+		require.NoError(t, err)
+		t.Logf("Dispute game has %d claims", claimCount.Uint64())
+		
+		// Try to resolve the root claim (index 0) if it exists
+		if claimCount.Uint64() > 0 {
+			t.Logf("Attempting to resolve root claim...")
+			resolveTx, err := disputeGame.ResolveClaim(resolveOpts, big.NewInt(0), big.NewInt(1))
+			if err != nil {
+				t.Logf("Failed to resolve claim: %v", err)
+			} else {
+				resolveReceipt, err := bind.WaitMined(ctx, d.L1, resolveTx)
+				if err != nil {
+					t.Logf("Failed to wait for resolve claim transaction: %v", err)
+				} else if resolveReceipt.Status == types.ReceiptStatusSuccessful {
+					t.Logf("Successfully resolved claim: %s", resolveTx.Hash().Hex())
+				} else {
+					t.Logf("Resolve claim transaction failed: %s", resolveTx.Hash().Hex())
+				}
+			}
+		}
+		
+		// Now try to resolve the entire game
+		t.Logf("Attempting to resolve dispute game...")
+		gameResolveTx, err := disputeGame.Resolve(resolveOpts)
+		if err != nil {
+			t.Logf("Failed to resolve game: %v", err)
+		} else {
+			gameResolveReceipt, err := bind.WaitMined(ctx, d.L1, gameResolveTx)
+			if err != nil {
+				t.Logf("Failed to wait for resolve game transaction: %v", err)
+			} else if gameResolveReceipt.Status == types.ReceiptStatusSuccessful {
+				t.Logf("Successfully resolved dispute game: %s", gameResolveTx.Hash().Hex())
+				
+				// Check the new status
+				newStatus, err := disputeGame.Status(&bind.CallOpts{})
+				require.NoError(t, err)
+				t.Logf("New dispute game status: %d", newStatus)
+				
+				newResolvedAt, err := disputeGame.ResolvedAt(&bind.CallOpts{})
+				require.NoError(t, err)
+				t.Logf("Game resolved at: %s", time.Unix(int64(newResolvedAt), 0).Format(time.RFC3339))
+			} else {
+				t.Logf("Resolve game transaction failed: %s", gameResolveTx.Hash().Hex())
+			}
+		}
+	}
 
 	// Finalize the withdrawal
 	t.Logf("Finalizing withdrawal transaction...")
