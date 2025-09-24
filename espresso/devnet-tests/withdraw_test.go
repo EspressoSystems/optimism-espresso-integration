@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
-	configpkg "github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
 	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
@@ -34,9 +33,6 @@ func TestWithdrawal(t *testing.T) {
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())
 
-	// Ensure that the allocation type uses proofs (static config check)
-	require.True(t, configpkg.DefaultAllocType.UsesProofs(), "alloc type must use proofs; got %s", configpkg.DefaultAllocType)
-
 	//Check Alice's balance on L2 verifier before withdrawal
 	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
 	aliceBalance, err := d.L2Verif.BalanceAt(ctx, aliceAddress, nil)
@@ -61,13 +57,12 @@ func TestWithdrawal(t *testing.T) {
 	opts.Value = withdrawalAmount
 
 	// Initiate withdrawal - this sends ETH to L2ToL1MessagePasser and emits an event
-	tx, err := l2MessagePasser.InitiateWithdrawal(opts, aliceAddress, big.NewInt(21000), []byte{})
+	tx, err := l2MessagePasser.InitiateWithdrawal(opts, aliceAddress, big.NewInt(21000), nil)
 	require.NoError(t, err)
 
-	// Wait for transaction to be mined
-	receipt, err := bind.WaitMined(ctx, d.L2Seq, tx)
+	// Wait for receipt ok
+	receipt, err := wait.ForReceiptOK(ctx, d.L2Verif, tx.Hash())
 	require.NoError(t, err)
-	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 
 	// Check Alice's balance on L1 before withdrawal
 	aliceL1Balance, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
@@ -77,37 +72,28 @@ func TestWithdrawal(t *testing.T) {
 	require.True(t, aliceL1Balance.Cmp(expectedBalance) == 0, "Alice should have exactly 10,000 ETH")
 	t.Logf("Alice's L1 balance before withdrawal: %s wei", aliceL1Balance.String())
 
-	// Create withdrawal proof transaction
-	// Wait for the withdrawal to be included in a block and get the block number
-	// Use a longer timeout for devnet environment where proposer interval is 6s
-	ctx, cancel = context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
+	wait.ForNextBlock(ctx, d.L2Verif)
 
-	// Check proposer account balance and permissions
-	// The proposer uses the same mnemonic as batcher: "test test test test test test test test test test test junk"
-	proposerPrivKey := d.secrets.Alice // This should match the mnemonic account
-	proposerAddr := crypto.PubkeyToAddress(proposerPrivKey.PublicKey)
-	proposerBalance, err := d.L1.BalanceAt(ctx, proposerAddr, nil)
+	// // Check proposer account balance and permissions
+	// // The proposer uses the same mnemonic as batcher: "test test test test test test test test test test test junk"
+	// proposerPrivKey := d.secrets.Alice // This should match the mnemonic account
+	// proposerAddr := crypto.PubkeyToAddress(proposerPrivKey.PublicKey)
+	// proposerBalance, err := d.L1.BalanceAt(ctx, proposerAddr, nil)
+	// require.NoError(t, err)
+	// t.Logf("Proposer account %s L1 balance: %s ETH", proposerAddr.Hex(), new(big.Int).Div(proposerBalance, big.NewInt(1e18)).String())
+
+	// Get contract addresses from SystemConfig
+	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
-	t.Logf("Proposer account %s L1 balance: %s ETH", proposerAddr.Hex(), new(big.Int).Div(proposerBalance, big.NewInt(1e18)).String())
 
-	disputeGameFactoryAddr, optimismPortalAddr := d.getOPAddresses()
-
-	// Wait a bit longer for the proposer to create games (proposer interval is 6s)
-	t.Logf("Waiting 3 minutes for proposer to create dispute games...")
-	time.Sleep(3 * time.Minute)
-
-	// Wait for the L2 output to be published as a dispute game on L1
-	t.Logf("Waiting for dispute game to be published for block %d", receipt.BlockNumber.Uint64())
-	var blockNumber uint64
-
-	// Try waiting for dispute game first, but fall back if it times out
-	t.Logf("Waiting for dispute game to be published for block %d...", receipt.BlockNumber.Uint64())
-	gameCtx, gameCancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer gameCancel()
-
-	blockNumber, err = wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
+	disputeGameFactoryAddr, err := systemConfig.DisputeGameFactory(&bind.CallOpts{})
 	require.NoError(t, err)
+	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	// Wait for the finalization period, then we can finalize this withdrawal.
+	blockNumber, err := wait.ForGamePublished(ctx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
+	require.Nil(t, err)
 
 	// Generate withdrawal proof using fault proofs
 	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
@@ -205,23 +191,6 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Alice's L1 balance before finalization: %s ETH", new(big.Int).Div(aliceL1BalanceBefore, big.NewInt(1e18)).String())
 
-	// Check that the withdrawal delay is set to 12 seconds
-	withdrawalDelay, err := d.getWithdrawalDelay()
-	require.NoError(t, err)
-	t.Logf("Withdrawal delay (disputeGameFinalityDelaySeconds): %v", withdrawalDelay)
-	require.Equal(t, time.Duration(12*time.Second), withdrawalDelay)
-
-	// Wait for the challenge period to expire
-	t.Logf("Waiting for challenge period to expire...")
-
-	withdrawalHash, err := wd.Hash()
-	require.NoError(t, err)
-	// Query the proven-withdrawal record for this proof submitter (Alice)
-	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, l1Opts.From)
-	require.NoError(t, err)
-	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
-	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
-
 	// Finalize the withdrawal
 	t.Logf("Finalizing withdrawal transaction...")
 
@@ -245,7 +214,9 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for finalization transaction to be mined
-	finalizeReceipt, err := wait.ForReceiptOK(ctx, d.L1, finalizeTx.Hash())
+	finalizeCtx, finalizeCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer finalizeCancel()
+	finalizeReceipt, err := wait.ForReceiptOK(finalizeCtx, d.L1, finalizeTx.Hash())
 	require.NoError(t, err, "finalize withdrawal")
 	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
 

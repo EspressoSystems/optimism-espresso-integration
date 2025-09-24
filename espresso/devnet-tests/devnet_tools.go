@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -35,11 +34,10 @@ import (
 )
 
 type Devnet struct {
-	ctx         context.Context
-	secrets     secrets.Secrets
-	outageTime  time.Duration
-	successTime time.Duration
-
+	ctx           context.Context
+	secrets       secrets.Secrets
+	outageTime    time.Duration
+	successTime   time.Duration
 	L1            *ethclient.Client
 	L2Seq         *ethclient.Client
 	L2SeqRollup   *sources.RollupClient
@@ -48,6 +46,7 @@ type Devnet struct {
 }
 
 func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
+
 	if testing.Short() {
 		t.Skip("skipping devnet test in short mode")
 	}
@@ -81,6 +80,7 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	}
 
 	return d
+
 }
 
 func (d *Devnet) isRunning() bool {
@@ -170,6 +170,7 @@ func (d *Devnet) Up() (err error) {
 	if err != nil {
 		return err
 	}
+
 	d.L1, err = d.serviceClient("l1-geth", 8545)
 	if err != nil {
 		return err
@@ -622,45 +623,6 @@ func (d *Devnet) serviceClient(service string, port uint16) (*ethclient.Client, 
 	return client, nil
 }
 
-// TODO Philippe Document, find a better name
-func (d *Devnet) getOPAddresses() (common.Address, common.Address) {
-	// Read actual deployed contract addresses from deployment state
-	// This matches what the op-proposer service does in docker-compose.yml
-	deploymentStateFile := "../deployment/deployer/state.json"
-
-	// Check if deployment state file exists
-	if _, err := os.Stat(deploymentStateFile); os.IsNotExist(err) {
-		log.Error("Deployment state file not found: %s. Make sure devnet is properly deployed.", deploymentStateFile)
-		return common.Address{}, common.Address{}
-	}
-
-	// Read and parse the deployment state
-	stateData, err := os.ReadFile(deploymentStateFile)
-	if err != nil {
-		log.Error("Failed to read deployment state: %v", err)
-	}
-
-	var deploymentState struct {
-		OpChainDeployments []struct {
-			DisputeGameFactoryProxyAddress string `json:"disputeGameFactoryProxyAddress"`
-			OptimismPortalProxyAddress     string `json:"optimismPortalProxyAddress"`
-		} `json:"opChainDeployments"`
-	}
-
-	if err := json.Unmarshal(stateData, &deploymentState); err != nil {
-		log.Error("Failed to parse deployment state: %v", err)
-	}
-
-	if len(deploymentState.OpChainDeployments) == 0 {
-		log.Error("No OP chain deployments found in state file")
-	}
-
-	disputeGameFactoryAddr := common.HexToAddress(deploymentState.OpChainDeployments[0].DisputeGameFactoryProxyAddress)
-	optimismPortalAddr := common.HexToAddress(deploymentState.OpChainDeployments[0].OptimismPortalProxyAddress)
-
-	return disputeGameFactoryAddr, optimismPortalAddr
-}
-
 func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClient, error) {
 	port, err := d.hostPort(service, port)
 	if err != nil {
@@ -676,7 +638,16 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 }
 
 func (d *Devnet) getWithdrawalDelay() (time.Duration, error) {
-    _, optimismPortalAddr := d.getOPAddresses()
+	// Get the SystemConfig contract to retrieve the OptimismPortal address
+	systemConfig, _, err := d.SystemConfig(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("failed to get system config: %w", err)
+	}
+
+	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get OptimismPortal address: %w", err)
+	}
 
 	// Check if there's code at the address
 	code, err := d.L1.CodeAt(context.Background(), optimismPortalAddr, nil)
@@ -688,17 +659,17 @@ func (d *Devnet) getWithdrawalDelay() (time.Duration, error) {
 	}
 	log.Info("Contract code found", "address", optimismPortalAddr.Hex(), "codeSize", len(code))
 
-	    // Create OptimismPortal2 binding to get proof maturity delay (challenge period)
-    optimismPortal2, err := bindingspreview.NewOptimismPortal2(optimismPortalAddr, d.L1)
-    if err != nil {
-        return 0, fmt.Errorf("failed to create OptimismPortal2 binding: %v", err)
-    }
+	// Create OptimismPortal2 binding to get proof maturity delay (challenge period)
+	optimismPortal2, err := bindingspreview.NewOptimismPortal2(optimismPortalAddr, d.L1)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create OptimismPortal2 binding: %v", err)
+	}
 
-    // Query the proof maturity delay from the contract (challenge period before finalization)
-    finalizationPeriod, err := optimismPortal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
-    if err != nil {
-        return 0, fmt.Errorf("failed to query proof maturity delay from contract: %v", err)
-    }
+	// Query the proof maturity delay from the contract (challenge period before finalization)
+	finalizationPeriod, err := optimismPortal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to query proof maturity delay from contract: %v", err)
+	}
 
-    return time.Duration(finalizationPeriod.Int64()) * time.Second, nil
+	return time.Duration(finalizationPeriod.Int64()) * time.Second, nil
 }
