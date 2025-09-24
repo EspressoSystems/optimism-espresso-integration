@@ -57,7 +57,9 @@ jobs:
         run: go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
 
       - name: Build Devnet with TEE
-        run: COMPOSE_PROFILES=tee docker compose build
+        run: |
+          cd espresso
+          COMPOSE_PROFILES=tee docker compose build
 
       - name: Run Smoke test with TEE
         run: go test -timeout 30m -p 1 -count 1 -run 'TestSmokeWithTEE' -v  ./espresso/devnet-tests/...
