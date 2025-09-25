@@ -330,7 +330,8 @@ func finalizeWithdrawl(d *Devnet,
 	t *testing.T,
 	withdrawalHash common.Hash,
 	userAddress common.Address,
-	withdrawalTx bindings.TypesWithdrawalTransaction) {
+	withdrawalTx bindings.TypesWithdrawalTransaction,
+	withdrawalAmount *big.Int) {
 
 	// Get system config and portal address
 	systemConfig, _, err := d.SystemConfig(ctx)
@@ -381,6 +382,9 @@ func finalizeWithdrawl(d *Devnet,
 	// Calculate and log the balance change
 	balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
 	t.Logf("Net L1 balance change: %s wei", balanceChange.String())
+	fees := new(big.Int).Mul(new(big.Int).SetUint64(finalizeReceipt.GasUsed), finalizeReceipt.EffectiveGasPrice)
+	expectedBalanceChange := new(big.Int).Sub(withdrawalAmount, fees)
+	require.True(t, balanceChange.Cmp(expectedBalanceChange) == 0)
 
 	t.Logf("✅ Withdrawal finalization completed!")
 }
@@ -424,6 +428,6 @@ func TestWithdrawal(t *testing.T) {
 
 	resolveGame(d, ctx, t, withdrawalHash, aliceAddress)
 
-	finalizeWithdrawl(d, ctx, t, withdrawalHash, aliceAddress, withdrawalTx)
+	finalizeWithdrawl(d, ctx, t, withdrawalHash, aliceAddress, withdrawalTx, withdrawalAmount)
 
 }
