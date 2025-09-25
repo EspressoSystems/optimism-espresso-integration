@@ -506,7 +506,7 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         // safety against weird bugs. Note that this blocks withdrawals from being proven in the
         // same block that a dispute game is created.
         if (block.timestamp <= _disputeGameProxy.createdAt().raw()) {
-            //revert OptimismPortal_InvalidProofTimestamp();
+            revert OptimismPortal_InvalidProofTimestamp();
         }
 
         // Validate the provided Output Root and/or Super Root proof depending on proof method.
@@ -677,12 +677,12 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
 
         // A proven withdrawal must wait at least `PROOF_MATURITY_DELAY_SECONDS` before finalizing.
         if (block.timestamp - provenWithdrawal.timestamp <= PROOF_MATURITY_DELAY_SECONDS) {
-            //revert OptimismPortal_ProofNotOldEnough();
+            revert OptimismPortal_ProofNotOldEnough();
         }
 
         // Check that the root claim is valid.
         if (!anchorStateRegistry.isGameClaimValid(disputeGameProxy)) {
-            //revert OptimismPortal_InvalidRootClaim();
+            revert OptimismPortal_InvalidRootClaim();
         }
     }
 
