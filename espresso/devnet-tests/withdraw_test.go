@@ -119,6 +119,7 @@ func depositOnL1Bridge(d *Devnet,
 	l1ChainID, err := d.L1.ChainID(ctx)
 	require.NoError(t, err)
 
+	// TODO Philippe parametrize d.secrets.Alice
 	opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
 	require.NoError(t, err)
 	opts.Value = depositAmount
@@ -402,7 +403,8 @@ func TestWithdrawal(t *testing.T) {
 	//Check Alice's balance on L2 verifier before withdrawal
 	checkUserBalance(d, ctx, t, aliceAddress)
 
-	withdrawalAmount := big.NewInt(1000000)
+	withdrawalAmount := new(big.Int)
+	withdrawalAmount.SetString("1000000000000000000", 10) // 1 ETH in wei
 	tx, receipt := initiateWithdrawalOnL2(d, ctx, t, aliceAddress, withdrawalAmount)
 
 	// Check Alice's balance on L1 before withdrawal
@@ -411,7 +413,8 @@ func TestWithdrawal(t *testing.T) {
 	checkUserBalanceOnL1(d, ctx, t, aliceAddress, expectedBalance)
 
 	// Deposit some ETH on the L1 bridge so that it is possible to withdraw later
-	depositOnL1Bridge(d, ctx, t, aliceAddress, big.NewInt(9_000_000))
+	depositAmount := new(big.Int).Mul(withdrawalAmount, big.NewInt(2))
+	depositOnL1Bridge(d, ctx, t, aliceAddress, depositAmount)
 
 	// Wait for the game to be published
 	blockNumber := waitForGameToBePublished(d, ctx, t, receipt)
