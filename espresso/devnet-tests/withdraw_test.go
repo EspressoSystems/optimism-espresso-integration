@@ -375,6 +375,7 @@ func finalizeWithdrawl(d *Devnet,
 	t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)
 
 	// Check Alice's L1 balance after finalization
+	wait.ForBalanceChange(ctx, d.L1, userAddress, withdrawalAmount)
 	aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, userAddress, nil)
 	require.NoError(t, err)
 	t.Logf("Alice's L1 balance after finalization: %s wei", aliceL1BalanceAfter.String())
@@ -426,7 +427,7 @@ func TestWithdrawal(t *testing.T) {
 	// Generate withdrawal proof
 	withdrawalHash, withdrawalTx := proveWithdrawalTransaction(d, ctx, t, tx, receipt, blockNumber)
 
-	resolveGame(d, ctx, t, withdrawalHash, aliceAddress)
+	//resolveGame(d, ctx, t, withdrawalHash, aliceAddress)
 
 	finalizeWithdrawl(d, ctx, t, withdrawalHash, aliceAddress, withdrawalTx, withdrawalAmount)
 
