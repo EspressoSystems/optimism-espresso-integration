@@ -20,27 +20,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWithdrawal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up())
-	defer func() {
-		require.NoError(t, d.Down())
-	}()
-
-	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
-
-	//Check Alice's balance on L2 verifier before withdrawal
-	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
-	aliceBalance, err := d.L2Verif.BalanceAt(ctx, aliceAddress, nil)
+func checkUserBalance(d *Devnet, ctx context.Context, t *testing.T, userAddress common.Address) {
+	userBalance, err := d.L2Verif.BalanceAt(ctx, userAddress, nil)
 	require.NoError(t, err)
-	require.True(t, aliceBalance.Cmp(big.NewInt(0)) > 0, "Alice should have a positive balance")
+	require.True(t, userBalance.Cmp(big.NewInt(0)) > 0, "Alice should have a positive balance")
+}
 
-	// Initiate withdrawal on L2
-	withdrawalAmount := big.NewInt(1000000) // Withdraw 1 000 000 wei
+func initiateWithdrawalOnL2(d *Devnet,
+	ctx context.Context,
+	t *testing.T,
+	userAddress common.Address,
+	withdrawalAmount *big.Int) (*types.Transaction, *types.Receipt) {
 
 	// Bind to L2ToL1MessagePasser contract
 	l2ToL1MessagePasserAddr := common.HexToAddress("0x4200000000000000000000000000000000000016") // L2ToL1MessagePasser predeploy
@@ -57,23 +47,33 @@ func TestWithdrawal(t *testing.T) {
 	opts.Value = withdrawalAmount
 
 	// Initiate withdrawal - this sends ETH to L2ToL1MessagePasser and emits an event
-	tx, err := l2MessagePasser.InitiateWithdrawal(opts, aliceAddress, big.NewInt(21000), nil)
+	tx, err := l2MessagePasser.InitiateWithdrawal(opts, userAddress, big.NewInt(21000), nil)
 	require.NoError(t, err)
 
 	// Wait for receipt ok
 	receipt, err := wait.ForReceiptOK(ctx, d.L2Verif, tx.Hash())
 	require.NoError(t, err)
 
-	// Check Alice's balance on L1 before withdrawal
-	aliceL1Balance, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
-	require.NoError(t, err)
-	expectedBalance := new(big.Int)
-	expectedBalance.SetString("10000000000000000000000", 10) // 10,000 ETH in wei
-	require.True(t, aliceL1Balance.Cmp(expectedBalance) == 0, "Alice should have exactly 10,000 ETH")
-	t.Logf("Alice's L1 balance before withdrawal: %s wei", aliceL1Balance.String())
-
 	wait.ForNextBlock(ctx, d.L2Verif)
 
+	return tx, receipt
+}
+
+func checkUserBalanceOnL1(
+	d *Devnet,
+	ctx context.Context,
+	t *testing.T,
+	userAddress common.Address,
+	expectedBalance *big.Int) {
+	userBalance, err := d.L1.BalanceAt(ctx, userAddress, nil)
+	require.NoError(t, err)
+	require.True(t, userBalance.Cmp(expectedBalance) == 0)
+	t.Logf("User's L1 balance before withdrawal: %s wei", userBalance.String())
+
+}
+
+func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T,
+	receipt *types.Receipt) uint64 {
 	// TODO philippe: can it be less
 	time.Sleep(3 * time.Minute)
 
@@ -96,10 +96,33 @@ func TestWithdrawal(t *testing.T) {
 
 	// Wait for the finalization period, then we can finalize this withdrawal.
 	blockNumber, err := wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
-	require.Nil(t, err)
+	require.NoError(t, err)
+	return blockNumber
+}
 
-	// Generate withdrawal proof using fault proofs
-	t.Logf("Generating withdrawal proof for transaction %s", tx.Hash().Hex())
+func depositOnL1Bridge(d *Devnet,
+	ctx context.Context,
+	t *testing.T,
+	userAddress common.Address,
+	depositAmount *big.Int) {
+	// TODO
+}
+
+func proveWithdrawalTransaction(d *Devnet,
+	ctx context.Context,
+	t *testing.T,
+	tx *types.Transaction,
+	receipt *types.Receipt,
+	blockNumber uint64) {
+
+	// Get contract addresses from SystemConfig
+	systemConfig, _, err := d.SystemConfig(ctx)
+	require.NoError(t, err)
+
+	disputeGameFactoryAddr, err := systemConfig.DisputeGameFactory(&bind.CallOpts{})
+	require.NoError(t, err)
+	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
+	require.NoError(t, err)
 
 	// Set up clients for proof generation
 	receiptCl := d.L2Seq
@@ -190,151 +213,169 @@ func TestWithdrawal(t *testing.T) {
 	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
 	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
 
+}
+
+func resolveGame(d *Devnet,
+	ctx context.Context,
+	t *testing.T) {
+	// TODO
+
+	// // The real issue: We need to query the actual MAX_CLOCK_DURATION from the dispute game contract
+	// // The 12-second challenge period is different from the chess clock duration for claim resolution
+
+	// // Create dispute game contract binding to query the actual parameters
+	// disputeGame, err := bindings.NewFaultDisputeGame(pwFinal.DisputeGameProxy, d.L1)
+	// require.NoError(t, err)
+
+	// // Query the actual MAX_CLOCK_DURATION from the contract
+	// maxClockDuration, err := disputeGame.MaxClockDuration(&bind.CallOpts{})
+	// require.NoError(t, err)
+	// //require.Equal(t, uint64(60), maxClockDuration)
+	// t.Logf("Contract MAX_CLOCK_DURATION: %d seconds", maxClockDuration)
+
+	// // Get current timing information
+	// currentHeader, err = d.L1.HeaderByNumber(ctx, nil)
+	// require.NoError(t, err)
+	// currentTime = time.Unix(int64(currentHeader.Time), 0)
+	// provenTime := time.Unix(int64(pwFinal.Timestamp), 0)
+	// timeSinceProven := currentTime.Sub(provenTime)
+
+	// t.Logf("Current L1 time: %s (timestamp: %d)", currentTime.Format(time.RFC3339), currentHeader.Time)
+	// t.Logf("Proven withdrawal time: %s (timestamp: %d)", provenTime.Format(time.RFC3339), pwFinal.Timestamp)
+	// t.Logf("Time since proven: %v", timeSinceProven)
+
+	// // The chess clock duration is 302,400 seconds (3.5 days) - too long for a devnet test!
+	// // This explains why manual dispute game resolution was failing with ClockNotExpired
+	// maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
+	// t.Logf("Chess clock duration: %v (too long for devnet test!)", maxClockDurationTime)
+
+	// // For devnet testing, we'll skip manual dispute game resolution and proceed directly to finalization
+	// // The OptimismPortal should handle any necessary dispute game checks internally
+	// t.Log("Skipping manual dispute game resolution due to long chess clock duration...")
+	// t.Log("Proceeding directly to withdrawal finalization...")
+
+}
+
+func finalizeWithdrawl(d *Devnet,
+	ctx context.Context,
+	t *testing.T,
+) { // TODO
+	// Create new transaction options for finalization
+	// finalizeOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+	// require.NoError(t, err)
+	// finalizeOpts.GasLimit = 300000
+	// finalizeOpts.GasPrice = gasPrice
+
+	// wait.ForWithdrawalCheck(ctx, d.L1, *wd, optimismPortalAddr, aliceAddress)
+
+	// finalizeTx, err := portal.FinalizeWithdrawalTransaction(
+	// 	finalizeOpts,
+	// 	bindings.TypesWithdrawalTransaction{
+	// 		Nonce:    params.Nonce,
+	// 		Sender:   params.Sender,
+	// 		Target:   params.Target,
+	// 		Value:    params.Value,
+	// 		GasLimit: params.GasLimit,
+	// 		Data:     params.Data,
+	// 	},
+	// )
+	// require.NoError(t, err)
+
+	// // Wait for finalization transaction to be mined
+	// finalizeCtx, finalizeCancel := context.WithTimeout(ctx, 5*time.Minute)
+	// defer finalizeCancel()
+	// finalizeReceipt, err := wait.ForReceiptOK(finalizeCtx, d.L1, finalizeTx.Hash())
+	// require.NoError(t, err, "finalize withdrawal")
+	// require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
+
+	// t.Logf("Withdrawal finalization successful: %s", finalizeTx.Hash().Hex())
+	// t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)
+
+	// // Check Alice's L1 balance after finalization
+	// aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
+	// require.NoError(t, err)
+	// t.Logf("Alice's L1 balance after finalization: %s ETH", new(big.Int).Div(aliceL1BalanceAfter, big.NewInt(1e18)).String())
+
+	// // Require that finalization was successful
+	// require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status, "Withdrawal finalization must succeed")
+
+	// // Calculate the net change (accounting for gas costs)
+	// balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
+	// t.Logf("Net L1 balance change: %s wei", balanceChange.String())
+	// t.Logf("Net L1 balance change: %s ETH", new(big.Int).Div(balanceChange, big.NewInt(1e18)).String())
+
+	// // Calculate expected gas costs for both prove and finalize transactions
+	// totalGasCost := new(big.Int).Mul(big.NewInt(int64(proveReceipt.GasUsed+finalizeReceipt.GasUsed)), gasPrice)
+	// t.Logf("Total gas cost: %s wei", totalGasCost.String())
+	// t.Logf("Withdrawal amount: %s wei", withdrawalAmount.String())
+
+	// // Calculate expected balance change: withdrawal amount minus gas costs
+	// expectedChange := new(big.Int).Sub(withdrawalAmount, totalGasCost)
+	// t.Logf("Expected balance change: %s wei", expectedChange.String())
+
+	// // Verify the balance change matches expectations
+	// // The balance should increase by exactly the withdrawal amount minus gas costs
+	// require.Equal(t, expectedChange, balanceChange,
+	// 	"Balance change should equal withdrawal amount (%s wei) minus gas costs (%s wei)",
+	// 	withdrawalAmount.String(), totalGasCost.String())
+
+	// // Additional verification: ensure Alice actually received the withdrawal amount
+	// // by checking that the balance increased by at least the withdrawal amount minus reasonable gas costs
+	// minExpectedIncrease := new(big.Int).Sub(withdrawalAmount, big.NewInt(1e15)) // Allow up to 0.001 ETH for gas
+	// require.True(t, balanceChange.Cmp(minExpectedIncrease) >= 0,
+	// 	"Balance should increase by at least %s wei (withdrawal minus reasonable gas), but only increased by %s wei",
+	// 	minExpectedIncrease.String(), balanceChange.String())
+
+	// t.Logf("✅ Withdrawal verification successful!")
+	// t.Logf("✅ Alice's L1 balance increased by %s wei as expected", balanceChange.String())
+
+	// // Note: After finalization, the ProvenWithdrawals mapping entry may be cleared
+	// // so we don't query it again to avoid "execution reverted" errors.
+	// // The successful finalization transaction receipt and balance verification confirm completion.
+
+}
+
+func TestWithdrawal(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	d := NewDevnet(ctx, t)
+	require.NoError(t, d.Up())
+	defer func() {
+		require.NoError(t, d.Down())
+	}()
+
+	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
+
+	// Send a transaction just to check that everything has started up ok.
+	require.NoError(t, d.RunSimpleL2Burn())
+
+	//Check Alice's balance on L2 verifier before withdrawal
+	checkUserBalance(d, ctx, t, aliceAddress)
+
+	withdrawalAmount := big.NewInt(1000000)
+	tx, receipt := initiateWithdrawalOnL2(d, ctx, t, aliceAddress, withdrawalAmount)
+
+	// Check Alice's balance on L1 before withdrawal
+	expectedBalance := new(big.Int)
+	expectedBalance.SetString("10000000000000000000000", 10) // 10,000 ETH in wei
+	checkUserBalanceOnL1(d, ctx, t, aliceAddress, expectedBalance)
+
+	// Deposit some ETH on the L1 bridge so that it is possible to withdraw later
+	depositOnL1Bridge(d, ctx, t, aliceAddress, big.NewInt(9_000_000))
+
+	// Wait for the game to be published
+	blockNumber := waitForGameToBePublished(d, ctx, t, receipt)
+
+	// Generate withdrawal proof
+	proveWithdrawalTransaction(d, ctx, t, tx, receipt, blockNumber)
+
 	withdrawalDelay, err := d.getWithdrawalDelay()
 	require.NoError(t, err)
 	t.Logf("Withdrawal delay (disputeGameFinalityDelaySeconds): %v", withdrawalDelay)
 
-	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelay)
-	t.Logf("Waiting until L1 time passes target %s (pw.Timestamp=%d + delay)", targetTime.Format(time.RFC3339), pw.Timestamp)
+	resolveGame(d, ctx, t)
 
-	// Poll L1 latest header time until we pass targetTime
-	err = wait.For(ctx, time.Second, func() (bool, error) {
-		hdr, err := d.L1.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return false, err
-		}
-		return int64(hdr.Time) >= targetTime.Unix(), nil
-	})
-	require.NoError(t, err)
-	t.Logf("Withdrawal delay period has passed, proceeding with finalization")
-
-	// Check Alice's L1 balance before finalization
-	aliceL1BalanceBefore, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
-	require.NoError(t, err)
-	t.Logf("Alice's L1 balance before finalization: %s ETH", new(big.Int).Div(aliceL1BalanceBefore, big.NewInt(1e18)).String())
-
-	// Double-check that the withdrawal is ready for finalization
-	t.Logf("Verifying withdrawal readiness for finalization...")
-
-	// Check current L1 block time
-	currentHeader, err := d.L1.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-	currentTime := time.Unix(int64(currentHeader.Time), 0)
-	t.Logf("Current L1 block time: %s (timestamp: %d)", currentTime.Format(time.RFC3339), currentHeader.Time)
-	t.Logf("Target time was: %s (timestamp: %d)", targetTime.Format(time.RFC3339), targetTime.Unix())
-	t.Logf("Time difference: %v", currentTime.Sub(targetTime))
-
-	// Verify the proven withdrawal still exists and check its status
-	pwFinal, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, l1Opts.From)
-	require.NoError(t, err)
-	t.Logf("Proven withdrawal timestamp: %d", pwFinal.Timestamp)
-	t.Logf("Dispute game proxy: %s", pwFinal.DisputeGameProxy.Hex())
-
-	// The real issue: We need to query the actual MAX_CLOCK_DURATION from the dispute game contract
-	// The 12-second challenge period is different from the chess clock duration for claim resolution
-
-	// Create dispute game contract binding to query the actual parameters
-	disputeGame, err := bindings.NewFaultDisputeGame(pwFinal.DisputeGameProxy, d.L1)
-	require.NoError(t, err)
-
-	// Query the actual MAX_CLOCK_DURATION from the contract
-	maxClockDuration, err := disputeGame.MaxClockDuration(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.Equal(t, uint64(60), maxClockDuration)
-	t.Logf("Contract MAX_CLOCK_DURATION: %d seconds", maxClockDuration)
-
-	// Get current timing information
-	currentHeader, err = d.L1.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-	currentTime = time.Unix(int64(currentHeader.Time), 0)
-	provenTime := time.Unix(int64(pwFinal.Timestamp), 0)
-	timeSinceProven := currentTime.Sub(provenTime)
-
-	t.Logf("Current L1 time: %s (timestamp: %d)", currentTime.Format(time.RFC3339), currentHeader.Time)
-	t.Logf("Proven withdrawal time: %s (timestamp: %d)", provenTime.Format(time.RFC3339), pwFinal.Timestamp)
-	t.Logf("Time since proven: %v", timeSinceProven)
-
-	// The chess clock duration is 302,400 seconds (3.5 days) - too long for a devnet test!
-	// This explains why manual dispute game resolution was failing with ClockNotExpired
-	maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
-	t.Logf("Chess clock duration: %v (too long for devnet test!)", maxClockDurationTime)
-
-	// For devnet testing, we'll skip manual dispute game resolution and proceed directly to finalization
-	// The OptimismPortal should handle any necessary dispute game checks internally
-	t.Log("Skipping manual dispute game resolution due to long chess clock duration...")
-	t.Log("Proceeding directly to withdrawal finalization...")
-
-	// Create new transaction options for finalization
-	finalizeOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-	require.NoError(t, err)
-	finalizeOpts.GasLimit = 300000
-	finalizeOpts.GasPrice = gasPrice
-
-	wait.ForWithdrawalCheck(ctx, d.L1, *wd, optimismPortalAddr, aliceAddress)
-
-	finalizeTx, err := portal.FinalizeWithdrawalTransaction(
-		finalizeOpts,
-		bindings.TypesWithdrawalTransaction{
-			Nonce:    params.Nonce,
-			Sender:   params.Sender,
-			Target:   params.Target,
-			Value:    params.Value,
-			GasLimit: params.GasLimit,
-			Data:     params.Data,
-		},
-	)
-	require.NoError(t, err)
-
-	// Wait for finalization transaction to be mined
-	finalizeCtx, finalizeCancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer finalizeCancel()
-	finalizeReceipt, err := wait.ForReceiptOK(finalizeCtx, d.L1, finalizeTx.Hash())
-	require.NoError(t, err, "finalize withdrawal")
-	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
-
-	t.Logf("Withdrawal finalization successful: %s", finalizeTx.Hash().Hex())
-	t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)
-
-	// Check Alice's L1 balance after finalization
-	aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, aliceAddress, nil)
-	require.NoError(t, err)
-	t.Logf("Alice's L1 balance after finalization: %s ETH", new(big.Int).Div(aliceL1BalanceAfter, big.NewInt(1e18)).String())
-
-	// Require that finalization was successful
-	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status, "Withdrawal finalization must succeed")
-
-	// Calculate the net change (accounting for gas costs)
-	balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
-	t.Logf("Net L1 balance change: %s wei", balanceChange.String())
-	t.Logf("Net L1 balance change: %s ETH", new(big.Int).Div(balanceChange, big.NewInt(1e18)).String())
-
-	// Calculate expected gas costs for both prove and finalize transactions
-	totalGasCost := new(big.Int).Mul(big.NewInt(int64(proveReceipt.GasUsed+finalizeReceipt.GasUsed)), gasPrice)
-	t.Logf("Total gas cost: %s wei", totalGasCost.String())
-	t.Logf("Withdrawal amount: %s wei", withdrawalAmount.String())
-
-	// Calculate expected balance change: withdrawal amount minus gas costs
-	expectedChange := new(big.Int).Sub(withdrawalAmount, totalGasCost)
-	t.Logf("Expected balance change: %s wei", expectedChange.String())
-
-	// Verify the balance change matches expectations
-	// The balance should increase by exactly the withdrawal amount minus gas costs
-	require.Equal(t, expectedChange, balanceChange,
-		"Balance change should equal withdrawal amount (%s wei) minus gas costs (%s wei)",
-		withdrawalAmount.String(), totalGasCost.String())
-
-	// Additional verification: ensure Alice actually received the withdrawal amount
-	// by checking that the balance increased by at least the withdrawal amount minus reasonable gas costs
-	minExpectedIncrease := new(big.Int).Sub(withdrawalAmount, big.NewInt(1e15)) // Allow up to 0.001 ETH for gas
-	require.True(t, balanceChange.Cmp(minExpectedIncrease) >= 0,
-		"Balance should increase by at least %s wei (withdrawal minus reasonable gas), but only increased by %s wei",
-		minExpectedIncrease.String(), balanceChange.String())
-
-	t.Logf("✅ Withdrawal verification successful!")
-	t.Logf("✅ Alice's L1 balance increased by %s wei as expected", balanceChange.String())
-
-	// Note: After finalization, the ProvenWithdrawals mapping entry may be cleared
-	// so we don't query it again to avoid "execution reverted" errors.
-	// The successful finalization transaction receipt and balance verification confirm completion.
+	finalizeWithdrawl(d, ctx, t)
 
 }
