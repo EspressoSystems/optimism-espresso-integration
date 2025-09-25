@@ -506,7 +506,7 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         // safety against weird bugs. Note that this blocks withdrawals from being proven in the
         // same block that a dispute game is created.
         if (block.timestamp <= _disputeGameProxy.createdAt().raw()) {
-            //revert OptimismPortal_InvalidProofTimestamp();
+            revert OptimismPortal_InvalidProofTimestamp();
         }
 
         // Validate the provided Output Root and/or Super Root proof depending on proof method.
