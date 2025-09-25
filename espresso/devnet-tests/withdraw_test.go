@@ -105,7 +105,42 @@ func depositOnL1Bridge(d *Devnet,
 	t *testing.T,
 	userAddress common.Address,
 	depositAmount *big.Int) {
-	// TODO
+
+	// Get the OptimismPortal address from rollup config
+	rollupConfig, err := d.RollupConfig(ctx)
+	require.NoError(t, err)
+	optimismPortalAddr := rollupConfig.DepositContractAddress
+
+	// Create deposit contract binding
+	depositContract, err := bindings.NewOptimismPortal(optimismPortalAddr, d.L1)
+	require.NoError(t, err)
+
+	// Get L1 chain ID and create transaction options
+	l1ChainID, err := d.L1.ChainID(ctx)
+	require.NoError(t, err)
+
+	opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+	require.NoError(t, err)
+	opts.Value = depositAmount
+	opts.GasLimit = 1_000_000
+
+	// Set gas price
+	gasPrice, err := d.L1.SuggestGasPrice(ctx)
+	require.NoError(t, err)
+	opts.GasPrice = gasPrice
+
+	// Create the deposit transaction to a dummy address
+	toAddr := common.Address{0xff, 0xff}
+
+	depositTx, err := depositContract.DepositTransaction(opts, toAddr, depositAmount, 21000, false, nil)
+	require.NoError(t, err)
+
+	// Wait for the deposit transaction to succeed
+	depositReceipt, err := wait.ForReceiptOK(ctx, d.L1, depositTx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, depositReceipt.Status)
+
+	t.Logf("L1 deposit transaction completed successfully: %s", depositTx.Hash().Hex())
 }
 
 func proveWithdrawalTransaction(d *Devnet,
@@ -113,7 +148,7 @@ func proveWithdrawalTransaction(d *Devnet,
 	t *testing.T,
 	tx *types.Transaction,
 	receipt *types.Receipt,
-	blockNumber uint64) {
+	blockNumber uint64) common.Hash {
 
 	// Get contract addresses from SystemConfig
 	systemConfig, _, err := d.SystemConfig(ctx)
@@ -213,47 +248,77 @@ func proveWithdrawalTransaction(d *Devnet,
 	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
 	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
 
+	return withdrawalHash
 }
 
 func resolveGame(d *Devnet,
 	ctx context.Context,
-	t *testing.T) {
-	// TODO
-
-	// // The real issue: We need to query the actual MAX_CLOCK_DURATION from the dispute game contract
-	// // The 12-second challenge period is different from the chess clock duration for claim resolution
-
-	// // Create dispute game contract binding to query the actual parameters
-	// disputeGame, err := bindings.NewFaultDisputeGame(pwFinal.DisputeGameProxy, d.L1)
-	// require.NoError(t, err)
-
-	// // Query the actual MAX_CLOCK_DURATION from the contract
-	// maxClockDuration, err := disputeGame.MaxClockDuration(&bind.CallOpts{})
-	// require.NoError(t, err)
-	// //require.Equal(t, uint64(60), maxClockDuration)
-	// t.Logf("Contract MAX_CLOCK_DURATION: %d seconds", maxClockDuration)
-
-	// // Get current timing information
-	// currentHeader, err = d.L1.HeaderByNumber(ctx, nil)
-	// require.NoError(t, err)
-	// currentTime = time.Unix(int64(currentHeader.Time), 0)
-	// provenTime := time.Unix(int64(pwFinal.Timestamp), 0)
-	// timeSinceProven := currentTime.Sub(provenTime)
-
-	// t.Logf("Current L1 time: %s (timestamp: %d)", currentTime.Format(time.RFC3339), currentHeader.Time)
-	// t.Logf("Proven withdrawal time: %s (timestamp: %d)", provenTime.Format(time.RFC3339), pwFinal.Timestamp)
-	// t.Logf("Time since proven: %v", timeSinceProven)
-
-	// // The chess clock duration is 302,400 seconds (3.5 days) - too long for a devnet test!
-	// // This explains why manual dispute game resolution was failing with ClockNotExpired
-	// maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
-	// t.Logf("Chess clock duration: %v (too long for devnet test!)", maxClockDurationTime)
-
-	// // For devnet testing, we'll skip manual dispute game resolution and proceed directly to finalization
-	// // The OptimismPortal should handle any necessary dispute game checks internally
-	// t.Log("Skipping manual dispute game resolution due to long chess clock duration...")
-	// t.Log("Proceeding directly to withdrawal finalization...")
-
+	t *testing.T,
+	withdrawalHash common.Hash,
+	userAddress common.Address) {
+	
+	// Get system config to access OptimismPortal
+	systemConfig, _, err := d.SystemConfig(ctx)
+	require.NoError(t, err)
+	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
+	require.NoError(t, err)
+	
+	// Create OptimismPortal2 binding to check proven withdrawals
+	portal2, err := nodepreview.NewOptimismPortal2Caller(optimismPortalAddr, d.L1)
+	require.NoError(t, err)
+	
+	// Get the proven withdrawal info
+	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, userAddress)
+	require.NoError(t, err)
+	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
+	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
+	
+	// Get the withdrawal delay from the devnet
+	withdrawalDelay, err := d.getWithdrawalDelay()
+	require.NoError(t, err)
+	t.Logf("Withdrawal delay (disputeGameFinalityDelaySeconds): %v", withdrawalDelay)
+	
+	// Calculate target time when withdrawal can be finalized
+	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelay)
+	t.Logf("Waiting until L1 time passes target %s (pw.Timestamp=%d + delay)", targetTime.Format(time.RFC3339), pw.Timestamp)
+	
+	// Poll L1 latest header time until we pass targetTime
+	err = wait.For(ctx, time.Second, func() (bool, error) {
+		hdr, err := d.L1.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		return int64(hdr.Time) >= targetTime.Unix(), nil
+	})
+	require.NoError(t, err)
+	t.Logf("Withdrawal delay period has passed, proceeding with finalization")
+	
+	// Check current L1 block time for verification
+	currentHeader, err := d.L1.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	currentTime := time.Unix(int64(currentHeader.Time), 0)
+	t.Logf("Current L1 block time: %s (timestamp: %d)", currentTime.Format(time.RFC3339), currentHeader.Time)
+	t.Logf("Target time was: %s (timestamp: %d)", targetTime.Format(time.RFC3339), targetTime.Unix())
+	t.Logf("Time difference: %v", currentTime.Sub(targetTime))
+	
+	// Create dispute game contract binding to query parameters (for logging/debugging)
+	disputeGame, err := bindings.NewFaultDisputeGame(pw.DisputeGameProxy, d.L1)
+	require.NoError(t, err)
+	
+	// Query the actual MAX_CLOCK_DURATION from the contract
+	maxClockDuration, err := disputeGame.MaxClockDuration(&bind.CallOpts{})
+	require.NoError(t, err)
+	t.Logf("Contract MAX_CLOCK_DURATION: %d seconds", maxClockDuration)
+	
+	// The chess clock duration is typically 302,400 seconds (3.5 days) - too long for a devnet test!
+	// This explains why manual dispute game resolution would fail with ClockNotExpired
+	maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
+	t.Logf("Chess clock duration: %v (too long for devnet test!)", maxClockDurationTime)
+	
+	// For devnet testing, we'll skip manual dispute game resolution and proceed directly to finalization
+	// The OptimismPortal should handle any necessary dispute game checks internally
+	t.Log("Skipping manual dispute game resolution due to long chess clock duration...")
+	t.Log("Proceeding directly to withdrawal finalization...")
 }
 
 func finalizeWithdrawl(d *Devnet,
@@ -368,13 +433,9 @@ func TestWithdrawal(t *testing.T) {
 	blockNumber := waitForGameToBePublished(d, ctx, t, receipt)
 
 	// Generate withdrawal proof
-	proveWithdrawalTransaction(d, ctx, t, tx, receipt, blockNumber)
+	withdrawalHash := proveWithdrawalTransaction(d, ctx, t, tx, receipt, blockNumber)
 
-	withdrawalDelay, err := d.getWithdrawalDelay()
-	require.NoError(t, err)
-	t.Logf("Withdrawal delay (disputeGameFinalityDelaySeconds): %v", withdrawalDelay)
-
-	resolveGame(d, ctx, t)
+	resolveGame(d, ctx, t, withdrawalHash, aliceAddress)
 
 	finalizeWithdrawl(d, ctx, t)
 
