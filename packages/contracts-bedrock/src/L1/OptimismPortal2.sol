@@ -682,7 +682,7 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
 
         // Check that the root claim is valid.
         if (!anchorStateRegistry.isGameClaimValid(disputeGameProxy)) {
-            //revert OptimismPortal_InvalidRootClaim();
+            revert OptimismPortal_InvalidRootClaim();
         }
     }
 

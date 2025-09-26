@@ -360,9 +360,23 @@ func finalizeWithdrawl(d *Devnet,
 	require.NoError(t, err)
 	t.Logf("Alice's L1 balance before finalization: %s wei", aliceL1BalanceBefore.String())
 
+	// Add debugging before finalization
+	t.Logf("About to finalize withdrawal with hash: %s", withdrawalHash.Hex())
+	
+	// Check if withdrawal is already finalized
+	isFinalized, err := portal.FinalizedWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	require.NoError(t, err)
+	t.Logf("Withdrawal already finalized: %v", isFinalized)
+	
+	// Check proven withdrawal details
+	provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
+	require.NoError(t, err)
+	t.Logf("Proven withdrawal timestamp: %d", provenWithdrawal.Timestamp.Uint64())
+	t.Logf("Current block timestamp: %d", time.Now().Unix())
+
 	// Finalize the withdrawal
 	finalizeTx, err := portal.FinalizeWithdrawalTransaction(finalizeOpts, withdrawalTx)
-	require.NoError(t, err)
+	require.NoError(t, err, "finalize withdrawal")
 
 	// Wait for finalization transaction to be mined
 	finalizeCtx, finalizeCancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -427,7 +441,11 @@ func TestWithdrawal(t *testing.T) {
 	// Generate withdrawal proof
 	withdrawalHash, withdrawalTx := proveWithdrawalTransaction(d, ctx, t, tx, receipt, blockNumber)
 
-	//resolveGame(d, ctx, t, withdrawalHash, aliceAddress)
+	resolveGame(d, ctx, t, withdrawalHash, aliceAddress)
+
+	// Add a small delay to ensure game resolution is properly registered
+	t.Logf("Waiting 2 seconds after game resolution before finalization...")
+	time.Sleep(2 * time.Second)
 
 	finalizeWithdrawl(d, ctx, t, withdrawalHash, aliceAddress, withdrawalTx, withdrawalAmount)
 
