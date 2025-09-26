@@ -81,17 +81,15 @@ func (b *BufferedEspressoStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.Block
 			// If the adjustment is within the bounds of the current buffer,
 			// we can simply adjust the read position and starting batch position.
 			b.batches = b.batches[positionAdjustment:]
+			b.readPos -= positionAdjustment
 		} else {
 			b.batches = make([]*B, 0)
+			b.readPos = 0
 		}
-		b.readPos = 0
 		b.startingBatchPos = nextSafePosition
 		return nil
 	}
 
-	currentBatchPos := b.startingBatchPos + b.readPos
-	adjustment := currentBatchPos - safeL1Origin.Number
-	b.readPos = b.readPos - adjustment
 	return nil
 }
 
