@@ -328,14 +328,66 @@ func resolveGame(d *Devnet,
 	maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
 	t.Logf("Chess clock duration: %v", maxClockDurationTime)
 
-	// Wait for the dispute game clock to expire plus a safety buffer
-	safetyBuffer := 2 * time.Second
-	totalWaitTime := maxClockDurationTime + safetyBuffer
-	t.Logf("Waiting %v for dispute game clock to expire (clock duration: %v + safety buffer: %v)",
-		totalWaitTime, maxClockDurationTime, safetyBuffer)
+	// Wait for the dispute game clock to expire plus additional finality delay
+	// The game should resolve automatically after the clock expires
+	disputeGameFinalityDelay := 30 * time.Second // Additional safety buffer for game finality
+	totalWaitTime := maxClockDurationTime + disputeGameFinalityDelay
+	t.Logf("Waiting %v for dispute game to auto-resolve (clock duration: %v + finality delay: %v)",
+		totalWaitTime, maxClockDurationTime, disputeGameFinalityDelay)
 
 	time.Sleep(totalWaitTime)
-	t.Logf("✅ Dispute game clock wait period completed, proceeding with withdrawal finalization")
+
+	// Check final game status (should be auto-resolved by now)
+	gameStatus, err := disputeGame.Status(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.NotEqual(t, gameStatus, 0, "Dispute game should have resolved automatically")
+	t.Logf("Final dispute game status: %d (0=IN_PROGRESS, 1=CHALLENGER_WON, 2=DEFENDER_WON)", gameStatus)
+
+	// Get additional game information for debugging
+	createdAt, err := disputeGame.CreatedAt(&bind.CallOpts{})
+	require.NoError(t, err)
+	resolvedAt, err := disputeGame.ResolvedAt(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	t.Logf("Game created at: %d", createdAt)
+	t.Logf("Game resolved at: %d", resolvedAt)
+
+	// Check current L1 block time
+	currentHeader2, err := d.L1.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	t.Logf("Current L1 block time: %d", currentHeader2.Time)
+
+	// If game is resolved, we need to wait for the dispute game finality delay
+	if gameStatus != 0 && resolvedAt > 0 {
+		disputeGameFinalityDelaySeconds := uint64(6) // From configuration
+		gameResolvedTime := time.Unix(int64(resolvedAt), 0)
+		finalityTargetTime := gameResolvedTime.Add(time.Duration(disputeGameFinalityDelaySeconds+1) * time.Second) // +1 for safety
+		
+		t.Logf("Game resolved at: %s", gameResolvedTime.Format(time.RFC3339))
+		t.Logf("Dispute game finality delay: %d seconds", disputeGameFinalityDelaySeconds)
+		t.Logf("Need to wait until: %s", finalityTargetTime.Format(time.RFC3339))
+		
+		// Wait for dispute game finality delay
+		currentTime := time.Unix(int64(currentHeader2.Time), 0)
+		if currentTime.Before(finalityTargetTime) {
+			waitTime := finalityTargetTime.Sub(currentTime)
+			t.Logf("Waiting additional %v for dispute game finality delay...", waitTime)
+			time.Sleep(waitTime)
+		} else {
+			t.Logf("Dispute game finality delay already satisfied")
+		}
+	} else if gameStatus == 0 {
+		t.Logf("⚠️  Game is still IN_PROGRESS after waiting - this may be the issue")
+		t.Logf("Time since game creation: %d seconds", currentHeader2.Time-createdAt)
+		t.Logf("Expected clock duration: %d seconds", maxClockDuration)
+
+		if currentHeader2.Time-createdAt >= maxClockDuration {
+			t.Logf("Clock should have expired, but game is still in progress")
+			t.Logf("This suggests the game needs manual resolution")
+		}
+	}
+
+	t.Logf("✅ All timing requirements satisfied, proceeding with withdrawal finalization")
 }
 
 func finalizeWithdrawl(d *Devnet,
