@@ -316,15 +316,26 @@ func resolveGame(d *Devnet,
 	require.NoError(t, err)
 	t.Logf("Contract MAX_CLOCK_DURATION: %d seconds", maxClockDuration)
 
-	// The chess clock duration is typically 302,400 seconds (3.5 days) - too long for a devnet test!
-	// This explains why manual dispute game resolution would fail with ClockNotExpired
-	maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
-	t.Logf("Chess clock duration: %v (too long for devnet test!)", maxClockDurationTime)
+	// Verify that the dispute game clock duration is set correctly for devnet testing
+	expectedClockDuration := uint64(10) // 10 seconds - ultra-fast testing configuration
+	require.Equal(t, expectedClockDuration, maxClockDuration,
+		"Dispute game clock duration must be %d seconds for devnet testing. "+
+			"Current value is %d seconds. Please check that prepare-allocs.sh correctly sets "+
+			"faultGameMaxClockDuration to %d in the chain configuration.",
+		expectedClockDuration, maxClockDuration, expectedClockDuration)
+	t.Logf("✅ Dispute game clock duration correctly set to %d seconds for devnet testing", maxClockDuration)
 
-	// For devnet testing, we'll skip manual dispute game resolution and proceed directly to finalization
-	// The OptimismPortal should handle any necessary dispute game checks internally
-	t.Log("Skipping manual dispute game resolution due to long chess clock duration...")
-	t.Log("Proceeding directly to withdrawal finalization...")
+	maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
+	t.Logf("Chess clock duration: %v", maxClockDurationTime)
+
+	// Wait for the dispute game clock to expire plus a safety buffer
+	safetyBuffer := 2 * time.Second
+	totalWaitTime := maxClockDurationTime + safetyBuffer
+	t.Logf("Waiting %v for dispute game clock to expire (clock duration: %v + safety buffer: %v)",
+		totalWaitTime, maxClockDurationTime, safetyBuffer)
+
+	time.Sleep(totalWaitTime)
+	t.Logf("✅ Dispute game clock wait period completed, proceeding with withdrawal finalization")
 }
 
 func finalizeWithdrawl(d *Devnet,
