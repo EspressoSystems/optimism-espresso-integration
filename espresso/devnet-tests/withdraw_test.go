@@ -54,7 +54,8 @@ func initiateWithdrawalOnL2(d *Devnet,
 	receipt, err := wait.ForReceiptOK(ctx, d.L2Verif, tx.Hash())
 	require.NoError(t, err)
 
-	wait.ForNextBlock(ctx, d.L2Verif)
+	err = wait.ForNextBlock(ctx, d.L2Verif)
+	require.NoError(t, err)
 
 	return tx, receipt
 }
@@ -362,7 +363,7 @@ func resolveGame(d *Devnet,
 		disputeGameFinalityDelaySeconds := uint64(6) // From configuration
 		gameResolvedTime := time.Unix(int64(resolvedAt), 0)
 		finalityTargetTime := gameResolvedTime.Add(time.Duration(disputeGameFinalityDelaySeconds+1) * time.Second) // +1 for safety
-		
+
 		t.Logf("Game resolved at: %s", gameResolvedTime.Format(time.RFC3339))
 		t.Logf("Dispute game finality delay: %d seconds", disputeGameFinalityDelaySeconds)
 		t.Logf("Need to wait until: %s", finalityTargetTime.Format(time.RFC3339))
@@ -443,7 +444,8 @@ func finalizeWithdrawl(d *Devnet,
 	t.Logf("Finalization gas used: %d", finalizeReceipt.GasUsed)
 
 	// Check Alice's L1 balance after finalization
-	wait.ForBalanceChange(ctx, d.L1, userAddress, withdrawalAmount)
+	_, err = wait.ForBalanceChange(ctx, d.L1, userAddress, withdrawalAmount)
+	require.NoError(t, err)
 	aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, userAddress, nil)
 	require.NoError(t, err)
 	t.Logf("Alice's L1 balance after finalization: %s wei", aliceL1BalanceAfter.String())
