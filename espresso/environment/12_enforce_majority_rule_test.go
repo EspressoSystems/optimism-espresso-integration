@@ -24,15 +24,14 @@ const NO_ERROR_EXPECTED = false
 // @param numBadUrls N as mentioned in the above description
 // @param expectedError if set to true, we expect a timeout error as the L2 cannot make progress. Otherwise, we expect no error at all.
 func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedError bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Hello", http.StatusOK)
 	}))
 
 	badServerUrl := server.URL
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 

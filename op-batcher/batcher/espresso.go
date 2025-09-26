@@ -774,7 +774,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					continue
 				}
 
-				l.Log.Trace(
+				l.Log.Info(
 					"Received block from Espresso",
 					"blockNr", block.NumberU64(),
 					"blockHash", block.Hash(),
