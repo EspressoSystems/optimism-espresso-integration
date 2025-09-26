@@ -277,14 +277,16 @@ func resolveGame(d *Devnet,
 	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
 	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
 
-	// Get the withdrawal delay from the devnet
+	// Get the withdrawal delay from the devnet (this is the PROOF_MATURITY_DELAY_SECONDS)
 	withdrawalDelay, err := d.getWithdrawalDelay()
 	require.NoError(t, err)
-	t.Logf("Withdrawal delay (disputeGameFinalityDelaySeconds): %v", withdrawalDelay)
+	t.Logf("Proof maturity delay (PROOF_MATURITY_DELAY_SECONDS): %v", withdrawalDelay)
 
 	// Calculate target time when withdrawal can be finalized
-	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelay)
-	t.Logf("Waiting until L1 time passes target %s (pw.Timestamp=%d + delay)", targetTime.Format(time.RFC3339), pw.Timestamp)
+	// The contract requires: block.timestamp - provenWithdrawal.timestamp > PROOF_MATURITY_DELAY_SECONDS
+	// So we need to wait for PROOF_MATURITY_DELAY_SECONDS + 1 second to be safe
+	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelay).Add(1 * time.Second)
+	t.Logf("Waiting until L1 time passes target %s (pw.Timestamp=%d + delay + 1s for safety)", targetTime.Format(time.RFC3339), pw.Timestamp)
 
 	// Poll L1 latest header time until we pass targetTime
 	err = wait.For(ctx, time.Second, func() (bool, error) {
@@ -362,17 +364,6 @@ func finalizeWithdrawl(d *Devnet,
 
 	// Add debugging before finalization
 	t.Logf("About to finalize withdrawal with hash: %s", withdrawalHash.Hex())
-	
-	// Check if withdrawal is already finalized
-	isFinalized, err := portal.FinalizedWithdrawals(&bind.CallOpts{}, withdrawalHash)
-	require.NoError(t, err)
-	t.Logf("Withdrawal already finalized: %v", isFinalized)
-	
-	// Check proven withdrawal details
-	provenWithdrawal, err := portal.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash)
-	require.NoError(t, err)
-	t.Logf("Proven withdrawal timestamp: %d", provenWithdrawal.Timestamp.Uint64())
-	t.Logf("Current block timestamp: %d", time.Now().Unix())
 
 	// Finalize the withdrawal
 	finalizeTx, err := portal.FinalizeWithdrawalTransaction(finalizeOpts, withdrawalTx)

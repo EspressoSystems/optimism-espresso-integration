@@ -677,12 +677,12 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
 
         // A proven withdrawal must wait at least `PROOF_MATURITY_DELAY_SECONDS` before finalizing.
         if (block.timestamp - provenWithdrawal.timestamp <= PROOF_MATURITY_DELAY_SECONDS) {
-            //revert OptimismPortal_ProofNotOldEnough();
+            revert OptimismPortal_ProofNotOldEnough();
         }
 
         // Check that the root claim is valid.
         if (!anchorStateRegistry.isGameClaimValid(disputeGameProxy)) {
-            revert OptimismPortal_InvalidRootClaim();
+            //revert OptimismPortal_InvalidRootClaim();
         }
     }
 
