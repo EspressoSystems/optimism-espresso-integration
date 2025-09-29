@@ -367,7 +367,7 @@ func resolveGame(d *Devnet,
 		t.Logf("Game resolved at: %s", gameResolvedTime.Format(time.RFC3339))
 		t.Logf("Dispute game finality delay: %d seconds", disputeGameFinalityDelaySeconds)
 		t.Logf("Need to wait until: %s", finalityTargetTime.Format(time.RFC3339))
-		
+
 		// Wait for dispute game finality delay
 		currentTime := time.Unix(int64(currentHeader2.Time), 0)
 		if currentTime.Before(finalityTargetTime) {
