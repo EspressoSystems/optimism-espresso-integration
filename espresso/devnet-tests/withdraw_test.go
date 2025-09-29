@@ -256,13 +256,14 @@ func waitForResolvedGame(d *Devnet,
 	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
 
 	// Get the withdrawal delay from the devnet (this is the PROOF_MATURITY_DELAY_SECONDS)
-	withdrawalDelay, err := d.getWithdrawalDelay()
+	withdrawalDelay, err := portal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
 	require.NoError(t, err)
 
 	// Calculate target time when withdrawal can be finalized
 	// The contract requires: block.timestamp - provenWithdrawal.timestamp > PROOF_MATURITY_DELAY_SECONDS
 	// So we need to wait for PROOF_MATURITY_DELAY_SECONDS + 1 second to be safe
-	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelay).Add(1 * time.Second)
+	withdrawalDelayDuration := time.Duration(withdrawalDelay.Int64()) * time.Second
+	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelayDuration).Add(1 * time.Second)
 
 	// Poll L1 latest header time until we pass targetTime
 	err = wait.For(ctx, time.Second, func() (bool, error) {

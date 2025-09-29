@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
-	bindingspreview "github.com/ethereum-optimism/optimism/op-e2e/bindingspreview"
 	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 )
 
@@ -635,41 +634,4 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 
 	client := sources.NewRollupClient(rpc)
 	return client, nil
-}
-
-func (d *Devnet) getWithdrawalDelay() (time.Duration, error) {
-	// Get the SystemConfig contract to retrieve the OptimismPortal address
-	systemConfig, _, err := d.SystemConfig(context.Background())
-	if err != nil {
-		return 0, fmt.Errorf("failed to get system config: %w", err)
-	}
-
-	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
-	if err != nil {
-		return 0, fmt.Errorf("failed to get OptimismPortal address: %w", err)
-	}
-
-	// Check if there's code at the address
-	code, err := d.L1.CodeAt(context.Background(), optimismPortalAddr, nil)
-	if err != nil {
-		return 0, fmt.Errorf("failed to check contract code: %w", err)
-	}
-	if len(code) == 0 {
-		return 0, fmt.Errorf("no contract code at address %s - contract may not be deployed yet", optimismPortalAddr.Hex())
-	}
-	log.Info("Contract code found", "address", optimismPortalAddr.Hex(), "codeSize", len(code))
-
-	// Create OptimismPortal2 binding to get proof maturity delay (challenge period)
-	optimismPortal2, err := bindingspreview.NewOptimismPortal2(optimismPortalAddr, d.L1)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create OptimismPortal2 binding: %w", err)
-	}
-
-	// Query the proof maturity delay from the contract (challenge period before finalization)
-	finalizationPeriod, err := optimismPortal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
-	if err != nil {
-		return 0, fmt.Errorf("failed to query proof maturity delay from contract: %w", err)
-	}
-
-	return time.Duration(finalizationPeriod.Int64()) * time.Second, nil
 }
