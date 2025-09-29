@@ -74,7 +74,7 @@ func checkUserBalanceOnL1(
 }
 
 func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T,
-	receipt *types.Receipt) uint64 {
+	receipt *types.Receipt) {
 	// Get contract addresses from SystemConfig
 	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
@@ -88,9 +88,9 @@ func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T,
 	gameCtx, gameCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer gameCancel()
 
-	blockNumber, err := wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
+	_, err = wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
 	require.NoError(t, err)
-	return blockNumber
+
 }
 
 func depositOnL1Bridge(d *Devnet,
@@ -138,8 +138,8 @@ func proveWithdrawalTransaction(d *Devnet,
 	ctx context.Context,
 	t *testing.T,
 	tx *types.Transaction,
-	receipt *types.Receipt,
-	blockNumber uint64) (common.Hash, bindings.TypesWithdrawalTransaction) {
+
+) (common.Hash, bindings.TypesWithdrawalTransaction) {
 
 	// Get contract addresses from SystemConfig
 	systemConfig, _, err := d.SystemConfig(ctx)
@@ -260,7 +260,7 @@ func waitForResolvedGame(d *Devnet,
 	require.NoError(t, err)
 
 	// Calculate target time when withdrawal can be finalized
-	// The contract requires: block.timestamp - provenWithdrawal.timestamp > PROOF_MATURITY_DELAY_SECONDS
+	// The contract requires: block.timestamp provenWithdrawal.timestamp > PROOF_MATURITY_DELAY_SECONDS
 	// So we need to wait for PROOF_MATURITY_DELAY_SECONDS + 1 second to be safe
 	withdrawalDelayDuration := time.Duration(withdrawalDelay.Int64()) * time.Second
 	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelayDuration).Add(1 * time.Second)
@@ -343,14 +343,13 @@ func finalizeWithdrawl(d *Devnet,
 
 	// Finalize the withdrawal
 	finalizeTx, err := portal.FinalizeWithdrawalTransaction(finalizeOpts, withdrawalTx)
-	require.NoError(t, err, "finalize withdrawal")
+	require.NoError(t, err, "Finalize withdrawal transaction")
 
 	// Wait for finalization transaction to be mined
 	finalizeCtx, finalizeCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer finalizeCancel()
 	finalizeReceipt, err := wait.ForReceiptOK(finalizeCtx, d.L1, finalizeTx.Hash())
-	require.NoError(t, err, "finalize withdrawal")
-	require.Equal(t, types.ReceiptStatusSuccessful, finalizeReceipt.Status)
+	require.NoError(t, err, "Finalize withdrawal")
 
 	// Check Alice's L1 balance after finalization
 	_, err = wait.ForBalanceChange(ctx, d.L1, userAddress, withdrawalAmount)
@@ -397,13 +396,15 @@ func TestWithdrawal(t *testing.T) {
 	depositOnL1Bridge(d, ctx, t, depositAmount)
 
 	// Wait for the game to be published
-	blockNumber := waitForGameToBePublished(d, ctx, t, receipt)
+	waitForGameToBePublished(d, ctx, t, receipt)
 
 	// Generate withdrawal proof
-	withdrawalHash, withdrawalTx := proveWithdrawalTransaction(d, ctx, t, tx, receipt, blockNumber)
+	withdrawalHash, withdrawalTx := proveWithdrawalTransaction(d, ctx, t, tx)
 
+	// Wait for the game to be resolved
 	waitForResolvedGame(d, ctx, t, withdrawalHash, aliceAddress)
 
+	// Transfer the funds to Alice on L1
 	finalizeWithdrawl(d, ctx, t, withdrawalHash, aliceAddress, withdrawalTx, withdrawalAmount)
 
 }
