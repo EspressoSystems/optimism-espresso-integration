@@ -161,16 +161,18 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		panic(err)
 	}
 
-	batchSubmitter.espressoStreamer = espresso.NewEspressoStreamer(
-		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-		NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
-		batchSubmitter.Espresso,
-		batchSubmitter.EspressoLightClient,
-		batchSubmitter.Log,
-		func(data []byte) (*derive.EspressoBatch, error) {
-			return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
-		},
-		2*time.Second,
+	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(
+		espresso.NewEspressoStreamer(
+			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
+			NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
+			batchSubmitter.Espresso,
+			batchSubmitter.EspressoLightClient,
+			batchSubmitter.Log,
+			func(data []byte) (*derive.EspressoBatch, error) {
+				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
+			},
+			2*time.Second,
+		),
 	)
 	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 

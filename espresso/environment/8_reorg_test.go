@@ -83,7 +83,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 
 // VerifyL1OriginFinalized checks whether every batch in the batch buffer has a finalized L1
 // origin.
-func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
+func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.BatchStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
 	for i := 0; i < streamer.BatchBuffer.Len(); i++ {
 		batch := streamer.BatchBuffer.Get(i)
 		origin := (batch).L1Origin()
@@ -103,7 +103,7 @@ func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[d
 }
 
 // VerifyBatchBufferUpdated checks whether the batch buffer is updated before the timeout.
-func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) bool {
+func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.BatchStreamer[derive.EspressoBatch]) bool {
 	tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
 	defer tickerBufferInsert.Stop()
 	for {
