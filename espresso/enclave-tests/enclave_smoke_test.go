@@ -18,9 +18,9 @@ import (
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 )
 
-// TestE2eDevNetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
+// TestE2eDevNetEnclaveWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
 // and runs a couple of simple transactions to it.
-func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
+func TestE2eDevNetEnclaveWithEspressoSimpleTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
