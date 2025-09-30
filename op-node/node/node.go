@@ -563,7 +563,7 @@ func (n *OpNode) initP2PSigner(ctx context.Context, cfg *config.Config) (err err
 	return
 }
 
-func (n *OpNode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+func (n *OpNode) EspressoStreamer() *espresso.BatchStreamer[derive.EspressoBatch] {
 	return n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
 }
 
