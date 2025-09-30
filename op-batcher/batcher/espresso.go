@@ -649,8 +649,8 @@ func (s *espressoTransactionSubmitter) Start() {
 	go s.handleVerifyReceiptJobResponse()
 }
 
-func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
-	return &bs.driver.espressoStreamer
+func (bs *BatcherService) EspressoStreamer() espressoLocal.EspressoStreamer[derive.EspressoBatch] {
+	return bs.driver.espressoStreamer
 }
 
 func (bs *BatcherService) initKeyPair() error {
@@ -664,8 +664,8 @@ func (bs *BatcherService) initKeyPair() error {
 }
 
 // EspressoStreamer returns the batch submitter's Espresso streamer instance
-func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
-	return &l.espressoStreamer
+func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
+	return l.espressoStreamer
 }
 
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
@@ -690,7 +690,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
+	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.FinalizedL2.Number, newSyncStatus.FinalizedL2.L1Origin)
 	if err != nil {
 		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
 	}
@@ -755,10 +755,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
 			err = l.espressoStreamer.Update(ctx)
-			remainingListLen := len(l.espressoStreamer.RemainingBatches)
-			if remainingListLen > 0 {
-				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
-			}
 
 			var batch *derive.EspressoBatch
 
