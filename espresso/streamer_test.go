@@ -266,7 +266,7 @@ func createL2BlockRef(height uint64, l1Ref eth.L1BlockRef) eth.L2BlockRef {
 // setupStreamerTesting initializes a MockStreamerSource and an EspressoStreamer
 // for testing purposes. It sets up the initial state of the MockStreamerSource
 // and returns both the MockStreamerSource and the EspressoStreamer.
-func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*MockStreamerSource, espresso.EspressoStreamer[derive.EspressoBatch]) {
+func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*MockStreamerSource, *espresso.BatchStreamer[derive.EspressoBatch]) {
 	state := NewMockStreamerSource()
 
 	logger := new(NoOpLogger)

@@ -289,6 +289,6 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 	dp.engineIsReset = true
 }
 
-func (dp *DerivationPipeline) EspressoStreamer() *espresso.EspressoStreamer[EspressoBatch] {
+func (dp *DerivationPipeline) EspressoStreamer() *espresso.BatchStreamer[EspressoBatch] {
 	return dp.attrib.espressoStreamer
 }

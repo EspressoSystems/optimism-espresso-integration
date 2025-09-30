@@ -68,7 +68,7 @@ func GetFinalizedL1(header *espressoCommon.HeaderImpl) espressoCommon.L1BlockInf
 	panic("Unsupported header version")
 }
 
-type EspressoStreamer[B Batch] struct {
+type BatchStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
@@ -96,8 +96,12 @@ type EspressoStreamer[B Batch] struct {
 	// Manage the batches which origin is unfinalized
 	RemainingBatches map[common.Hash]B
 
-	UnmarshalBatch func([]byte) (*B, error)
+	unmarshalBatch func([]byte) (*B, error)
 }
+
+// Compile time assertion to ensure EspressoStreamer implements
+// EspressoStreamerIFace
+var _ EspressoStreamer[Batch] = (*BatchStreamer[Batch])(nil)
 
 func NewEspressoStreamer[B Batch](
 	namespace uint64,
@@ -107,8 +111,8 @@ func NewEspressoStreamer[B Batch](
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
-) EspressoStreamer[B] {
-	return EspressoStreamer[B]{
+) *BatchStreamer[B] {
+	return &BatchStreamer[B]{
 		L1Client:                      l1Client,
 		EspressoClient:                espressoClient,
 		EspressoLightClient:           lightClient,
@@ -118,25 +122,36 @@ func NewEspressoStreamer[B Batch](
 		BatchBuffer:                   NewBatchBuffer[B](),
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		RemainingBatches:              make(map[common.Hash]B),
-		UnmarshalBatch:                unmarshalBatch,
+		unmarshalBatch:                unmarshalBatch,
 	}
 }
 
 // Reset the state to the last safe batch
-func (s *EspressoStreamer[B]) Reset() {
+func (s *BatchStreamer[B]) Reset() {
 	s.Log.Info("reset espresso streamer", "hotshot pos", s.fallbackHotShotPos, "batch pos", s.fallbackBatchPos)
 	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
 	s.BatchBuffer.Clear()
 }
 
+// RefreshSafeL1Origin is a convenience method that allows us to update the
+// safe L1 origin of the Streamer. It will confirm the Espresso Block Height
+// and reset the state if necessary.
+func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) error {
+	shouldReset, err := s.confirmEspressoBlockHeight(safeL1Origin)
+	if shouldReset {
+		s.Reset()
+	}
+
+	return err
+}
+
 // Handle both L1 reorgs and batcher restarts by updating our state in case it is
 // not consistent with what's on the L1.
-func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
+func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
 	s.FinalizedL1 = finalizedL1
 
-	err := s.confirmEspressoBlockHeight(safeL1Origin)
-	if err != nil {
+	if err := s.RefreshSafeL1Origin(safeL1Origin); err != nil {
 		return err
 	}
 
@@ -146,13 +161,17 @@ func (s *EspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1Blo
 		return nil
 	}
 
+	shouldReset := safeBatchNumber < s.fallbackBatchPos
 	s.fallbackBatchPos = safeBatchNumber
-	s.Reset()
+	if shouldReset {
+		s.Reset()
+	}
 	return nil
 }
 
-func (s *EspressoStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
-
+// CheckBatch checks the validity of the given batch against the finalized L1
+// block and the safe L1 origin.
+func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
 		s.Log.Error("Finalized L1 block not initialized")
@@ -202,7 +221,7 @@ const HOTSHOT_BLOCK_LOAD_LIMIT = 100
 // from Espresso. It starts from the last processed block and goes up to
 // HOTSHOT_BLOCK_LOAD_LIMIT blocks ahead or the current block height, whichever
 // is smaller.
-func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64) (start uint64, finish uint64) {
+func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64) (start uint64, finish uint64) {
 	start = s.hotShotPos
 	if start > 0 {
 		// We've already processed the block in hotShotPos.  In order to avoid
@@ -228,7 +247,7 @@ func (s *EspressoStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeigh
 //	that will prevent the next call to `Next` from returning a batch is if
 //	there are no more HotShot blocks to process currently, or if an error
 //	occurs when communicating with HotShot.
-func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
+func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 	// Retrieve the current block height from Espresso.  We grab this reference
 	// so we don't have to keep fetching it in a loop, and it informs us of
 	// the current block height available to process.
@@ -289,7 +308,7 @@ func (s *EspressoStreamer[B]) Update(ctx context.Context) error {
 // It will also update the hotShotPos to the last block processed, in order
 // to effectively keep track of the last block we have successfully fetched,
 // and therefore processed from Hotshot.
-func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, finish uint64) error {
+func (s *BatchStreamer[B]) processHotShotRange(ctx context.Context, start, finish uint64) error {
 	// Process the new batches fetched from Espresso
 	for height := start; height <= finish; height++ {
 		s.Log.Trace("Fetching HotShot block", "block", height)
@@ -320,7 +339,7 @@ func (s *EspressoStreamer[B]) processHotShotRange(ctx context.Context, start, fi
 
 // processRemainingBatches is a helper method that checks the remaining batches
 // and prunes or adds them to the batch buffer as appropriate.
-func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
+func (s *BatchStreamer[B]) processRemainingBatches(ctx context.Context) {
 	// Collect keys to delete, without modifying the batch list during iteration.
 	var keysToDelete []common.Hash
 
@@ -365,7 +384,7 @@ func (s *EspressoStreamer[B]) processRemainingBatches(ctx context.Context) {
 
 // processEspressoTransactions is a helper method that encapsulates the logic of
 // processing batches from the transactions in a block fetched from Espresso.
-func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i uint64, txns espressoClient.TransactionsInBlock) {
+func (s *BatchStreamer[B]) processEspressoTransactions(ctx context.Context, i uint64, txns espressoClient.TransactionsInBlock) {
 	for _, transaction := range txns.Transactions {
 		batch, err := s.UnmarshalBatch(transaction)
 		if err != nil {
@@ -407,11 +426,11 @@ func (s *EspressoStreamer[B]) processEspressoTransactions(ctx context.Context, i
 	}
 }
 
-func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
+// UnmarshalBatch implements EspressoStreamerIFace
+func (s *BatchStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {
 		// Current batch is going to be processed, update fallback batch position
-		s.fallbackBatchPos = s.BatchPos
 		s.BatchPos += 1
 		return s.BatchBuffer.Pop()
 	}
@@ -419,7 +438,8 @@ func (s *EspressoStreamer[B]) Next(ctx context.Context) *B {
 	return nil
 }
 
-func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
+// HasNext implements EspressoStreamerIFace
+func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
 	if s.BatchBuffer.Len() > 0 {
 		return (*s.BatchBuffer.Peek()).Number() == s.BatchPos
 	}
@@ -433,16 +453,22 @@ func (s *EspressoStreamer[B]) HasNext(ctx context.Context) bool {
 //
 // For reference on why doing this guarantees we won't skip any unsafe blocks:
 // https://eng-wiki.espressosys.com/mainch30.html#:Components:espresso%20streamer:initializing%20hotshot%20height
-func (s *EspressoStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) error {
+func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) (shouldReset bool, err error) {
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
 	if errors.Is(err, bind.ErrNoCode) {
 		s.fallbackHotShotPos = 0
-		return nil
+		return false, nil
 	} else if err != nil {
-		return err
+		return false, err
 	}
 
+	shouldReset = hotshotState.BlockHeight < s.fallbackHotShotPos
 	s.fallbackHotShotPos = hotshotState.BlockHeight
-	return nil
+	return shouldReset, nil
+}
+
+// UnmarshalBatch implements EspressoStreamerIFace
+func (s *BatchStreamer[B]) UnmarshalBatch(b []byte) (*B, error) {
+	return s.unmarshalBatch(b)
 }
