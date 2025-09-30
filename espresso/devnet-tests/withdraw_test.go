@@ -85,10 +85,18 @@ func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T,
 	require.NoError(t, err)
 
 	// Wait for the L2 output to be published as a dispute game on L1
-	gameCtx, gameCancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer gameCancel()
-
-	_, err = wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
+	// Wait for up to 5 minutes for the game to be published and verified
+	// without error.
+	// NOTE: wait.ForGamePublished sets a timeout of 2 minutes internally,
+	//       so we'll set a timeout of 1 minute and retry up to 5 times.
+	for i := 0; i < 5; i++ {
+		gameCtx, gameCancel := context.WithTimeout(ctx, 1*time.Minute)
+		_, err = wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
+		gameCancel()
+		if err == nil {
+			break
+		}
+	}
 	require.NoError(t, err)
 
 }
