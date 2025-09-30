@@ -65,7 +65,7 @@ type AttributesQueue struct {
 	lastAttribs *AttributesWithParent
 
 	isCaffNode       bool
-	espressoStreamer *espresso.EspressoStreamer[EspressoBatch]
+	espressoStreamer *espresso.BatchStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {
@@ -75,7 +75,7 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.EspressoStreamer[EspressoBatch] {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.BatchStreamer[EspressoBatch] {
 
 	if !cfg.CaffNodeConfig.IsCaffNode {
 		log.Info("Espresso streamer not initialized: Caff node is not enabled")
@@ -117,7 +117,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
 
 	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
-	return &streamer
+	return streamer
 }
 
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider, l1Fetcher L1Fetcher) *AttributesQueue {
@@ -143,7 +143,7 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 // but with a few key differences:
 // - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
-func CaffNextBatch(s *espresso.EspressoStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
+func CaffNextBatch(s *espresso.BatchStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
 	// Get the L1 finalized block
 	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
 	if err != nil {

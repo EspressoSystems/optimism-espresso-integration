@@ -27,7 +27,7 @@ type Opnode struct {
 //
 // Note: This function should be used carefully to avoid a stall, since it is a getter and does not
 // create a new instance, which means the caller may deprive the node of the batches.
-func (o *Opnode) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
+func (o *Opnode) EspressoStreamer() *espresso.BatchStreamer[derive.EspressoBatch] {
 	return o.node.EspressoStreamer()
 }
 
