@@ -110,8 +110,8 @@ func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
 
 }
 
-// TestE2eDevNetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
-// and runs a couple of simple transactions to it.
+// TestE2eDevNetWithEspressoAndAltDaSimpleTransactions launches the e2e Dev Net with the Espresso
+// Dev Node in AltDA mode and runs a couple of simple transactions to it.
 func TestE2eDevNetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
