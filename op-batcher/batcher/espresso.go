@@ -1026,6 +1026,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
+	log.Info("Starting batcher registration process")
 	log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
@@ -1077,8 +1078,10 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 
 	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
+	log.Info("Starting CA certificate verification", "count", len(l.Attestation.Document.CABundle))
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for _, cert := range l.Attestation.Document.CABundle {
+	for i, cert := range l.Attestation.Document.CABundle {
+		log.Info("Processing CA certificate", "index", i, "certHash", crypto.Keccak256Hash(cert).Hex())
 		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 		if err != nil {
 			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
@@ -1092,29 +1095,37 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 			continue
 		}
 
+		log.Info("Sending CA certificate verification transaction", "index", i)
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
 		})
 
 		if err != nil {
-			return fmt.Errorf("verify certificate transaction failed: %w", err)
+			log.Error("CA certificate verification failed", "index", i, "error", err)
+			return fmt.Errorf("verify CA certificate %d transaction failed: %w", i, err)
 		}
+		log.Info("CA certificate verified successfully", "index", i)
 	}
 
+	log.Info("Creating client certificate verification transaction")
 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
 	if err != nil {
+		log.Error("Failed to create client certificate transaction", "error", err)
 		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
 	}
 	if txData != nil {
+		log.Info("Sending client certificate verification transaction")
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
 		})
 
 		if err != nil {
+			log.Error("Client certificate verification failed", "error", err)
 			return fmt.Errorf("verify client certificate transaction failed: %w", err)
 		}
+		log.Info("Client certificate verified successfully")
 	}
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
@@ -1122,8 +1133,15 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
+	log.Info("Creating registerSigner transaction")
+	// Log the PCR0 hash being used in the attestation
+	if len(l.Attestation.Document.PCRs) > 0 {
+		pcr0Hash := crypto.Keccak256Hash(l.Attestation.Document.PCRs[0])
+		log.Info("Using PCR0 in registerSigner", "pcr0Hash", fmt.Sprintf("%x", l.Attestation.Document.PCRs[0]), "keccakHash", pcr0Hash.Hex())
+	}
 	txData, err = abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
 	if err != nil {
+		log.Error("Failed to create registerSigner transaction", "error", err)
 		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
 	}
 
@@ -1132,9 +1150,11 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
+	log.Info("Sending registerSigner transaction")
 	_, err = l.Txmgr.Send(ctx, candidate)
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w", err)
+		log.Error("RegisterSigner transaction failed", "error", err)
+		return fmt.Errorf("failed to send registerSigner transaction: %w", err)
 	}
 
 	l.Log.Info("Registered batcher with the batch inbox contract")

@@ -394,6 +394,8 @@ services:
     environment:
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
+      no_proxy: localhost,127.0.0.1
+      NO_PROXY: localhost,127.0.0.1
       OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
       ENCLAVE_DEBUG: ${ENCLAVE_DEBUG:-false}
       CONTAINER_MONITOR_INTERVAL: ${CONTAINER_MONITOR_INTERVAL:-1}
@@ -412,14 +414,122 @@ services:
       - sh
       - -c
       - |
-        echo "Delaying op-batcher-tee for 45 minutes..."
-        sleep 2700
-        export DEPLOYMENT_MODE=local
-        export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
-        export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
-        export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
-        export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
-        /source/espresso/docker/op-batcher-tee/run-enclave.sh
+        echo "Starting op-batcher-tee initialization..."
+
+        # Wait for L1 RPC to be available
+        echo "Waiting for L1 RPC to be ready at http://127.0.0.1:${L1_HTTP_PORT}..."
+        MAX_RETRIES=60
+        RETRY_COUNT=0
+        while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
+          if curl -s -X POST http://127.0.0.1:${L1_HTTP_PORT} \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null 2>&1; then
+            echo "L1 RPC is responding"
+            break
+          fi
+          echo "Waiting for L1 RPC... (attempt $$((RETRY_COUNT+1))/$$MAX_RETRIES)"
+          sleep 5
+          RETRY_COUNT=$$((RETRY_COUNT+1))
+        done
+
+        if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
+          echo "ERROR: L1 RPC failed to respond after $$MAX_RETRIES attempts"
+          exit 1
+        fi
+
+        # Get BatchAuthenticator address from state.json
+        echo "Reading BatchAuthenticator address from deployment state..."
+        BATCH_AUTH=$$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null || echo "")
+
+        if [ -n "$$BATCH_AUTH" ] && [ "$$BATCH_AUTH" != "null" ]; then
+          echo "Found BatchAuthenticator address: $$BATCH_AUTH"
+
+          # Verify contract exists by checking its code
+          echo "Verifying BatchAuthenticator contract deployment..."
+          MAX_RETRIES=120  # 20 minutes maximum wait
+          RETRY_COUNT=0
+          while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
+            CODE=$$(curl -s -X POST http://127.0.0.1:${L1_HTTP_PORT} \
+              -H "Content-Type: application/json" \
+              -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"$$BATCH_AUTH\", \"latest\"],\"id\":1}" \
+              | jq -r '.result' 2>/dev/null || echo "")
+
+            if [ "$$CODE" != "0x" ] && [ "$$CODE" != "" ] && [ "$$CODE" != "null" ]; then
+              echo "✓ BatchAuthenticator contract verified at $$BATCH_AUTH"
+              echo "  Contract code length: $${#CODE} characters"
+              break
+            else
+              echo "Waiting for BatchAuthenticator contract... (attempt $$((RETRY_COUNT+1))/$$MAX_RETRIES)"
+              echo "  Current response: $$CODE"
+              sleep 10
+            fi
+            RETRY_COUNT=$$((RETRY_COUNT+1))
+          done
+
+          if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
+            echo "WARNING: BatchAuthenticator contract not found after $$MAX_RETRIES attempts"
+            echo "Proceeding anyway, but registration may fail..."
+          fi
+        else
+          echo "WARNING: No BatchAuthenticator address found in state.json"
+          echo "TEE registration will likely fail"
+        fi
+
+        echo "Starting op-batcher-tee with smart retry for BatchInbox..."
+
+        # Function to start batcher with retry logic
+        start_batcher_with_retry() {
+          local attempt=1
+          local max_attempts=10
+          local delay=60  # Start with 1 minute
+          local max_delay=600  # Max 10 minutes between attempts
+
+          while [ $$attempt -le $$max_attempts ]; do
+            echo "BatchInbox registration attempt $$attempt/$$max_attempts..."
+
+            export DEPLOYMENT_MODE=local
+            export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
+            export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
+            export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
+            export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+
+            # First, let's check the current block timestamp vs real time
+            echo "Checking blockchain time vs real time..."
+            BLOCK_TIME=$$(curl -s -X POST http://127.0.0.1:${L1_HTTP_PORT} \
+              -H "Content-Type: application/json" \
+              -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", false],"id":1}' \
+              | jq -r '.result.timestamp' | xargs printf "%d")
+            REAL_TIME=$$(date +%s)
+            echo "  Current real time: $$(date -d @$$REAL_TIME '+%Y-%m-%d %H:%M:%S %Z') ($$REAL_TIME)"
+            echo "  L1 block timestamp: $$(date -d @$$BLOCK_TIME '+%Y-%m-%d %H:%M:%S %Z') ($$BLOCK_TIME)"
+            TIME_DIFF=$$((REAL_TIME - BLOCK_TIME))
+            echo "  Time difference: $$TIME_DIFF seconds (real time is $$TIME_DIFF seconds ahead)"
+
+            # Try to start the enclave
+            if timeout 300 /source/espresso/docker/op-batcher-tee/run-enclave.sh; then
+              echo "✓ BatchInbox registration successful on attempt $$attempt!"
+              return 0
+            else
+              echo "✗ Attempt $$attempt failed"
+              if [ $$attempt -lt $$max_attempts ]; then
+                echo "Waiting $$delay seconds before retry..."
+                sleep $$delay
+                # Exponential backoff, but cap at max_delay
+                delay=$$((delay * 2))
+                if [ $$delay -gt $$max_delay ]; then
+                  delay=$$max_delay
+                fi
+              fi
+            fi
+            attempt=$$((attempt + 1))
+          done
+
+          echo "ERROR: All $$max_attempts attempts failed. Falling back to 45-minute wait..."
+          sleep 2700
+          /source/espresso/docker/op-batcher-tee/run-enclave.sh
+        }
+
+        start_batcher_with_retry
 
   op-proposer:
     profiles: [ "default" ]
