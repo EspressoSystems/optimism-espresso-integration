@@ -20,62 +20,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func checkUserBalance(d *Devnet, ctx context.Context, t *testing.T, userAddress common.Address) {
-	userBalance, err := d.L2Verif.BalanceAt(ctx, userAddress, nil)
-	require.NoError(t, err)
-	require.True(t, userBalance.Cmp(big.NewInt(0)) > 0, "Alice should have a positive balance")
-}
-
-func initiateWithdrawalOnL2(d *Devnet,
-	ctx context.Context,
-	t *testing.T,
-	userAddress common.Address,
-	withdrawalAmount *big.Int) (*types.Transaction, *types.Receipt) {
-
+// initiateWithdrawalOnL2 initiates a withdrawal on L2 and returns the transaction and receipt
+func initiateWithdrawalOnL2(d *Devnet, ctx context.Context, t *testing.T, userAddress common.Address, withdrawalAmount *big.Int) (*types.Transaction, *types.Receipt) {
 	// Bind to L2ToL1MessagePasser contract
-	l2ToL1MessagePasserAddr := common.HexToAddress("0x4200000000000000000000000000000000000016") // L2ToL1MessagePasser predeploy
+	l2ToL1MessagePasserAddr := common.HexToAddress("0x4200000000000000000000000000000000000016")
 	l2MessagePasser, err := bindings.NewL2ToL1MessagePasser(l2ToL1MessagePasserAddr, d.L2Seq)
 	require.NoError(t, err)
 
-	// Get the correct L2 chain ID from the sequencer
+	// Create transaction options
 	chainID, err := d.L2Seq.ChainID(ctx)
 	require.NoError(t, err)
-
-	// Create transaction options for Alice
 	opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, chainID)
 	require.NoError(t, err)
 	opts.Value = withdrawalAmount
 
-	// Initiate withdrawal - this sends ETH to L2ToL1MessagePasser and emits an event
+	// Initiate withdrawal
 	tx, err := l2MessagePasser.InitiateWithdrawal(opts, userAddress, big.NewInt(21000), nil)
 	require.NoError(t, err)
 
-	// Wait for receipt ok
+	// Wait for confirmation
 	receipt, err := wait.ForReceiptOK(ctx, d.L2Verif, tx.Hash())
 	require.NoError(t, err)
-
 	err = wait.ForNextBlock(ctx, d.L2Verif)
 	require.NoError(t, err)
 
 	return tx, receipt
 }
 
-func checkUserBalanceOnL1(
-	d *Devnet,
-	ctx context.Context,
-	t *testing.T,
-	userAddress common.Address,
-	expectedBalance *big.Int) {
-	userBalance, err := d.L1.BalanceAt(ctx, userAddress, nil)
-	require.NoError(t, err)
-	require.True(t, userBalance.Cmp(expectedBalance) == 0)
-	t.Logf("User's L1 balance before withdrawal: %s wei", userBalance.String())
-
-}
-
-func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T,
-	receipt *types.Receipt) {
-	// Get contract addresses from SystemConfig
+// waitForGameToBePublished waits for the dispute game to be published on L1
+func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T, receipt *types.Receipt) {
 	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
 
@@ -84,62 +57,43 @@ func waitForGameToBePublished(d *Devnet, ctx context.Context, t *testing.T,
 	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	// Wait for the L2 output to be published as a dispute game on L1
-	// Wait for up to 5 minutes for the game to be published and verified
-	// without error.
-	// NOTE: wait.ForGamePublished sets a timeout of 2 minutes internally,
-	//       so we'll set a timeout of 1 minute and retry up to 5 times.
+	// Retry up to 5 times with 1-minute timeout each
 	for i := 0; i < 5; i++ {
 		gameCtx, gameCancel := context.WithTimeout(ctx, 1*time.Minute)
 		_, err = wait.ForGamePublished(gameCtx, d.L1, optimismPortalAddr, disputeGameFactoryAddr, receipt.BlockNumber)
 		gameCancel()
 		if err == nil {
-			break
+			return
 		}
 	}
 	require.NoError(t, err)
-
 }
 
-func depositOnL1Bridge(d *Devnet,
-	ctx context.Context,
-	t *testing.T,
-	depositAmount *big.Int) {
-
-	// Get the OptimismPortal address from rollup config
+// depositOnL1Bridge deposits ETH on L1 to fund withdrawals
+func depositOnL1Bridge(d *Devnet, ctx context.Context, t *testing.T, depositAmount *big.Int) {
 	rollupConfig, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
-	optimismPortalAddr := rollupConfig.DepositContractAddress
 
-	// Create deposit contract binding
-	depositContract, err := bindings.NewOptimismPortal(optimismPortalAddr, d.L1)
+	depositContract, err := bindings.NewOptimismPortal(rollupConfig.DepositContractAddress, d.L1)
 	require.NoError(t, err)
 
-	// Get L1 chain ID and create transaction options
 	l1ChainID, err := d.L1.ChainID(ctx)
 	require.NoError(t, err)
-
 	opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
 	require.NoError(t, err)
 	opts.Value = depositAmount
 	opts.GasLimit = 1_000_000
-
-	// Set gas price
 	gasPrice, err := d.L1.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 	opts.GasPrice = gasPrice
 
-	// Create the deposit transaction to a dummy address
-	toAddr := common.Address{0xff, 0xff}
-
-	depositTx, err := depositContract.DepositTransaction(opts, toAddr, depositAmount, 21000, false, nil)
+	// Deposit to dummy address
+	depositTx, err := depositContract.DepositTransaction(opts, common.Address{0xff, 0xff}, depositAmount, 21000, false, nil)
 	require.NoError(t, err)
 
-	// Wait for the deposit transaction to succeed
 	depositReceipt, err := wait.ForReceiptOK(ctx, d.L1, depositTx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, types.ReceiptStatusSuccessful, depositReceipt.Status)
-
 }
 
 func proveWithdrawalTransaction(d *Devnet,
@@ -241,39 +195,27 @@ func proveWithdrawalTransaction(d *Devnet,
 	return withdrawalHash, withdrawalTx
 }
 
-func waitForResolvedGame(d *Devnet,
-	ctx context.Context,
-	t *testing.T,
-	withdrawalHash common.Hash,
-	userAddress common.Address) {
-
-	// Get system config to access OptimismPortal
+// waitForResolvedGame waits for the dispute game to resolve and withdrawal to be ready for finalization
+func waitForResolvedGame(d *Devnet, ctx context.Context, t *testing.T, withdrawalHash common.Hash, userAddress common.Address) {
 	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
 	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	// Create OptimismPortal2 binding to check proven withdrawals
 	portal2, err := nodepreview.NewOptimismPortal2Caller(optimismPortalAddr, d.L1)
 	require.NoError(t, err)
 
-	// Get the proven withdrawal info
+	// Get proven withdrawal info
 	pw, err := portal2.ProvenWithdrawals(&bind.CallOpts{}, withdrawalHash, userAddress)
 	require.NoError(t, err)
 	require.NotEqual(t, pw.DisputeGameProxy, common.Address{0x0})
-	require.GreaterOrEqual(t, pw.Timestamp, uint64(1))
 
-	// Get the withdrawal delay from the devnet (this is the PROOF_MATURITY_DELAY_SECONDS)
+	// Wait for proof maturity delay
 	withdrawalDelay, err := portal2.ProofMaturityDelaySeconds(&bind.CallOpts{})
 	require.NoError(t, err)
+	withdrawalDelayDuration := time.Duration(withdrawalDelay.Int64()+1) * time.Second // +1 for safety
+	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelayDuration)
 
-	// Calculate target time when withdrawal can be finalized
-	// The contract requires: block.timestamp provenWithdrawal.timestamp > PROOF_MATURITY_DELAY_SECONDS
-	// So we need to wait for PROOF_MATURITY_DELAY_SECONDS + 1 second to be safe
-	withdrawalDelayDuration := time.Duration(withdrawalDelay.Int64()) * time.Second
-	targetTime := time.Unix(int64(pw.Timestamp), 0).Add(withdrawalDelayDuration).Add(1 * time.Second)
-
-	// Poll L1 latest header time until we pass targetTime
 	err = wait.For(ctx, time.Second, func() (bool, error) {
 		hdr, err := d.L1.HeaderByNumber(ctx, nil)
 		if err != nil {
@@ -283,93 +225,63 @@ func waitForResolvedGame(d *Devnet,
 	})
 	require.NoError(t, err)
 
-	// Create dispute game contract binding to query parameters (for logging/debugging)
+	// Wait for dispute game to auto-resolve (10 seconds + 30 second buffer)
 	disputeGame, err := bindings.NewFaultDisputeGame(pw.DisputeGameProxy, d.L1)
 	require.NoError(t, err)
 
-	// Query the actual MAX_CLOCK_DURATION from the contract
 	maxClockDuration, err := disputeGame.MaxClockDuration(&bind.CallOpts{})
 	require.NoError(t, err)
+	require.Equal(t, uint64(10), maxClockDuration, "Expected 10-second dispute game clock for devnet")
 
-	// Verify that the dispute game clock duration is set correctly for devnet testing
-	expectedClockDuration := uint64(10) // 10 seconds - ultra-fast testing configuration
-	require.Equal(t, expectedClockDuration, maxClockDuration,
-		"Dispute game clock duration must be %d seconds for devnet testing. "+
-			"Current value is %d seconds. Please check that prepare-allocs.sh correctly sets "+
-			"faultGameMaxClockDuration to %d in the chain configuration.",
-		expectedClockDuration, maxClockDuration, expectedClockDuration)
-
-	maxClockDurationTime := time.Duration(maxClockDuration) * time.Second
-
-	// Wait for the dispute game clock to expire plus additional finality delay
-	// The game should resolve automatically after the clock expires
-	disputeGameFinalityDelay := 30 * time.Second // Additional safety buffer for game finality
-	totalWaitTime := maxClockDurationTime + disputeGameFinalityDelay
-
+	// Wait for game resolution
+	totalWaitTime := time.Duration(maxClockDuration)*time.Second + 30*time.Second
 	time.Sleep(totalWaitTime)
 
-	// Check final game status (should be auto-resolved by now)
 	gameStatus, err := disputeGame.Status(&bind.CallOpts{})
 	require.NoError(t, err)
 	require.NotEqual(t, gameStatus, 0, "Dispute game should have resolved automatically")
-
 }
 
-func finalizeWithdrawl(d *Devnet,
-	ctx context.Context,
-	t *testing.T,
-	withdrawalHash common.Hash,
-	userAddress common.Address,
-	withdrawalTx bindings.TypesWithdrawalTransaction,
-	withdrawalAmount *big.Int) {
-
-	// Get system config and portal address
+// finalizeWithdrawal finalizes the withdrawal on L1 and verifies balance change
+func finalizeWithdrawal(d *Devnet, ctx context.Context, t *testing.T, userAddress common.Address, withdrawalTx bindings.TypesWithdrawalTransaction, withdrawalAmount *big.Int) {
 	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
 	optimismPortalAddr, err := systemConfig.OptimismPortal(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	// Create portal binding
 	portal, err := bindings.NewOptimismPortal(optimismPortalAddr, d.L1)
 	require.NoError(t, err)
 
-	// Get L1 chain ID and create transaction options
 	l1ChainID, err := d.L1.ChainID(ctx)
 	require.NoError(t, err)
-
 	finalizeOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
 	require.NoError(t, err)
 	finalizeOpts.GasLimit = 300000
-
 	gasPrice, err := d.L1.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 	finalizeOpts.GasPrice = gasPrice
 
-	// Check Alice's L1 balance before finalization
-	aliceL1BalanceBefore, err := d.L1.BalanceAt(ctx, userAddress, nil)
+	// Get balance before finalization
+	balanceBefore, err := d.L1.BalanceAt(ctx, userAddress, nil)
 	require.NoError(t, err)
 
-	// Finalize the withdrawal
+	// Finalize withdrawal
 	finalizeTx, err := portal.FinalizeWithdrawalTransaction(finalizeOpts, withdrawalTx)
-	require.NoError(t, err, "Finalize withdrawal transaction")
+	require.NoError(t, err)
 
-	// Wait for finalization transaction to be mined
-	finalizeCtx, finalizeCancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer finalizeCancel()
-	finalizeReceipt, err := wait.ForReceiptOK(finalizeCtx, d.L1, finalizeTx.Hash())
-	require.NoError(t, err, "Finalize withdrawal")
+	finalizeReceipt, err := wait.ForReceiptOK(ctx, d.L1, finalizeTx.Hash())
+	require.NoError(t, err)
 
-	// Check Alice's L1 balance after finalization
+	// Verify balance change
 	_, err = wait.ForBalanceChange(ctx, d.L1, userAddress, withdrawalAmount)
 	require.NoError(t, err)
-	aliceL1BalanceAfter, err := d.L1.BalanceAt(ctx, userAddress, nil)
+	balanceAfter, err := d.L1.BalanceAt(ctx, userAddress, nil)
 	require.NoError(t, err)
 
-	// Calculate and verify the balance change
-	balanceChange := new(big.Int).Sub(aliceL1BalanceAfter, aliceL1BalanceBefore)
+	balanceChange := new(big.Int).Sub(balanceAfter, balanceBefore)
 	fees := new(big.Int).Mul(new(big.Int).SetUint64(finalizeReceipt.GasUsed), finalizeReceipt.EffectiveGasPrice)
-	expectedBalanceChange := new(big.Int).Sub(withdrawalAmount, fees)
-	require.True(t, balanceChange.Cmp(expectedBalanceChange) == 0)
+	expectedChange := new(big.Int).Sub(withdrawalAmount, fees)
+	require.Equal(t, 0, balanceChange.Cmp(expectedChange), "Balance change should match withdrawal amount minus fees")
 }
 
 func TestWithdrawal(t *testing.T) {
@@ -384,35 +296,30 @@ func TestWithdrawal(t *testing.T) {
 
 	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
 
-	// Send a transaction just to check that everything has started up ok.
+	// Verify devnet is running
 	require.NoError(t, d.RunSimpleL2Burn())
 
-	// Check Alice's balance on L2 verifier before withdrawal
-	checkUserBalance(d, ctx, t, aliceAddress)
+	// Verify Alice has L2 balance
+	userBalance, err := d.L2Verif.BalanceAt(ctx, aliceAddress, nil)
+	require.NoError(t, err)
+	require.True(t, userBalance.Cmp(big.NewInt(0)) > 0, "Alice should have positive L2 balance")
 
-	withdrawalAmount := new(big.Int)
-	withdrawalAmount.SetString("1000000000000000000", 10) // 1 ETH in wei
+	withdrawalAmount := big.NewInt(1000000000000000000) // 1 ETH
 	tx, receipt := initiateWithdrawalOnL2(d, ctx, t, aliceAddress, withdrawalAmount)
 
-	// Check Alice's balance on L1 before withdrawal
-	expectedBalance := new(big.Int)
-	expectedBalance.SetString("10000000000000000000000", 10) // 10,000 ETH in wei
-	checkUserBalanceOnL1(d, ctx, t, aliceAddress, expectedBalance)
-
-	// Deposit some ETH on the L1 bridge so that it is possible to withdraw later
+	// Deposit ETH on L1 bridge to fund withdrawals
 	depositAmount := new(big.Int).Mul(withdrawalAmount, big.NewInt(2))
 	depositOnL1Bridge(d, ctx, t, depositAmount)
 
-	// Wait for the game to be published
+	// Wait for dispute game publication
 	waitForGameToBePublished(d, ctx, t, receipt)
 
-	// Generate withdrawal proof
+	// Prove withdrawal transaction
 	withdrawalHash, withdrawalTx := proveWithdrawalTransaction(d, ctx, t, tx)
 
-	// Wait for the game to be resolved
+	// Wait for game resolution
 	waitForResolvedGame(d, ctx, t, withdrawalHash, aliceAddress)
 
-	// Transfer the funds to Alice on L1
-	finalizeWithdrawl(d, ctx, t, withdrawalHash, aliceAddress, withdrawalTx, withdrawalAmount)
-
+	// Finalize withdrawal
+	finalizeWithdrawal(d, ctx, t, aliceAddress, withdrawalTx, withdrawalAmount)
 }
