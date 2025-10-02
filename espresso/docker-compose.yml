@@ -31,7 +31,7 @@ services:
       - l1-data:/data
 
   l1-validator:
-    image: sigp/lighthouse
+    image: sigp/lighthouse:v7.1.0
     depends_on:
       l1-genesis:
         condition: service_completed_successfully
@@ -56,7 +56,7 @@ services:
       - ${OPERATOR_ADDRESS}
 
   l1-beacon:
-    image: sigp/lighthouse
+    image: sigp/lighthouse:v7.1.0
     depends_on:
       l1-genesis:
         condition: service_completed_successfully
