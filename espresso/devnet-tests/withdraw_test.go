@@ -237,9 +237,16 @@ func waitForResolvedGame(d *Devnet, ctx context.Context, t *testing.T, withdrawa
 	totalWaitTime := time.Duration(maxClockDuration)*time.Second + 30*time.Second
 	time.Sleep(totalWaitTime)
 
-	gameStatus, err := disputeGame.Status(&bind.CallOpts{})
+	disputeCtx, disputeCancel := context.WithTimeout(ctx, totalWaitTime)
+	defer disputeCancel() // Ensure context resources are released
+	err = wait.For(disputeCtx, time.Second, func() (bool, error) {
+		gameStatus, err := disputeGame.Status(&bind.CallOpts{})
+		require.NoError(t, err)
+		require.NotEqual(t, gameStatus, 0, "Dispute game should have resolved automatically")
+		return true, nil
+	})
 	require.NoError(t, err)
-	require.NotEqual(t, gameStatus, 0, "Dispute game should have resolved automatically")
+
 }
 
 // finalizeWithdrawal finalizes the withdrawal on L1 and verifies balance change
