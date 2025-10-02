@@ -13,13 +13,13 @@ jobs:
   test:
     runs-on: ubuntu-24.04-8core
     env:
-        ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: '1m'
-        ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: '1m'
+      ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
+      ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
 
       - name: Install Nix
         uses: nixbuild/nix-quick-install-action@v30
@@ -49,6 +49,7 @@ jobs:
           cd ../espresso
           ./scripts/prepare-allocs.sh
           docker compose build
+          docker compose pull l1-validator espresso-dev-node l1-data-init
 
       - name: Run Smoke test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v  ./espresso/devnet-tests/...
