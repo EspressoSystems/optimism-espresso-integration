@@ -352,18 +352,6 @@ services:
       - --altda.max-concurrent-da-requests=32
       - --espresso-poll-interval=1s
 
-  # HTTP proxy for enclave Odyn proxy requirement
-  http-proxy:
-    image: alpine:latest
-    command: >
-      sh -c " apk add --no-cache tinyproxy && echo 'Allow 127.0.0.1' >> /etc/tinyproxy/tinyproxy.conf && echo 'Allow 0.0.0.0/0' >> /etc/tinyproxy/tinyproxy.conf && echo 'DisableViaHeader Yes' >> /etc/tinyproxy/tinyproxy.conf && tinyproxy -d "
-    ports:
-      - "3128:8888"
-    networks:
-      default:
-        aliases:
-          - proxy
-
   op-batcher-tee:
     profiles: [ "tee" ]
     build:
@@ -388,8 +376,6 @@ services:
         condition: service_started
       l2-genesis:
         condition: service_completed_successfully
-      http-proxy:
-        condition: service_started
     network_mode: "host"
     environment:
       http_proxy: http://127.0.0.1:3128
