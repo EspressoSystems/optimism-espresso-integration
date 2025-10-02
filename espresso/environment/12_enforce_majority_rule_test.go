@@ -36,7 +36,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, devNode, err := launcher.StartDevNet(ctx, t, env.SetEspressoUrls(numGoodUrls, numBadUrls, badServerUrl))
+	system, devNode, err := launcher.StartE2eDevnet(ctx, t, env.SetEspressoUrls(numGoodUrls, numBadUrls, badServerUrl))
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
