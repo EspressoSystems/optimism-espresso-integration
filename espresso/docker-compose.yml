@@ -355,9 +355,10 @@ services:
   # HTTP proxy for enclave Odyn proxy requirement
   http-proxy:
     profiles: [ "tee" ]
-    image: alpine:latest
-    command: >
-      sh -c " apk add --no-cache tinyproxy && echo 'Allow 127.0.0.1' >> /etc/tinyproxy/tinyproxy.conf && echo 'Allow 0.0.0.0/0' >> /etc/tinyproxy/tinyproxy.conf && echo 'DisableViaHeader Yes' >> /etc/tinyproxy/tinyproxy.conf && tinyproxy -d "
+    build:
+      context: ./docker/http-proxy
+      dockerfile: Dockerfile
+    image: http-proxy:espresso
     ports:
       - "3128:8888"
     networks:
