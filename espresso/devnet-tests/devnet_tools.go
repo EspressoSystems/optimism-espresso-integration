@@ -80,7 +80,31 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	return d
 }
 
+func (d *Devnet) isRunning() bool {
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "ps", "-q",
+	)
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+	if err := cmd.Run(); err != nil {
+		log.Error("failed to check if devnet is running", "error", err)
+		return false
+	}
+	out := strings.TrimSpace(buf.String())
+	return len(out) > 0
+}
+
 func (d *Devnet) Up() (err error) {
+	if d.isRunning() {
+		if err := d.Down(); err != nil {
+			return err
+		}
+		// Let's shutdown the devnet before returning an error, just to clean
+		// up any existing state.
+		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
+	}
+
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
