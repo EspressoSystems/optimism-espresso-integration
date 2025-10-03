@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestE2eDevnetWithEspressoEspressoDegradedLiveness is a test that checks that
+// TestE2eDevnetWithEspressoDegradedLiveness is a test that checks that
 // the rollup will continue to make progress even in the event of intermittent
 // Espresso system failures.
 //
@@ -57,7 +57,7 @@ import (
 // Likewise, we might be able to simulate 3 by falsely reporting to the
 // submitter that the transaction was submitted successfully, and withholding
 // the submission itself.
-func TestE2eDevnetWithEspressoEspressoDegradedLiveness(t *testing.T) {
+func TestE2eDevnetWithEspressoDegradedLiveness(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -139,7 +139,7 @@ func TestE2eDevnetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 	}
 }
 
-// TestE2eDevnetWithEspressoEspressoDegradedLivenessViaCaffNode is a test that
+// TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode is a test that
 // checks that Espresso will return fast confirmations even when in a
 // degraded state.
 //
@@ -165,7 +165,7 @@ func TestE2eDevnetWithEspressoEspressoDegradedLiveness(t *testing.T) {
 // a Transaction, we should be able to find the receipt on the L2, and then
 // we can use that Block information to track the arrival of the Transaction
 // / Block coming from Espresso.
-func TestE2eDevnetWithEspressoEspressoDegradedLivenessViaCaffNode(t *testing.T) {
+func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
