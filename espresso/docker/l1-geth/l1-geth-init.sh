@@ -103,7 +103,9 @@ elif [[ "$MODE" == "geth" ]]; then
     --maxpeers 0 \
     --networkid ${L1_CHAIN_ID} \
     --syncmode=full \
-    --gcmode=archive
+    --gcmode=archive \
+    --miner.gasprice=1 \
+    --txpool.pricelimit=1
 
 else
   echo "Unknown MODE: $MODE. Use 'genesis' or 'geth'"
