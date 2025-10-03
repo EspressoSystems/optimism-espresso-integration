@@ -280,7 +280,7 @@ func finalizeWithdrawal(d *Devnet, ctx context.Context, t *testing.T, userAddres
 	require.NoError(t, err)
 
 	// Verify balance change
-	_, err = wait.ForBalanceChange(ctx, d.L1, userAddress, withdrawalAmount)
+	_, err = wait.ForBalanceChange(ctx, d.L1, userAddress, balanceBefore)
 	require.NoError(t, err)
 	balanceAfter, err := d.L1.BalanceAt(ctx, userAddress, nil)
 	require.NoError(t, err)
