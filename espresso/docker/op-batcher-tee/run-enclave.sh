@@ -75,23 +75,77 @@ BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAd
 
 # Register PCR0 if all required values are present
 if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PRIVATE_KEY" ]; then
-    echo "Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
-    enclave-tools register \
+    echo "=== PCR0 Registration ==="
+    echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+    echo "PCR0: $PCR0"
+    echo "BatchAuthenticator: $BATCH_AUTHENTICATOR_ADDRESS"
+    echo "L1 RPC: $L1_RPC_URL"
+
+    # Check L1 connectivity before attempting registration
+    echo ""
+    echo "Pre-flight checks:"
+    echo "  1. Checking L1 RPC connectivity..."
+    BLOCK_CHECK=$(curl -s -X POST "$L1_RPC_URL" \
+        -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+        | jq -r '.result // empty' 2>/dev/null)
+
+    if [ -n "$BLOCK_CHECK" ]; then
+        BLOCK_DEC=$((BLOCK_CHECK))
+        echo "     ✓ L1 RPC responding (block: $BLOCK_DEC)"
+    else
+        echo "     ❌ L1 RPC not responding"
+        echo "     This is why PCR0 registration will fail!"
+    fi
+
+    # Check if contract exists
+    echo "  2. Checking BatchAuthenticator contract..."
+    CODE_CHECK=$(curl -s -X POST "$L1_RPC_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"$BATCH_AUTHENTICATOR_ADDRESS\", \"latest\"],\"id\":1}" \
+        | jq -r '.result // empty' 2>/dev/null)
+
+    if [ "$CODE_CHECK" != "0x" ] && [ -n "$CODE_CHECK" ]; then
+        echo "     ✓ Contract deployed (code length: ${#CODE_CHECK})"
+    else
+        echo "     ❌ Contract NOT deployed or not accessible"
+        echo "     Response: $CODE_CHECK"
+        echo "     This is why PCR0 registration will fail!"
+    fi
+
+    echo ""
+    echo "Attempting PCR0 registration..."
+    REGISTER_OUTPUT=$(enclave-tools register \
         --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
         --l1-url "$L1_RPC_URL" \
         --private-key "$OPERATOR_PRIVATE_KEY" \
-        --pcr0 "$PCR0"
-    
-    if [ $? -ne 0 ]; then
-        echo "WARNING: Failed to register PCR0, continuing anyway..."
+        --pcr0 "$PCR0" 2>&1)
+    REGISTER_EXIT=$?
+
+    if [ $REGISTER_EXIT -ne 0 ]; then
+        echo "❌ PCR0 registration FAILED (exit code: $REGISTER_EXIT)"
+        echo ""
+        echo "Error output:"
+        echo "$REGISTER_OUTPUT" | head -50
+        echo ""
+        echo "CRITICAL: Batcher will NOT work without PCR0 registration!"
+        echo "          Batch submission will fail with 'execution reverted, reason: 0x'"
+        exit 1
     else
-        echo "PCR0 registration successful"
+        echo "✓ PCR0 registration SUCCESSFUL"
+        echo ""
+        echo "Registration output:"
+        echo "$REGISTER_OUTPUT"
     fi
 else
-    echo "Skipping PCR0 registration - missing required values:"
+    echo "=== Skipping PCR0 Registration ==="
+    echo "Missing required values:"
     echo "  PCR0: ${PCR0:-[missing]}"
     echo "  BATCH_AUTHENTICATOR_ADDRESS: ${BATCH_AUTHENTICATOR_ADDRESS:-[missing]}"
     echo "  OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY:+[set]}"
+    echo ""
+    echo "WARNING: Without PCR0 registration, batch submission will fail!"
+    exit 1
 fi
 
 # Setup tracking files for local deployment

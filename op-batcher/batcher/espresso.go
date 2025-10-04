@@ -1017,10 +1017,13 @@ func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certMa
 }
 
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
+	l.Log.Info("=== registerBatcher() called ===")
+
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
 		return nil
 	}
+	l.Log.Info("Attestation available", "length", len(l.Attestation.COSESign1))
 
 	log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
@@ -1030,6 +1033,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if len(code) == 0 {
 		return fmt.Errorf("No contract deployed at this address %w", err)
 	}
+	l.Log.Info("BatchAuthenticator contract verified", "codeLength", len(code))
 
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
@@ -1040,6 +1044,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get EspressoTEEVerifier address from BatchAuthenticator contract: %w", err)
 	}
+	l.Log.Info("Got EspressoTEEVerifier address", "address", verifierAddress)
 
 	espressoTEEVerifier, err := bindings.NewEspressoTEEVerifierCaller(verifierAddress, l.L1Client)
 	if err != nil {
@@ -1050,6 +1055,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get EspressoNitroTEEVerifier address from verifier contract: %w", err)
 	}
+	l.Log.Info("Got EspressoNitroTEEVerifier address", "address", nitroVerifierAddress)
 
 	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifierCaller(nitroVerifierAddress, l.L1Client)
 	if err != nil {
@@ -1060,6 +1066,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get CertManager address from EspressoNitroTEEVerifier contract: %w", err)
 	}
+	l.Log.Info("Got CertManager address", "address", certManagerAddress)
 
 	certManager, err := bindings.NewCertManagerCaller(certManagerAddress, l.L1Client)
 	if err != nil {
@@ -1073,11 +1080,12 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 
 	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
+	l.Log.Info("Starting CA certificate verification", "numCerts", len(l.Attestation.Document.CABundle))
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for _, cert := range l.Attestation.Document.CABundle {
+	for i, cert := range l.Attestation.Document.CABundle {
 		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 		if err != nil {
-			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
+			return fmt.Errorf("failed to create verify certificate transaction for CA cert %d: %w", i, err)
 		}
 
 		parentCertHash = crypto.Keccak256Hash(cert)
@@ -1085,24 +1093,29 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		// If createVerifyCertTransaction returned nil, certificate is already verified
 		// and there's no need to send a verification transaction for this certificate
 		if txData == nil {
+			l.Log.Info("CA certificate already verified, skipping", "certIndex", i)
 			continue
 		}
 
+		l.Log.Info("Sending CA certificate verification transaction", "certIndex", i, "to", certManagerAddress)
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
 		})
 
 		if err != nil {
-			return fmt.Errorf("verify certificate transaction failed: %w", err)
+			return fmt.Errorf("verify CA certificate %d transaction failed: %w", i, err)
 		}
+		l.Log.Info("CA certificate verification transaction sent successfully", "certIndex", i)
 	}
 
+	l.Log.Info("Starting client certificate verification")
 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
 	if err != nil {
 		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
 	}
 	if txData != nil {
+		l.Log.Info("Sending client certificate verification transaction", "to", certManagerAddress)
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
@@ -1111,7 +1124,13 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("verify client certificate transaction failed: %w", err)
 		}
+		l.Log.Info("Client certificate verification transaction sent successfully")
+	} else {
+		l.Log.Info("Client certificate already verified, skipping")
 	}
+
+	l.Log.Info("Preparing registerSigner transaction")
+	l.Log.Info("Attestation data sizes", "COSESign1Length", len(l.Attestation.COSESign1), "SignatureLength", len(l.Attestation.Signature))
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
@@ -1128,12 +1147,21 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
+	l.Log.Info("Sending registerSigner transaction",
+		"to", l.RollupConfig.BatchAuthenticatorAddress,
+		"dataLength", len(txData),
+		"functionSelector", hexutil.Encode(txData[:4]),
+		"txDataPreview", hexutil.Encode(txData[:min(len(txData), 200)]))
+
+	// Try to estimate gas first to get better error message
+	l.Log.Info("Attempting to estimate gas for registerSigner transaction")
 	_, err = l.Txmgr.Send(ctx, candidate)
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w", err)
+		l.Log.Error("registerSigner transaction failed with detailed error", "error", err)
+		return fmt.Errorf("registerSigner transaction failed: %w", err)
 	}
 
-	l.Log.Info("Registered batcher with the batch inbox contract")
+	l.Log.Info("✓ Registered batcher with the batch inbox contract successfully")
 
 	return nil
 }

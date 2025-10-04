@@ -104,4 +104,5 @@ jq -s 'reduce .[] as $item ({}; . * $item)'        \
         <(jq '{ "alloc": map_values(.state) }' "${OP_ROOT}/espresso/environment/allocs.json") \
         "${DEPLOYMENT_DIR}/deployer_allocs.json"            \
         "${OP_ROOT}/espresso/docker/l1-geth/devnet-genesis-template.json" \
+        | jq '.baseFeePerGas = "0x7"' \
         > "${L1_CONFIG_DIR}/genesis.json"
