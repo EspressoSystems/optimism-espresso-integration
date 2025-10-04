@@ -26,11 +26,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
-import (
-	"context"
-	"errors"
-	"math/big"
-	"sync"
 
 // espressoSubmitTransactionJob is a struct that holds the state required to
 // submit a transaction to Espresso.
@@ -273,41 +268,6 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 
-	return &espressoTransactionSubmitter{
-		ctx:                      config.Ctx,
-		wg:                       config.Wg,
-		submitJobQueue:           make(chan espressoSubmitTransactionJob, config.SubmitJobQueueCapacity),
-		submitRespQueue:          make(chan espressoSubmitTransactionJobResponse, config.SubmitResponseQueueCapacity),
-		submitWorkerQueue:        make(chan chan espressoTransactionJobAttempt),
-		verifyReceiptJobQueue:    make(chan espressoVerifyReceiptJob, config.VerifyReceiptJobQueueCapacity),
-		verifyReceiptRespQueue:   make(chan espressoVerifyReceiptJobResponse, config.VerifyReceiptResponseQueueCapacity),
-		verifyReceiptWorkerQueue: make(chan chan espressoVerifyReceiptJobAttempt),
-		espresso:                 config.EspressoClient,
-	}
-
-}
-
-// SubmitTransaction will submit a transaction to the Job queue.
-//
-// NOTE: This submits to a channel, and as a result, if the channel is full,
-// it will block execution until the channel is able to accept the job.
-// If the channel is buffered with sufficient space, it should not cause
-// any blocking issues.
-func (s *espressoTransactionSubmitter) SubmitTransaction(job *espressoCommon.Transaction) {
-	s.submitJobQueue <- espressoSubmitTransactionJob{
-		transaction: job,
-	}
-}
-
-// handleTransactionSubmitJobResponse is a function that is meant to be run in a
-// goroutine.
-//
-// It handles the responses from the submit transaction jobs.  It will
-// determine if the transaction was successfully submitted to Espresso, and
-// if not, it will retry the transaction.  If the transaction was successfully
-// submitted, it will then submit a job to the verify receipt job queue to
-// verify the receipt of the transaction.
-func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 	for {
 		var jobResp espressoSubmitTransactionJobResponse
 		var ok bool

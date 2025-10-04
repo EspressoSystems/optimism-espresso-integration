@@ -55,23 +55,6 @@ gen-bindings:
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
-espresso-enclave-tests timeout=espresso_tests_timeout: compile-contracts build-batcher-enclave-image
- ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
-
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
-remove-espresso-containers:
-  docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
-
-forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
-bindings_dir:="op-batcher/bindings"
-gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
-gen-bindings:
-  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > ./{{bindings_dir}}/batch_inbox.go
-  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
-
-smoke-tests: compile-contracts
- go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
-
 # Clean up everything before running the tests
 nuke:
  make nuke

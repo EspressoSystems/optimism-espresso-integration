@@ -137,10 +137,6 @@ type BatchSubmitter struct {
 	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
-	espressoSubmitter *espressoTransactionSubmitter
-	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
-}
-
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
 func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	state := NewChannelManager(setup.Log, setup.Metr, setup.ChannelConfig, setup.RollupConfig)
@@ -993,11 +989,6 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 			log.Warn("failed to spawn Espresso tx goroutine")
 			l.recordFailedDARequest(txdata.ID(), nil)
 		}
-		return
-	}
-	floorDataGas, err := core.FloorDataGas(candidate.TxData)
-	if l.Config.UseEspresso {
-		go l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
 		return
 	}
 	floorDataGas, err := core.FloorDataGas(candidate.TxData)

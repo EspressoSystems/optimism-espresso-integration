@@ -60,9 +60,6 @@ const (
 	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
 	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
 
-	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
-	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
-
 	DefaultAllocType = AllocTypeStandard
 )
 

@@ -155,11 +155,6 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 		return err
 	}
 
-	err := s.confirmEspressoBlockHeight(safeL1Origin)
-	if err != nil {
-		return false, err
-	}
-
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
 		// This means everything is in sync, no state update needed
@@ -302,7 +297,6 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 			// transactions from HotShot).
 			break
 		}
-
 	}
 
 	return nil
@@ -430,7 +424,6 @@ func (s *BatchStreamer[B]) processEspressoTransactions(ctx context.Context, i ui
 		s.Log.Trace("Inserting batch into buffer", "batch", batch)
 		s.BatchBuffer.Insert(*batch, pos)
 	}
-
 }
 
 // UnmarshalBatch implements EspressoStreamerIFace

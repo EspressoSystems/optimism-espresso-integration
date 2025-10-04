@@ -54,20 +54,7 @@ func init() {
 	}
 }
 
-//go:embed allocs.json
-var ESPRESSO_ALLOCS_RAW string
-var ESPRESSO_ALLOCS map[common.Address]EspressoAllocAccount
-
-func init() {
-	// Unmarshal allocs to set up the dockerConfig environment variables
-	ESPRESSO_ALLOCS = make(map[common.Address]EspressoAllocAccount)
-
-	if err := json.Unmarshal([]byte(ESPRESSO_ALLOCS_RAW), &ESPRESSO_ALLOCS); err != nil {
-		panic(fmt.Sprintf("failed to unmarshal ESPRESSO_ALLOCS: %v", err))
-	}
-}
-
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:main"
+const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
 
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
 
@@ -404,47 +391,6 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 
 	// We want to run the espresso-dev-node.  But we need it to be able to
 	// access the L1 node.
-
-	system, err := sysConfig.Start(
-		t,
-
-		startOptions...,
-	)
-
-	if err != nil {
-		if system != nil {
-			// We don't want the system running in a partial / incomplete
-			// state. So we'll tell it to stop here, just in case.
-			system.Close()
-		}
-
-		return system, nil, err
-	}
-
-	// Auto System Cleanup tied to the passed in context.
-	{
-		// We want to ensure that the lifecycle of the system node is tied to
-		// the context we were given, just like the espresso-dev-node.  So if
-		// the context is canceled, or otherwise closed, it will automatically
-		// clean up the system.
-		go (func(ctx context.Context) {
-			<-ctx.Done()
-
-			// The system is guaranteed to not be null here.
-			system.Close()
-		})(originalCtx)
-	}
-
-	return system, launchContext.EspressoDevNode, launchContext.Error
-}
-
-// StartDevNetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
-func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-
-	sysConfig := l.GetDevNetWithFaultDisputeSysConfig(ctx, t, options...)
-
-	originalCtx := ctx
-	startOptions, launchContext := l.GetDevNetStartOptions(originalCtx, t, &sysConfig, options...)
 
 	system, err := sysConfig.Start(
 		t,
