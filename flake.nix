@@ -15,12 +15,12 @@
         ];
         pkgs = import inputs.nixpkgs { inherit overlays system; };
 
-        go_1_22_10 = pkgs.go_1_22.overrideAttrs (oldAttrs: {
-          version = "1.22.10";
+        go_1_22_7 = pkgs.go_1_22.overrideAttrs (oldAttrs: {
+          version = "1.22.7";
 
           src = pkgs.fetchurl {
-            url = "https://go.dev/dl/go1.22.10.src.tar.gz";
-            sha256 = "sha256-HpT9SL51DR+vtNmztt0xpunSc10zm/JGK8l7ZMpMEDc=";
+            url = "https://go.dev/dl/go1.22.7.src.tar.gz";
+            sha256 = "sha256-ZkMth9heDPrD7f/mN9WTD8Td9XkzE/4R5KDzMwI8h58=";
           };
         });
 
@@ -123,7 +123,7 @@
               enclaver
               eth-beacon-genesis
               eth2-val-tools
-              go_1_22_10
+              go_1_22_7
 
               pkgs.awscli2
               pkgs.cargo
