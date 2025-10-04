@@ -3,10 +3,12 @@ on:
   pull_request:
     branches:
       - "celo-integration*"
+      - "clean-celo-integration*"
   push:
     branches:
       - "master"
       - "celo-integration*"
+      - "clean-celo-integration*"
   workflow_dispatch:
 
 jobs:
