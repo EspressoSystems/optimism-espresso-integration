@@ -67,6 +67,3 @@ gha-creds-*.json
 # Ignore keys
 *.pem
 
-
-# Local logs
-errors.txt
