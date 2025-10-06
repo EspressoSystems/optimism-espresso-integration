@@ -146,7 +146,7 @@ type EspressoDevNodeLauncherDocker struct {
 	AltDa bool
 }
 
-var _ EspressoDevNetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
+var _ EspressoE2eDevnetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
 
 // FailedToDetermineL1RPCURL represents a class of errors that occur when we
 // are unable to correctly form our L1 RPC URL
@@ -249,8 +249,8 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
-// GetDevNetConfig returns a configuration for a devnet
-func (l *EspressoDevNodeLauncherDocker) GetDevNetSysConfig(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) e2esys.SystemConfig {
+// GetE2eDevnetSysConfig returns a configuration for an E2E devnet.
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
 
 	var allocOpt e2esys.SystemConfigOpt
 	if l.EnclaveBatcher {
@@ -295,8 +295,9 @@ func (l *EspressoDevNodeLauncherDocker) GetDevNetSysConfig(ctx context.Context, 
 	return sysConfig
 }
 
-// GetDevNetWithFaultDisputeSysConfig returns a configuration for a devnet with a Fault Dispute System
-func (l *EspressoDevNodeLauncherDocker) GetDevNetWithFaultDisputeSysConfig(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) e2esys.SystemConfig {
+// GetE2eDevnetWithFaultDisputeSysConfig returns a configuration for an E2E devnet with a Fault
+// Dispute System.
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetWithFaultDisputeSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
 	var allocOpt e2esys.SystemConfigOpt
 	if l.EnclaveBatcher {
 		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
@@ -341,9 +342,9 @@ func (l *EspressoDevNodeLauncherDocker) GetDevNetWithFaultDisputeSysConfig(ctx c
 	return sysConfig
 }
 
-// GetDevNetStartOptions returns the start options for the devnet
-func (l *EspressoDevNodeLauncherDocker) GetDevNetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...DevNetLauncherOption) ([]e2esys.StartOption, *DevNetLauncherContext) {
-	initialOptions := []DevNetLauncherOption{
+// GetE2eDevnetStartOptions returns the start options for the E2E devnet.
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...E2eDevnetLauncherOption) ([]e2esys.StartOption, *E2eDevnetLauncherContext) {
+	initialOptions := []E2eDevnetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
 		launchEspressoDevNodeDocker(),
 	}
@@ -352,7 +353,7 @@ func (l *EspressoDevNodeLauncherDocker) GetDevNetStartOptions(originalCtx contex
 		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
 	}
 
-	launchContext := DevNetLauncherContext{
+	launchContext := E2eDevnetLauncherContext{
 		Ctx:       originalCtx,
 		SystemCfg: sysConfig,
 	}
@@ -382,12 +383,12 @@ func (l *EspressoDevNodeLauncherDocker) GetDevNetStartOptions(originalCtx contex
 	return startOptions, &launchContext
 }
 
-func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 
-	sysConfig := l.GetDevNetSysConfig(ctx, t, options...)
+	sysConfig := l.GetE2eDevnetSysConfig(ctx, t, options...)
 
 	originalCtx := ctx
-	startOptions, launchContext := l.GetDevNetStartOptions(originalCtx, t, &sysConfig, options...)
+	startOptions, launchContext := l.GetE2eDevnetStartOptions(originalCtx, t, &sysConfig, options...)
 
 	// We want to run the espresso-dev-node.  But we need it to be able to
 	// access the L1 node.
@@ -425,13 +426,13 @@ func (l *EspressoDevNodeLauncherDocker) StartDevNet(ctx context.Context, t *test
 	return system, launchContext.EspressoDevNode, launchContext.Error
 }
 
-// StartDevNetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
-func (l *EspressoDevNodeLauncherDocker) StartDevNetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...DevNetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+// StartE2eDevnetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
+func (l *EspressoDevNodeLauncherDocker) StartE2eDevnetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
 
-	sysConfig := l.GetDevNetWithFaultDisputeSysConfig(ctx, t, options...)
+	sysConfig := l.GetE2eDevnetWithFaultDisputeSysConfig(ctx, t, options...)
 
 	originalCtx := ctx
-	startOptions, launchContext := l.GetDevNetStartOptions(originalCtx, t, &sysConfig, options...)
+	startOptions, launchContext := l.GetE2eDevnetStartOptions(originalCtx, t, &sysConfig, options...)
 
 	system, err := sysConfig.Start(
 		t,
@@ -513,8 +514,8 @@ func (e EspressoDevNodeDockerContainerInfo) Stop() error {
 //
 // host.docker.internal is a special DNS name that allows docker containers
 // to speak to ports hosted on the host node.
-func allowHostDockerInternalVirtualHost() DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func allowHostDockerInternalVirtualHost() E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			GethOptions: map[string][]geth.GethOption{
 				e2esys.RoleL1: {
@@ -547,8 +548,8 @@ func determineFreePort() (port int, err error) {
 	return addr.Port, nil
 }
 
-func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
-	return func(ct *DevNetLauncherContext) E2eSystemOption {
+func SetBatcherKey(privateKey ecdsa.PrivateKey) E2eDevnetLauncherOption {
+	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				{
@@ -565,8 +566,8 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) DevNetLauncherOption {
 // SetEspressoUrls allows to set the list of urls for the Espresso client in such a way that N of them are "good" and M of them are "bad".
 // Good urls are the urls defined by this test framework repeated M times. The bad url is provided to the function
 // This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
-func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLauncherOption {
-	return func(ct *DevNetLauncherContext) E2eSystemOption {
+func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLauncherOption {
+	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
@@ -591,8 +592,8 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) DevNetLaunche
 	}
 }
 
-func Config(fn func(*e2esys.SystemConfig)) DevNetLauncherOption {
-	return func(ct *DevNetLauncherContext) E2eSystemOption {
+func Config(fn func(*e2esys.SystemConfig)) E2eDevnetLauncherOption {
+	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: fn,
 		}
@@ -625,7 +626,7 @@ func getContainerRemappedHostPort(containerListeningHostPort string) (string, er
 // It checks the portMap of the DockerContainerInfo to retrieve the
 // Espresso Dev Node Sequencer API port, and then waits for the block height
 // to be greater than 0.
-func waitForEspressoToFinishSpinningUp(ct *DevNetLauncherContext, espressoDevNodeContainerInfo DockerContainerInfo) error {
+func waitForEspressoToFinishSpinningUp(ct *E2eDevnetLauncherContext, espressoDevNodeContainerInfo DockerContainerInfo) error {
 	// We have all of our ports.
 	// Let's return all of the relevant port mapping information
 	// for easy reference, and cancellation
@@ -801,10 +802,10 @@ func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerC
 	}
 }
 
-// launchEspressoDevNodeDocker is DevNetLauncherOption that launches th
+// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeStartOption(ct *DevNetLauncherContext) e2esys.StartOption {
+func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
 	return e2esys.StartOption{
 		Role: "launch-espresso-dev-node",
 		BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
@@ -872,11 +873,11 @@ func launchEspressoDevNodeStartOption(ct *DevNetLauncherContext) e2esys.StartOpt
 
 }
 
-// launchEspressoDevNodeDocker is DevNetLauncherOption that launches th
+// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeDocker() DevNetLauncherOption {
-	return func(ct *DevNetLauncherContext) E2eSystemOption {
+func launchEspressoDevNodeDocker() E2eDevnetLauncherOption {
+	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				launchEspressoDevNodeStartOption(ct),
