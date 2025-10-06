@@ -67,3 +67,4 @@ config/jwt.txt
 
 # Ignore keys
 *.pem
+
