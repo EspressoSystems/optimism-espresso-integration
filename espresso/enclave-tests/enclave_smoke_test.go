@@ -18,9 +18,9 @@ import (
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 )
 
-// TestE2eDevNetWithEspressoAndEnclaveSimpleTransactions launches the e2e Dev Net with the Espresso
+// TestE2eDevnetWithEspressoAndEnclaveSimpleTransactions launches the e2e Dev Net with the Espresso
 // Dev Node in Enclave and runs a couple of simple transactions to it.
-func TestE2eDevNetWithEspressoAndEnclaveSimpleTransactions(t *testing.T) {
+func TestE2eDevnetWithEspressoAndEnclaveSimpleTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -29,7 +29,7 @@ func TestE2eDevNetWithEspressoAndEnclaveSimpleTransactions(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 	launcher.EnclaveBatcher = true
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
