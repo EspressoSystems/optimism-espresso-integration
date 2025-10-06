@@ -24,6 +24,9 @@ devnet-tests: build-devnet
 devnet-smoke-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmoke' -v ./espresso/devnet-tests/...
 
+devnet-withdrawal-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdraw ./espresso/devnet-tests/...
+
 build-devnet: compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)

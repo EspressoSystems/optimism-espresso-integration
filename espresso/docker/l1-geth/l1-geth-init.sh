@@ -91,7 +91,7 @@ elif [[ "$MODE" == "geth" ]]; then
     --datadir /data/geth \
     --http \
     --http.addr=0.0.0.0 \
-    --http.api=eth,net,web3,admin,engine,miner \
+    --http.api=eth,net,web3,admin,engine,miner,debug \
     --http.port=${L1_HTTP_PORT} \
     --http.vhosts=* \
     --http.corsdomain=* \
