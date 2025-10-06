@@ -72,8 +72,8 @@ func appendArg(args *[]string, flagName string, value any) {
 	}
 }
 
-func LaunchBatcherInEnclave() DevNetLauncherOption {
-	return func(ct *DevNetLauncherContext) E2eSystemOption {
+func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
+	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true

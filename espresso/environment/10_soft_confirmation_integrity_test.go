@@ -522,7 +522,7 @@ func TestSequencerFeedConsistency(t *testing.T) {
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0))
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(0))
 
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
@@ -584,7 +584,7 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0))
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(0))
 
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {

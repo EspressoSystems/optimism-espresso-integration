@@ -19,7 +19,7 @@ func TestEspressoDockerDevNodeSmokeTest(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -86,15 +86,15 @@ func TestEspressoDockerDevNodeSmokeTest(t *testing.T) {
 	}
 }
 
-// TestE2eDevNetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
+// TestE2eDevnetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
 // and runs a couple of simple transactions to it.
-func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
+func TestE2eDevnetWithEspressoSimpleTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -110,16 +110,16 @@ func TestE2eDevNetWithEspressoSimpleTransactions(t *testing.T) {
 
 }
 
-// TestE2eDevNetWithEspressoAndAltDaSimpleTransactions launches the e2e Dev Net with the Espresso
+// TestE2eDevnetWithEspressoAndAltDaSimpleTransactions launches the e2e Dev Net with the Espresso
 // Dev Node in AltDA mode and runs a couple of simple transactions to it.
-func TestE2eDevNetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
+func TestE2eDevnetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 	launcher.AltDa = true
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -135,9 +135,9 @@ func TestE2eDevNetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 
 }
 
-// TestE2eDevNetWithoutEspressoSimpleTransactions launches the e2e Dev Net
+// TestE2eDevnetWithoutEspressoSimpleTransactions launches the e2e Dev Net
 // without the Espresso Dev Node and runs a couple of simple transactions to it.
-func TestE2eDevNetWithoutEspressoSimpleTransaction(t *testing.T) {
+func TestE2eDevnetWithoutEspressoSimpleTransaction(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
