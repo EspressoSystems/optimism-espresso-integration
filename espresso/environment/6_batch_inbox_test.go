@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestE2eDevNetWithoutAuthenticatingBatches verifies BatchInboxContract behaviour when batches
+// TestE2eDevnetWithoutAuthenticatingBatches verifies BatchInboxContract behaviour when batches
 // aren't attested before being posted to batch inbox. To do this, we substitute BatchAuthenticatorAddress
 // in batcher config with a zero address, which will never revert as it has no contract deployed.
 // This way we trick batcher into posting unauthenticated batches to batch inbox.
@@ -37,14 +37,14 @@ import (
 //	Assert that transaction submitting the batch was reverted by
 //	batch inbox contract
 //	Assert that derivation pipeline doesn't progress
-func TestE2eDevNetWithoutAuthenticatingBatches(t *testing.T) {
+func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	system, _, err :=
-		launcher.StartDevNet(ctx, t,
+		launcher.StartE2eDevnet(ctx, t,
 			env.Config(func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
 			}),
