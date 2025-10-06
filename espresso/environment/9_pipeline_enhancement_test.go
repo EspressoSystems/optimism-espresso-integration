@@ -40,7 +40,7 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	require.NoError(t, err, "failed to start dev environment with espresso dev node")
 
 	// Stop the batcher to ensure no valid batch is posted to L1.
