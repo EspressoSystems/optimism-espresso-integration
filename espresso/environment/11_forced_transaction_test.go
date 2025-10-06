@@ -61,7 +61,7 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 	var err error
 	if withEspresso {
 		launcher := new(env.EspressoDevNodeLauncherDocker)
-		systemWithEspresso, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithSequencerWindowSize(sequencer_window_size(withSmallSequencerWindow)))
+		systemWithEspresso, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithSequencerWindowSize(sequencer_window_size(withSmallSequencerWindow)))
 		system = systemWithEspresso
 		require.NoError(t, err, "Failed to launch with the Espresso dev node")
 		defer env.Stop(t, system)
