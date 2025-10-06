@@ -14,10 +14,10 @@ import (
 	"github.com/hf/nitrite"
 )
 
-// TestE2eDevNetWithInvalidAttestation verifies that the batcher correctly fails to register
+// TestE2eDevnetWithInvalidAttestation verifies that the batcher correctly fails to register
 // when provided with an invalid attestation. This test ensures that the batch inbox contract
 // properly validates attestations
-func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
+func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -29,7 +29,7 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 	}
 
 	system, _, err :=
-		launcher.StartDevNet(ctx, t,
+		launcher.StartE2eDevnet(ctx, t,
 			env.SetBatcherKey(*privateKey),
 			env.Config(func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
@@ -60,9 +60,9 @@ func TestE2eDevNetWithInvalidAttestation(t *testing.T) {
 	}
 }
 
-// TestE2eDevNetWithUnattestedBatcherKey verifies that when a batcher key is not properly
+// TestE2eDevnetWithUnattestedBatcherKey verifies that when a batcher key is not properly
 // attested, the L2 chain can still produce unsafe blocks but cannot progress to safe L2 blocks.
-func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
+func TestE2eDevnetWithUnattestedBatcherKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -74,7 +74,7 @@ func TestE2eDevNetWithUnattestedBatcherKey(t *testing.T) {
 	}
 
 	system, _, err :=
-		launcher.StartDevNet(ctx, t,
+		launcher.StartE2eDevnet(ctx, t,
 			env.SetBatcherKey(*privateKey),
 		)
 	if have, want := err, error(nil); have != want {

@@ -330,7 +330,7 @@ func (e *EspressoDevNodeIntercept) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 // createEspressoProxyOption will return a Batch CLIConfig option that will
 // replace the Espresso URL with the URL of the proxy server.
-func createEspressoProxyOption(ctx *DevNetLauncherContext, proxy *EspressoDevNodeIntercept, server *httptest.Server) func(*batcher.CLIConfig, *e2esys.System) {
+func createEspressoProxyOption(ctx *E2eDevnetLauncherContext, proxy *EspressoDevNodeIntercept, server *httptest.Server) func(*batcher.CLIConfig, *e2esys.System) {
 	return func(cfg *batcher.CLIConfig, sys *e2esys.System) {
 		if ctx.Error != nil {
 			return
@@ -378,7 +378,7 @@ func SetHTTPClient(client *http.Client) EspressoDevNodeInterceptOption {
 
 // SetupQueryServiceIntercept sets up an intercept traffic headed for the
 // Query Service for the Espresso Dev Node
-func SetupQueryServiceIntercept(options ...EspressoDevNodeInterceptOption) (*EspressoDevNodeIntercept, *httptest.Server, DevNetLauncherOption) {
+func SetupQueryServiceIntercept(options ...EspressoDevNodeInterceptOption) (*EspressoDevNodeIntercept, *httptest.Server, E2eDevnetLauncherOption) {
 	// Start a Server to proxy requests to Espresso
 	proxy := &EspressoDevNodeIntercept{
 		client:  http.DefaultClient,
@@ -392,7 +392,7 @@ func SetupQueryServiceIntercept(options ...EspressoDevNodeInterceptOption) (*Esp
 	// Start up a local http server to handle the requests
 	server := httptest.NewServer(proxy)
 
-	return proxy, server, func(ctx *DevNetLauncherContext) E2eSystemOption {
+	return proxy, server, func(ctx *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				{
