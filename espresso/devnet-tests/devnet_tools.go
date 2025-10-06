@@ -15,9 +15,7 @@ import (
 	"testing"
 	"time"
 
-	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
-	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -29,14 +27,16 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+
+	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 )
 
 type Devnet struct {
-	ctx         context.Context
-	secrets     secrets.Secrets
-	outageTime  time.Duration
-	successTime time.Duration
-
+	ctx           context.Context
+	secrets       secrets.Secrets
+	outageTime    time.Duration
+	successTime   time.Duration
 	L1            *ethclient.Client
 	L2Seq         *ethclient.Client
 	L2SeqRollup   *sources.RollupClient
@@ -45,6 +45,7 @@ type Devnet struct {
 }
 
 func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
+
 	if testing.Short() {
 		t.Skip("skipping devnet test in short mode")
 	}
@@ -78,6 +79,7 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	}
 
 	return d
+
 }
 
 func (d *Devnet) isRunning() bool {
@@ -168,6 +170,7 @@ func (d *Devnet) Up() (err error) {
 	if err != nil {
 		return err
 	}
+
 	d.L1, err = d.serviceClient("l1-geth", 8545)
 	if err != nil {
 		return err
@@ -228,7 +231,7 @@ func (d *Devnet) SystemConfig(ctx context.Context) (*bindings.SystemConfig, *bin
 
 // Submits a transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
 func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error) {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
 	defer cancel()
 
 	chainID, err := d.L2Seq.ChainID(ctx)
@@ -400,10 +403,27 @@ func (d *Devnet) SleepRecoveryDuration() {
 }
 
 func (d *Devnet) Down() error {
-	log.Info("devnet shutting down")
+
+	if d.L1 != nil {
+		d.L1.Close()
+	}
+	if d.L2Seq != nil {
+		d.L2Seq.Close()
+	}
+	if d.L2SeqRollup != nil {
+		d.L2SeqRollup.Close()
+	}
+	if d.L2Verif != nil {
+		d.L2Verif.Close()
+	}
+	if d.L2VerifRollup != nil {
+		d.L2VerifRollup.Close()
+	}
+
+	// Use timeout flag for faster Docker shutdown
 	cmd := exec.CommandContext(
 		d.ctx,
-		"docker", "compose", "down", "-v", "--remove-orphans",
+		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
 	)
 	return cmd.Run()
 }

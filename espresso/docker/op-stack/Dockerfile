@@ -127,7 +127,7 @@ COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 # Create config directory
 RUN mkdir -p /config
 
-# Include the deployment and contarcts.
+# Include the deployment and contracts.
 COPY espresso/deployment/ /deployment/
 
 CMD ["op-node"]
