@@ -12,7 +12,7 @@ import (
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 )
 
-// TestE2eDevNetWithEspressoFastConfirmationStability is a test that tests
+// TestE2eDevnetWithEspressoFastConfirmationStability is a test that tests
 // the benchmarking setup of the Espresso Caff Node's performance versus the
 // L2 Verifier derived from the L1.
 //
@@ -44,12 +44,12 @@ import (
 //
 // For the purposes of this test the "reasonable" value is defined to
 // be 2 seconds.
-func TestE2eDevNetWithEspressoFastConfirmationStability(t *testing.T) {
+func TestE2eDevnetWithEspressoFastConfirmationStability(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
-	system, espressoDevNode, err := launcher.StartDevNet(
+	system, espressoDevNode, err := launcher.StartE2eDevnet(
 		ctx,
 		t,
 		env.WithSequencerUseFinalized(true),

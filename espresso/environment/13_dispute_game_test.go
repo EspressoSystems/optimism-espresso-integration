@@ -36,7 +36,7 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	// Start a Fault Dispute System with Espresso Dev Node
-	sys, espressoDevNode, err := launcher.StartDevNetWithFaultDisputeSystem(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
+	sys, espressoDevNode, err := launcher.StartE2eDevnetWithFaultDisputeSystem(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 
 	l1Client := sys.NodeClient("l1")
 

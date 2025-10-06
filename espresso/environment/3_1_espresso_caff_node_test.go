@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 
-// TestE2eDevNetWithEspressoWithCaffNodeDeterministicDerivation is a test that
+// TestE2eDevnetWithEspressoWithCaffNodeDeterministicDerivation is a test that
 // attempts to make sure that the caff node can derive the same state as the
 // original op-node (non caffeinated).
 //
@@ -31,13 +31,13 @@ import (
 //
 // The actual tests is unable to make Alice's initial balance zero, and will
 // instead just check Alice's starting balance against the rest of the cases.
-func TestE2eDevNetWithEspressoWithCaffNodeDeterministicDerivation(t *testing.T) {
+func TestE2eDevnetWithEspressoWithCaffNodeDeterministicDerivation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
