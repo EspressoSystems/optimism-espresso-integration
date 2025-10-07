@@ -145,6 +145,8 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	fmt.Printf("Starting enclave container: %v...\n", cmd.Args)
+
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start enclave container: %w", err)
 	}

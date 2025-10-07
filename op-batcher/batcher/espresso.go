@@ -1022,7 +1022,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
+	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
 		return fmt.Errorf("Failed to check code at contrat address: %w", err)
@@ -1074,7 +1074,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for _, cert := range l.Attestation.Document.CABundle {
+	for i, cert := range l.Attestation.Document.CABundle {
 		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 		if err != nil {
 			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
@@ -1088,6 +1088,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 			continue
 		}
 
+		l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
@@ -1103,6 +1104,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
 	}
 	if txData != nil {
+		l.Log.Info("Verifying Client Certificate")
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
@@ -1128,9 +1130,10 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
+	l.Log.Info("Registering batcher with the batch inbox contract")
 	_, err = l.Txmgr.Send(ctx, candidate)
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w", err)
+		return fmt.Errorf("failed to send registerBatcher transaction: %w", err)
 	}
 
 	l.Log.Info("Registered batcher with the batch inbox contract")
