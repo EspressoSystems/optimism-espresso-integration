@@ -59,9 +59,9 @@ RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
   /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
 
 # CGO builder for components that need Espresso crypto linking
-FROM alpine:3.22 AS op-cgo-builder
+FROM golang:1.23.8-alpine3.20 AS op-cgo-builder
 # Install dependencies
-RUN apk add musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
+RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
 # Install just from mise
 COPY ./mise.toml .
 RUN case $(uname -m) in \
