@@ -392,9 +392,10 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 	// Process the new batches fetched from Espresso
 	for {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
-		defer cancel()
 
 		txn, err := stream.Next(timeoutCtx)
+		cancel()
+
 		if err != nil {
 			// Don't error out on timeout, most likely it just indicates that
 			// next transaction isn't available yet

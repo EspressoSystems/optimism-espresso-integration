@@ -202,6 +202,14 @@ func (ms *MockTransactionStream) NextRaw(ctx context.Context) (json.RawMessage, 
 	for {
 		transactions, err := ms.source.FetchTransactionsInBlock(ctx, ms.pos, ms.namespace)
 		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Hour):
+					return nil, ErrNotFound
+				}
+			}
 			return nil, err
 		}
 		if len(transactions.Transactions) > int(ms.subPos) {
