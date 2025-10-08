@@ -6,7 +6,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 # Base builder image
-FROM golang:1.24.5-alpine3.22 AS builder
+FROM golang:1.23.8-alpine3.20 AS builder
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 
@@ -112,7 +112,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make cannon-prestate  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
-FROM golang:1.24-alpine AS deployment-utils-builder
+FROM golang:1.23-alpine AS deployment-utils-builder
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE
 RUN apk add gcc lld musl-dev # For CGO
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/tomwright/dasel/v2/cmd/dasel@v2.8.1
