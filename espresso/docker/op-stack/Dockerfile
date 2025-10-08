@@ -109,8 +109,6 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-challenger && make op-challenger  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make cannon-prestates  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
 FROM golang:1.23-alpine AS deployment-utils-builder
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE
@@ -175,13 +173,15 @@ RUN apk add jq
 COPY espresso/docker/op-stack/entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 COPY --from=op-proposer-builder /app/op-challenger/bin/op-challenger /usr/local/bin
-COPY --from=op-proposer-builder /app/cannon/bin/cannon /usr/local/bin
-COPY --from=op-proposer-builder /app/op-program/bin/op-program /usr/local/bin
-COPY --from=op-proposer-builder /app/op-program/bin/prestate-proof.json /app/prestate-proof.json
+# Note: cannon, op-program, and prestate-proof.json are not built in this Dockerfile
+# They would require separate builder stages with CGO support
+# COPY --from=op-proposer-builder /app/cannon/bin/cannon /usr/local/bin
+# COPY --from=op-proposer-builder /app/op-program/bin/op-program /usr/local/bin
+# COPY --from=op-proposer-builder /app/op-program/bin/prestate-proof.json /app/prestate-proof.json
 
-ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
-ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
-ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
+# ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
+# ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
+# ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
 ENV ENV_PREFIX OP_CHALLENGER
 
 ENTRYPOINT [ "/bin/entrypoint.sh" ]
