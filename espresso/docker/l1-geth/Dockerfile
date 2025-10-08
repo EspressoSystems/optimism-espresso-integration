@@ -13,7 +13,7 @@ RUN apk add --no-cache \
 # Build eth-beacon-genesis
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     go install -ldflags '-linkmode external -extldflags "-static"' \
-    github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@703e97a
+    github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@48dbd0b
 
 # Build eth2-val-tools
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
