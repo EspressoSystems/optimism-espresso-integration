@@ -370,9 +370,9 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 	return nil
 }
 
-// processHotShotRange is a helper method that will load all of the blocks from
-// Hotshot from start to finish, inclusive. It will process each block and
-// update the batch buffer with any batches found in the block.
+// streamHotShotRange is a helper method that will load all transactions from
+// Hotshot from start to finish, inclusive. It will process each transaction and
+// update the batch buffer with any valid batches.
 // It will also update the hotShotPos to the last block processed, in order
 // to effectively keep track of the last block we have successfully fetched,
 // and therefore processed from Hotshot.
@@ -407,8 +407,6 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 
 		s.Log.Warn("Fetched Transaction", "block", txn.BlockHeight, "hash", txn.Hash)
 
-		s.processEspressoTransaction(ctx, txn.Transaction.Payload)
-
 		// We want to keep track of the latest block we have fully processed.
 		// This is essential for ensuring we don't unnecessarily keep
 		// refetching the same blocks that we have already processed.
@@ -419,6 +417,8 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 		if txn.BlockHeight >= finish {
 			break
 		}
+
+		s.processEspressoTransaction(ctx, txn.Transaction.Payload)
 	}
 
 	return nil
