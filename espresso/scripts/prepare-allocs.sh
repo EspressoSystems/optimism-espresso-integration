@@ -62,6 +62,7 @@ op-deployer bootstrap implementations \
                       --artifacts-locator="${ARTIFACTS_DIR}" \
                       --protocol-versions-proxy=`jq -r .protocolVersionsProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
                       --superchain-config-proxy=`jq -r .superchainConfigProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
+                      --superchain-proxy-admin=`jq -r .proxyAdminAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
                       --upgrade-controller="${OPERATOR_ADDRESS}" \
                       --outfile="${DEPLOYER_DIR}/bootstrap_implementations.json"
 
