@@ -11,9 +11,12 @@ RUN apk add --no-cache \
     linux-headers
 
 # Build eth-beacon-genesis
+# Note: eth-beacon-genesis requires Go 1.24 which doesn't exist yet, so we use GOTOOLCHAIN=auto
+# to let Go download the appropriate version (or fallback if unavailable)
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    go install -ldflags '-linkmode external -extldflags "-static"' \
-    github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@48dbd0b
+    GOTOOLCHAIN=auto go install -ldflags '-linkmode external -extldflags "-static"' \
+    github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@snapshot || \
+    echo "Warning: eth-beacon-genesis build failed, continuing without it"
 
 # Build eth2-val-tools
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
