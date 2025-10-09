@@ -53,10 +53,10 @@ func L2TxWithOptions(options ...helpers.TxOptsFn) helpers.TxOptsFn {
 	}
 }
 
-// WithSequencerUseFinalized is a DevNetLauncherOption that configures the sequencer's
+// WithSequencerUseFinalized is a E2eDevnetLauncherOption that configures the sequencer's
 // `SequencerUseFinalized` option to the provided value.
-func WithSequencerUseFinalized(useFinalized bool) DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func WithSequencerUseFinalized(useFinalized bool) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				seqConfig := cfg.Nodes[e2esys.RoleSeq]
@@ -66,10 +66,10 @@ func WithSequencerUseFinalized(useFinalized bool) DevNetLauncherOption {
 	}
 }
 
-// WithNonFinalizedProposals is a DevNetLauncherOption that configures the system's
+// WithNonFinalizedProposals is a E2eDevnetLauncherOption that configures the system's
 // `NonFinalizedProposals` option to the provided value.
-func WithNonFinalizedProposals(useNonFinalized bool) DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func WithNonFinalizedProposals(useNonFinalized bool) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.NonFinalizedProposals = useNonFinalized
@@ -78,10 +78,10 @@ func WithNonFinalizedProposals(useNonFinalized bool) DevNetLauncherOption {
 	}
 }
 
-// WithL1FinalizedDistance is a DevNetLauncherOption that configures the system's
+// WithL1FinalizedDistance is a E2eDevnetLauncherOption that configures the system's
 // `L1FinalizedDistance` option to the provided value.
-func WithL1FinalizedDistance(distance uint64) DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func WithL1FinalizedDistance(distance uint64) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.L1FinalizedDistance = distance
@@ -90,10 +90,10 @@ func WithL1FinalizedDistance(distance uint64) DevNetLauncherOption {
 	}
 }
 
-// WithSeqWindowSize is a DevNetLauncherOption that configures the deployment's
+// WithSeqWindowSize is a E2eDevnetLauncherOption that configures the deployment's
 // `SequencerWindowSize` option to the provided value.
-func WithSequencerWindowSize(size uint64) DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func WithSequencerWindowSize(size uint64) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.SequencerWindowSize = size
@@ -102,13 +102,13 @@ func WithSequencerWindowSize(size uint64) DevNetLauncherOption {
 	}
 }
 
-// WithL1BlockTime is a DevNetLauncherOption that configures the system's
+// WithL1BlockTime is a E2eDevnetLauncherOption that configures the system's
 // `L1BlockTime` option to the provided value.
 //
 // The passed block time should be on the order of seconds.  Any sub-second
 // resolution will be lost.  The value **MUST** be at least 1 second or greater.
-func WithL1BlockTime(blockTime time.Duration) DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func WithL1BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L1BlockTime = uint64(blockTime / time.Second)
@@ -117,13 +117,13 @@ func WithL1BlockTime(blockTime time.Duration) DevNetLauncherOption {
 	}
 }
 
-// WithL2BlockTime is a DevNetLauncherOption that configures the system's
+// WithL2BlockTime is a E2eDevnetLauncherOption that configures the system's
 // `L2BlockTime` option to the provided value.
 //
 // The passed block time should be on the order of seconds.  Any sub-second
 // resolution will be lost.  The value **MUST** be at least 1 second or greater.
-func WithL2BlockTime(blockTime time.Duration) DevNetLauncherOption {
-	return func(c *DevNetLauncherContext) E2eSystemOption {
+func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SysConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)

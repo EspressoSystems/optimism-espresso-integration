@@ -50,7 +50,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
 	// Start the devnet with the sequencer using finalized blocks
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -264,8 +264,8 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	// once this StartDevNet returns, we have a running Espresso Dev Node
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t)
+	// once this StartE2eDevnet returns, we have a running Espresso Dev Node
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)

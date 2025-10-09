@@ -139,6 +139,7 @@
               pkgs.uv
               pkgs.yq-go
               pkgs.tmux
+              pkgs.golangci-lint
             ];
 
             shellHook = ''

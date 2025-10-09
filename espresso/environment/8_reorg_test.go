@@ -38,7 +38,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 
 	// Set NonFinalizedProposals to true and SequencerUseFinalized to false, to make sure we are
 	// testing how the batcher handles the finality.
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -83,7 +83,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 
 // VerifyL1OriginFinalized checks whether every batch in the batch buffer has a finalized L1
 // origin.
-func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
+func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.BatchStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
 	for i := 0; i < streamer.BatchBuffer.Len(); i++ {
 		batch := streamer.BatchBuffer.Get(i)
 		origin := (batch).L1Origin()
@@ -103,7 +103,7 @@ func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.EspressoStreamer[d
 }
 
 // VerifyBatchBufferUpdated checks whether the batch buffer is updated before the timeout.
-func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.EspressoStreamer[derive.EspressoBatch]) bool {
+func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.BatchStreamer[derive.EspressoBatch]) bool {
 	tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
 	defer tickerBufferInsert.Stop()
 	for {
@@ -139,7 +139,7 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 
 	// Set L1FinalizedDistance to nonzero, NonFinalizedProposals to true, and SequencerUseFinalized
 	// to false, to make sure we are testing how the Caff node handles the finality.
-	system, espressoDevNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -244,7 +244,7 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 	require.Equal(t, caffL2Head.Hash(), newL2Head.Hash())
 }
 
-// TestE2eDevNetWithL1Reorg tests how the batcher and Caff node handle an L1 reorg.
+// TestE2eDevnetWithL1Reorg tests how the batcher and Caff node handle an L1 reorg.
 // Specifically, it focuses on cases where unsafe L2 chain contains blocks that
 // reference unfinalized L1 blocks as their origin.
 //
@@ -263,13 +263,13 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 //
 //	Assert that derivation pipeline still progresses
 //	Assert that Caff and OP node report a new block at the target L2 height
-func TestE2eDevNetWithL1Reorg(t *testing.T) {
+func TestE2eDevnetWithL1Reorg(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, devNode, err := launcher.StartDevNet(ctx, t, env.WithL1FinalizedDistance(16))
+	system, devNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(16))
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}

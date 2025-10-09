@@ -649,8 +649,8 @@ func (s *espressoTransactionSubmitter) Start() {
 	go s.handleVerifyReceiptJobResponse()
 }
 
-func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
-	return &bs.driver.espressoStreamer
+func (bs *BatcherService) EspressoStreamer() espressoLocal.EspressoStreamer[derive.EspressoBatch] {
+	return bs.driver.espressoStreamer
 }
 
 func (bs *BatcherService) initKeyPair() error {
@@ -664,8 +664,8 @@ func (bs *BatcherService) initKeyPair() error {
 }
 
 // EspressoStreamer returns the batch submitter's Espresso streamer instance
-func (l *BatchSubmitter) EspressoStreamer() *espresso.EspressoStreamer[derive.EspressoBatch] {
-	return &l.espressoStreamer
+func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
+	return l.espressoStreamer
 }
 
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
@@ -690,7 +690,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 }
 
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.SafeL2.L1Origin)
+	err := l.espressoStreamer.Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.FinalizedL2.Number, newSyncStatus.FinalizedL2.L1Origin)
 	if err != nil {
 		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
 	}
@@ -755,10 +755,6 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
 			err = l.espressoStreamer.Update(ctx)
-			remainingListLen := len(l.espressoStreamer.RemainingBatches)
-			if remainingListLen > 0 {
-				l.Log.Warn("Remaining list not empty.", "Number items", remainingListLen)
-			}
 
 			var batch *derive.EspressoBatch
 
@@ -1026,7 +1022,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
+	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
 		return fmt.Errorf("Failed to check code at contrat address: %w", err)
@@ -1078,7 +1074,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for _, cert := range l.Attestation.Document.CABundle {
+	for i, cert := range l.Attestation.Document.CABundle {
 		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 		if err != nil {
 			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
@@ -1092,6 +1088,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 			continue
 		}
 
+		l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
@@ -1107,6 +1104,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
 	}
 	if txData != nil {
+		l.Log.Info("Verifying Client Certificate")
 		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
 			TxData: txData,
 			To:     &certManagerAddress,
@@ -1132,9 +1130,10 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
+	l.Log.Info("Registering batcher with the batch inbox contract")
 	_, err = l.Txmgr.Send(ctx, candidate)
 	if err != nil {
-		return fmt.Errorf("failed to send transaction: %w", err)
+		return fmt.Errorf("failed to send registerBatcher transaction: %w", err)
 	}
 
 	l.Log.Info("Registered batcher with the batch inbox contract")
