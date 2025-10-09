@@ -398,8 +398,6 @@ services:
       - sh
       - -c
       - |
-        echo "Delaying op-batcher-tee for 45 minutes..."
-        sleep 2700
         export DEPLOYMENT_MODE=local
         export L1_RPC_URL="http://127.0.0.1:${L1_HTTP_PORT}"
         export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
