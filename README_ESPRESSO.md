@@ -459,6 +459,10 @@ Note that `l2-genesis` is expected to take around 2 minutes.
 ```console
 ./startup.sh
 ```
+Or build and start the devnet with AWS Nitro Enclave as the TEE:
+```console
+USE_TEE=true ./startup.sh
+```
 
 ### View Logs
 There are 15 services in total, as listed in `logs.sh`. It is supported to run logs for any
