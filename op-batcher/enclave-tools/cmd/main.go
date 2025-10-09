@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -124,17 +125,17 @@ func buildAction(c *cli.Context) error {
 	}
 
 	ctx := context.Background()
-	fmt.Printf("Building enclave image...")
+	slog.Info("Building enclave image...")
 	measurements, err := enclave_tools.BuildBatcherImage(ctx, opRoot, tag, batcherArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to build enclave image: %w", err)
 	}
 
-	fmt.Println("Build completed successfully!")
-	fmt.Println("Measurements:")
-	fmt.Printf("  PCR0: %s\n", measurements.PCR0)
-	fmt.Printf("  PCR1: %s\n", measurements.PCR1)
-	fmt.Printf("  PCR2: %s\n", measurements.PCR2)
+	slog.Info("Build completed successfully!")
+	slog.Info("Measurements",
+		"PCR0", measurements.PCR0,
+		"PCR1", measurements.PCR1,
+		"PCR2", measurements.PCR2)
 
 	return nil
 }
@@ -163,13 +164,13 @@ func registerAction(c *cli.Context) error {
 	}
 
 	ctx := context.Background()
-	fmt.Printf("Registering enclave hash...")
+	slog.Info("Registering enclave hash...")
 	err = enclave_tools.RegisterEnclaveHash(ctx, authAddr, l1URL, key, pcr0Bytes)
 	if err != nil {
 		return fmt.Errorf("failed to register enclave hash: %w", err)
 	}
 
-	fmt.Printf("Enclave hash registered successfully!")
+	slog.Info("Enclave hash registered successfully!")
 	return nil
 }
 
@@ -186,7 +187,7 @@ func runAction(c *cli.Context) error {
 	ctx := context.Background()
 	enclaverCli := &enclave_tools.EnclaverCli{}
 
-	fmt.Printf("Starting enclave: %s\n", imageName)
+	slog.Info("Starting enclave", "image", imageName)
 	err = enclaverCli.RunEnclave(ctx, imageName, args)
 	if err != nil {
 		return err

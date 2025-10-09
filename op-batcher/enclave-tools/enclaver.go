@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
 )
@@ -138,12 +139,14 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"-d",
 		"--privileged",
 		"--net=host",
-		fmt.Sprintf("--name=batcher-enclaver-%s", nameSuffix),
+		"--name=batcher-enclaver-"+nameSuffix,
 		"--device=/dev/nitro_enclaves",
 		name,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	log.Info("Starting enclave container: %v...\n", "command", cmd.Args)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start enclave container: %w", err)
