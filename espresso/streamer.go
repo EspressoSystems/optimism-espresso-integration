@@ -407,16 +407,16 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 
 		s.Log.Warn("Fetched Transaction", "block", txn.BlockHeight, "hash", txn.Hash)
 
+		if txn.BlockHeight > finish {
+			break
+		}
+
 		// We want to keep track of the latest block we have fully processed.
 		// This is essential for ensuring we don't unnecessarily keep
 		// refetching the same blocks that we have already processed.
 		// This should ensure that we keep moving forward and consuming
 		// from the Espresso Blocks without missing any blocks.
 		s.hotShotPos = txn.BlockHeight - 1
-
-		if txn.BlockHeight >= finish {
-			break
-		}
 
 		s.processEspressoTransaction(ctx, txn.Transaction.Payload)
 	}

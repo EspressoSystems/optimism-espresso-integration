@@ -202,14 +202,11 @@ func (ms *MockTransactionStream) NextRaw(ctx context.Context) (json.RawMessage, 
 	for {
 		transactions, err := ms.source.FetchTransactionsInBlock(ctx, ms.pos, ms.namespace)
 		if err != nil {
-			if errors.Is(err, ErrNotFound) {
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case <-time.After(time.Hour):
-					return nil, ErrNotFound
-				}
-			}
+			// We will return error on NotFound as well to speed up tests.
+			// More faithful imitation of HotShot streaming API would be to hang
+			// until we receive new transactions, but that would slow down some
+			// tests significantly, because streamer would wait for full timeout
+			// threshold here before finishing update.
 			return nil, err
 		}
 		if len(transactions.Transactions) > int(ms.subPos) {
