@@ -23,7 +23,7 @@ func TestSmokeWithoutTEE(t *testing.T) {
 }
 
 func TestSmokeWithTEE(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
