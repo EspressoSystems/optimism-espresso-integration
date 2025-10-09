@@ -296,7 +296,7 @@ func TestWithdrawal(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up())
+	require.NoError(t, d.Up(false))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
