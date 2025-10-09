@@ -438,7 +438,7 @@ services:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-proposer-target
-    image: op-proposer:espresso
+    image: op-proposer-tee:espresso
     depends_on:
       l1-data-init:
         condition: service_completed_successfully
