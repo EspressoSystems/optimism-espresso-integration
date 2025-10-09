@@ -68,7 +68,9 @@ fi
 echo "Build completed successfully"
 
 # Extract PCR0 from build output
-PCR0=$(grep "PCR0:" /tmp/build_output.log | sed 's/.*PCR0: //')
+# Works whether the line is `... PCR0: 0xABCD ...` or `... PCR0=abcd123 ...`
+PCR0="$(sed -n -E 's/.*PCR0[:=][[:space:]]*(0[xX])?([[:xdigit:]]+).*/\2/p;q' /tmp/build_output.log)"
+
 
 # Get batch authenticator address from deployment state
 BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null || echo "")
@@ -81,7 +83,7 @@ if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PR
         --l1-url "$L1_RPC_URL" \
         --private-key "$OPERATOR_PRIVATE_KEY" \
         --pcr0 "$PCR0"
-    
+
     if [ $? -ne 0 ]; then
         echo "WARNING: Failed to register PCR0, continuing anyway..."
     else
@@ -99,7 +101,7 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
     PID_FILE="/tmp/enclave-tools.pid"
     CONTAINER_TRACKER_FILE="/tmp/enclave-containers.txt"
     STATUS_FILE="/tmp/enclave-status.json"
-    
+
     # Cleanup function for local deployment
     cleanup() {
         echo "Cleaning up enclave resources..."
@@ -113,7 +115,7 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
             fi
             rm -f "$PID_FILE"
         fi
-        
+
         # Clean up any remaining enclave containers
         if [ -f "$CONTAINER_TRACKER_FILE" ]; then
             while IFS= read -r container_id; do
@@ -125,14 +127,14 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
             done < "$CONTAINER_TRACKER_FILE"
             rm -f "$CONTAINER_TRACKER_FILE"
         fi
-        
+
         rm -f "$STATUS_FILE"
         exit 0
     }
-    
+
     # Setup signal handlers for local deployment
     trap cleanup SIGTERM SIGINT EXIT
-    
+
     # Get Docker network for local deployment
     DOCKER_NETWORK=$(docker network ls --filter name=espresso --format "{{.Name}}" | head -1)
     if [ -z "$DOCKER_NETWORK" ]; then
@@ -202,7 +204,7 @@ echo "  Started: $STARTED_AT"
 # Setup status tracking for local deployment
 if [ "$DEPLOYMENT_MODE" = "local" ]; then
     echo "$CONTAINER_NAME" >> "$CONTAINER_TRACKER_FILE"
-    
+
     # Create initial status file
     cat > "$STATUS_FILE" <<EOF
 {
@@ -234,14 +236,14 @@ MONITOR_COUNT=0
 while true; do
     # Check if the container is still running
     CONTAINER_STATUS=$(docker inspect "$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.Status' 2>/dev/null || echo "")
-    
+
     if [ -z "$CONTAINER_STATUS" ] || [ "$CONTAINER_STATUS" != "running" ]; then
         echo "$(date): Container $CONTAINER_NAME is no longer running (status: $CONTAINER_STATUS)"
-        
+
         # Get exit code if available
         EXIT_CODE=$(docker inspect "$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.ExitCode' 2>/dev/null || echo "unknown")
         echo "Container exit code: $EXIT_CODE"
-        
+
         # Update status file for local deployment
         if [ "$DEPLOYMENT_MODE" = "local" ] && [ -n "$STATUS_FILE" ]; then
             cat > "$STATUS_FILE" <<EOF
@@ -259,14 +261,14 @@ EOF
         fi
         break
     fi
-    
+
     # Log current status periodically
     if [ $(($MONITOR_COUNT % 10)) -eq 0 ]; then
         echo "$(date): Container $CONTAINER_NAME status: $CONTAINER_STATUS"
-        
+
         # Show container resource usage
         docker stats --no-stream "$CONTAINER_NAME" 2>/dev/null || echo "Could not get container stats"
-        
+
         # Update status file for local deployment
         if [ "$DEPLOYMENT_MODE" = "local" ] && [ -n "$STATUS_FILE" ]; then
             cat > "$STATUS_FILE" <<EOF
@@ -283,7 +285,7 @@ EOF
 EOF
         fi
     fi
-    
+
     MONITOR_COUNT=$((MONITOR_COUNT + 1))
     sleep "$MONITOR_INTERVAL"
 done
