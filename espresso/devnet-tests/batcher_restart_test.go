@@ -19,7 +19,7 @@ func TestBatcherRestart(t *testing.T) {
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 
 	// Shut down the batcher and have another transaction submitted while it is down.
 	require.NoError(t, d.ServiceDown("op-batcher"))
@@ -36,9 +36,9 @@ func TestBatcherRestart(t *testing.T) {
 	// Bring the batcher back up and check that it processes the transaction which was submitted
 	// while it was down.
 	require.NoError(t, d.ServiceUp("op-batcher"))
-	require.NoError(t, d.VerifySimpleL2Burn(receipt))
+	require.NoError(t, d.VerifySimpleL2Burn(receipt, false))
 
 	// Submit another transaction at the end just to check that things stay working.
 	d.SleepRecoveryDuration()
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 }

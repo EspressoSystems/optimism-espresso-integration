@@ -362,8 +362,12 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 }
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
-func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt, tee bool) error {
+	timeout := 2 * time.Minute
+	if tee {
+		timeout = 20 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
@@ -384,12 +388,12 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
 }
 
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
-func (d *Devnet) RunSimpleL2Burn() error {
+func (d *Devnet) RunSimpleL2Burn(tee bool) error {
 	receipt, err := d.SubmitSimpleL2Burn()
 	if err != nil {
 		return err
 	}
-	return d.VerifySimpleL2Burn(receipt)
+	return d.VerifySimpleL2Burn(receipt, tee)
 }
 
 // Wait for a configurable amount of time while simulating an outage.

@@ -19,7 +19,7 @@ func TestSmokeWithoutTEE(t *testing.T) {
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 }
 
 func TestSmokeWithTEE(t *testing.T) {
@@ -33,5 +33,5 @@ func TestSmokeWithTEE(t *testing.T) {
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(true))
 }
