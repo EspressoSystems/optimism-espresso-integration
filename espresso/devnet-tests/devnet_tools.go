@@ -232,8 +232,12 @@ func (d *Devnet) SystemConfig(ctx context.Context) (*bindings.SystemConfig, *bin
 }
 
 // Submits a transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
-func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error) {
-	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
+func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn, tee bool) (*types.Receipt, error) {
+	timeout := 3 * time.Minute
+	if tee {
+		timeout = 20 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	chainID, err := d.L2Seq.ChainID(ctx)
@@ -313,8 +317,8 @@ func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 }
 
 // Submits a transaction and waits for it to be verified.
-func (d *Devnet) RunL2Tx(applyTxOpts helpers.TxOptsFn) error {
-	receipt, err := d.SubmitL2Tx(applyTxOpts)
+func (d *Devnet) RunL2Tx(applyTxOpts helpers.TxOptsFn, tee bool) error {
+	receipt, err := d.SubmitL2Tx(applyTxOpts, tee)
 	if err != nil {
 		return err
 	}
@@ -338,7 +342,7 @@ type BurnReceipt struct {
 }
 
 // Submits a burn transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
-func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
+func (d *Devnet) SubmitSimpleL2Burn(tee bool) (*BurnReceipt, error) {
 	var err error
 
 	receipt := new(BurnReceipt)
@@ -355,7 +359,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 		env.L2TxWithToAddress(&receipt.BurnAddress),
 		env.L2TxWithVerifyOnClients(d.L2Verif),
 	)
-	if receipt.Receipt, err = d.SubmitL2Tx(tx); err != nil {
+	if receipt.Receipt, err = d.SubmitL2Tx(tx, tee); err != nil {
 		return nil, err
 	}
 	return receipt, nil
@@ -389,7 +393,7 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt, tee bool) error {
 
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
 func (d *Devnet) RunSimpleL2Burn(tee bool) error {
-	receipt, err := d.SubmitSimpleL2Burn()
+	receipt, err := d.SubmitSimpleL2Burn(tee)
 	if err != nil {
 		return err
 	}

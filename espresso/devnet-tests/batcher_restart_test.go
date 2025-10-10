@@ -25,7 +25,7 @@ func TestBatcherRestart(t *testing.T) {
 	require.NoError(t, d.ServiceDown("op-batcher"))
 	d.SleepOutageDuration()
 
-	receipt, err := d.SubmitSimpleL2Burn()
+	receipt, err := d.SubmitSimpleL2Burn(false)
 	require.NoError(t, err)
 
 	// Check that while the batcher is down, the verifier does NOT process submitted transactions.
