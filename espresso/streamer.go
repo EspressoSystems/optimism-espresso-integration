@@ -383,10 +383,12 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 	}
 
 	defer func() {
-		err := stream.Close()
-		if err != nil {
-			s.Log.Error("Failed to close stream", "err", err)
-		}
+		go func() {
+			err := stream.Close()
+			if err != nil {
+				s.Log.Error("Failed to close stream", "err", err)
+			}
+		}()
 	}()
 
 	// Process the new batches fetched from Espresso
