@@ -427,7 +427,37 @@ func (d *Devnet) Down() error {
 		d.ctx,
 		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
 	)
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to shut down docker: %w", err)
+	}
+
+	outBatcher, _ := exec.Command("docker", "ps", "-q", "--filter", "ancestor=op-batcher-tee:espresso").Output()
+	batcherContainers := strings.Fields(string(outBatcher))
+	if len(batcherContainers) > 0 {
+		cmd = exec.Command("docker", append([]string{"stop"}, batcherContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to stop the batcher container: %w", err)
+		}
+		cmd = exec.Command("docker", append([]string{"rm"}, batcherContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove the batcher container: %w", err)
+		}
+	}
+
+	outEnclave, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=batcher-enclaver-").Output()
+	enclaveContainers := strings.Fields(string(outEnclave))
+	if len(enclaveContainers) > 0 {
+		cmd = exec.Command("docker", append([]string{"stop"}, enclaveContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to stop the enclave container: %w", err)
+		}
+		cmd = exec.Command("docker", append([]string{"rm"}, enclaveContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove the enclave container: %w", err)
+		}
+	}
+
+	return nil
 }
 
 type TaggedWriter struct {
