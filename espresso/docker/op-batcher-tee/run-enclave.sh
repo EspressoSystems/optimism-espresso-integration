@@ -69,7 +69,9 @@ echo "Build completed successfully"
 
 # Extract PCR0 from build output
 # Works whether the line is `... PCR0: 0xABCD ...` or `... PCR0=abcd123 ...`
-PCR0="$(sed -n -E 's/.*PCR0[:=][[:space:]]*(0[xX])?([[:xdigit:]]+).*/\2/p;q' /tmp/build_output.log)"
+# Note: PCR0 is a 96-character hex string (SHA-384 hash)
+PCR0="$(grep -oE 'PCR0[=:][[:space:]]*(0x)?[[:xdigit:]]{96}' /tmp/build_output.log | sed -E 's/PCR0[=:][[:space:]]*(0x)?//' | head -1)"
+
 
 
 # Get batch authenticator address from deployment state
