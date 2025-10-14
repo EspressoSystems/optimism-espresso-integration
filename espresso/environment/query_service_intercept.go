@@ -172,6 +172,7 @@ func (p *proxyRequest) proxyWebSocket(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	//nolint:bodyclose // Not applicable to coder/websocket. From the websocket.Dial docs: "You never need to close resp.Body yourself."
 	backendConn, _, err := websocket.Dial(ctx, backendURL.String(), &websocket.DialOptions{})
 	if err != nil {
 		clientConn.Close(websocket.StatusInternalError, "backend connection failed")
