@@ -391,10 +391,11 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 		}()
 	}()
 
+	// We give query service a bigger timeout on stream initialisation, as it may take awhile
+	timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+
 	// Process the new batches fetched from Espresso
 	for {
-		timeoutCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
-
 		txn, err := stream.Next(timeoutCtx)
 		cancel()
 
@@ -402,6 +403,7 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 			// Don't error out on timeout, most likely it just indicates that
 			// next transaction isn't available yet
 			if timeoutCtx.Err() != nil {
+				s.Log.Info("Stream timed out")
 				return nil
 			}
 			return fmt.Errorf("failed to fetch next transaction: %w", err)
@@ -421,7 +423,11 @@ func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish
 		s.hotShotPos = txn.BlockHeight - 1
 
 		s.processEspressoTransaction(ctx, txn.Transaction.Payload)
+
+		// Set up smaller timeout for subsequent iterations
+		timeoutCtx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
 	}
+	cancel()
 
 	return nil
 }
