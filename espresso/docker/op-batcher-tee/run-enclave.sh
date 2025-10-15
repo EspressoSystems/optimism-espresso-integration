@@ -226,6 +226,9 @@ CONTAINER_ID=$(docker ps --filter "name=$CONTAINER_NAME" --format "{{.ID}}" | he
 CONTAINER_IMAGE=$(docker inspect "$CONTAINER_NAME" --format '{{.Config.Image}}' 2>/dev/null)
 STARTED_AT=$(docker inspect "$CONTAINER_NAME" --format '{{.State.StartedAt}}' 2>/dev/null)
 
+# Shutdown the container when we exit for any reason
+trap "docker rm -f $CONTAINER_ID" EXIT
+
 echo "Container Details:"
 echo "  ID: $CONTAINER_ID"
 echo "  Image: $CONTAINER_IMAGE"
