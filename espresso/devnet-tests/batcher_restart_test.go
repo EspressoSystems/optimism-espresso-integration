@@ -31,6 +31,8 @@ func testRestart(t *testing.T, tee bool) {
 
 	d.tee = tee
 
+	require.NoError(t, d.WaitForL2Operational())
+
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())
 

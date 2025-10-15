@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -205,6 +206,19 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	}
 
 	return nil
+}
+
+func (d *Devnet) WaitForL2Operational() error {
+
+	timeout := time.Minute * 5
+
+	// Batcher needs more time to startup in tee
+	if d.tee {
+		timeout = time.Minute * 10
+	}
+
+	_, err := geth.WaitForBlockToBeSafe(big.NewInt(1), d.L2Verif, timeout)
+	return err
 }
 
 func (d *Devnet) ServiceUp(service string) error {
