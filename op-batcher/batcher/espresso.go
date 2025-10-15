@@ -398,6 +398,7 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 
 		// We're done with this job and transaction, we have successfully
 		// confirmed that the transaction was submitted to Espresso
+		log.Info("Transaction confirmed on Espresso", "hash", jobResp.job.transaction.transaction.Commit())
 	}
 }
 
