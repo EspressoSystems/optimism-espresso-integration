@@ -6,7 +6,7 @@ toolchain go1.22.7
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/EspressoSystems/espresso-network/sdks/go v0.2.1
+	github.com/EspressoSystems/espresso-network/sdks/go v0.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/andybalholm/brotli v1.1.0
 	github.com/bmatcuk/doublestar/v4 v4.8.1
@@ -62,9 +62,9 @@ require (
 	golang.org/x/crypto v0.32.0
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 	golang.org/x/mod v0.22.0
-	golang.org/x/sync v0.10.0
-	golang.org/x/term v0.28.0
-	golang.org/x/text v0.21.0
+	golang.org/x/sync v0.11.0
+	golang.org/x/term v0.29.0
+	golang.org/x/text v0.22.0
 	golang.org/x/time v0.10.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -90,6 +90,7 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
+	github.com/coder/websocket v1.8.13 // indirect
 	github.com/consensys/bavard v0.1.27 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -293,3 +294,5 @@ exclude (
 	github.com/kataras/iris/v12 v12.2.0
 	github.com/kataras/iris/v12 v12.2.11
 )
+
+replace github.com/EspressoSystems/espresso-network/sdks/go => github.com/EspressoSystems/espresso-network/sdks/go v0.3.2-0.20251007163344-504ab95333c0
