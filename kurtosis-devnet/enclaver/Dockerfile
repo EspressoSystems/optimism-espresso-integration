@@ -75,26 +75,6 @@ COPY --from=cannon-builder-v1-2-0 /usr/local/bin/cannon-3 ./cannon/multicannon/e
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd cannon && make cannon  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$CANNON_VERSION"
 
-# Download and build the espresso-network go crypto helper library
-FROM --platform=$BUILDPLATFORM rust:1.84.1-alpine3.20 AS rust-builder
-ARG ESPRESSO_SDK_VER=v0.2.1
-# Download the prebuilt static libraries for both archs (change arch as needed)
-RUN apk add --no-cache curl
-RUN set -e; \
-    mkdir -p /libespresso; \
-    cd /libespresso; \
-    # Download .so and .sha256 for aarch64
-    curl -L -O https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so; \
-    curl -L -O https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so.sha256; \
-    cat libespresso_crypto_helper-aarch64-unknown-linux-gnu.so.sha256 | \
-      awk '{print $1 "  libespresso_crypto_helper-aarch64-unknown-linux-gnu.so"}' | \
-      sha256sum -c - ; \
-    # Download .so and .sha256 for x86_64
-    curl -L -O https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so; \
-    curl -L -O https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so.sha256; \
-    cat libespresso_crypto_helper-x86_64-unknown-linux-gnu.so.sha256 | \
-      awk '{print $1 "  libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"}' | \
-      sha256sum -c -
 
 # We don't use the golang image for batcher because it doesn't play well with CGO
 FROM --platform=$BUILDPLATFORM golang:1.23.8-alpine3.20 AS op-batcher-builder
@@ -108,8 +88,16 @@ RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' m
 # Go sources
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
-# Copy rust libs for dynamic linking
-COPY --from=rust-builder /libespresso/* /lib
+# Fetch rust libs for dynamic linking
+ARG ESPRESSO_SDK_VER=0.3.2
+ARG ESPRESSO_SDK_HELPER_HASH_AARCH64=ec6ce7b37edd173206ad338c84a6a771a0e9dc8b184081af7440ebfc0c531a71
+ARG ESPRESSO_SDK_HELPER_HASH_X86_64=49c50949ec1acf52107cb190c90911e05cc9c4e9d72dd7455496163443760b92
+ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_AARCH64} \
+  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so \
+  /lib/
+ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_X86_64} \
+  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so \
+  /lib/
 # Warm-up the cache
 WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download

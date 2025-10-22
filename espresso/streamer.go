@@ -41,6 +41,7 @@ type LightClientCallerInterface interface {
 // for modification / wrapping.
 type EspressoClient interface {
 	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
+	StreamTransactionsInNamespace(ctx context.Context, height uint64, namespace uint64) (espressoClient.Stream[espressoCommon.TransactionQueryData], error)
 	FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error)
 }
 
@@ -97,6 +98,9 @@ type BatchStreamer[B Batch] struct {
 	RemainingBatches map[common.Hash]B
 
 	unmarshalBatch func([]byte) (*B, error)
+
+	// Use the polling API to fetch transactions
+	UseFetchApi bool
 }
 
 // Compile time assertion to ensure EspressoStreamer implements
@@ -146,8 +150,7 @@ func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) error {
 	return err
 }
 
-// Handle both L1 reorgs and batcher restarts by updating our state in case it is
-// not consistent with what's on the L1.
+// Update streamer state based on L1 and L2 sync status
 func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
 	s.FinalizedL1 = finalizedL1
 
@@ -212,23 +215,30 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidi
 	return BatchAccept, i
 }
 
-// HOTSHOT_BLOCK_LOAD_LIMIT is the maximum number of blocks to attempt to
-// load from Espresso in a single process. This helps to limit our block
-// polling to a limited number of blocks within a single batched attempt.
-const HOTSHOT_BLOCK_LOAD_LIMIT = 100
+// HOTSHOT_BLOCK_STREAM_LIMIT is the maximum number of blocks to attempt to
+// load from Espresso in a single process using streaming API.
+// This helps to limit our block polling to a limited number of blocks within
+// a single batched attempt.
+const HOTSHOT_BLOCK_STREAM_LIMIT = 500
+
+// HOTSHOT_BLOCK_FETCH_LIMIT is the maximum number of blocks to attempt to
+// load from Espresso in a single process using fetch API.
+// This helps to limit our block polling to a limited number of blocks within
+// a single batched attempt.
+const HOTSHOT_BLOCK_FETCH_LIMIT = 100
 
 // computeEspressoBlockHeightsRange computes the range of block heights to fetch
 // from Espresso. It starts from the last processed block and goes up to
-// HOTSHOT_BLOCK_LOAD_LIMIT blocks ahead or the current block height, whichever
+// `limit` blocks ahead or the current block height, whichever
 // is smaller.
-func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64) (start uint64, finish uint64) {
+func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight uint64, limit uint64) (start uint64, finish uint64) {
 	start = s.hotShotPos
 	if start > 0 {
 		// We've already processed the block in hotShotPos.  In order to avoid
 		// reprocessing the same block, we want to start from the next block.
 		start++
 	}
-	finish = min(start+HOTSHOT_BLOCK_LOAD_LIMIT, currentBlockHeight)
+	finish = min(start+limit, currentBlockHeight)
 
 	return start, finish
 }
@@ -256,9 +266,29 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 		return err
 	}
 
+	// Streaming API implementation
+	if !s.UseFetchApi {
+		// Process the remaining batches
+		s.processRemainingBatches(ctx)
+
+		// We limit the number of blocks to process in a single Update call
+		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight, HOTSHOT_BLOCK_STREAM_LIMIT)
+
+		s.Log.Info("Streaming hotshot blocks", "from", start, "upTo", finish)
+
+		// Process the new batches fetched from Espresso
+		if err := s.streamHotShotRange(ctx, start, finish); err != nil {
+			return fmt.Errorf("failed to process hotshot range: %w", err)
+		}
+
+		return nil
+	}
+
+	// Fetch API implementation
 	for i := 0; ; i++ {
 		// Fetch more batches from HotShot if available.
-		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight)
+		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight, HOTSHOT_BLOCK_FETCH_LIMIT)
+
 		if start > finish || (start == finish && i > 0) {
 			// If start is equal to our finish, then that means we have
 			// already processed all of the blocks available to us.  We
@@ -280,8 +310,9 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 		s.processRemainingBatches(ctx)
 
 		s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
+
 		// Process the new batches fetched from Espresso
-		if err := s.processHotShotRange(ctx, start, finish); err != nil {
+		if err := s.fetchHotShotRange(ctx, start, finish); err != nil {
 			return fmt.Errorf("failed to process hotshot range: %w", err)
 		}
 
@@ -302,13 +333,13 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 	return nil
 }
 
-// processHotShotRange is a helper method that will load all of the blocks from
+// fetchHotShotRange is a helper method that will load all of the blocks from
 // Hotshot from start to finish, inclusive. It will process each block and
 // update the batch buffer with any batches found in the block.
 // It will also update the hotShotPos to the last block processed, in order
 // to effectively keep track of the last block we have successfully fetched,
 // and therefore processed from Hotshot.
-func (s *BatchStreamer[B]) processHotShotRange(ctx context.Context, start, finish uint64) error {
+func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish uint64) error {
 	// Process the new batches fetched from Espresso
 	for height := start; height <= finish; height++ {
 		s.Log.Trace("Fetching HotShot block", "block", height)
@@ -331,8 +362,72 @@ func (s *BatchStreamer[B]) processHotShotRange(ctx context.Context, start, finis
 			continue
 		}
 
-		s.processEspressoTransactions(ctx, height, txns)
+		for _, txn := range txns.Transactions {
+			s.processEspressoTransaction(ctx, txn)
+		}
 	}
+
+	return nil
+}
+
+// streamHotShotRange is a helper method that will load all transactions from
+// Hotshot from start to finish, inclusive. It will process each transaction and
+// update the batch buffer with any valid batches.
+// It will also update the hotShotPos to the last block processed, in order
+// to effectively keep track of the last block we have successfully fetched,
+// and therefore processed from Hotshot.
+func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish uint64) error {
+	stream, err := s.EspressoClient.StreamTransactionsInNamespace(ctx, start, s.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to stream transactions: %w", err)
+	}
+
+	defer func() {
+		go func() {
+			err := stream.Close()
+			if err != nil {
+				s.Log.Error("Failed to close stream", "err", err)
+			}
+		}()
+	}()
+
+	// We give query service a bigger timeout on stream initialisation, as it may take awhile
+	timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+
+	// Process the new batches fetched from Espresso
+	for {
+		txn, err := stream.Next(timeoutCtx)
+		cancel()
+
+		if err != nil {
+			// Don't error out on timeout, most likely it just indicates that
+			// next transaction isn't available yet
+			if timeoutCtx.Err() != nil {
+				s.Log.Info("Stream timed out")
+				return nil
+			}
+			return fmt.Errorf("failed to fetch next transaction: %w", err)
+		}
+
+		s.Log.Warn("Fetched Transaction", "block", txn.BlockHeight, "hash", txn.Hash)
+
+		if txn.BlockHeight > finish {
+			break
+		}
+
+		// We want to keep track of the latest block we have fully processed.
+		// This is essential for ensuring we don't unnecessarily keep
+		// refetching the same blocks that we have already processed.
+		// This should ensure that we keep moving forward and consuming
+		// from the Espresso Blocks without missing any blocks.
+		s.hotShotPos = txn.BlockHeight - 1
+
+		s.processEspressoTransaction(ctx, txn.Transaction.Payload)
+
+		// Set up smaller timeout for subsequent iterations
+		timeoutCtx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
+	}
+	cancel()
 
 	return nil
 }
@@ -382,48 +477,40 @@ func (s *BatchStreamer[B]) processRemainingBatches(ctx context.Context) {
 	}
 }
 
-// processEspressoTransactions is a helper method that encapsulates the logic of
+// processEspressoTransaction is a helper method that encapsulates the logic of
 // processing batches from the transactions in a block fetched from Espresso.
-func (s *BatchStreamer[B]) processEspressoTransactions(ctx context.Context, i uint64, txns espressoClient.TransactionsInBlock) {
-	for _, transaction := range txns.Transactions {
-		batch, err := s.UnmarshalBatch(transaction)
-		if err != nil {
-			s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
-			continue
-		}
-
-		validity, pos := s.CheckBatch(ctx, *batch)
-
-		switch validity {
-
-		case BatchDrop:
-			s.Log.Info("Dropping batch", batch)
-			continue
-
-		case BatchPast:
-			s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
-			continue
-
-		case BatchUndecided:
-			hash := (*batch).Hash()
-			if existingBatch, ok := s.RemainingBatches[hash]; ok {
-				s.Log.Warn("Batch already in buffer", "batch", existingBatch)
-			}
-			s.RemainingBatches[hash] = *batch
-			continue
-
-		case BatchAccept:
-			s.Log.Info("Inserting accepted batch")
-
-		case BatchFuture:
-			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
-			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
-			continue
-		}
-
-		s.Log.Trace("Inserting batch into buffer", "batch", batch)
-		s.BatchBuffer.Insert(*batch, pos)
+func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, transaction espressoCommon.Bytes) {
+	batch, err := s.UnmarshalBatch(transaction)
+	if err != nil {
+		s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
+		return
 	}
+
+	validity, pos := s.CheckBatch(ctx, *batch)
+
+	switch validity {
+	case BatchDrop:
+		s.Log.Info("Dropping batch", batch)
+
+	case BatchPast:
+		s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
+
+	case BatchUndecided:
+		hash := (*batch).Hash()
+		if existingBatch, ok := s.RemainingBatches[hash]; ok {
+			s.Log.Warn("Batch already in buffer", "batch", existingBatch)
+		}
+		s.RemainingBatches[hash] = *batch
+
+	case BatchAccept:
+		s.Log.Info("Inserting batch into buffer", "batch", batch)
+		s.BatchBuffer.Insert(*batch, pos)
+
+	case BatchFuture:
+		// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
+		s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
+	}
+
 }
 
 // UnmarshalBatch implements EspressoStreamerIFace
