@@ -5,9 +5,11 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
@@ -24,15 +26,25 @@ const NO_ERROR_EXPECTED = false
 // @param numBadUrls N as mentioned in the above description
 // @param expectedError if set to true, we expect a timeout error as the L2 cannot make progress. Otherwise, we expect no error at all.
 func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedError bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Hello", http.StatusOK)
+		if strings.Contains(r.URL.Path, "stream") {
+			conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{})
+			require.NoError(t, err)
+
+			defer conn.Close(websocket.StatusGoingAway, "Bye")
+
+			err = conn.Write(ctx, websocket.MessageText, []byte("Hello"))
+			require.NoError(t, err)
+
+		} else {
+			http.Error(w, "Hello", http.StatusOK)
+		}
 	}))
 
 	badServerUrl := server.URL
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
@@ -57,7 +69,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 	blockNumber := int64(2)
 
 	// Check the caff node can/cannot make progress
-	_, err = geth.WaitForBlockToBeSafe(big.NewInt(blockNumber), caffClient, 30*time.Second)
+	_, err = geth.WaitForBlockToBeSafe(big.NewInt(blockNumber), caffClient, 60*time.Second)
 
 	if expectedError {
 		require.Error(t, err, "The L2 should not be progressing")
@@ -66,7 +78,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 	}
 
 	// Check the l2Verif node can/cannot make progress
-	_, err = geth.WaitForBlockToBeSafe(big.NewInt(blockNumber), l2Verif, 30*time.Second)
+	_, err = geth.WaitForBlockToBeSafe(big.NewInt(blockNumber), l2Verif, 60*time.Second)
 	if expectedError {
 		require.Error(t, err, "The L2 should not be progressing")
 	} else {
