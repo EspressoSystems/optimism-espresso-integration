@@ -2,14 +2,18 @@ package environment
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
+	"time"
 
 	espressoTaggedBase64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
+	"github.com/coder/websocket"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 )
@@ -88,6 +92,13 @@ type proxyRequest struct {
 
 // ServeHTTP implements http.Handler
 func (p *proxyRequest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Check if this is a websocket stream request
+	if isWebSocketStreamRequest(r) {
+		p.proxyWebSocket(w, r)
+		return
+	}
+
+	// Handle regular HTTP requests
 	defer r.Body.Close()
 	buf := new(bytes.Buffer)
 	if _, err := io.Copy(buf, r.Body); err != nil && err != io.EOF {
@@ -133,6 +144,82 @@ func (p *proxyRequest) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = err
 		return
 	}
+}
+
+// proxyWebSocket handles websocket upgrade and proxying
+func (p *proxyRequest) proxyWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Accept the websocket connection from the client
+	clientConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		InsecureSkipVerify: true,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer clientConn.Close(websocket.StatusInternalError, "proxy error")
+
+	// Create websocket URL for the backend
+	backendURL := p.baseURL
+	if backendURL.Scheme == "https" {
+		backendURL.Scheme = "wss"
+	} else {
+		backendURL.Scheme = "ws"
+	}
+	backendURL.Path = r.URL.Path
+	backendURL.RawQuery = r.URL.RawQuery
+
+	// Connect to the backend websocket
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	//nolint:bodyclose // Not applicable to coder/websocket. From the websocket.Dial docs: "You never need to close resp.Body yourself."
+	backendConn, _, err := websocket.Dial(ctx, backendURL.String(), &websocket.DialOptions{})
+	if err != nil {
+		clientConn.Close(websocket.StatusInternalError, "backend connection failed")
+		return
+	}
+	defer backendConn.Close(websocket.StatusNormalClosure, "")
+
+	// Proxy messages bidirectionally
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+
+	// Client to backend
+	go func() {
+		defer cancel()
+		for {
+			msgType, data, err := clientConn.Read(ctx)
+			if err != nil {
+				return
+			}
+			err = backendConn.Write(ctx, msgType, data)
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	// Backend to client
+	go func() {
+		defer cancel()
+		for {
+			msgType, data, err := backendConn.Read(ctx)
+			if err != nil {
+				return
+			}
+			err = clientConn.Write(ctx, msgType, data)
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	// Wait until context is cancelled (one of the goroutines finished)
+	<-ctx.Done()
+
+	// Close connections gracefully
+	clientConn.Close(websocket.StatusNormalClosure, "")
+	backendConn.Close(websocket.StatusNormalClosure, "")
 }
 
 // fakeSubmitTransactionSuccess is a simple HTTP handler that simulates a
@@ -302,6 +389,13 @@ func stringEquals(s string) func(string) bool {
 func isSubmitTransactionRequest(r *http.Request) bool {
 	return requestMatchesPath(r, http.MethodPost, stringEquals("/submit/submit")) ||
 		requestMatchesPath(r, http.MethodPost, stringEquals("/v0/submit/submit"))
+}
+
+// isWebSocketStreamRequest checks if the request is a websocket request
+// matching the pattern "vN/stream/*" where N is an integer.
+func isWebSocketStreamRequest(r *http.Request) bool {
+	matched, _ := regexp.MatchString(`/stream/`, r.URL.Path)
+	return matched
 }
 
 // DecideHowToHandleRequest implements InterceptHandlerDecider
