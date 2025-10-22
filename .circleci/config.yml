@@ -1436,7 +1436,7 @@ jobs:
       - run:
           name: download espresso-network go sdk
           command: |
-            ver=$(grep "github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
+            ver=$(grep "^\s*github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
             url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"
             mkdir -p /home/circleci/local-lib
             wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
@@ -1598,7 +1598,7 @@ jobs:
       - run:
           name: download espresso-network go sdk
           command: |
-            ver=$(grep "github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
+            ver=$(grep "^\s*github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
             url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"
             mkdir -p /home/circleci/local-lib
             wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
