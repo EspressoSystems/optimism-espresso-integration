@@ -493,7 +493,7 @@ services:
       OP_CHALLENGER_TRACE_TYPE: permissioned
 
   espresso-dev-node:
-    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake
+    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-fix-cors
     depends_on:
       l1-geth:
         condition: service_healthy
