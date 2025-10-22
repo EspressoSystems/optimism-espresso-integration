@@ -53,7 +53,7 @@ espresso-enclave-tests:
   ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{espresso_tests_timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
 
 
-IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-colorful-snake"
+IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-fix-cors"
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 

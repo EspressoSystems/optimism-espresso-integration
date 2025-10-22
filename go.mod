@@ -6,7 +6,7 @@ toolchain go1.24.10
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/EspressoSystems/espresso-network/sdks/go v0.2.1
+	github.com/EspressoSystems/espresso-network/sdks/go v0.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/andybalholm/brotli v1.1.0
 	github.com/base/go-bip39 v1.1.0
@@ -114,6 +114,8 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
+	github.com/coder/websocket v1.8.13 // indirect
+	github.com/consensys/bavard v0.1.27 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -332,3 +334,5 @@ exclude (
 	github.com/kataras/iris/v12 v12.2.0
 	github.com/kataras/iris/v12 v12.2.11
 )
+
+replace github.com/EspressoSystems/espresso-network/sdks/go => github.com/EspressoSystems/espresso-network/sdks/go v0.3.2-0.20251007163344-504ab95333c0
