@@ -3,6 +3,7 @@ package espresso_test
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"math/big"
@@ -176,6 +177,73 @@ func (ErrorNotFound) Error() string {
 // ErrNotFound is an instance of ErrorNotFound that can be used to indicate
 // that a requested resource was not found.
 var ErrNotFound error = ErrorNotFound{}
+
+type MockTransactionStream struct {
+	pos       uint64
+	subPos    uint64
+	end       uint64
+	namespace uint64
+	source    *MockStreamerSource
+}
+
+func (ms *MockTransactionStream) Next(ctx context.Context) (*espressoCommon.TransactionQueryData, error) {
+	raw, err := ms.NextRaw(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var transaction espressoCommon.TransactionQueryData
+	if err := json.Unmarshal(raw, &transaction); err != nil {
+		return nil, err
+	}
+	return &transaction, nil
+}
+
+func (ms *MockTransactionStream) NextRaw(ctx context.Context) (json.RawMessage, error) {
+	for {
+		transactions, err := ms.source.FetchTransactionsInBlock(ctx, ms.pos, ms.namespace)
+		if err != nil {
+			// We will return error on NotFound as well to speed up tests.
+			// More faithful imitation of HotShot streaming API would be to hang
+			// until we receive new transactions, but that would slow down some
+			// tests significantly, because streamer would wait for full timeout
+			// threshold here before finishing update.
+			return nil, err
+		}
+		if len(transactions.Transactions) > int(ms.subPos) {
+			transaction := &espressoCommon.TransactionQueryData{
+				BlockHeight: ms.pos,
+				Index:       ms.subPos,
+				Transaction: espressoCommon.Transaction{
+					Payload:   transactions.Transactions[int(ms.subPos)],
+					Namespace: ms.namespace,
+				},
+			}
+			ms.subPos += 1
+			return json.Marshal(transaction)
+		} else {
+			ms.subPos = 0
+			ms.pos += 1
+		}
+	}
+}
+
+func (ms *MockTransactionStream) Close() error {
+	return nil
+}
+
+func (m *MockStreamerSource) StreamTransactionsInNamespace(ctx context.Context, height uint64, namespace uint64) (espressoClient.Stream[espressoCommon.TransactionQueryData], error) {
+	if m.LatestEspHeight < height {
+		return nil, ErrNotFound
+	}
+
+	return &MockTransactionStream{
+		pos:       height,
+		subPos:    0,
+		end:       m.LatestEspHeight,
+		namespace: namespace,
+		source:    m,
+	}, nil
+}
 
 func (m *MockStreamerSource) FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error) {
 	if m.LatestEspHeight < blockHeight {
