@@ -39,25 +39,6 @@ COPY . /app
 ARG GIT_COMMIT
 ARG GIT_DATE
 
-# Rust builder for Espresso crypto libraries
-FROM rust:1.88.0-alpine3.22 AS rust-builder
-# TODO: Check the hash of the Espresso GO library when switch to the new one.
-# <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210755885228839?focus=true>
-ARG ESPRESSO_NETWORK_GO_VER=0.0.34
-RUN apk add perl make openssl-dev musl-dev gcc
-ADD https://github.com/EspressoSystems/espresso-network-go/archive/refs/tags/v$ESPRESSO_NETWORK_GO_VER.tar.gz /source.tgz
-RUN tar -oxzf /source.tgz
-WORKDIR /espresso-network-go-$ESPRESSO_NETWORK_GO_VER
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-  --mount=type=cache,target=/usr/local/cargo/git/db \
-  --mount=type=cache,target=/espresso-network-go/verification/rust/target \
-  cargo build --release  --locked  --manifest-path ./verification/rust/Cargo.toml
-RUN mkdir -p /libespresso
-RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
-  /libespresso/libespresso_crypto_helper-aarch64-unknown-linux-gnu.a
-RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
-  /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
-
 # CGO builder for components that need Espresso crypto linking
 FROM golang:1.23.8-alpine3.20 AS op-cgo-builder
 # Install dependencies
@@ -70,11 +51,19 @@ RUN case $(uname -m) in \
   esac && \
   curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-$JUST_ARCH-unknown-linux-musl.tar.gz | \
   tar xz -C /usr/local/bin just
+# Fetch rust libs for dynamic linking
+ARG ESPRESSO_SDK_VER=0.3.2
+ARG ESPRESSO_SDK_HELPER_HASH_AARCH64=ec6ce7b37edd173206ad338c84a6a771a0e9dc8b184081af7440ebfc0c531a71
+ARG ESPRESSO_SDK_HELPER_HASH_X86_64=49c50949ec1acf52107cb190c90911e05cc9c4e9d72dd7455496163443760b92
+ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_AARCH64} \
+  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so \
+  /lib/
+ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_X86_64} \
+  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so \
+  /lib/
 # Go sources
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
-# Copy rust libs for dynamic linking
-COPY --from=rust-builder /libespresso/* /lib
 # Warm-up the cache
 WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
