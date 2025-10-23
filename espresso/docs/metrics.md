@@ -69,7 +69,7 @@ Non-errors that can indicate preconditions for a problem to occur:
 - New L2 unsafe blocks
   `"Inserted new L2 unsafe block"`
 - New L2 safe blocks
-  `"Derivation complete: reached L2 block as safe"`
+  `"safe head updated"`
 
 ### Recoverable Errors
 
@@ -95,7 +95,8 @@ Events that need to raise urgent alerts as they indicate full chain stall:
 - New L2 unsafe blocks
   `"Inserted new L2 unsafe block"`
 - New L2 safe blocks
-  `"Derivation complete: reached L2 block as safe"`
+  Either `"safe head updated"` or `"Hit finalized L2 head, returning immediately"` with increasing
+  L2 safe number. The former is the normal case, and the latter happens after a reset.
 
 ### Recoverable Errors
 
