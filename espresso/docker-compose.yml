@@ -225,6 +225,7 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
+      - --log.level=debug
 
   op-node-verifier:
     build:
@@ -262,6 +263,7 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
+      - --log.level=debug
 
   caff-node:
     build:
