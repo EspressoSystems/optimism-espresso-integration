@@ -53,7 +53,7 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "FETCH_API"),
 			Category: category,
 		},
-		&cli.StringFlag{
+		&cli.StringSliceFlag{
 			Name:     QueryServiceUrlsFlagName,
 			Usage:    "Comma-separated list of Espresso query service URLs",
 			EnvVars:  espressoEnvs(envPrefix, "URLS"),
@@ -114,13 +114,13 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		L1URL:        c.String(L1UrlFlagName),
 	}
 
-	urlsStr := c.String(QueryServiceUrlsFlagName)
-	config.QueryServiceURLs = strings.Split(urlsStr, ",")
+	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
 
 	addrStr := c.String(LightClientAddrFlagName)
 	config.LightClientAddr = common.HexToAddress(addrStr)
 
 	pkStr := c.String(TestingBatcherPrivateKeyFlagName)
+	pkStr = strings.TrimPrefix(pkStr, "0x")
 	pk, err := crypto.HexToECDSA(pkStr)
 	if err == nil {
 		config.TestingBatcherPrivateKey = pk

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/urfave/cli/v2"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
@@ -124,10 +125,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoPollInterval             time.Duration
-	EspressoUrls                     []string
-	EspressoLightClientAddr          string
-	TestingEspressoBatcherPrivateKey string
+	Espresso espresso.CLIConfig
 }
 
 func (c *CLIConfig) Check() error {
@@ -185,6 +183,14 @@ func (c *CLIConfig) Check() error {
 	if err := c.RPC.Check(); err != nil {
 		return err
 	}
+
+	if c.Espresso.L1URL == "" {
+		c.Espresso.L1URL = c.L1EthRpc
+	}
+	if err := c.Espresso.Check(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -225,9 +231,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		ThrottleAlwaysBlockSize:      ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
 		PreferLocalSafeL2:            ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
 
-		EspressoUrls:                     ctx.StringSlice(flags.EspressoUrlsFlag.Name),
-		EspressoLightClientAddr:          ctx.String(flags.EspressoLCAddrFlag.Name),
-		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
-		EspressoPollInterval:             ctx.Duration(flags.EspressoPollIntervalFlag.Name),
+		Espresso: espresso.ReadCLIConfig(ctx),
 	}
 }
