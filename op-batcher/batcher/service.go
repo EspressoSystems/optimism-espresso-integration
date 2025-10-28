@@ -136,7 +136,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	}
 	opts = append(optsFromRPC, opts...)
 
-	// MultipleNodesClient requires at least 2 URLs.
 	if cfg.Espresso.Enabled {
 		bs.EspressoPollInterval = cfg.Espresso.PollInterval
 		client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)

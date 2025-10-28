@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/urfave/cli/v2"
 
@@ -185,6 +186,7 @@ func (c *CLIConfig) Check() error {
 	}
 
 	if c.Espresso.L1URL == "" {
+		log.Warn("Espresso L1 URL not provided, using L1EthRpc")
 		c.Espresso.L1URL = c.L1EthRpc
 	}
 	if err := c.Espresso.Check(); err != nil {
