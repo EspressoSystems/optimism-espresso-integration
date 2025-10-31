@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/opnode"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -111,13 +112,13 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 
 	caffNodeConfig := *system.Cfg.Nodes[e2esys.RoleVerif]
 	caffNodeConfig.Rollup = *system.RollupConfig
-	caffNodeConfig.Rollup.CaffNodeConfig = rollup.CaffNodeConfig{
-		IsCaffNode:                    true,
-		PollingHotShotPollingInterval: 30 * time.Millisecond,
+	caffNodeConfig.Rollup.CaffNodeConfig = espresso.CLIConfig{
+		Enabled:      true,
+		PollInterval: 30 * time.Millisecond,
 		// To create a valid multiple nodes client, we need to provide at least 2 URLs.
-		HotShotUrls:             []string{u.String(), u.String()},
-		L1EthRpc:                system.L1.UserRPC().RPC(),
-		EspressoLightClientAddr: ESPRESSO_LIGHT_CLIENT_ADDRESS,
+		QueryServiceURLs: []string{u.String(), u.String()},
+		L1URL:            system.L1.UserRPC().RPC(),
+		LightClientAddr:  common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS),
 	}
 
 	// Configure
