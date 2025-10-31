@@ -30,7 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	gethNode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
@@ -555,7 +554,7 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) E2eDevnetLauncherOption {
 				{
 					Role: "set-batcher-key",
 					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
-						c.TestingEspressoBatcherPrivateKey = hexutil.Encode(crypto.FromECDSA(&privateKey))
+						c.Espresso.TestingBatcherPrivateKey = &privateKey
 					},
 				},
 			},
@@ -574,7 +573,7 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLaun
 				{
 					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
 
-						goodUrl := c.EspressoUrls[0]
+						goodUrl := c.Espresso.QueryServiceURLs[0]
 						var urls []string
 
 						for i := 0; i < numGood; i++ {
@@ -584,7 +583,7 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLaun
 						for i := 0; i < numBad; i++ {
 							urls = append(urls, badServerUrl)
 						}
-						c.EspressoUrls = urls
+						c.Espresso.QueryServiceURLs = urls
 					},
 				},
 			},
@@ -864,10 +863,10 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			}
 			ct.EspressoDevNode = espressoDevNode
 
-			c.EspressoUrls = espressoDevNode.espressoUrls
+			c.Espresso.Enabled = true
+			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
-			c.TestingEspressoBatcherPrivateKey = "0x" + config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY
-			c.EspressoLightClientAddr = ESPRESSO_LIGHT_CLIENT_ADDRESS
+			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
 		},
 	}
 

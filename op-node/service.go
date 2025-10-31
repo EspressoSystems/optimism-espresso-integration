@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/config"
@@ -250,7 +251,7 @@ func NewRollupConfigFromCLI(log log.Logger, ctx cliiface.Context) (*rollup.Confi
 	}
 	applyOverrides(ctx, rollupConfig)
 
-	rollupConfig.CaffNodeConfig = *NewCaffNodeConfig(ctx)
+	rollupConfig.CaffNodeConfig = espresso.ReadCLIConfig(ctx)
 
 	return rollupConfig, nil
 }
@@ -378,15 +379,4 @@ func NewSyncConfig(ctx cliiface.Context, log log.Logger) (*sync.Config, error) {
 		cfg.SyncMode = sync.ELSync
 	}
 	return cfg, nil
-}
-
-func NewCaffNodeConfig(ctx *cli.Context) *rollup.CaffNodeConfig {
-	return &rollup.CaffNodeConfig{
-		IsCaffNode:                    ctx.Bool(flags.CaffNodeFlag.Name),
-		NextHotShotBlockNum:           ctx.Uint64(flags.CaffNodeNextHotShotBlockNum.Name),
-		PollingHotShotPollingInterval: ctx.Duration(flags.CaffNodePollingHotShotPollingInterval.Name),
-		HotShotUrls:                   ctx.StringSlice(flags.CaffNodeHotShotUrls.Name),
-		L1EthRpc:                      ctx.String(flags.CaffNodeL1EthRpc.Name),
-		EspressoLightClientAddr:       ctx.String(flags.CaffNodeEspressoLightClientAddr.Name),
-	}
 }

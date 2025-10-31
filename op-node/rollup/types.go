@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-core/forks"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -167,19 +168,9 @@ type Config struct {
 	PectraBlobScheduleTime *uint64 `json:"pectra_blob_schedule_time,omitempty"`
 
 	// Caff Node config
-	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
+	CaffNodeConfig espresso.CLIConfig `json:"caff_node_config,omitempty"`
 
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
-}
-
-// CaffNodeConfig is the config for the Caff Node
-type CaffNodeConfig struct {
-	IsCaffNode                    bool
-	NextHotShotBlockNum           uint64
-	PollingHotShotPollingInterval time.Duration
-	HotShotUrls                   []string
-	L1EthRpc                      string
-	EspressoLightClientAddr       string
 }
 
 // ValidateL1Config checks L1 config variables for errors.
