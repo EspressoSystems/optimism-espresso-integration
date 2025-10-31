@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
@@ -93,6 +94,8 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						// as Odyn proxy inside the enclave doesn't support websocket
 						l1Rpc := sys.L1.UserRPC().(endpoint.HttpRPC).HttpRPC()
 						appendArg(&args, flags.L1EthRpcFlag.Name, l1Rpc)
+						appendArg(&args, txmgr.L1RPCFlagName, l1Rpc)
+						appendArg(&args, espresso.L1UrlFlagName, l1Rpc)
 						l2EthRpc := sys.EthInstances[e2esys.RoleSeq].UserRPC().(endpoint.HttpRPC).HttpRPC()
 						appendArg(&args, flags.L2EthRpcFlag.Name, l2EthRpc)
 						rollupRpc := sys.RollupNodes[e2esys.RoleSeq].UserRPC().(endpoint.HttpRPC).HttpRPC()
@@ -106,8 +109,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						appendArg(&args, flags.CompressionAlgoFlag.Name, c.CompressionAlgo.String())
 						appendArg(&args, flags.CompressorFlag.Name, c.Compressor)
 						appendArg(&args, flags.DataAvailabilityTypeFlag.Name, c.DataAvailabilityType.String())
-						appendArg(&args, flags.EspressoLCAddrFlag.Name, c.EspressoLightClientAddr)
-						appendArg(&args, flags.EspressoPollIntervalFlag.Name, c.EspressoPollInterval)
 						appendArg(&args, flags.MaxBlocksPerSpanBatch.Name, c.MaxBlocksPerSpanBatch)
 						appendArg(&args, flags.MaxChannelDurationFlag.Name, c.MaxChannelDuration)
 						appendArg(&args, flags.MaxL1TxSizeBytesFlag.Name, c.MaxL1TxSize)
@@ -121,11 +122,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						appendArg(&args, flags.ThrottleThresholdFlag.Name, c.ThrottleThreshold)
 						appendArg(&args, flags.ThrottleTxSizeFlag.Name, c.ThrottleTxSize)
 						appendArg(&args, flags.WaitNodeSyncFlag.Name, c.WaitNodeSync)
-						for _, url := range c.EspressoUrls {
-							appendArg(&args, flags.EspressoUrlsFlag.Name, url)
-						}
-						appendArg(&args, flags.EspressoLCAddrFlag.Name, c.EspressoLightClientAddr)
-						appendArg(&args, flags.TestingEspressoBatcherPrivateKeyFlag.Name, c.TestingEspressoBatcherPrivateKey)
 
 						// TxMgr flags
 						appendArg(&args, txmgr.MnemonicFlagName, c.TxMgrConfig.Mnemonic)
@@ -175,6 +171,16 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						appendArg(&args, altda.PutTimeoutFlagName, c.AltDA.PutTimeout)
 						appendArg(&args, altda.GetTimeoutFlagName, c.AltDA.GetTimeout)
 						appendArg(&args, altda.MaxConcurrentRequestsFlagName, c.AltDA.MaxConcurrentRequests)
+
+						// Espresso flags
+						appendArg(&args, espresso.EnabledFlagName, c.Espresso.Enabled)
+						appendArg(&args, espresso.PollIntervalFlagName, c.Espresso.PollInterval)
+						appendArg(&args, espresso.LightClientAddrFlagName, c.Espresso.LightClientAddr)
+						appendArg(&args, espresso.TestingBatcherPrivateKeyFlagName, hexutil.Encode(crypto.FromECDSA(c.Espresso.TestingBatcherPrivateKey)))
+						appendArg(&args, espresso.UseFetchApiFlagName, c.Espresso.UseFetchAPI)
+						for _, url := range c.Espresso.QueryServiceURLs {
+							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
+						}
 
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {

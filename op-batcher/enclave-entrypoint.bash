@@ -6,7 +6,7 @@
 # to directly pass commandline arguments when starting EIF images)
 
 # We will need to start a proxy for each of those urls
-URL_ARG_RE='^(--altda\.da-server|--espresso-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)$'
+URL_ARG_RE='^(--altda\.da-server|--espresso\.urls|--espresso.\l1-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
 
 # Re-populate the arguments passed through the environment
 if [ -n "$ENCLAVE_BATCHER_ARGS" ]; then
