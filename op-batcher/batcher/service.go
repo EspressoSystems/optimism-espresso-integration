@@ -14,8 +14,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/hf/nitrite"
@@ -196,15 +194,14 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 		return err
 	}
 
-	// MultipleNodesClient requires at least 2 URLs.
-	if len(cfg.EspressoUrls) > 1 {
-		bs.EspressoPollInterval = cfg.EspressoPollInterval
-		client, err := espressoClient.NewMultipleNodesClient(cfg.EspressoUrls)
+	if cfg.Espresso.Enabled {
+		bs.EspressoPollInterval = cfg.Espresso.PollInterval
+		client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso client: %w", err)
 		}
 		bs.Espresso = client
-		espressoLightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.EspressoLightClientAddr), bs.L1Client)
+		espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
 		if err != nil {
 			return fmt.Errorf("failed to create Espresso light client")
 		}
@@ -220,9 +217,9 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
 
 			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
-			privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(cfg.TestingEspressoBatcherPrivateKey, "0x"))
-			if err != nil {
-				return fmt.Errorf("failed to parse batcher's testing private key (%v): %w", cfg.TestingEspressoBatcherPrivateKey, err)
+			privateKey := cfg.Espresso.TestingBatcherPrivateKey
+			if privateKey == nil {
+				return fmt.Errorf("when not running in enclave, testing batcher private key should be set")
 			}
 
 			publicKey := privateKey.Public()
