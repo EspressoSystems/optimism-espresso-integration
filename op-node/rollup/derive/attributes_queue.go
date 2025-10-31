@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -77,7 +76,7 @@ type SingularBatchProvider interface {
 
 func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.BatchStreamer[EspressoBatch] {
 
-	if !cfg.CaffNodeConfig.IsCaffNode {
+	if !cfg.CaffNodeConfig.Enabled {
 		log.Info("Espresso streamer not initialized: Caff node is not enabled")
 		return nil
 	}
@@ -85,19 +84,19 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 	// Create an adapter that implements espresso.L1Client
 	l1BlockRefClient := NewL1BlockRefClient(l1Fetcher)
 
-	l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.L1EthRpc)
+	l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.L1URL)
 	if err != nil {
 		log.Error("Espresso streamer not initialized: Failed to connect to L1", "err", err)
 		return nil
 	}
 
-	lightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(cfg.CaffNodeConfig.EspressoLightClientAddr), l1Client)
+	lightClient, err := espressoLightClient.NewLightclientCaller(cfg.CaffNodeConfig.LightClientAddr, l1Client)
 	if err != nil {
 		log.Error("Espresso streamer not initialized: Failed to connect to light client", "err", err)
 		return nil
 	}
 
-	client, err := espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.HotShotUrls)
+	client, err := espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.QueryServiceURLs)
 	if err != nil {
 		log.Error("Espresso streamer not initialized: Failed to connect to hotshot client", "err", err)
 		return nil
@@ -111,12 +110,12 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 		func(data []byte) (*EspressoBatch, error) {
 			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
 		},
-		cfg.CaffNodeConfig.PollingHotShotPollingInterval,
+		cfg.CaffNodeConfig.PollInterval,
 	)
 
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
 
-	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "next hotshot block num", cfg.CaffNodeConfig.NextHotShotBlockNum, "polling hotshot polling interval", cfg.CaffNodeConfig.PollingHotShotPollingInterval, "hotshot urls", cfg.CaffNodeConfig.HotShotUrls)
+	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "polling hotshot polling interval", cfg.CaffNodeConfig.PollInterval, "hotshot urls", cfg.CaffNodeConfig.QueryServiceURLs)
 	return streamer
 }
 
@@ -126,7 +125,7 @@ func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBu
 		config:           cfg,
 		builder:          builder,
 		prev:             prev,
-		isCaffNode:       cfg.CaffNodeConfig.IsCaffNode,
+		isCaffNode:       cfg.CaffNodeConfig.Enabled,
 		espressoStreamer: initEspressoStreamer(log, cfg, l1Fetcher),
 	}
 }

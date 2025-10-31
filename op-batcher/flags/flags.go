@@ -8,6 +8,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -59,12 +60,6 @@ var (
 		Usage:   "How frequently to poll L2 for new blocks",
 		Value:   100 * time.Millisecond,
 		EnvVars: prefixEnvVars("POLL_INTERVAL"),
-	}
-	EspressoPollIntervalFlag = &cli.DurationFlag{
-		Name:    "espresso-poll-interval",
-		Usage:   "How frequently to poll Espresso for new batches",
-		Value:   6 * time.Second,
-		EnvVars: prefixEnvVars("ESPRESSO_POLL_INTERVAL"),
 	}
 	MaxPendingTransactionsFlag = &cli.Uint64Flag{
 		Name:    "max-pending-tx",
@@ -183,6 +178,12 @@ var (
 		Value:   "",
 		EnvVars: prefixEnvVars("TESTING_ESPRESSO_BATCHER_PRIVATE_KEY"),
 	}
+	PreferLocalSafeL2Flag = &cli.BoolFlag{
+		Name:    "prefer-local-safe-l2",
+		Usage:   "Load unsafe blocks higher than the sequencer's LocalSafeL2 instead of SafeL2",
+		Value:   false,
+		EnvVars: prefixEnvVars("PREFER_LOCAL_SAFE_L2"),
+	}
 	// Legacy Flags
 	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
 )
@@ -215,6 +216,7 @@ var optionalFlags = []cli.Flag{
 	EspressoLCAddrFlag,
 	EspressoPollIntervalFlag,
 	TestingEspressoBatcherPrivateKeyFlag,
+	PreferLocalSafeL2Flag,
 }
 
 func init() {
@@ -225,6 +227,7 @@ func init() {
 	optionalFlags = append(optionalFlags, oppprof.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, txmgr.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, "")...)
+	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, "")...)
 
 	Flags = append(requiredFlags, optionalFlags...)
 }
