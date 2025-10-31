@@ -17,6 +17,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -34,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -55,7 +60,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/opnode"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/services"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/setuputils"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	config2 "github.com/ethereum-optimism/optimism/op-node/config"
 	rollupNode "github.com/ethereum-optimism/optimism/op-node/node"
@@ -78,7 +82,6 @@ import (
 	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
 )
 
 const (
@@ -1013,6 +1016,17 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		batcherTargetNumFrames = 1
 	}
 
+	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse pre-approved batcher private key: %w", err)
+	}
+	espressoCfg := espresso.CLIConfig{
+		Enabled:                  (cfg.AllocType == config.AllocTypeEspressoWithEnclave) || (cfg.AllocType == config.AllocTypeEspressoWithoutEnclave),
+		PollInterval:             250 * time.Millisecond,
+		L1URL:                    sys.EthInstances[RoleL1].UserRPC().RPC(),
+		TestingBatcherPrivateKey: testingBatcherPk,
+	}
+
 	batcherCLIConfig := &bss.CLIConfig{
 		L1EthRpc:                 sys.EthInstances[RoleL1].UserRPC().RPC(),
 		L2EthRpc:                 []string{sys.EthInstances[RoleSeq].UserRPC().RPC()},
@@ -1025,7 +1039,6 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		ApproxComprRatio:         0.4,
 		SubSafetyMargin:          4,
 		PollInterval:             50 * time.Millisecond,
-		EspressoPollInterval:     250 * time.Millisecond,
 		TxMgrConfig:              setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), cfg.Secrets.Batcher),
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
@@ -1037,6 +1050,8 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		DataAvailabilityType:  sys.Cfg.DataAvailabilityType,
 		CompressionAlgo:       derive.Zlib,
 		AltDA:                 altDACLIConfig,
+
+		Espresso: espressoCfg,
 	}
 
 	// Apply batcher cli modifications

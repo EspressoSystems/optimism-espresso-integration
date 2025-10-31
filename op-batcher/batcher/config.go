@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/urfave/cli/v2"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
@@ -109,6 +111,9 @@ type CLIConfig struct {
 	// ThrottleAlwaysBlockSize is the total per-block DA limit to always imposing on block building.
 	ThrottleAlwaysBlockSize uint64
 
+	// PreferLocalSafeL2 triggers the batcher to load blocks from the sequencer based on the LocalSafeL2 SyncStatus field (instead of the SafeL2 field).
+	PreferLocalSafeL2 bool
+
 	// TestUseMaxTxSizeForBlobs allows to set the blob size with MaxL1TxSize.
 	// Should only be used for testing purposes.
 	TestUseMaxTxSizeForBlobs bool
@@ -123,10 +128,7 @@ type CLIConfig struct {
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
 
-	EspressoPollInterval             time.Duration
-	EspressoUrls                     []string
-	EspressoLightClientAddr          string
-	TestingEspressoBatcherPrivateKey string
+	Espresso espresso.CLIConfig
 }
 
 func (c *CLIConfig) Check() error {
@@ -184,6 +186,15 @@ func (c *CLIConfig) Check() error {
 	if err := c.RPC.Check(); err != nil {
 		return err
 	}
+
+	if c.Espresso.L1URL == "" {
+		log.Warn("Espresso L1 URL not provided, using L1EthRpc")
+		c.Espresso.L1URL = c.L1EthRpc
+	}
+	if err := c.Espresso.Check(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -198,34 +209,33 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
 
 		/* Optional Flags */
-		MaxPendingTransactions:           ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
-		MaxChannelDuration:               ctx.Uint64(flags.MaxChannelDurationFlag.Name),
-		MaxL1TxSize:                      ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
-		MaxBlocksPerSpanBatch:            ctx.Int(flags.MaxBlocksPerSpanBatch.Name),
-		TargetNumFrames:                  ctx.Int(flags.TargetNumFramesFlag.Name),
-		ApproxComprRatio:                 ctx.Float64(flags.ApproxComprRatioFlag.Name),
-		Compressor:                       ctx.String(flags.CompressorFlag.Name),
-		CompressionAlgo:                  derive.CompressionAlgo(ctx.String(flags.CompressionAlgoFlag.Name)),
-		Stopped:                          ctx.Bool(flags.StoppedFlag.Name),
-		WaitNodeSync:                     ctx.Bool(flags.WaitNodeSyncFlag.Name),
-		CheckRecentTxsDepth:              ctx.Int(flags.CheckRecentTxsDepthFlag.Name),
-		BatchType:                        ctx.Uint(flags.BatchTypeFlag.Name),
-		DataAvailabilityType:             flags.DataAvailabilityType(ctx.String(flags.DataAvailabilityTypeFlag.Name)),
-		ActiveSequencerCheckDuration:     ctx.Duration(flags.ActiveSequencerCheckDurationFlag.Name),
-		TxMgrConfig:                      txmgr.ReadCLIConfig(ctx),
-		LogConfig:                        oplog.ReadCLIConfig(ctx),
-		MetricsConfig:                    opmetrics.ReadCLIConfig(ctx),
-		PprofConfig:                      oppprof.ReadCLIConfig(ctx),
-		RPC:                              oprpc.ReadCLIConfig(ctx),
-		AltDA:                            altda.ReadCLIConfig(ctx),
-		ThrottleThreshold:                ctx.Uint64(flags.ThrottleThresholdFlag.Name),
-		ThrottleTxSize:                   ctx.Uint64(flags.ThrottleTxSizeFlag.Name),
-		ThrottleBlockSize:                ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
-		ThrottleAlwaysBlockSize:          ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
-		AdditionalThrottlingEndpoints:    ctx.StringSlice(flags.AdditionalThrottlingEndpointsFlag.Name),
-		EspressoUrls:                     ctx.StringSlice(flags.EspressoUrlsFlag.Name),
-		EspressoLightClientAddr:          ctx.String(flags.EspressoLCAddrFlag.Name),
-		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
-		EspressoPollInterval:             ctx.Duration(flags.EspressoPollIntervalFlag.Name),
+		MaxPendingTransactions:        ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
+		MaxChannelDuration:            ctx.Uint64(flags.MaxChannelDurationFlag.Name),
+		MaxL1TxSize:                   ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
+		MaxBlocksPerSpanBatch:         ctx.Int(flags.MaxBlocksPerSpanBatch.Name),
+		TargetNumFrames:               ctx.Int(flags.TargetNumFramesFlag.Name),
+		ApproxComprRatio:              ctx.Float64(flags.ApproxComprRatioFlag.Name),
+		Compressor:                    ctx.String(flags.CompressorFlag.Name),
+		CompressionAlgo:               derive.CompressionAlgo(ctx.String(flags.CompressionAlgoFlag.Name)),
+		Stopped:                       ctx.Bool(flags.StoppedFlag.Name),
+		WaitNodeSync:                  ctx.Bool(flags.WaitNodeSyncFlag.Name),
+		CheckRecentTxsDepth:           ctx.Int(flags.CheckRecentTxsDepthFlag.Name),
+		BatchType:                     ctx.Uint(flags.BatchTypeFlag.Name),
+		DataAvailabilityType:          flags.DataAvailabilityType(ctx.String(flags.DataAvailabilityTypeFlag.Name)),
+		ActiveSequencerCheckDuration:  ctx.Duration(flags.ActiveSequencerCheckDurationFlag.Name),
+		TxMgrConfig:                   txmgr.ReadCLIConfig(ctx),
+		LogConfig:                     oplog.ReadCLIConfig(ctx),
+		MetricsConfig:                 opmetrics.ReadCLIConfig(ctx),
+		PprofConfig:                   oppprof.ReadCLIConfig(ctx),
+		RPC:                           oprpc.ReadCLIConfig(ctx),
+		AltDA:                         altda.ReadCLIConfig(ctx),
+		ThrottleThreshold:             ctx.Uint64(flags.ThrottleThresholdFlag.Name),
+		ThrottleTxSize:                ctx.Uint64(flags.ThrottleTxSizeFlag.Name),
+		ThrottleBlockSize:             ctx.Uint64(flags.ThrottleBlockSizeFlag.Name),
+		ThrottleAlwaysBlockSize:       ctx.Uint64(flags.ThrottleAlwaysBlockSizeFlag.Name),
+		AdditionalThrottlingEndpoints: ctx.StringSlice(flags.AdditionalThrottlingEndpointsFlag.Name),
+		PreferLocalSafeL2:             ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
+
+		Espresso: espresso.ReadCLIConfig(ctx),
 	}
 }
