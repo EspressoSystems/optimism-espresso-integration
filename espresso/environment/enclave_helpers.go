@@ -60,7 +60,9 @@ func appendArg(args *[]string, flagName string, value any) {
 
 	strSliceValue, isStrSlice := value.([]string)
 	if isStrSlice {
-		*args = append(*args, fmt.Sprintf("--%s", flagName), strings.Join(strSliceValue, ","))
+		if len(strSliceValue) > 0 {
+			*args = append(*args, fmt.Sprintf("--%s", flagName), strings.Join(strSliceValue, ","))
+		}
 		return
 	}
 
@@ -91,7 +93,6 @@ func LaunchBatcherInEnclave() DevNetLauncherOption {
 						// as Odyn proxy inside the enclave doesn't support websocket
 						l1Rpc := sys.L1.UserRPC().(endpoint.HttpRPC).HttpRPC()
 						appendArg(&args, flags.L1EthRpcFlag.Name, l1Rpc)
-						appendArg(&args, txmgr.L1RPCFlagName, l1Rpc)
 						l2EthRpc := sys.EthInstances[e2esys.RoleSeq].UserRPC().(endpoint.HttpRPC).HttpRPC()
 						appendArg(&args, flags.L2EthRpcFlag.Name, l2EthRpc)
 						rollupRpc := sys.RollupNodes[e2esys.RoleSeq].UserRPC().(endpoint.HttpRPC).HttpRPC()
