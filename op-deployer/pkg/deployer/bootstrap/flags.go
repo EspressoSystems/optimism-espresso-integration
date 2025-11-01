@@ -159,6 +159,11 @@ var (
 		Usage:   "Superchain proxy admin.",
 		EnvVars: deployer.PrefixEnvVar("SUPERCHAIN_PROXY_ADMIN"),
 	}
+	ChallengerFlag = &cli.StringFlag{
+		Name:    "challenger",
+		Usage:   "Challenger address.",
+		EnvVars: deployer.PrefixEnvVar("CHALLENGER"),
+	}
 	ConfigFileFlag = &cli.StringFlag{
 		Name:    "config",
 		Usage:   "Path to a JSON file",
