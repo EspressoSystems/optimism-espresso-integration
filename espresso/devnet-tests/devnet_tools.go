@@ -110,8 +110,9 @@ func (d *Devnet) Up() (err error) {
 		"docker", "compose", "up", "-d",
 	)
 	cmd.Env = append(
-		cmd.Env,
+		os.Environ(),
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+		"COMPOSE_PROFILES=default",
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
