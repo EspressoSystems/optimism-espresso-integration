@@ -170,6 +170,7 @@ func TestCallDataSourceL1FetcherErrors(t *testing.T) {
 			L2:     refA0.ID(),
 			L2Time: refA0.Time,
 		},
+		L1ChainID:         big.NewInt(1),
 		BlockTime:         1,
 		SeqWindowSize:     20,
 		BatchInboxAddress: batcherInbox,
