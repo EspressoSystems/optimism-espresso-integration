@@ -123,10 +123,10 @@ RUN set -e; \
       sha256sum -c -
 
 # We don't use the golang image for batcher & op-node because it doesn't play well with CGO
-FROM --platform=$BUILDPLATFORM alpine:3.20 AS op-cgo-builder
+FROM --platform=$BUILDPLATFORM golang:1.23.8-alpine3.20 AS op-cgo-builder
 ARG OP_BATCHER_VERSION=v0.0.0
 # Install dependencies
-RUN apk add  musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
+RUN apk add  musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
 # Install just from mise (alpine's outdated and incompatible)
 COPY ./mise.toml .
 RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \

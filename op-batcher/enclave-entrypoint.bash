@@ -6,7 +6,7 @@
 # to directly pass commandline arguments when starting EIF images)
 
 # We will need to start a proxy for each of those urls
-URL_ARG_RE='^(--altda\.da-server|--espresso-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
+URL_ARG_RE='^(--altda\.da-server|--espresso-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)$'
 
 # Re-populate the arguments passed through the environment
 if [ -n "$ENCLAVE_BATCHER_ARGS" ]; then
@@ -27,6 +27,9 @@ fi
 
 unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
 
+# Store the original arguments from ENCLAVE_BATCHER_ARGS
+original_args=("$@")
+
 # Launch nc listener to receive null-separated arguments
 NC_PORT=8337
 received_args=()
@@ -44,11 +47,13 @@ echo "Starting nc listener on port $NC_PORT (60 second timeout)"
 } < <(nc -l -p "$NC_PORT" -w 60)
 
 if [ ${#received_args[@]} -eq 0 ]; then
-    echo "Warning: No arguments received via nc listener within 60 seconds, continuing with existing arguments"
+    echo "Warning: No arguments received via nc listener within 60 seconds, using original arguments"
+    # Use original arguments from ENCLAVE_BATCHER_ARGS
+    set -- "${original_args[@]}"
 else
-    echo "Received ${#received_args[@]} arguments via nc, appending to existing arguments"
-    # Append received arguments to existing positional parameters
-    set -- "$@" "${received_args[@]}"
+    echo "Received ${#received_args[@]} arguments via nc, merging with original arguments"
+    # Merge: original args + received args
+    set -- "${original_args[@]}" "${received_args[@]}"
 fi
 
 wait_for_port() {
@@ -157,3 +162,6 @@ all_args=("${filtered_args[@]}" "${url_args[@]}")
 
 echo "${all_args[@]}"
 op-batcher "${all_args[@]}"
+exit_code=$?
+echo "Debug: op-batcher exited with code $exit_code"
+exit $exit_code

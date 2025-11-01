@@ -62,7 +62,9 @@ op-deployer bootstrap implementations \
                       --artifacts-locator="${ARTIFACTS_DIR}" \
                       --protocol-versions-proxy=`jq -r .protocolVersionsProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
                       --superchain-config-proxy=`jq -r .superchainConfigProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
+                      --superchain-proxy-admin=`jq -r .proxyAdminAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
                       --upgrade-controller="${OPERATOR_ADDRESS}" \
+                      --challenger="${OPERATOR_ADDRESS}" \
                       --outfile="${DEPLOYER_DIR}/bootstrap_implementations.json"
 
 op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
@@ -74,6 +76,7 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t boo
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].preApprovedBatcherKey -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .fundDevAccounts -t bool -v true
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].baseFeeVaultRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].l1FeeVaultRecipient -v "${OPERATOR_ADDRESS}"
