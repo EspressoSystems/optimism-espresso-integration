@@ -6,7 +6,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 # Base builder image
-FROM golang:1.24.5-alpine3.22 AS builder
+FROM golang:1.23.8-alpine3.20 AS builder
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
 
@@ -59,9 +59,9 @@ RUN cp ./verification/rust/target/release/libespresso_crypto_helper.a \
   /libespresso/libespresso_crypto_helper-x86_64-unknown-linux-gnu.a
 
 # CGO builder for components that need Espresso crypto linking
-FROM alpine:3.22 AS op-cgo-builder
+FROM golang:1.23.8-alpine3.20 AS op-cgo-builder
 # Install dependencies
-RUN apk add musl-dev gcc go g++ curl tar gzip make gcc linux-headers git jq bash yq
+RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
 # Install just from mise
 COPY ./mise.toml .
 RUN case $(uname -m) in \
@@ -109,10 +109,8 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-challenger && make op-challenger  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make cannon-prestate  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
-FROM golang:1.24-alpine AS deployment-utils-builder
+FROM golang:1.23-alpine AS deployment-utils-builder
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE
 RUN apk add gcc lld musl-dev # For CGO
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/tomwright/dasel/v2/cmd/dasel@v2.8.1
@@ -175,13 +173,15 @@ RUN apk add jq
 COPY espresso/docker/op-stack/entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 COPY --from=op-proposer-builder /app/op-challenger/bin/op-challenger /usr/local/bin
-COPY --from=op-proposer-builder /app/cannon/bin/cannon /usr/local/bin
-COPY --from=op-proposer-builder /app/op-program/bin/op-program /usr/local/bin
-COPY --from=op-proposer-builder /app/op-program/bin/prestate-proof.json /app/prestate-proof.json
+# Note: cannon, op-program, and prestate-proof.json are not built in this Dockerfile
+# They would require separate builder stages with CGO support
+# COPY --from=op-proposer-builder /app/cannon/bin/cannon /usr/local/bin
+# COPY --from=op-proposer-builder /app/op-program/bin/op-program /usr/local/bin
+# COPY --from=op-proposer-builder /app/op-program/bin/prestate-proof.json /app/prestate-proof.json
 
-ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
-ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
-ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
+# ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
+# ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
+# ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
 ENV ENV_PREFIX OP_CHALLENGER
 
 ENTRYPOINT [ "/bin/entrypoint.sh" ]
