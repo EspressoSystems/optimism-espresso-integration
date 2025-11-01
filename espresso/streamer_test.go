@@ -223,6 +223,18 @@ func (l *NoOpLogger) Crit(msg string, ctx ...interface{})                  { pan
 func (l *NoOpLogger) Write(level slog.Level, msg string, attrs ...any)     {}
 func (l *NoOpLogger) Enabled(ctx context.Context, level slog.Level) bool   { return true }
 func (l *NoOpLogger) Handler() slog.Handler                                { return nil }
+func (l *NoOpLogger) TraceContext(ctx context.Context, msg string, ctxArgs ...interface{}) {}
+func (l *NoOpLogger) DebugContext(ctx context.Context, msg string, ctxArgs ...interface{}) {}
+func (l *NoOpLogger) InfoContext(ctx context.Context, msg string, ctxArgs ...interface{})  {}
+func (l *NoOpLogger) WarnContext(ctx context.Context, msg string, ctxArgs ...interface{})  {}
+func (l *NoOpLogger) ErrorContext(ctx context.Context, msg string, ctxArgs ...interface{}) {}
+func (l *NoOpLogger) CritContext(ctx context.Context, msg string, ctxArgs ...interface{})  {
+	panic("critical error")
+}
+func (l *NoOpLogger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+}
+func (l *NoOpLogger) SetContext(ctx context.Context) {}
+func (l *NoOpLogger) WriteCtx(ctx context.Context, level slog.Level, msg string, args ...any) {}
 
 func createHashFromHeight(height uint64) common.Hash {
 	var hash common.Hash
