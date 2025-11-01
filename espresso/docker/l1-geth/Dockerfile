@@ -1,5 +1,5 @@
 # L1 Geth Dockerfile, modified from ops/docker/deployment-utils/Dockerfile
-FROM golang:1.24-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -12,7 +12,7 @@ RUN apk add --no-cache \
 
 # Build eth-beacon-genesis
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    go install -ldflags '-linkmode external -extldflags "-static"' \
+    GOTOOLCHAIN=auto go install -ldflags '-linkmode external -extldflags "-static"' \
     github.com/ethpandaops/eth-beacon-genesis/cmd/eth-beacon-genesis@703e97a
 
 # Build eth2-val-tools

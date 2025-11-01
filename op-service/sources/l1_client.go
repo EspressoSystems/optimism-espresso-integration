@@ -81,3 +81,8 @@ func (s *L1Client) L1BlockRefByNumber(ctx context.Context, num uint64) (eth.L1Bl
 func (s *L1Client) L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L1BlockRef, error) {
 	return s.BlockRefByHash(ctx, hash)
 }
+
+// L1FinalizedBlock returns the latest finalized L1 block reference.
+func (s *L1Client) L1FinalizedBlock() (eth.L1BlockRef, error) {
+	return s.L1BlockRefByLabel(context.Background(), eth.Finalized)
+}
