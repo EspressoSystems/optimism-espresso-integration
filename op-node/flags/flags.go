@@ -470,6 +470,13 @@ var (
 		Category: RollupCategory,
 		Hidden:   true,
 	}
+	ExperimentalOPStackAPI = &cli.BoolFlag{
+		Name:     "experimental.sequencer-api",
+		Usage:    "Enables experimental test sequencer RPC functionality",
+		Required: false,
+		EnvVars:  prefixEnvVars("EXPERIMENTAL_SEQUENCER_API"),
+		Category: MiscCategory,
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -525,6 +532,7 @@ var optionalFlags = []cli.Flag{
 	InteropJWTSecret,
 	InteropDependencySet,
 	IgnoreMissingPectraBlobSchedule,
+	ExperimentalOPStackAPI,
 }
 
 var DeprecatedFlags = []cli.Flag{
