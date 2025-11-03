@@ -94,8 +94,7 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.proposer -v "${P
 
 # Fill in a specified create2Salt for the deployer, in order to ensure that the
 # contract addresses are deterministic.
-# Temporarily commenting out to test if this is causing deployment failures
-# dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097ccd56594f2f22715ac52f92971c5913b70a7f1134b68feb"
+dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097ccd56594f2f22715ac52f92971c5913b70a7f1134b68feb"
 
 op-deployer apply --l1-rpc-url "${ANVIL_URL}" \
                   --workdir "${DEPLOYER_DIR}" \
