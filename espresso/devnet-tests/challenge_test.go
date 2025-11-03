@@ -9,6 +9,8 @@ import (
 )
 
 func TestChallengeGame(t *testing.T) {
+	t.Skip("Temporarily skipped: Re-enable once Succinct Integration is investigated.")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
