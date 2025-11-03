@@ -78,8 +78,8 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACT
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .fundDevAccounts -t bool -v true
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.faultGameMaxClockDuration -t int -v 10
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.faultGameClockExtension -t int -v 0
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.faultGameMaxClockDuration -t int -v 302400
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.faultGameClockExtension -t int -v 10800
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.preimageOracleChallengePeriod -t int -v 0
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.dangerouslyAllowCustomDisputeParameters -t bool -v true
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.proofMaturityDelaySeconds -t int -v 12
@@ -94,15 +94,24 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.proposer -v "${P
 
 # Fill in a specified create2Salt for the deployer, in order to ensure that the
 # contract addresses are deterministic.
-dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097ccd56594f2f22715ac52f92971c5913b70a7f1134b68feb"
+# Temporarily commenting out to test if this is causing deployment failures
+# dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097ccd56594f2f22715ac52f92971c5913b70a7f1134b68feb"
 
 op-deployer apply --l1-rpc-url "${ANVIL_URL}" \
                   --workdir "${DEPLOYER_DIR}" \
                   --private-key="${OPERATOR_PRIVATE_KEY}"
 
-kill $ANVIL_PID
+# Dump anvil state via RPC before killing it
+cast rpc anvil_dumpState > "${ANVIL_STATE_FILE}"
 
+# Gracefully shutdown anvil
+kill -SIGTERM $ANVIL_PID 2>/dev/null || true
+
+# Wait for clean shutdown
 sleep 1
+
+# Force kill if still running
+kill -9 $ANVIL_PID 2>/dev/null || true
 
 "${OP_ROOT}/espresso/scripts/reshape-allocs.jq" \
                   <(jq .accounts "${ANVIL_STATE_FILE}") \
