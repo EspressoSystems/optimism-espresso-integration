@@ -8,6 +8,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -57,12 +58,6 @@ var (
 		Usage:   "How frequently to poll L2 for new blocks",
 		Value:   100 * time.Millisecond,
 		EnvVars: prefixEnvVars("POLL_INTERVAL"),
-	}
-	EspressoPollIntervalFlag = &cli.DurationFlag{
-		Name:    "espresso-poll-interval",
-		Usage:   "How frequently to poll Espresso for new batches",
-		Value:   6 * time.Second,
-		EnvVars: prefixEnvVars("ESPRESSO_POLL_INTERVAL"),
 	}
 	MaxPendingTransactionsFlag = &cli.Uint64Flag{
 		Name:    "max-pending-tx",
@@ -194,24 +189,6 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("PREFER_LOCAL_SAFE_L2"),
 	}
-	EspressoUrlsFlag = &cli.StringSliceFlag{
-		Name:    "espresso-url",
-		Usage:   "URL of Espresso query service",
-		EnvVars: prefixEnvVars("ESPRESSO_URL"),
-	}
-
-	EspressoLCAddrFlag = &cli.StringFlag{
-		Name:    "espresso-light-client-addr",
-		Usage:   "Address of Espresso Light Client contract proxy",
-		Value:   "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
-		EnvVars: prefixEnvVars("ESPRESSO_LIGHT_CLIENT_ADDR"),
-	}
-	TestingEspressoBatcherPrivateKeyFlag = &cli.StringFlag{
-		Name:    "testing-espresso-batcher-private-key",
-		Usage:   "Private key of batcher in Espresso mode: ONLY FOR TESTING",
-		Value:   "",
-		EnvVars: prefixEnvVars("TESTING_ESPRESSO_BATCHER_PRIVATE_KEY"),
-	}
 	// Legacy Flags
 	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
 )
@@ -245,10 +222,6 @@ var optionalFlags = []cli.Flag{
 	ThrottleBlockSizeFlag,
 	ThrottleAlwaysBlockSizeFlag,
 	PreferLocalSafeL2Flag,
-	EspressoUrlsFlag,
-	EspressoLCAddrFlag,
-	EspressoPollIntervalFlag,
-	TestingEspressoBatcherPrivateKeyFlag,
 }
 
 func init() {
@@ -258,6 +231,7 @@ func init() {
 	optionalFlags = append(optionalFlags, oppprof.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, txmgr.CLIFlags(EnvVarPrefix)...)
 	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, "")...)
+	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, "")...)
 
 	Flags = append(requiredFlags, optionalFlags...)
 }
