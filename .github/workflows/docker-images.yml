@@ -8,6 +8,7 @@ on:
       - "espresso/docker-compose.yml"
       - "config/**"
   pull_request:
+    branches: [main, celo*, integration]
     paths:
       - "espresso/docker/**"
       - "espresso/docker-compose.yml"
