@@ -373,8 +373,8 @@ func (h *Host) Call(from common.Address, to common.Address, input []byte, gas ui
 		if r := recover(); r != nil {
 			// Cast to a string to check the error message. If it's not a string it's
 			// an unexpected panic and we should re-raise it.
-			rStr, ok := r.(string)
-			if !ok || !strings.Contains(strings.ToLower(rStr), "revision id 1") {
+			rStr := fmt.Sprintf("%v", r)
+			if !strings.Contains(strings.ToLower(rStr), "revision id") && !strings.Contains(rStr, "cannot be reverted") {
 				fmt.Println("panic", rStr)
 				panic(r)
 			}
