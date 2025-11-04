@@ -87,6 +87,8 @@ type BatchStreamer[B Batch] struct {
 	fallbackBatchPos uint64
 	// HotShot position that we can fallback to, guaranteeing not to skip any unsafe batches
 	fallbackHotShotPos uint64
+	// HotShot position we start reading from, exclusive
+	originHotShotPos uint64
 	// Latest finalized block on the L1.
 	FinalizedL1 eth.L1BlockRef
 
@@ -115,6 +117,7 @@ func NewEspressoStreamer[B Batch](
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
+	originHotShotPos uint64,
 ) *BatchStreamer[B] {
 	return &BatchStreamer[B]{
 		L1Client:                      l1Client,
@@ -127,6 +130,9 @@ func NewEspressoStreamer[B Batch](
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		RemainingBatches:              make(map[common.Hash]B),
 		unmarshalBatch:                unmarshalBatch,
+		originHotShotPos:              originHotShotPos,
+		fallbackHotShotPos:            originHotShotPos,
+		hotShotPos:                    originHotShotPos,
 	}
 }
 
@@ -544,7 +550,7 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
 	if errors.Is(err, bind.ErrNoCode) {
-		s.fallbackHotShotPos = 0
+		s.fallbackHotShotPos = s.originHotShotPos
 		return false, nil
 	} else if err != nil {
 		return false, err
