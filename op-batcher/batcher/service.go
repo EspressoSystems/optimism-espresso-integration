@@ -159,12 +159,12 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, version string,
 	if err := bs.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
 	}
+	if err := bs.initEspresso(cfg); err != nil {
+		return fmt.Errorf("failed to init Espresso: %w", err)
+	}
 	bs.initDriver(opts...)
 	if err := bs.initRPCServer(cfg); err != nil {
 		return fmt.Errorf("failed to start RPC server: %w", err)
-	}
-	if err := bs.initEspresso(cfg); err != nil {
-		return fmt.Errorf("failed to init Espresso: %w", err)
 	}
 
 	bs.Metrics.RecordInfo(bs.Version)
@@ -565,21 +565,24 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 		return nil
 	}
 
+	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
+
 	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
 	if err != nil {
 		return fmt.Errorf("failed to create Espresso client: %w", err)
 	}
+	bs.EspressoClient = client
+
 	espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create Espresso light client")
 	}
 	bs.EspressoLightClient = espressoLightClient
-	bs.UseEspresso = true
+
 	if err := bs.initKeyPair(); err != nil {
 		return fmt.Errorf("failed to create key pair for batcher: %w", err)
 	}
-	bs.EspressoClient = client
 
 	unbufferedStreamer := espresso.NewEspressoStreamer(
 		bs.RollupConfig.L2ChainID.Uint64(),
@@ -593,9 +596,7 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 		2*time.Second,
 	)
 	unbufferedStreamer.UseFetchApi = cfg.Espresso.UseFetchAPI
-
-	streamer := espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
-	bs.EspressoStreamer = streamer
+	bs.EspressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
 
 	// try to generate attestationBytes on public key when start batcher
 	attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
