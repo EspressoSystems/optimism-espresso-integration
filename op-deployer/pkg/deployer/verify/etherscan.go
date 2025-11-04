@@ -5,39 +5,79 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/time/rate"
 )
 
-type EtherscanChecker struct {
-	apiKey  string
-	chainID uint64
-	logger  log.Logger
-	client  *http.Client
+type EtherscanGenericResp struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Result  string `json:"result"`
 }
 
-func NewEtherscanChecker(apiKey string, chainID uint64, logger log.Logger) *EtherscanChecker {
-	return &EtherscanChecker{
-		apiKey:  apiKey,
-		chainID: chainID,
-		logger:  logger,
-		client:  &http.Client{Timeout: 10 * time.Second},
+type EtherscanContractCreationResp struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Result  []struct {
+		ContractCreator string `json:"contractCreator"`
+		TxHash          string `json:"txHash"`
+	} `json:"result"`
+}
+
+type EtherscanClient struct {
+	apiKey      string
+	chainID     uint64
+	url         string
+	rateLimiter *rate.Limiter
+}
+
+func getAPIEndpoint(l1ChainID uint64) (string, error) {
+	switch l1ChainID {
+	case 1:
+		return "https://api.etherscan.io/v2/api", nil // eth-mainnet
+	case 11155111:
+		return "https://api-sepolia.etherscan.io/v2/api", nil // eth-sepolia
+	case 84532:
+		return "https://api-sepolia.basescan.org/v2/api", nil // base-sepolia
+	default:
+		return "", fmt.Errorf("unsupported L1 chain ID: %d", l1ChainID)
 	}
 }
 
-func (e *EtherscanChecker) CanCheck() bool {
-	return e.apiKey != ""
+func NewEtherscanClient(apiKey string, chainID uint64, url string, rateLimiter *rate.Limiter) *EtherscanClient {
+	return &EtherscanClient{
+		apiKey:      apiKey,
+		chainID:     chainID,
+		url:         url,
+		rateLimiter: rateLimiter,
+	}
 }
 
-func (e *EtherscanChecker) GetDefaultURL(chainID uint64) (string, error) {
-	return "", nil
+// APIChecker implementation for EtherscanClient (V2 API)
+func (c *EtherscanClient) CanCheck() bool {
+	return c.apiKey != ""
 }
 
-func (e *EtherscanChecker) GetChainArg(chainID uint64) (string, error) {
+func (c *EtherscanClient) GetDefaultURL(chainID uint64) (string, error) {
+	return getAPIEndpoint(chainID)
+}
+
+func (c *EtherscanClient) GetChainArg(chainID uint64) (string, error) {
 	return getChainName(chainID)
+}
+
+func (c *EtherscanClient) CheckStatus(ctx context.Context, address common.Address) (*VerificationStatus, error) {
+	verified, err := c.isVerified(address)
+	if err != nil {
+		return nil, err
+	}
+	return &VerificationStatus{
+		IsVerified:          verified,
+		IsFullyVerified:     verified,
+		IsPartiallyVerified: false,
+	}, nil
 }
 
 func getChainName(chainID uint64) (string, error) {
@@ -51,78 +91,92 @@ func getChainName(chainID uint64) (string, error) {
 	}
 }
 
-func (e *EtherscanChecker) CheckStatus(ctx context.Context, address common.Address) (*VerificationStatus, error) {
-	baseURL := "https://api.etherscan.io/v2/api"
-	checkUrl := fmt.Sprintf("%s?chainid=%d&module=contract&action=getsourcecode&address=%s&apikey=%s", baseURL, e.chainID, address.Hex(), e.apiKey)
+// sendRateLimitedRequest is a helper function which waits for a rate limit token
+// before sending a request
+func (c *EtherscanClient) sendRateLimitedRequest(req *http.Request) (*http.Response, error) {
+	if err := c.rateLimiter.Wait(context.Background()); err != nil {
+		return nil, fmt.Errorf("rate limiter error: %w", err)
+	}
+	return http.DefaultClient.Do(req)
+}
 
-	e.logger.Debug("Checking Etherscan verification status via V2 API", "url", checkUrl)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", checkUrl, nil)
+// getContractCreation returns the txHash of the contract creation tx
+// (useful for extracting constructor args)
+func (c *EtherscanClient) getContractCreation(address common.Address) (common.Hash, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?chainid=%d&module=contract&action=getcontractcreation&contractaddresses=%s&apikey=%s",
+		c.url, c.chainID, address.Hex(), c.apiKey), nil)
 	if err != nil {
-		e.logger.Warn("Failed to create HTTP request for Etherscan API", "error", err)
-		return nil, err
+		return common.Hash{}, fmt.Errorf("failed to create contract creation request: %w", err)
 	}
 
-	resp, err := e.client.Do(req)
+	resp, err := c.sendRateLimitedRequest(req)
 	if err != nil {
-		e.logger.Warn("Failed to query Etherscan API", "error", err)
-		return nil, err
+		return common.Hash{}, fmt.Errorf("failed to send contract creation request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		e.logger.Info("Etherscan API returned non-OK status", "status", resp.StatusCode)
-		return &VerificationStatus{IsVerified: false, IsFullyVerified: false, IsPartiallyVerified: false}, nil
+	var creationResp EtherscanContractCreationResp
+	if err := json.NewDecoder(resp.Body).Decode(&creationResp); err != nil {
+		return common.Hash{}, fmt.Errorf("failed to decode contract creation response: %w", err)
+	}
+	if creationResp.Status != "1" {
+		return common.Hash{}, fmt.Errorf("contract creation query failed: %s", creationResp.Message)
 	}
 
-	var response struct {
-		Status  string      `json:"status"`
-		Message string      `json:"message"`
-		Result  interface{} `json:"result"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		e.logger.Warn("Failed to parse Etherscan API response", "error", err)
-		return nil, err
-	}
+	txHash := common.HexToHash(creationResp.Result[0].TxHash)
+	return txHash, nil
+}
 
-	if response.Status == "0" && strings.Contains(response.Message, "deprecated") {
-		e.logger.Warn("Etherscan API returned deprecation message, cannot check verification status via API. Will rely on forge's own verification detection.")
-		return &VerificationStatus{IsVerified: false, IsFullyVerified: false, IsPartiallyVerified: false}, nil
-	}
-
-	isVerified := false
-	// Marshal and unmarshal result to handle both string and array cases
-	resultBytes, err := json.Marshal(response.Result)
+func (c *EtherscanClient) isVerified(address common.Address) (bool, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?chainid=%d&module=contract&action=getabi&address=%s&apikey=%s",
+		c.url, c.chainID, address.Hex(), c.apiKey), nil)
 	if err != nil {
-		e.logger.Warn("Failed to marshal Etherscan API result", "error", err)
-		return &VerificationStatus{IsVerified: false, IsFullyVerified: false, IsPartiallyVerified: false}, nil
+		return false, err
 	}
 
-	var resultArray []struct {
-		SourceCode string `json:"SourceCode"`
-		ABI        string `json:"ABI"`
+	resp, err := c.sendRateLimitedRequest(req)
+	if err != nil {
+		return false, err
 	}
-	if err := json.Unmarshal(resultBytes, &resultArray); err == nil && len(resultArray) > 0 {
-		sourceCode := resultArray[0].SourceCode
-		abi := resultArray[0].ABI
-		isVerified = sourceCode != "" &&
-			sourceCode != "{{" &&
-			abi != "" &&
-			abi != "Contract source code not verified"
-	} else {
-		// If unmarshaling as array failed, result might be a string (error case)
-		var resultStr string
-		if err := json.Unmarshal(resultBytes, &resultStr); err == nil {
-			if resultStr == "" || resultStr == "Contract source code not verified" {
-				isVerified = false
-			}
+	defer resp.Body.Close()
+
+	var result EtherscanGenericResp
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, err
+	}
+
+	return result.Status == "1", nil
+}
+
+func (c *EtherscanClient) pollVerificationStatus(reqId string) error {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?chainid=%d&apikey=%s&module=contract&action=checkverifystatus&guid=%s",
+		c.url, c.chainID, c.apiKey, reqId), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create checkverifystatus request: %w", err)
+	}
+
+	for i := 0; i < 10; i++ { // Try 10 times with increasing delays
+		resp, err := c.sendRateLimitedRequest(req)
+		if err != nil {
+			return fmt.Errorf("failed to send checkverifystatus request: %w", err)
 		}
-	}
+		defer resp.Body.Close()
 
-	e.logger.Info("Etherscan API verification status", "address", address.Hex(), "is_verified", isVerified)
-	return &VerificationStatus{
-		IsVerified:          isVerified,
-		IsFullyVerified:     isVerified,
-		IsPartiallyVerified: false,
-	}, nil
+		var result EtherscanGenericResp
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return fmt.Errorf("failed to decode checkverifystatus response: %w", err)
+		}
+
+		if result.Status == "1" {
+			return nil
+		}
+		if result.Result == "Already Verified" {
+			return nil
+		}
+		if result.Result != "Pending in queue" {
+			return fmt.Errorf("verification failed: %s, %s", result.Result, result.Message)
+		}
+		time.Sleep(time.Duration(i+2) * time.Second)
+	}
+	return fmt.Errorf("verification timed out")
 }

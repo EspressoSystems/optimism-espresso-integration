@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/forge"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/time/rate"
 )
 
 type ForgeVerifier struct {
@@ -57,7 +58,11 @@ func NewForgeVerifier(opts ForgeVerifierOpts) (*ForgeVerifier, error) {
 	var apiChecker APIChecker
 	switch opts.VerifierType {
 	case "etherscan":
-		apiChecker = NewEtherscanChecker(opts.ApiKey, opts.ChainID, opts.Logger)
+		url, err := getAPIEndpoint(opts.ChainID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Etherscan API endpoint for chain %d: %w", opts.ChainID, err)
+		}
+		apiChecker = NewEtherscanClient(opts.ApiKey, opts.ChainID, url, rate.NewLimiter(rate.Every(200*time.Millisecond), 1))
 	case "blockscout":
 		if opts.VerifierUrl == "" {
 			url, err := getBlockscoutAPIEndpoint(opts.ChainID)
