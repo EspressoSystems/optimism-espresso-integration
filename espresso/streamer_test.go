@@ -37,6 +37,7 @@ func TestNewEspressoStreamer(t *testing.T) {
 		nil,
 		nil, nil, nil, derive.CreateEspressoBatchUnmarshaler(common.Address{}),
 		50*time.Millisecond,
+		0,
 	)
 }
 
@@ -346,6 +347,7 @@ func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*Moc
 		logger,
 		derive.CreateEspressoBatchUnmarshaler(batcherAddress),
 		50*time.Millisecond,
+		0,
 	)
 
 	return state, streamer

@@ -8,7 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
+
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 )
 
 // espressoFlags returns the flag names for espresso
@@ -28,6 +33,8 @@ var (
 	LightClientAddrFlagName          = espressoFlags("light-client-addr")
 	L1UrlFlagName                    = espressoFlags("l1-url")
 	TestingBatcherPrivateKeyFlagName = espressoFlags("testing-batcher-private-key")
+	OriginHeight                     = espressoFlags("origin-height")
+	NamespaceFlagName                = espressoFlags("namespace")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -77,6 +84,18 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "TESTING_BATCHER_PRIVATE_KEY"),
 			Category: category,
 		},
+		&cli.Uint64Flag{
+			Name:     OriginHeight,
+			Usage:    "Espresso transactions below this height will not be considered",
+			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT"),
+			Category: category,
+		},
+		&cli.Uint64Flag{
+			Name:     NamespaceFlagName,
+			Usage:    "Namespace of Espresso transactions",
+			EnvVars:  espressoEnvs(envPrefix, "NAMESPACE"),
+			Category: category,
+		},
 	}
 }
 
@@ -88,6 +107,8 @@ type CLIConfig struct {
 	LightClientAddr          common.Address
 	L1URL                    string
 	TestingBatcherPrivateKey *ecdsa.PrivateKey
+	Namespace                uint64
+	OriginHeight             uint64
 }
 
 func (c CLIConfig) Check() error {
@@ -102,6 +123,9 @@ func (c CLIConfig) Check() error {
 		if c.L1URL == "" {
 			return fmt.Errorf("L1 URL is required when Espresso is enabled")
 		}
+		if c.Namespace == 0 {
+			return fmt.Errorf("namespace is required when Espresso is enabled")
+		}
 	}
 	return nil
 }
@@ -112,6 +136,8 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		PollInterval: c.Duration(PollIntervalFlagName),
 		UseFetchAPI:  c.Bool(UseFetchApiFlagName),
 		L1URL:        c.String(L1UrlFlagName),
+		Namespace:    c.Uint64(NamespaceFlagName),
+		OriginHeight: c.Uint64(OriginHeight),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
@@ -127,4 +153,43 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 	}
 
 	return config
+}
+
+func BatchStreamerFromCLIConfig[B Batch](
+	cfg CLIConfig,
+	log log.Logger,
+	unmarshalBatch func([]byte) (*B, error),
+) (*BatchStreamer[B], error) {
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("Espresso is not enabled")
+	}
+
+	l1Client, err := ethclient.Dial(cfg.L1URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial L1 RPC: %w", err)
+	}
+
+	espressoClient, err := espressoClient.NewMultipleNodesClient(cfg.QueryServiceURLs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Espresso client: %w", err)
+	}
+
+	espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.LightClientAddr, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Espresso light client")
+	}
+
+	streamer := NewEspressoStreamer(
+		cfg.Namespace,
+		NewAdaptL1BlockRefClient(l1Client),
+		espressoClient,
+		espressoLightClient,
+		log,
+		unmarshalBatch,
+		cfg.PollInterval,
+		cfg.OriginHeight,
+	)
+	streamer.UseFetchApi = cfg.UseFetchAPI
+
+	return streamer, nil
 }
