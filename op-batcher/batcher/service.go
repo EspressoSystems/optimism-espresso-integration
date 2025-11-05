@@ -596,6 +596,8 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 		2*time.Second,
 	)
 	unbufferedStreamer.UseFetchApi = cfg.Espresso.UseFetchAPI
+
+	// We wrap the streamer in a BufferedStreamer to reduce impact of streamer resets
 	bs.EspressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
 
 	// try to generate attestationBytes on public key when start batcher
