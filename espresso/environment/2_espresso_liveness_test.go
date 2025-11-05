@@ -262,6 +262,7 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 		streamer := espresso.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),
 			espresso.NewAdaptL1BlockRefClient(l1Client),
+			espresso.NewAdaptL1BlockRefClient(l1Client),
 			espressoClient.NewClient(server.URL),
 			lightClient,
 			l,

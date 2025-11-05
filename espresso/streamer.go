@@ -74,6 +74,7 @@ type BatchStreamer[B Batch] struct {
 	Namespace uint64
 
 	L1Client                      L1Client
+	RollupL1Client                L1Client
 	EspressoClient                EspressoClient
 	EspressoLightClient           LightClientCallerInterface
 	Log                           log.Logger
@@ -112,6 +113,7 @@ var _ EspressoStreamer[Batch] = (*BatchStreamer[Batch])(nil)
 func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
+	rollupL1Client L1Client,
 	espressoClient EspressoClient,
 	lightClient LightClientCallerInterface,
 	log log.Logger,
@@ -121,6 +123,7 @@ func NewEspressoStreamer[B Batch](
 ) *BatchStreamer[B] {
 	return &BatchStreamer[B]{
 		L1Client:                      l1Client,
+		RollupL1Client:                rollupL1Client,
 		EspressoClient:                espressoClient,
 		EspressoLightClient:           lightClient,
 		Log:                           log,
@@ -193,7 +196,7 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidi
 		return BatchUndecided, 0
 	}
 
-	l1headerHash, err := s.L1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+	l1headerHash, err := s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
 	if err != nil {
 		// Signal to resync to be able to fetch the L1 header.
 		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
