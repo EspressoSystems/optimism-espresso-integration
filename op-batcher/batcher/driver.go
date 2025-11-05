@@ -1011,7 +1011,7 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 			},
 		)
 		if !goroutineSpawned {
-			log.Warn("failed to spawn Espresso tx goroutine")
+			log.Trace("failed to spawn Espresso tx goroutine")
 			l.recordFailedDARequest(txdata.ID(), nil)
 		}
 		return
