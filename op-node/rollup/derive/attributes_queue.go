@@ -112,6 +112,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetche
 		},
 		cfg.CaffNodeConfig.PollInterval,
 	)
+	streamer.UseFetchApi = cfg.CaffNodeConfig.UseFetchAPI
 
 	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
 
