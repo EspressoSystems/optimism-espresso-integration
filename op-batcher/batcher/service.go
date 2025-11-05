@@ -541,6 +541,14 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 		return nil
 	}
 
+	if cfg.Espresso.RollupL1URL == "" {
+		cfg.Espresso.RollupL1URL = cfg.L1EthRpc
+	}
+
+	if cfg.Espresso.RollupL1URL != cfg.L1EthRpc {
+		log.Warn("Espresso Rollup L1 URL differs from batcher's L1EthRpc")
+	}
+
 	if cfg.Espresso.L1URL == "" {
 		log.Warn("Espresso L1 URL not provided, using batcher's L1EthRpc")
 		cfg.Espresso.L1URL = cfg.L1EthRpc
