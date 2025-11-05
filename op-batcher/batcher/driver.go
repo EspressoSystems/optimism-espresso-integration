@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
@@ -107,11 +106,10 @@ type DriverSetup struct {
 	ChannelOutFactory ChannelOutFactory
 	ActiveSeqChanged  chan struct{} // optional
 
-	Espresso            *espressoClient.MultipleNodesClient
-	EspressoLightClient *espressoLightClient.LightclientCaller
-	ChainSigner         opcrypto.ChainSigner
-	SequencerAddress    common.Address
-	Attestation         *nitrite.Result
+	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
+	EspressoClient   espressoClient.EspressoClient
+	ChainSigner      opcrypto.ChainSigner
+	Attestation      *nitrite.Result
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -139,7 +137,6 @@ type BatchSubmitter struct {
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 
 	espressoSubmitter *espressoTransactionSubmitter
-	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -153,22 +150,6 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		DriverSetup: setup,
 		channelMgr:  state,
 	}
-
-	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(
-		espresso.NewEspressoStreamer(
-			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-			NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
-			batchSubmitter.Espresso,
-			batchSubmitter.EspressoLightClient,
-			batchSubmitter.Log,
-			func(data []byte) (*derive.EspressoBatch, error) {
-				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
-			},
-			2*time.Second,
-		),
-	)
-
-	log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 
 	return batchSubmitter
 }
@@ -226,7 +207,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.espressoSubmitter = NewEspressoTransactionSubmitter(
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
-			WithEspressoClient(l.Espresso),
+			WithEspressoClient(l.EspressoClient),
 		)
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
@@ -827,7 +808,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
 			if l.Config.UseEspresso {
-				l.espressoStreamer.Reset()
+				l.EspressoStreamer.Reset()
 			}
 			return true
 		}
