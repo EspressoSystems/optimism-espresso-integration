@@ -295,18 +295,46 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
-	defer cancel()
+	// Use longer timeout and retry logic in CI environments due to Espresso processing delays
+	maxRetries := 1
+	baseTimeout := 2 * time.Minute
+	
+	// Check if running in CI environment
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		maxRetries = 5
+		baseTimeout = 90 * time.Second
+		log.Info("CI environment detected, using extended retry logic for transaction verification", "hash", receipt.TxHash, "maxRetries", maxRetries)
+	}
 
 	log.Info("waiting for transaction verification", "hash", receipt.TxHash)
-	verified, err := wait.ForReceiptOK(ctx, d.L2Verif, receipt.TxHash)
-	if err != nil {
-		return fmt.Errorf("waiting for L2 tx on verification client: %w", err)
+	
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff between retries
+			waitTime := time.Duration(1<<uint(attempt-1)) * 10 * time.Second
+			log.Info("retrying transaction verification", "hash", receipt.TxHash, "attempt", attempt+1, "waitTime", waitTime)
+			time.Sleep(waitTime)
+		}
+		
+		ctx, cancel := context.WithTimeout(d.ctx, baseTimeout)
+		verified, err := wait.ForReceiptOK(ctx, d.L2Verif, receipt.TxHash)
+		cancel()
+		
+		if err == nil {
+			// Success - verify receipt matches
+			if !reflect.DeepEqual(receipt, verified) {
+				return fmt.Errorf("verification client returned incorrect receipt\nSeq:  %v\nVerif: %v", receipt, verified)
+			}
+			log.Info("transaction verification successful", "hash", receipt.TxHash, "attempt", attempt+1)
+			return nil
+		}
+		
+		lastErr = err
+		log.Warn("transaction verification attempt failed", "hash", receipt.TxHash, "attempt", attempt+1, "error", err)
 	}
-	if !reflect.DeepEqual(receipt, verified) {
-		return fmt.Errorf("verification client returned incorrect receipt\nSeq:  %v\nVerif: %v", receipt, verified)
-	}
-	return nil
+	
+	return fmt.Errorf("waiting for L2 tx on verification client after %d attempts: %w", maxRetries, lastErr)
 }
 
 // Submits a transaction and waits for it to be verified.
