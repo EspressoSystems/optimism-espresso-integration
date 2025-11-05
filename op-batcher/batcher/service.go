@@ -13,6 +13,7 @@ import (
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
+	"github.com/ethereum-optimism/optimism/espresso"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -27,6 +28,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/params"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/bgpo"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -194,53 +196,6 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 		return err
 	}
 
-	if cfg.Espresso.Enabled {
-		bs.EspressoPollInterval = cfg.Espresso.PollInterval
-		client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
-		if err != nil {
-			return fmt.Errorf("failed to create Espresso client: %w", err)
-		}
-		bs.Espresso = client
-		espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
-		if err != nil {
-			return fmt.Errorf("failed to create Espresso light client")
-		}
-		bs.EspressoLightClient = espressoLightClient
-		bs.UseEspresso = true
-		if err := bs.initKeyPair(); err != nil {
-			return fmt.Errorf("failed to create key pair for batcher: %w", err)
-		}
-
-		// try to generate attestationBytes on public key when start batcher
-		attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
-		if err != nil {
-			bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
-
-			// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
-			privateKey := cfg.Espresso.TestingBatcherPrivateKey
-			if privateKey == nil {
-				return fmt.Errorf("when not running in enclave, testing batcher private key should be set")
-			}
-
-			publicKey := privateKey.Public()
-			publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-			if !ok {
-				return fmt.Errorf("error casting public key to ECDSA")
-			}
-
-			bs.BatcherPrivateKey = privateKey
-			bs.BatcherPublicKey = publicKeyECDSA
-		} else {
-			// output length of attestation
-			bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
-			result, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
-			if err != nil {
-				return fmt.Errorf("Couldn't verify attestation: %w", err)
-			}
-			bs.Attestation = result
-		}
-	}
-
 	if err := bs.initRollupConfig(ctx); err != nil {
 		return fmt.Errorf("failed to load rollup config: %w", err)
 	}
@@ -260,6 +215,9 @@ func (bs *BatcherService) initFromCLIConfig(ctx context.Context, closeApp contex
 	}
 	if err := bs.initPProf(cfg); err != nil {
 		return fmt.Errorf("failed to init profiling: %w", err)
+	}
+	if err := bs.initEspresso(cfg); err != nil {
+		return fmt.Errorf("failed to init Espresso: %w", err)
 	}
 	bs.initDriver(opts...)
 	if err := bs.initRPCServer(cfg); err != nil {
@@ -592,7 +550,6 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		AltDA:                bs.AltDA,
 		ChainSigner:         bs.ChainSigner,
 		SequencerAddress:    bs.TxManager.From(),
-		ChainSigner:         bs.ChainSigner,
 		Espresso:            bs.Espresso,
 		EspressoLightClient: bs.EspressoLightClient,
 		Attestation:         bs.Attestation,
@@ -757,4 +714,76 @@ func (bs *BatcherService) HTTPEndpoint() string {
 		return ""
 	}
 	return "http://" + bs.rpcServer.Endpoint()
+}
+
+func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
+	if !cfg.Espresso.Enabled {
+		return nil
+	}
+
+	bs.UseEspresso = true
+	bs.EspressoPollInterval = cfg.Espresso.PollInterval
+
+	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
+	if err != nil {
+		return fmt.Errorf("failed to create Espresso client: %w", err)
+	}
+	bs.EspressoClient = client
+
+	espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create Espresso light client")
+	}
+	bs.EspressoLightClient = espressoLightClient
+
+	if err := bs.initKeyPair(); err != nil {
+		return fmt.Errorf("failed to create key pair for batcher: %w", err)
+	}
+
+	unbufferedStreamer := espresso.NewEspressoStreamer(
+		bs.RollupConfig.L2ChainID.Uint64(),
+		NewAdaptL1BlockRefClient(bs.L1Client),
+		client,
+		bs.EspressoLightClient,
+		bs.Log,
+		func(data []byte) (*derive.EspressoBatch, error) {
+			return derive.UnmarshalEspressoTransaction(data, bs.TxManager.From())
+		},
+		2*time.Second,
+	)
+	unbufferedStreamer.UseFetchApi = cfg.Espresso.UseFetchAPI
+
+	// We wrap the streamer in a BufferedStreamer to reduce impact of streamer resets
+	bs.EspressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
+
+	// try to generate attestationBytes on public key when start batcher
+	attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
+	if err != nil {
+		bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
+
+		// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
+		privateKey := cfg.Espresso.TestingBatcherPrivateKey
+		if privateKey == nil {
+			return fmt.Errorf("when not running in enclave, testing batcher private key should be set")
+		}
+
+		publicKey := privateKey.Public()
+		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+		if !ok {
+			return fmt.Errorf("error casting public key to ECDSA")
+		}
+
+		bs.BatcherPrivateKey = privateKey
+		bs.BatcherPublicKey = publicKeyECDSA
+	} else {
+		// output length of attestation
+		bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
+		result, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
+		if err != nil {
+			return fmt.Errorf("Couldn't verify attestation: %w", err)
+		}
+		bs.Attestation = result
+	}
+
+	return nil
 }
