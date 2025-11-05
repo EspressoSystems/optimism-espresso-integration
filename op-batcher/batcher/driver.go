@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
@@ -233,7 +232,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.espressoSubmitter = NewEspressoTransactionSubmitter(
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
-			WithEspressoClient(l.Espresso),
+			WithEspressoClient(l.EspressoClient),
 		)
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
@@ -887,7 +886,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
 			if l.Config.UseEspresso {
-				l.espressoStreamer.Reset()
+				l.EspressoStreamer.Reset()
 			}
 			return true
 		}
