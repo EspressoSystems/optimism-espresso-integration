@@ -1,11 +1,8 @@
 name: Run Espresso Devnet tests
 on:
   pull_request:
-    branches:
-      - "celo-integration*"
   push:
     branches:
-      - "master"
       - "celo-integration*"
   workflow_dispatch:
 
@@ -56,7 +53,6 @@ jobs:
 
       - name: Run Challenge Game test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestChallengeGame' -v  ./espresso/devnet-tests/...
-
 
       - name: Run Withdraw test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestWithdrawal' -v  ./espresso/devnet-tests/...
