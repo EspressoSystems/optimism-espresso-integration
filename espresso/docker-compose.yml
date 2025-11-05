@@ -225,7 +225,6 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
-      - --log.level=debug
 
   op-node-verifier:
     build:
@@ -263,7 +262,6 @@ services:
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
-      - --log.level=debug
 
   caff-node:
     build:
@@ -302,13 +300,13 @@ services:
       - --rpc.addr=0.0.0.0
       - --sequencer.enabled=false
       - --espresso.enabled=true
+      - --espresso.fetch-api=true
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
       - --rollup.halt=none
       - --l1.trustrpc=true
       - --rpc.enable-admin=true
       - --espresso.poll-interval=500ms
-      - --log.level=debug
       - --p2p.disable=true
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
@@ -344,6 +342,7 @@ services:
     command:
       - op-batcher
       - --espresso.enabled=true
+      - --espresso.fetch-api=true
       - --espresso.poll-interval=1s
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
