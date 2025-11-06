@@ -132,7 +132,9 @@ type BatchSubmitter struct {
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 
 	espressoSubmitter *espressoTransactionSubmitter
-	teeAuthGroup      errgroup.Group
+	// Group to limit number of concurrent batches waiting for approval
+	// from BatchAuthenticator contract, only relevant when running with Espresso enabled
+	teeAuthGroup errgroup.Group
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
