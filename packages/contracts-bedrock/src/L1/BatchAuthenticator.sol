@@ -33,6 +33,13 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
         nitroValidator = INitroValidator(address(espressoTEEVerifier.espressoNitroTEEVerifier()));
     }
 
+    /// @notice Initializes the contract with the initial owner
+    /// @param _owner The initial owner of the contract
+    function initialize(address _owner) external initializer {
+        __Ownable_init();
+        _transferOwnership(_owner);
+    }
+
     function decodeAttestationTbs(bytes memory attestation) external view returns (bytes memory, bytes memory) {
         return nitroValidator.decodeAttestationTbs(attestation);
     }

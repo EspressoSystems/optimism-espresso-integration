@@ -76,6 +76,11 @@ contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
+
+        // Initialize the BatchAuthenticator with the deployer as the owner
+        vm.broadcast(msg.sender);
+        batchAuthenticator.initialize(msg.sender);
+
         deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(output);
     }

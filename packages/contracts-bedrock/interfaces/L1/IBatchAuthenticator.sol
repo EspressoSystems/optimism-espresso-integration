@@ -36,6 +36,8 @@ interface IBatchAuthenticator {
 
     function validBatchInfo(bytes32) external view returns (bool);
 
+    function initialize(address _owner) external;
+
     function __constructor__(
         address _espressoTEEVerifier,
         address _preApprovedBatcher
