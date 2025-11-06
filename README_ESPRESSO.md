@@ -353,6 +353,21 @@ docker compose down -v
 docker volume prune -a
 ```
 
+* If encountering an issue related to outdated deployment files, remove those files before
+restarting.
+  * Go to the scripts directory.
+  ```console
+  cd espresso/scripts
+  ```
+  * Allow access to the cleanup script.
+  ```console
+  chmod +x cleanup.sh
+  ```
+  * Run the script.
+  ```console
+  ./cleanup.sh
+  ```
+
 * If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
