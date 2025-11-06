@@ -297,7 +297,7 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 	// Use longer timeout in CI environments due to Espresso processing delays
 	timeout := 2 * time.Minute
-	
+
 	// Check if running in CI environment
 	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
 		timeout = 5 * time.Minute
