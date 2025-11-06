@@ -1,7 +1,9 @@
 package log
 
 import (
+	"context"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -9,6 +11,41 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 )
+
+// safeTestRecorder is a thread-safe version of testRecorder for concurrent tests
+type safeTestRecorder struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (r *safeTestRecorder) Enabled(context.Context, slog.Level) bool {
+	return true
+}
+
+func (r *safeTestRecorder) Handle(_ context.Context, rec slog.Record) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.records = append(r.records, rec)
+	return nil
+}
+
+func (r *safeTestRecorder) WithAttrs([]slog.Attr) slog.Handler { return r }
+func (r *safeTestRecorder) WithGroup(string) slog.Handler      { return r }
+
+func (r *safeTestRecorder) GetRecords() []slog.Record {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Return a copy to avoid race conditions
+	result := make([]slog.Record, len(r.records))
+	copy(result, r.records)
+	return result
+}
+
+func (r *safeTestRecorder) Len() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.records)
+}
 
 func TestDebouncingHandler_Basic(t *testing.T) {
 	h := new(testRecorder)
@@ -194,4 +231,25 @@ func TestDebouncingHandler_TickerWarning(t *testing.T) {
 		}
 		return true
 	})
+}
+
+func TestDebouncingHandler_Concurrent(t *testing.T) {
+	h := new(safeTestRecorder)
+	d := NewDebouncingHandler(h)
+	logger := log.NewLogger(d)
+
+	const numGoroutines = 10
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	for i := range numGoroutines {
+		go func(id int) {
+			defer wg.Done()
+			logger.Info("hello")
+		}(i)
+	}
+
+	wg.Wait()
+
+	require.Equal(t, h.Len(), 1, "Should have debounced duplicate messages")
 }
