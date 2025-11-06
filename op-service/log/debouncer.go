@@ -42,13 +42,17 @@ func (h *DebounchingHandler) Handle(ctx context.Context, record slog.Record) err
 	select {
 	case <-h.ticker.C:
 		cntr := h.counter.Load()
+		h.counter.Store(0)
+
 		if cntr > 0 {
 			warningRecord := slog.NewRecord(time.Now(), slog.LevelWarn, DebounceWarningMessage, 0)
 			warningRecord.Add("nDebounced", cntr)
-			h.handler.Handle(ctx, warningRecord)
+			err := h.handler.Handle(ctx, warningRecord)
+			if err != nil {
+				return err
+			}
 		}
 
-		h.counter.Store(0)
 	default:
 	}
 
