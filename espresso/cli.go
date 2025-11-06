@@ -178,12 +178,12 @@ func BatchStreamerFromCLIConfig[B Batch](
 
 	l1Client, err := ethclient.Dial(cfg.L1URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial L1 RPC: %w", err)
+		return nil, fmt.Errorf("failed to dial L1 RPC at %s: %w", cfg.L1URL, err)
 	}
 
 	RollupL1Client, err := ethclient.Dial(cfg.RollupL1URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial Rollup L1 RPC: %w", err)
+		return nil, fmt.Errorf("failed to dial Rollup L1 RPC at %s: %w", cfg.RollupL1URL, err)
 	}
 
 	espressoClient, err := espressoClient.NewMultipleNodesClient(cfg.QueryServiceURLs)
