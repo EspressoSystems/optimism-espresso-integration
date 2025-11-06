@@ -296,7 +296,16 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	// Use longer timeout in CI environments due to Espresso processing delays
+	timeout := 2 * time.Minute
+
+	// Check if running in CI environment
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		timeout = 5 * time.Minute
+		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
+	}
+
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	log.Info("waiting for transaction verification", "hash", receipt.TxHash)

@@ -61,6 +61,14 @@ jobs:
       - name: Run Withdraw test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestWithdrawal' -v  ./espresso/devnet-tests/...
 
+      - name: Run Batcher Restart test
+        run: go test -timeout 30m -p 1 -count 1 -run 'TestBatcherRestart' -v  ./espresso/devnet-tests/...
+
+      - name: Run Key Rotation test
+        run: go test -timeout 30m -p 1 -count 1 -run 'TestKeyRotation' -v  ./espresso/devnet-tests/...
+
+      # - name: Run Change Batch Inbox Owner test
+      #   run: go test -timeout 30m -p 1 -count 1 -run 'TestChangeBatchInboxOwner -v  ./espresso/devnet-tests/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
