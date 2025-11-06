@@ -971,16 +971,12 @@ type TxSender[T any] interface {
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	if l.Config.UseEspresso && !isCancel {
-		goroutineSpawned := l.teeAuthGroup.TryGo(
+		l.teeAuthGroup.Go(
 			func() error {
 				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
 				return nil
 			},
 		)
-		if !goroutineSpawned {
-			log.Warn("failed to spawn Espresso tx goroutine: teeAuthGroup full")
-			l.recordFailedTx(txdata.ID(), nil)
-		}
 		return
 	}
 	floorDataGas, err := core.FloorDataGas(candidate.TxData)
