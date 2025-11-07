@@ -353,6 +353,17 @@ docker compose down -v
 docker volume prune -a
 ```
 
+* If encountering an issue related to outdated deployment files, remove those files before
+restarting.
+  * Go to the scripts directory.
+  ```console
+  cd espresso/scripts
+  ```
+  * Run the script.
+  ```console
+  ./cleanup.sh
+  ```
+
 * If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
@@ -446,12 +457,6 @@ OP_RPC_CAFF=http://caff.example.com:4545 \
 * Go to the scripts directory.
 ```console
 cd espresso/scripts
-```
-* Allow access to scripts.
-```console
-chmod +x startup.sh
-chmod +x logs.sh
-chmod +x shutdown.sh
 ```
 
 ### Prebuild Everything and Start All Services
