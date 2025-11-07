@@ -359,10 +359,6 @@ restarting.
   ```console
   cd espresso/scripts
   ```
-  * Allow access to the cleanup script.
-  ```console
-  chmod +x cleanup.sh
-  ```
   * Run the script.
   ```console
   ./cleanup.sh
@@ -461,12 +457,6 @@ OP_RPC_CAFF=http://caff.example.com:4545 \
 * Go to the scripts directory.
 ```console
 cd espresso/scripts
-```
-* Allow access to scripts.
-```console
-chmod +x startup.sh
-chmod +x logs.sh
-chmod +x shutdown.sh
 ```
 
 ### Prebuild Everything and Start All Services
