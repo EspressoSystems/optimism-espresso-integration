@@ -8,7 +8,7 @@ ARG TARGETARCH
 # Base builder image
 FROM golang:1.23.8-alpine3.20 AS builder
 
-RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
+RUN apk add --no-cache curl netcat-openbsd tar gzip make gcc musl-dev linux-headers git jq bash
 
 # Install mise for toolchain management
 RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
