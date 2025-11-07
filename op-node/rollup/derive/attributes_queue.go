@@ -121,12 +121,11 @@ func CaffNextBatch(s *espresso.BatchStreamer[EspressoBatch], ctx context.Context
 	// Get the L1 finalized block
 	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
 	if err != nil {
-		s.Log.Error("failed to get the L1 finalized block", "err", err)
-		return nil, false, err
+		return nil, false, fmt.Errorf("failed to get the L1 finalized block: %w", err)
 	}
 	// Refresh the sync status
 	if err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("failed to refresh Espresso streamer: %w", err)
 	}
 
 	// Update the streamer if needed

@@ -156,7 +156,10 @@ func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) error {
 		s.Reset()
 	}
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to confirm espresso block height: %w", err)
+	}
+	return nil
 }
 
 // Update streamer state based on L1 and L2 sync status
@@ -164,7 +167,7 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 	s.FinalizedL1 = finalizedL1
 
 	if err := s.RefreshSafeL1Origin(safeL1Origin); err != nil {
-		return err
+		return fmt.Errorf("failed to refresh safe L1 origin: %w", err)
 	}
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
@@ -272,7 +275,7 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 	// the current block height available to process.
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch latest block height: %w", err)
 	}
 
 	// Streaming API implementation
@@ -556,7 +559,7 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 		s.fallbackHotShotPos = s.originHotShotPos
 		return false, nil
 	} else if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get finalized state from light client: %w", err)
 	}
 
 	shouldReset = hotshotState.BlockHeight < s.fallbackHotShotPos
