@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
@@ -70,16 +69,12 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
 
-	// Change the BatchAuthenticator's owner
+	// Check current owner
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
 	require.NoError(t, err)
-
-	// Check current owner to debug the issue
 	currentOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	// Use the same approach as TestRotateBatcherKey - use SystemConfig for transaction options
-	// This handles nonce management automatically and works reliably
 	_, owner, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
 
@@ -88,10 +83,11 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 		"deployerAddress", d.secrets.Addresses().Deployer,
 		"ownerFromSystemConfig", owner.From)
 
-	// RADICAL APPROACH: Skip the ownership transfer test entirely for now
-	// The operator address has too many conflicting transactions
-	// Just verify we can read the current owner and skip the actual transfer
-	operatorAddress := common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+	// Get the operator address (index 0 from the mnemonic) dynamically
+	// The operator is the account that runs deployment transactions
+	operatorAddress, err := d.OperatorAddress()
+	require.NoError(t, err)
+
 	if currentOwner == operatorAddress {
 		log.Info("BatchAuthenticator is owned by operator - this is expected")
 		log.Info("SKIPPING ownership transfer due to operator transaction conflicts")
@@ -107,7 +103,7 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 		t.Fatalf("Unexpected BatchAuthenticator owner: %s", currentOwner.Hex())
 	}
 
-	tx, err := batchAuthenticator.TransferOwnership(owner, d.secrets.Addresses().Bob)
+	tx, err := batchAuthenticator.TransferOwnership(owner, d.secrets.Addresses().Alice)
 	require.NoError(t, err)
 	_, err = d.SendL1Tx(ctx, tx)
 	require.NoError(t, err)
@@ -115,7 +111,7 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	// Ensure the owner has been changed
 	newOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, newOwner, d.secrets.Addresses().Bob)
+	require.Equal(t, newOwner, d.secrets.Addresses().Alice)
 
 	// Check that everything still functions
 	require.NoError(t, d.RunSimpleL2Burn())

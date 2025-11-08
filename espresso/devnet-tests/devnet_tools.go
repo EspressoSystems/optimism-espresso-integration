@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opclient "github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -643,4 +644,19 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 
 	client := sources.NewRollupClient(rpc)
 	return client, nil
+}
+
+// OperatorAddress returns the operator address (index 0) from the mnemonic.
+// This is the address that runs deployment transactions and owns deployed contracts.
+func (d *Devnet) OperatorAddress() (common.Address, error) {
+	// The operator is at index 0 of the mnemonic: "m/44'/60'/0'/0/0"
+	operatorPath := "m/44'/60'/0'/0/0"
+	account := accounts.Account{URL: accounts.URL{Path: operatorPath}}
+	
+	operatorKey, err := d.secrets.Wallet.PrivateKey(account)
+	if err != nil {
+		return common.Address{}, err
+	}
+	
+	return crypto.PubkeyToAddress(operatorKey.PublicKey), nil
 }
