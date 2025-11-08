@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,49 +68,44 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
 
-	// Check current owner
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
 	require.NoError(t, err)
 	currentOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	_, owner, err := d.SystemConfig(ctx)
+	// The BatchAuthenticator should be owned by the deployer
+	deployerAddress := d.secrets.Addresses().Deployer
+	aliceAddress := d.secrets.Addresses().Alice
+
+	t.Logf("Current owner: %s", currentOwner.Hex())
+	t.Logf("Deployer address: %s", deployerAddress.Hex())
+
+	// Verify the contract is owned by the deployer (as expected from deployment)
+	require.Equal(t, currentOwner, deployerAddress,
+		"BatchAuthenticator should be owned by deployer %s, but is owned by %s",
+		deployerAddress.Hex(), currentOwner.Hex())
+
+	require.NotEqual(t, deployerAddress, aliceAddress, "Alice should not be the current owner")
+
+	// Create transaction options using the deployer's private key
+	chainID, err := d.L1.ChainID(ctx)
 	require.NoError(t, err)
 
-	log.Info("BatchAuthenticator ownership debug",
-		"currentOwner", currentOwner,
-		"deployerAddress", d.secrets.Addresses().Deployer,
-		"ownerFromSystemConfig", owner.From)
-
-	// Get the operator address (index 0 from the mnemonic) dynamically
-	// The operator is the account that runs deployment transactions
-	operatorAddress, err := d.OperatorAddress()
+	ownerAuth, err := bind.NewKeyedTransactorWithChainID(d.secrets.Deployer, chainID)
 	require.NoError(t, err)
 
-	if currentOwner == operatorAddress {
-		log.Info("BatchAuthenticator is owned by operator - this is expected")
-		log.Info("SKIPPING ownership transfer due to operator transaction conflicts")
-		log.Info("Test will pass by verifying we can interact with the contract")
+	tx, err := batchAuthenticator.TransferOwnership(ownerAuth, aliceAddress)
+	require.NoError(t, err, "Ownership transfer transaction building failed.")
 
-		// Just verify we can call a read function to prove the contract works
-		owner, err := batchAuthenticator.Owner(&bind.CallOpts{})
-		require.NoError(t, err)
-		require.Equal(t, owner, operatorAddress)
-		log.Info("Successfully verified BatchAuthenticator contract interaction")
-		return // Exit early - test passes
-	} else if currentOwner != d.secrets.Addresses().Deployer {
-		t.Fatalf("Unexpected BatchAuthenticator owner: %s", currentOwner.Hex())
-	}
-
-	tx, err := batchAuthenticator.TransferOwnership(owner, d.secrets.Addresses().Alice)
-	require.NoError(t, err)
-	_, err = d.SendL1Tx(ctx, tx)
-	require.NoError(t, err)
+	// Send transaction using the devnet's SendL1Tx method
+	receipt, err := d.SendL1Tx(ctx, tx)
+	require.NoError(t, err, "Failed to send ownership transfer transaction.")
+	require.Equal(t, receipt.Status, uint64(1), "Transaction failed")
 
 	// Ensure the owner has been changed
 	newOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.Equal(t, newOwner, d.secrets.Addresses().Alice)
+	require.NoError(t, err, "Failed to get new owner.")
+	require.Equal(t, newOwner, aliceAddress, "New Owner is not Alice")
 
 	// Check that everything still functions
 	require.NoError(t, d.RunSimpleL2Burn())

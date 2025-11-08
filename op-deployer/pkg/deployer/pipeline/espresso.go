@@ -35,11 +35,14 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		return fmt.Errorf("failed to deploy nitro verifier contracts: %w", err)
 	}
 
+	lgr.Info("deploying espresso contracts with BatchAuthenticator owner", "owner", env.Deployer.Hex())
+	
 	var eo opcm.DeployEspressoOutput
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
-		Salt:                  st.Create2Salt,
-		PreApprovedBatcherKey: chainIntent.PreApprovedBatcherKey,
-		NitroTEEVerifier:      nvo.NitroTEEVerifierAddress,
+		Salt:                     st.Create2Salt,
+		PreApprovedBatcherKey:    chainIntent.PreApprovedBatcherKey,
+		NitroTEEVerifier:         nvo.NitroTEEVerifierAddress,
+		BatchAuthenticatorOwner:  env.Deployer,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)

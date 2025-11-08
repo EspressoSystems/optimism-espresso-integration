@@ -3,6 +3,7 @@ package devnet_tests
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -659,4 +660,14 @@ func (d *Devnet) OperatorAddress() (common.Address, error) {
 	}
 	
 	return crypto.PubkeyToAddress(operatorKey.PublicKey), nil
+}
+
+// OperatorPrivateKey returns the operator private key (index 0) from the mnemonic.
+// This is the private key that runs deployment transactions and owns deployed contracts.
+func (d *Devnet) OperatorPrivateKey() (*ecdsa.PrivateKey, error) {
+	// The operator is at index 0 of the mnemonic: "m/44'/60'/0'/0/0"
+	operatorPath := "m/44'/60'/0'/0/0"
+	account := accounts.Account{URL: accounts.URL{Path: operatorPath}}
+	
+	return d.secrets.Wallet.PrivateKey(account)
 }

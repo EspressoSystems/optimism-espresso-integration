@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";
 import { Script } from "forge-std/Script.sol";
+import { console } from "forge-std/console.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
@@ -16,6 +17,7 @@ contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _preApprovedBatcherKey;
     address internal _nitroTEEVerifier;
+    address internal _batchAuthenticatorOwner;
 
     function set(bytes4 _sel, bytes32 _val) public {
         if (_sel == this.salt.selector) _salt = _val;
@@ -27,6 +29,8 @@ contract DeployEspressoInput is BaseDeployIO {
             _preApprovedBatcherKey = _val;
         } else if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
+        } else if (_sel == this.batchAuthenticatorOwner.selector) {
+            _batchAuthenticatorOwner = _val;
         } else {
             revert("DeployEspressoInput: unknown selector");
         }
@@ -43,6 +47,10 @@ contract DeployEspressoInput is BaseDeployIO {
 
     function preApprovedBatcherKey() public view returns (address) {
         return _preApprovedBatcherKey;
+    }
+
+    function batchAuthenticatorOwner() public view returns (address) {
+        return _batchAuthenticatorOwner;
     }
 }
 
@@ -74,12 +82,20 @@ contract DeployEspressoOutput is BaseDeployIO {
 
 contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output) public {
+        // For now, let's hardcode the deployer address to ensure it works
+        // Deployer address is at index 3 of the mnemonic: 0x90F79bf6EB2c4f870365E785982E1f101E93b906
+        address deployerAddress = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
+        console.log("Using hardcoded deployer address as BatchAuthenticator owner:", deployerAddress);
+        run(input, output, deployerAddress);
+    }
+
+    function run(DeployEspressoInput input, DeployEspressoOutput output, address batchAuthenticatorOwner) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
 
-        // Initialize the BatchAuthenticator with the deployer as the owner
+        // Initialize the BatchAuthenticator with the specified owner
         vm.broadcast(msg.sender);
-        batchAuthenticator.initialize(msg.sender);
+        batchAuthenticator.initialize(batchAuthenticatorOwner);
 
         deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(output);
