@@ -73,10 +73,8 @@ contract DeployEspressoOutput is BaseDeployIO {
 }
 
 contract DeployEspresso is Script {
-    function run(DeployEspressoInput input, DeployEspressoOutput output) public {
+    function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
-        // Use the deployer address (index 3 from mnemonic) instead of msg.sender (index 0)
-        address deployerAddress = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
         deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(output);

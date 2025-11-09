@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/opcm"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/state"
@@ -36,11 +37,21 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	var eo opcm.DeployEspressoOutput
+	// Read deployer address from environment variable, fallback to env.Deployer
+	var deployerAddress common.Address
+	if deployerEnv := os.Getenv("DEPLOYER_ADDRESS"); deployerEnv != "" {
+		deployerAddress = common.HexToAddress(deployerEnv)
+		lgr.Info("Using deployer address from DEPLOYER_ADDRESS env var", "address", deployerAddress.Hex())
+	} else {
+		deployerAddress = env.Deployer
+		lgr.Info("Using deployer address from env.Deployer", "address", deployerAddress.Hex())
+	}
+
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		Salt:                  st.Create2Salt,
 		PreApprovedBatcherKey: chainIntent.PreApprovedBatcherKey,
 		NitroTEEVerifier:      nvo.NitroTEEVerifierAddress,
-	})
+	}, deployerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)
 	}
