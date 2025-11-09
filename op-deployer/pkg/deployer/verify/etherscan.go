@@ -38,9 +38,9 @@ func getAPIEndpoint(l1ChainID uint64) (string, error) {
 	case 1:
 		return "https://api.etherscan.io/v2/api", nil // eth-mainnet
 	case 11155111:
-		return "https://api-sepolia.etherscan.io/v2/api", nil // eth-sepolia
+		return "https://api.etherscan.io/v2/api", nil // eth-sepolia
 	case 84532:
-		return "https://api-sepolia.basescan.org/v2/api", nil // base-sepolia
+		return "https://api.basescan.org/v2/api", nil // base-sepolia
 	default:
 		return "", fmt.Errorf("unsupported L1 chain ID: %d", l1ChainID)
 	}
