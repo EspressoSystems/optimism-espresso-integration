@@ -2,16 +2,20 @@ package devnet_tests
 
 import (
 	"context"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRotateBatcherKey(t *testing.T) {
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -53,6 +57,10 @@ func TestRotateBatcherKey(t *testing.T) {
 }
 
 func TestChangeBatchInboxOwner(t *testing.T) {
+	// Load environment variables from .env file
+	err := LoadDevnetEnv()
+	require.NoError(t, err, "Failed to load .env file")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -80,36 +88,34 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	// Check current owner first
 	currentOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("Current BatchAuthenticator owner: %s", currentOwner.Hex())
-	t.Logf("Deployer address: %s", d.secrets.Addresses().Deployer.Hex())
-	t.Logf("Bob address: %s", d.secrets.Addresses().Bob.Hex())
 
-	// Use deployer key to sign the transaction
-	deployerOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Deployer, l1ChainID)
+	// Check that the new owner is different from the current one
+	bobAddress := d.secrets.Addresses().Bob
+	require.NotEqual(t, currentOwner, bobAddress)
+
+	// Use batch authenticator owner key to sign the transaction
+	batchAuthenticatorPrivateKeyHex := os.Getenv("BATCH_AUTHENTICATOR_OWNER_PRIVATE_KEY")
+	require.NotEmpty(t, batchAuthenticatorPrivateKeyHex, "BATCH_AUTHENTICATOR_OWNER_PRIVATE_KEY must be set")
+	t.Logf("Using BATCH_AUTHENTICATOR_OWNER_PRIVATE_KEY from environment: %s...", batchAuthenticatorPrivateKeyHex[:10])
+
+	batchAuthenticatorKey, err := crypto.HexToECDSA(strings.TrimPrefix(batchAuthenticatorPrivateKeyHex, "0x"))
 	require.NoError(t, err)
 
-	// Verify we're transferring to the right address
-	bobAddress := d.secrets.Addresses().Bob
-	t.Logf("Attempting to transfer ownership from %s to %s", currentOwner.Hex(), bobAddress.Hex())
+	batchAuthenticatorOwnerOpts, err := bind.NewKeyedTransactorWithChainID(batchAuthenticatorKey, l1ChainID)
+	require.NoError(t, err)
 
 	// Call TransferOwnership
-	tx, err := batchAuthenticator.TransferOwnership(deployerOpts, bobAddress)
+	tx, err := batchAuthenticator.TransferOwnership(batchAuthenticatorOwnerOpts, bobAddress)
 	require.NoError(t, err)
-	t.Logf("TransferOwnership transaction hash: %s", tx.Hash().Hex())
 
 	// Wait for transaction receipt and check if it succeeded
-	receipt, err := wait.ForReceiptOK(ctx, d.L1, tx.Hash())
+	_, err = wait.ForReceiptOK(ctx, d.L1, tx.Hash())
 	require.NoError(t, err)
-	t.Logf("TransferOwnership transaction receipt status: %d", receipt.Status)
-	t.Logf("TransferOwnership transaction gas used: %d", receipt.GasUsed)
-	t.Logf("TransferOwnership transaction completed successfully")
 
 	// Ensure the owner has been changed
 	newOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("New owner after transfer: %s", newOwner.Hex())
-	t.Logf("Expected Bob address: %s", d.secrets.Addresses().Bob.Hex())
-	require.Equal(t, newOwner, d.secrets.Addresses().Bob)
+	require.Equal(t, newOwner, bobAddress)
 
 	// Check that everything still functions
 	require.NoError(t, d.RunSimpleL2Burn())
