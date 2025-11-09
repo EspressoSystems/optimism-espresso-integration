@@ -27,7 +27,7 @@ type DeployEspressoOutput struct {
 }
 
 type DeployEspressoScript struct {
-	Run func(input, output common.Address) error
+	Run func(input, output, deployerAddress common.Address) error
 }
 
 type DeployAWSNitroVerifierScript struct {
@@ -72,6 +72,7 @@ func DeployAWSNitroVerifier(
 func DeployEspresso(
 	host *script.Host,
 	input DeployEspressoInput,
+	deployerAddress common.Address,
 ) (DeployEspressoOutput, error) {
 	var output DeployEspressoOutput
 	inputAddr := host.NewScriptAddress()
@@ -97,7 +98,7 @@ func DeployEspresso(
 	}
 	defer cleanupDeploy()
 
-	if err := deployScript.Run(inputAddr, outputAddr); err != nil {
+	if err := deployScript.Run(inputAddr, outputAddr, deployerAddress); err != nil {
 		return output, fmt.Errorf("failed to run %s script: %w", implContract, err)
 	}
 

@@ -91,12 +91,12 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	// Verify we're transferring to the right address
 	bobAddress := d.secrets.Addresses().Bob
 	t.Logf("Attempting to transfer ownership from %s to %s", currentOwner.Hex(), bobAddress.Hex())
-	
+
 	// Call TransferOwnership
 	tx, err := batchAuthenticator.TransferOwnership(deployerOpts, bobAddress)
 	require.NoError(t, err)
 	t.Logf("TransferOwnership transaction hash: %s", tx.Hash().Hex())
-	
+
 	// Wait for transaction receipt and check if it succeeded
 	receipt, err := wait.ForReceiptOK(ctx, d.L1, tx.Hash())
 	require.NoError(t, err)
