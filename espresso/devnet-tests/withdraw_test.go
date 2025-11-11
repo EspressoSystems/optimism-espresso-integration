@@ -298,7 +298,7 @@ func TestWithdrawal(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up())
+	require.NoError(t, d.Up(false))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -306,7 +306,7 @@ func TestWithdrawal(t *testing.T) {
 	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
 
 	// Verify devnet is running
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 
 	// Verify Alice has L2 balance
 	userBalance, err := d.L2Verif.BalanceAt(ctx, aliceAddress, nil)

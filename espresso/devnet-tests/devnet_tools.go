@@ -97,7 +97,7 @@ func (d *Devnet) isRunning() bool {
 	return len(out) > 0
 }
 
-func (d *Devnet) Up() (err error) {
+func (d *Devnet) Up(tee bool) (err error) {
 	if d.isRunning() {
 		if err := d.Down(); err != nil {
 			return err
@@ -111,6 +111,9 @@ func (d *Devnet) Up() (err error) {
 		d.ctx,
 		"docker", "compose", "up", "-d",
 	)
+	if tee {
+		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES=tee")
+	}
 	cmd.Env = append(
 		os.Environ(),
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
@@ -230,8 +233,12 @@ func (d *Devnet) SystemConfig(ctx context.Context) (*bindings.SystemConfig, *bin
 }
 
 // Submits a transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
-func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error) {
-	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
+func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn, tee bool) (*types.Receipt, error) {
+	timeout := 3 * time.Minute
+	if tee {
+		timeout = 5 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	chainID, err := d.L2Seq.ChainID(ctx)
@@ -320,8 +327,8 @@ func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 }
 
 // Submits a transaction and waits for it to be verified.
-func (d *Devnet) RunL2Tx(applyTxOpts helpers.TxOptsFn) error {
-	receipt, err := d.SubmitL2Tx(applyTxOpts)
+func (d *Devnet) RunL2Tx(applyTxOpts helpers.TxOptsFn, tee bool) error {
+	receipt, err := d.SubmitL2Tx(applyTxOpts, tee)
 	if err != nil {
 		return err
 	}
@@ -345,7 +352,7 @@ type BurnReceipt struct {
 }
 
 // Submits a burn transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
-func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
+func (d *Devnet) SubmitSimpleL2Burn(tee bool) (*BurnReceipt, error) {
 	var err error
 
 	receipt := new(BurnReceipt)
@@ -362,15 +369,19 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 		env.L2TxWithToAddress(&receipt.BurnAddress),
 		env.L2TxWithVerifyOnClients(d.L2Verif),
 	)
-	if receipt.Receipt, err = d.SubmitL2Tx(tx); err != nil {
+	if receipt.Receipt, err = d.SubmitL2Tx(tx, tee); err != nil {
 		return nil, err
 	}
 	return receipt, nil
 }
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
-func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt, tee bool) error {
+	timeout := 2 * time.Minute
+	if tee {
+		timeout = 5 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
@@ -391,12 +402,12 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
 }
 
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
-func (d *Devnet) RunSimpleL2Burn() error {
-	receipt, err := d.SubmitSimpleL2Burn()
+func (d *Devnet) RunSimpleL2Burn(tee bool) error {
+	receipt, err := d.SubmitSimpleL2Burn(tee)
 	if err != nil {
 		return err
 	}
-	return d.VerifySimpleL2Burn(receipt)
+	return d.VerifySimpleL2Burn(receipt, tee)
 }
 
 // Wait for a configurable amount of time while simulating an outage.
@@ -434,7 +445,37 @@ func (d *Devnet) Down() error {
 		d.ctx,
 		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
 	)
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to shut down docker: %w", err)
+	}
+
+	outBatcher, _ := exec.Command("docker", "ps", "-q", "--filter", "ancestor=op-batcher-tee:espresso").Output()
+	batcherContainers := strings.Fields(string(outBatcher))
+	if len(batcherContainers) > 0 {
+		cmd = exec.Command("docker", append([]string{"stop"}, batcherContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to stop the batcher container: %w", err)
+		}
+		cmd = exec.Command("docker", append([]string{"rm"}, batcherContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove the batcher container: %w", err)
+		}
+	}
+
+	outEnclave, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=batcher-enclaver-").Output()
+	enclaveContainers := strings.Fields(string(outEnclave))
+	if len(enclaveContainers) > 0 {
+		cmd = exec.Command("docker", append([]string{"stop"}, enclaveContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to stop the enclave container: %w", err)
+		}
+		cmd = exec.Command("docker", append([]string{"rm"}, enclaveContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove the enclave container: %w", err)
+		}
+	}
+
+	return nil
 }
 
 type TaggedWriter struct {

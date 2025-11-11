@@ -19,13 +19,13 @@ func TestRotateBatcherKey(t *testing.T) {
 	// We're going to change batcher key to Bob's, verify that it won't be a no-op
 	require.NotEqual(t, d.secrets.Batcher, d.secrets.Bob)
 
-	require.NoError(t, d.Up())
+	require.NoError(t, d.Up(false))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 
 	// Shut down the batcher
 	require.NoError(t, d.ServiceDown("op-batcher"))
@@ -48,7 +48,7 @@ func TestRotateBatcherKey(t *testing.T) {
 	d.SleepOutageDuration()
 
 	// Send a transaction to check the L2 still runs
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 }
 
 func TestChangeBatchInboxOwner(t *testing.T) {
@@ -57,13 +57,13 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 
 	d := NewDevnet(ctx, t)
 
-	require.NoError(t, d.Up())
+	require.NoError(t, d.Up(false))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
@@ -82,5 +82,5 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	require.Equal(t, newOwner, d.secrets.Addresses().Bob)
 
 	// Check that everything still functions
-	require.NoError(t, d.RunSimpleL2Burn())
+	require.NoError(t, d.RunSimpleL2Burn(false))
 }
