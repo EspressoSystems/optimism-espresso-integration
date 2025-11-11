@@ -840,7 +840,7 @@ jobs:
         type: string
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - attach_workspace: { at: "." }
@@ -1211,7 +1211,7 @@ jobs:
         type: string
         default: 30m
     machine: true
-    resource_class: xlarge
+    resource_class: large
     steps:
       - utils/checkout-with-mise
       - install-contracts-dependencies
@@ -2274,12 +2274,12 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
             - discord
-      # Generate flaky test report
-      - generate-flaky-report:
-          name: generate-flaky-tests-report
-          context:
-            - circleci-repo-readonly-authenticated-github-token
-            - circleci-api-token
+      # Generate flaky test report - Disabled: CircleCI API token not configured
+      # - generate-flaky-report:
+      #     name: generate-flaky-tests-report
+      #     context:
+      #       - circleci-repo-readonly-authenticated-github-token
+      #       - circleci-api-token
 
   # Acceptance tests (pre-merge to develop)
   acceptance-tests-pr:
@@ -2320,12 +2320,12 @@ workflows:
       #     context:
       #       - circleci-repo-readonly-authenticated-github-token
       #       - discord
-      # Generate flaky test report
-      - generate-flaky-report:
-          name: generate-flaky-tests-report
-          context:
-            - circleci-repo-readonly-authenticated-github-token
-            - circleci-api-token
+      # Generate flaky test report - Disabled: CircleCI API token not configured
+      # - generate-flaky-report:
+      #     name: generate-flaky-tests-report
+      #     context:
+      #       - circleci-repo-readonly-authenticated-github-token
+      #       - circleci-api-token
 
   close-issue-workflow:
     when:
