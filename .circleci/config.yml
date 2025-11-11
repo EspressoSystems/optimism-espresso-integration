@@ -1880,32 +1880,6 @@ workflows:
           test_timeout: 20m
           environment_overrides: |
             export PARALLEL=24
-          # op-deployer & op-validator excluded as they need sepolia keys
-          packages: |
-            op-alt-da
-            op-batcher
-            op-chain-ops
-            op-node
-            op-proposer
-            op-challenger
-            op-dispute-mon
-            op-conductor
-            op-program
-            op-service
-            op-supervisor
-            op-fetcher
-            op-e2e/system
-            op-e2e/e2eutils
-            op-e2e/opgeth
-            op-e2e/interop
-            op-e2e/actions
-            op-e2e/faultproofs
-            packages/contracts-bedrock/scripts/checks
-            packages/contracts-bedrock/scripts/verify
-            op-dripper
-            devnet-sdk
-            op-acceptance-tests
-            kurtosis-devnet
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
@@ -1914,10 +1888,10 @@ workflows:
             - discord
       # TODO(#15353) - Need to regenerate data used in op-program-compat and then reenable this test
       #   See: https://github.com/ethereum-optimism/chain-test-data?tab=readme-ov-file#generating-new-data
-#      - op-program-compat:
-#          context:
-#            - circleci-repo-readonly-authenticated-github-token
-#            - discord
+      #      - op-program-compat:
+      #          context:
+      #            - circleci-repo-readonly-authenticated-github-token
+      #            - discord
       - bedrock-go-tests:
           requires:
             - go-lint
