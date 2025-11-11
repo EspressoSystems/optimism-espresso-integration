@@ -2343,16 +2343,16 @@ workflows:
           context:
             - circleci-repo-optimism
 
-  devnet-metrics-collect:
-    when:
-      or:
-        - equal: [<< pipeline.trigger_source >>, "webhook"]
-        - and:
-            - equal: [true, << pipeline.parameters.devnet-metrics-collect >>]
-            - equal: [<< pipeline.trigger_source >>, "api"]
-    jobs:
-      # Disabled: GCP auth not configured
-      # - devnet-metrics-collect-authorship:
-      #     context:
-      #       - circleci-repo-readonly-authenticated-github-token
-      #       - oplabs-tools-data-public-metrics-bucket
+  # Disabled: GCP auth not configured
+  # devnet-metrics-collect:
+  #   when:
+  #     or:
+  #       - equal: [<< pipeline.trigger_source >>, "webhook"]
+  #       - and:
+  #           - equal: [true, << pipeline.parameters.devnet-metrics-collect >>]
+  #           - equal: [<< pipeline.trigger_source >>, "api"]
+  #   jobs:
+  #     - devnet-metrics-collect-authorship:
+  #         context:
+  #           - circleci-repo-readonly-authenticated-github-token
+  #           - oplabs-tools-data-public-metrics-bucket
