@@ -812,7 +812,7 @@ func (l *BlockLoader) reset(ctx context.Context) {
 }
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
-	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
+	l.batcher.Log.Debug("Loading and queueing blocks", "range", blocksToQueue)
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
 		if err != nil {
@@ -821,7 +821,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 		}
 
 		for _, txn := range block.Transactions() {
-			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
+			l.batcher.Log.Debug("tx hash before submitting to Espresso", "hash", txn.Hash().String())
 		}
 
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
