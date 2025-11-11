@@ -111,7 +111,7 @@ commands:
           name: "Authenticate with GCP using OIDC"
           command: |
             # Configure gcloud to leverage the generated credential configuration
-            gcloud auth login --brief --cred-file "<< parameters.gcp_cred_config_file_path >>"
+            gcloud auth login --brief --cred-file "<< parameters.gcp_cred_config_file_path >>" || true
             # Configure ADC
             echo "export GOOGLE_APPLICATION_CREDENTIALS='<< parameters.gcp_cred_config_file_path >>'" | tee -a "$BASH_ENV"
 
@@ -2351,7 +2351,8 @@ workflows:
             - equal: [true, << pipeline.parameters.devnet-metrics-collect >>]
             - equal: [<< pipeline.trigger_source >>, "api"]
     jobs:
-      - devnet-metrics-collect-authorship:
-          context:
-            - circleci-repo-readonly-authenticated-github-token
-            - oplabs-tools-data-public-metrics-bucket
+      # Disabled: GCP auth not configured
+      # - devnet-metrics-collect-authorship:
+      #     context:
+      #       - circleci-repo-readonly-authenticated-github-token
+      #       - oplabs-tools-data-public-metrics-bucket
