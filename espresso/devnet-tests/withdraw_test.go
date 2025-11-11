@@ -306,7 +306,7 @@ func TestWithdrawal(t *testing.T) {
 	aliceAddress := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
 
 	// Verify devnet is running
-	require.NoError(t, d.RunSimpleL2Burn(false))
+	require.NoError(t, d.RunSimpleL2Burn())
 
 	// Verify Alice has L2 balance
 	userBalance, err := d.L2Verif.BalanceAt(ctx, aliceAddress, nil)

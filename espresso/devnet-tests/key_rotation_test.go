@@ -25,7 +25,7 @@ func TestRotateBatcherKey(t *testing.T) {
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn(false))
+	require.NoError(t, d.RunSimpleL2Burn())
 
 	// Shut down the batcher
 	require.NoError(t, d.ServiceDown("op-batcher"))
@@ -48,7 +48,7 @@ func TestRotateBatcherKey(t *testing.T) {
 	d.SleepOutageDuration()
 
 	// Send a transaction to check the L2 still runs
-	require.NoError(t, d.RunSimpleL2Burn(false))
+	require.NoError(t, d.RunSimpleL2Burn())
 }
 
 func TestChangeBatchInboxOwner(t *testing.T) {
@@ -63,7 +63,7 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	}()
 
 	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn(false))
+	require.NoError(t, d.RunSimpleL2Burn())
 
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
@@ -82,5 +82,5 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	require.Equal(t, newOwner, d.secrets.Addresses().Bob)
 
 	// Check that everything still functions
-	require.NoError(t, d.RunSimpleL2Burn(false))
+	require.NoError(t, d.RunSimpleL2Burn())
 }
