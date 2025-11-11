@@ -77,7 +77,6 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
 
-	// Change the BatchAuthenticator's owner
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
 	require.NoError(t, err)
 
