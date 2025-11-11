@@ -875,8 +875,7 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 		return inclusiveBlockRange{}, ActionRetry
 	}
 
-	var safeL2 eth.L2BlockRef
-	safeL2 = newSyncStatus.SafeL2
+	safeL2 := newSyncStatus.SafeL2
 
 	// State empty, just enqueue all unsafe blocks
 	if len(l.queuedBlocks) == 0 {
