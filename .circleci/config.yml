@@ -1778,18 +1778,14 @@ jobs:
 
 workflows:
   main:
-    # Run on all branches via webhook or API
+    # Match upstream Celo config - run on webhook, API, or main_dispatch
     when:
       or:
         - equal: ["webhook", << pipeline.trigger_source >>]
-        - equal: ["api", << pipeline.trigger_source >>]
         - and:
             - equal: [true, <<pipeline.parameters.main_dispatch>>]
-            - equal: ["api", << pipeline.trigger_source >>]
-            - equal: [
-                  << pipeline.parameters.github-event-type >>,
-                  "__not_set__",
-                ] #this is to prevent triggering this workflow as the default value is always set for main_dispatch
+        - equal: ["api", << pipeline.trigger_source >>]
+        - equal: ["", << pipeline.parameters.github-event-type >>]
     jobs:
       - contracts-bedrock-build:
           name: contracts-bedrock-build
