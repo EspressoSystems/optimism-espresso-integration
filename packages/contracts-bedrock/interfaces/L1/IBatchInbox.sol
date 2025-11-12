@@ -11,4 +11,6 @@ interface IBatchInbox {
     function postCalldata(bytes calldata data) external;
 
     function postBlobs() external;
+
+    fallback() external;
 }

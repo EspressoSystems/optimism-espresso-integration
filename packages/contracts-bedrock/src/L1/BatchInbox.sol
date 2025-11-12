@@ -34,6 +34,10 @@ contract BatchInbox {
         _requireAuthorized(_commitmentFromBlobs());
     }
 
+    fallback() external {
+        _requireAuthorized(keccak256(msg.data));
+    }
+
     function _activeBatcher() internal view returns (address active, bool isTee) {
         if (activeIsTee) {
             return (teeBatcher, true);
