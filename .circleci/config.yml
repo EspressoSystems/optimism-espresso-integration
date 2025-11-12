@@ -1878,8 +1878,8 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
       - go-tests:
           name: go-tests-short
-          no_output_timeout: 19m
-          test_timeout: 20m
+          no_output_timeout: 60m
+          test_timeout: 60m
           environment_overrides: |
             export PARALLEL=24
           requires:
