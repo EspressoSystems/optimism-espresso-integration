@@ -47,10 +47,24 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		lgr.Info("Using deployer address from env.Deployer", "address", batchAuthenticatorOwnwerAddress.Hex())
 	}
 
+	// Determine batcher addresses for dual-batcher BatchInbox
+	teeBatcher := chainIntent.PreApprovedBatcherKey
+	nonTeeBatcher := chainIntent.Roles.Batcher
+	// Fallback: if PreApprovedBatcherKey is not set, use Roles.Batcher for both
+	if teeBatcher == (common.Address{}) {
+		teeBatcher = chainIntent.Roles.Batcher
+	}
+	// Fallback: if Roles.Batcher is not set, use PreApprovedBatcherKey for both
+	if nonTeeBatcher == (common.Address{}) {
+		nonTeeBatcher = chainIntent.PreApprovedBatcherKey
+	}
+
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		Salt:                  st.Create2Salt,
 		PreApprovedBatcherKey: chainIntent.PreApprovedBatcherKey,
 		NitroTEEVerifier:      nvo.NitroTEEVerifierAddress,
+		TeeBatcher:            teeBatcher,
+		NonTeeBatcher:         nonTeeBatcher,
 	}, batchAuthenticatorOwnwerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)

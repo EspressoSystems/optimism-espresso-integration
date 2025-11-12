@@ -2,9 +2,13 @@
 pragma solidity ^0.8.0;
 
 interface IBatchInbox {
-    fallback() external;
-
     function version() external view returns (string memory);
 
-    function __constructor__(address _batchAuthenticator) external;
+    function __constructor__(address _teeBatcher, address _nonTeeBatcher, address _batchAuthenticator) external;
+
+    function switchBatcher() external;
+
+    function postCalldata(bytes calldata data) external;
+
+    function postBlobs() external;
 }

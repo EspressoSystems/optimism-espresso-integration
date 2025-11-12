@@ -2,10 +2,13 @@ package environment_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/setuputils"
@@ -13,11 +16,116 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
+
+func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bindings.BatchInbox, *bind.TransactOpts, *bind.TransactOpts, *bind.TransactOpts, *big.Int) {
+    t.Helper()
+    launcher := new(env.EspressoDevNodeLauncherDocker)
+    system, _, err := launcher.StartE2eDevnet(ctx, t,
+        env.Config(func(cfg *e2esys.SystemConfig) {
+            cfg.DisableBatcher = true
+        }),
+    )
+    require.NoError(t, err)
+
+    l1 := system.NodeClient(e2esys.RoleL1)
+    chainID, err := l1.ChainID(ctx)
+    require.NoError(t, err)
+
+    inbox, err := bindings.NewBatchInbox(system.RollupConfig.BatchInboxAddress, l1)
+    require.NoError(t, err)
+
+    // Fund the PreApprovedBatcher account if it's different from the standard batcher
+    const espressoPreApprovedBatcherPrivateKey = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+    preApprovedBatcherPk, err := crypto.HexToECDSA(espressoPreApprovedBatcherPrivateKey)
+    require.NoError(t, err)
+    preApprovedBatcherAddr := crypto.PubkeyToAddress(preApprovedBatcherPk.PublicKey)
+    
+    // Check if the PreApprovedBatcher needs funding
+    balance, err := l1.BalanceAt(ctx, preApprovedBatcherAddr, nil)
+    require.NoError(t, err)
+    if balance.Cmp(big.NewInt(0)) == 0 {
+        // Fund from deployer using txmgr which handles nonce and gas properly
+        deployerSigner, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
+        require.NoError(t, err)
+        nonce, err := l1.PendingNonceAt(ctx, crypto.PubkeyToAddress(system.Cfg.Secrets.Deployer.PublicKey))
+        require.NoError(t, err)
+        gasPrice, err := l1.SuggestGasPrice(ctx)
+        require.NoError(t, err)
+        
+        tx := types.NewTx(&types.LegacyTx{
+            Nonce:    nonce,
+            To:       &preApprovedBatcherAddr,
+            Value:    big.NewInt(1000000000000000000), // 1 ETH
+            Gas:      21000,
+            GasPrice: gasPrice,
+        })
+        signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), system.Cfg.Secrets.Deployer)
+        require.NoError(t, err)
+        err = l1.SendTransaction(ctx, signedTx)
+        require.NoError(t, err)
+        _, err = bind.WaitMined(ctx, l1, signedTx)
+        require.NoError(t, err)
+        _ = deployerSigner // unused but keep for clarity
+    }
+
+    deployerAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
+    require.NoError(t, err)
+    teeAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Batcher, chainID)
+    require.NoError(t, err)
+    nonTeeAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Bob, chainID)
+    require.NoError(t, err)
+
+    return system, inbox, deployerAuth, teeAuth, nonTeeAuth, chainID
+}
+
+func authForAddress(t *testing.T, system *e2esys.System, chainID *big.Int, addr common.Address) *bind.TransactOpts {
+	t.Helper()
+	// Try to get PreApprovedBatcherKey if it's set in the system
+	var preApprovedBatcherKey *ecdsa.PrivateKey
+	if pkHex := os.Getenv("ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY"); pkHex != "" {
+		var err error
+		preApprovedBatcherKey, err = crypto.HexToECDSA(pkHex)
+		if err == nil && crypto.PubkeyToAddress(preApprovedBatcherKey.PublicKey) == addr {
+			auth, err := bind.NewKeyedTransactorWithChainID(preApprovedBatcherKey, chainID)
+			require.NoError(t, err)
+			return auth
+		}
+	}
+	// Hardcoded fallback for test environment
+	const espressoPreApprovedBatcherPrivateKey = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+	if pk, err := crypto.HexToECDSA(espressoPreApprovedBatcherPrivateKey); err == nil {
+		if crypto.PubkeyToAddress(pk.PublicKey) == addr {
+			auth, err := bind.NewKeyedTransactorWithChainID(pk, chainID)
+			require.NoError(t, err)
+			return auth
+		}
+	}
+
+	switch addr {
+	case crypto.PubkeyToAddress(system.Cfg.Secrets.Deployer.PublicKey):
+		auth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
+		require.NoError(t, err)
+		return auth
+	case crypto.PubkeyToAddress(system.Cfg.Secrets.Batcher.PublicKey):
+		auth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Batcher, chainID)
+		require.NoError(t, err)
+		return auth
+	case crypto.PubkeyToAddress(system.Cfg.Secrets.Bob.PublicKey):
+		auth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Bob, chainID)
+		require.NoError(t, err)
+		return auth
+	default:
+		t.Fatalf("no auth available for address %s", addr)
+		return nil
+	}
+}
 
 // TestE2eDevnetWithoutAuthenticatingBatches verifies BatchInboxContract behaviour when batches
 // aren't attested before being posted to batch inbox. To do this, we substitute BatchAuthenticatorAddress
@@ -106,6 +214,71 @@ func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 
 	_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(1), system.NodeClient(e2esys.RoleVerif), time.Minute)
 	require.Error(t, err)
+}
+
+func TestBatchInbox_SwitchActiveBatcher(t *testing.T) {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    system, inbox, deployerAuth, _, _, _ := setupBatchInboxEnv(ctx, t)
+    tx, err := inbox.SwitchBatcher(deployerAuth)
+    require.NoError(t, err)
+    _, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
+    require.NoError(t, err)
+}
+
+func TestBatchInbox_ActiveNonTeeBatcherAllowsPosting(t *testing.T) {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    system, inbox, deployerAuth, _, _, chainID := setupBatchInboxEnv(ctx, t)
+    tx, err := inbox.SwitchBatcher(deployerAuth)
+    require.NoError(t, err)
+    _, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
+    require.NoError(t, err)
+    // Determine non-TEE batcher from contract and post with its key
+    nonTeeAddr, err := inbox.NonTeeBatcher(&bind.CallOpts{Context: ctx})
+    require.NoError(t, err)
+    nonTeeAuth := authForAddress(t, system, chainID, nonTeeAddr)
+    tx2, err := inbox.PostCalldata(nonTeeAuth, []byte("hello"))
+    require.NoError(t, err)
+    receipt, err := bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx2)
+    require.NoError(t, err)
+    require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+}
+
+func TestBatchInbox_InactiveBatcherReverts(t *testing.T) {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    system, inbox, deployerAuth, _, _, chainID := setupBatchInboxEnv(ctx, t)
+    tx, err := inbox.SwitchBatcher(deployerAuth)
+    require.NoError(t, err)
+    _, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
+    require.NoError(t, err)
+    teeAddr, err := inbox.TeeBatcher(&bind.CallOpts{Context: ctx})
+    require.NoError(t, err)
+    teeAuth := authForAddress(t, system, chainID, teeAddr)
+    teeAuth.GasLimit = 100000 // Bypass gas estimation
+    tx2, err := inbox.PostCalldata(teeAuth, []byte("unauth"))
+    require.NoError(t, err)
+    receipt, err := bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx2)
+    require.NoError(t, err)
+    require.Equal(t, types.ReceiptStatusFailed, receipt.Status)
+}
+
+func TestBatchInbox_TEEBatcherRequiresAuthentication(t *testing.T) {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    system, inbox, _, _, _, chainID := setupBatchInboxEnv(ctx, t)
+    teeAddr, err := inbox.TeeBatcher(&bind.CallOpts{Context: ctx})
+    require.NoError(t, err)
+    teeAuth := authForAddress(t, system, chainID, teeAddr)
+    // Disable gas estimation to force sending a transaction that will revert
+    teeAuth.GasLimit = 100000
+    teeAuth.NoSend = false
+    tx, err := inbox.PostCalldata(teeAuth, []byte("needs-auth"))
+    require.NoError(t, err)
+    receipt, err := bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
+    require.NoError(t, err)
+    require.Equal(t, types.ReceiptStatusFailed, receipt.Status)
 }
 
 // A wrapper for testing that proxies all calls to ETHBackend unchanged,

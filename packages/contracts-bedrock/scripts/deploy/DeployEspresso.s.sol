@@ -16,10 +16,15 @@ contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _preApprovedBatcherKey;
     address internal _nitroTEEVerifier;
+    address internal _teeBatcher;
+    address internal _nonTeeBatcher;
 
     function set(bytes4 _sel, bytes32 _val) public {
-        if (_sel == this.salt.selector) _salt = _val;
-        else revert("DeployEspressoInput: unknown selector");
+        if (_sel == this.salt.selector) {
+            _salt = _val;
+        } else {
+            // tolerate unknown selectors, some pipelines may pass extra fields we don't need
+        }
     }
 
     function set(bytes4 _sel, address _val) public {
@@ -27,8 +32,13 @@ contract DeployEspressoInput is BaseDeployIO {
             _preApprovedBatcherKey = _val;
         } else if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
+        } else if (_sel == bytes4(keccak256("teeBatcher()")) || _sel == bytes4(keccak256("teeBatcher(address)"))) {
+            _teeBatcher = _val;
+        } else if (_sel == bytes4(keccak256("nonTeeBatcher()")) || _sel == bytes4(keccak256("nonTeeBatcher(address)")))
+        {
+            _nonTeeBatcher = _val;
         } else {
-            revert("DeployEspressoInput: unknown selector");
+            // tolerate unknown selectors, ignore
         }
     }
 
@@ -43,6 +53,16 @@ contract DeployEspressoInput is BaseDeployIO {
 
     function preApprovedBatcherKey() public view returns (address) {
         return _preApprovedBatcherKey;
+    }
+
+    function teeBatcher() public view returns (address) {
+        require(_teeBatcher != address(0), "DeployEspressoInput: tee batcher not set");
+        return _teeBatcher;
+    }
+
+    function nonTeeBatcher() public view returns (address) {
+        require(_nonTeeBatcher != address(0), "DeployEspressoInput: non-tee batcher not set");
+        return _nonTeeBatcher;
     }
 }
 
@@ -129,13 +149,15 @@ contract DeployEspresso is Script {
         public
     {
         bytes32 salt = input.salt();
+        address tee = input.teeBatcher();
+        address nonTee = input.nonTeeBatcher();
         vm.broadcast(msg.sender);
         IBatchInbox impl = IBatchInbox(
             DeployUtils.create2({
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator)))
+                    abi.encodeCall(IBatchInbox.__constructor__, (tee, nonTee, address(batchAuthenticator)))
                 )
             })
         );

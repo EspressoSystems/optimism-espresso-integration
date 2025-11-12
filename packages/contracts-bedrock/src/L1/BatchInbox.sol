@@ -4,29 +4,61 @@ pragma solidity 0.8.28;
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
 contract BatchInbox {
-    IBatchAuthenticator immutable batchAuthenticator;
+    string public constant version = "1.1.0";
 
-    constructor(IBatchAuthenticator _batchAuthenticator) {
+    address public immutable teeBatcher;
+    address public immutable nonTeeBatcher;
+    IBatchAuthenticator public immutable batchAuthenticator;
+
+    // true if teeBatcher is active, false if nonTeeBatcher is active
+    bool public activeIsTee;
+
+    constructor(address _teeBatcher, address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator) {
+        require(_teeBatcher != address(0) && _nonTeeBatcher != address(0), "BatchInbox: zero batcher");
+        teeBatcher = _teeBatcher;
+        nonTeeBatcher = _nonTeeBatcher;
         batchAuthenticator = _batchAuthenticator;
+        // By default, start with the TEE batcher active
+        activeIsTee = true;
     }
 
-    fallback() external {
-        if (blobhash(0) != 0) {
-            bytes memory concatenatedHashes = new bytes(0);
-            uint256 currentBlob = 0;
-            while (blobhash(currentBlob) != 0) {
-                concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(currentBlob));
-                currentBlob++;
-            }
-            bytes32 hash = keccak256(concatenatedHashes);
-            if (!batchAuthenticator.validBatchInfo(hash)) {
-                revert("Invalid blob batch");
-            }
+    function switchBatcher() external {
+        activeIsTee = !activeIsTee;
+    }
+
+    function postCalldata(bytes calldata data) external {
+        _requireAuthorized(keccak256(data));
+    }
+
+    function postBlobs() external {
+        _requireAuthorized(_commitmentFromBlobs());
+    }
+
+    function _activeBatcher() internal view returns (address active, bool isTee) {
+        if (activeIsTee) {
+            return (teeBatcher, true);
         } else {
-            bytes32 hash = keccak256(msg.data);
-            if (!batchAuthenticator.validBatchInfo(hash)) {
-                revert("Invalid calldata batch");
+            return (nonTeeBatcher, false);
+        }
+    }
+
+    function _requireAuthorized(bytes32 commitment) internal view {
+        (address active, bool isTee) = _activeBatcher();
+        require(msg.sender == active, "BatchInbox: inactive batcher");
+        if (isTee) {
+            require(batchAuthenticator.validBatchInfo(commitment), "BatchInbox: invalid batch");
+        }
+    }
+
+    function _commitmentFromBlobs() internal view returns (bytes32) {
+        bytes memory concatenatedHashes;
+        uint256 i;
+        while (blobhash(i) != 0) {
+            concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(i));
+            unchecked {
+                i++;
             }
         }
+        return keccak256(concatenatedHashes);
     }
 }
