@@ -180,12 +180,6 @@ func CombineDeployConfig(intent *Intent, chainIntent *ChainIntent, state *State,
 	return cfg, nil
 }
 
-func mustHexBigFromHex(hex string) *hexutil.Big {
-	num := hexutil.MustDecodeBig(hex)
-	hexBig := hexutil.Big(*num)
-	return &hexBig
-}
-
 func calculateBatchInboxAddr(chainState *ChainState) common.Address {
 	if chainState.BatchInboxAddress != (common.Address{}) {
 		return chainState.BatchInboxAddress
