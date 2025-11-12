@@ -2,9 +2,7 @@ package environment_test
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -24,6 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Test private key for PreApprovedBatcher (TEE batcher)
+const preApprovedBatcherPrivateKey = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+
 func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bindings.BatchInbox, *bind.TransactOpts, *bind.TransactOpts, *bind.TransactOpts, *big.Int) {
     t.Helper()
     launcher := new(env.EspressoDevNodeLauncherDocker)
@@ -41,24 +42,16 @@ func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bin
     inbox, err := bindings.NewBatchInbox(system.RollupConfig.BatchInboxAddress, l1)
     require.NoError(t, err)
 
-    // Fund the PreApprovedBatcher account if it's different from the standard batcher
-    const espressoPreApprovedBatcherPrivateKey = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
-    preApprovedBatcherPk, err := crypto.HexToECDSA(espressoPreApprovedBatcherPrivateKey)
+    // Fund the PreApprovedBatcher account for TEE batcher tests
+    preApprovedBatcherPk, err := crypto.HexToECDSA(preApprovedBatcherPrivateKey)
     require.NoError(t, err)
     preApprovedBatcherAddr := crypto.PubkeyToAddress(preApprovedBatcherPk.PublicKey)
     
-    // Check if the PreApprovedBatcher needs funding
-    balance, err := l1.BalanceAt(ctx, preApprovedBatcherAddr, nil)
-    require.NoError(t, err)
-    if balance.Cmp(big.NewInt(0)) == 0 {
-        // Fund from deployer using txmgr which handles nonce and gas properly
-        deployerSigner, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
-        require.NoError(t, err)
+    if balance, _ := l1.BalanceAt(ctx, preApprovedBatcherAddr, nil); balance.Cmp(big.NewInt(0)) == 0 {
         nonce, err := l1.PendingNonceAt(ctx, crypto.PubkeyToAddress(system.Cfg.Secrets.Deployer.PublicKey))
         require.NoError(t, err)
         gasPrice, err := l1.SuggestGasPrice(ctx)
         require.NoError(t, err)
-        
         tx := types.NewTx(&types.LegacyTx{
             Nonce:    nonce,
             To:       &preApprovedBatcherAddr,
@@ -68,11 +61,9 @@ func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bin
         })
         signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), system.Cfg.Secrets.Deployer)
         require.NoError(t, err)
-        err = l1.SendTransaction(ctx, signedTx)
-        require.NoError(t, err)
+        require.NoError(t, l1.SendTransaction(ctx, signedTx))
         _, err = bind.WaitMined(ctx, l1, signedTx)
         require.NoError(t, err)
-        _ = deployerSigner // unused but keep for clarity
     }
 
     deployerAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
@@ -87,20 +78,8 @@ func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bin
 
 func authForAddress(t *testing.T, system *e2esys.System, chainID *big.Int, addr common.Address) *bind.TransactOpts {
 	t.Helper()
-	// Try to get PreApprovedBatcherKey if it's set in the system
-	var preApprovedBatcherKey *ecdsa.PrivateKey
-	if pkHex := os.Getenv("ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY"); pkHex != "" {
-		var err error
-		preApprovedBatcherKey, err = crypto.HexToECDSA(pkHex)
-		if err == nil && crypto.PubkeyToAddress(preApprovedBatcherKey.PublicKey) == addr {
-			auth, err := bind.NewKeyedTransactorWithChainID(preApprovedBatcherKey, chainID)
-			require.NoError(t, err)
-			return auth
-		}
-	}
-	// Hardcoded fallback for test environment
-	const espressoPreApprovedBatcherPrivateKey = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
-	if pk, err := crypto.HexToECDSA(espressoPreApprovedBatcherPrivateKey); err == nil {
+	// Check if this is the PreApprovedBatcher address
+	if pk, err := crypto.HexToECDSA(preApprovedBatcherPrivateKey); err == nil {
 		if crypto.PubkeyToAddress(pk.PublicKey) == addr {
 			auth, err := bind.NewKeyedTransactorWithChainID(pk, chainID)
 			require.NoError(t, err)
