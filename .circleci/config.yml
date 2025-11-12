@@ -133,7 +133,8 @@ commands:
           name: "Authenticate with GCP using OIDC"
           command: |
             # Configure gcloud to leverage the generated credential configuration
-            gcloud auth login --brief --cred-file "<< parameters.gcp_cred_config_file_path >>"
+            # TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
+            gcloud auth login --brief --cred-file "<< parameters.gcp_cred_config_file_path >>" || true
             # Configure ADC
             echo "export GOOGLE_APPLICATION_CREDENTIALS='<< parameters.gcp_cred_config_file_path >>'" | tee -a "$BASH_ENV"
 
@@ -2948,32 +2949,39 @@ workflows:
           test_timeout: 20m
           environment_overrides: |
             export PARALLEL=24
-          # op-deployer & op-validator excluded as they need sepolia keys
-          packages: |
-            op-alt-da
-            op-batcher
-            op-chain-ops
-            op-node
-            op-proposer
-            op-challenger
-            op-dispute-mon
-            op-conductor
-            op-program
-            op-service
-            op-supervisor
-            op-fetcher
-            op-e2e/system
-            op-e2e/e2eutils
-            op-e2e/opgeth
-            op-e2e/interop
-            op-e2e/actions
-            op-e2e/faultproofs
-            packages/contracts-bedrock/scripts/checks
-            packages/contracts-bedrock/scripts/verify
-            op-dripper
-            devnet-sdk
-            op-acceptance-tests
-            kurtosis-devnet
+            # some op-deployer & op-validator excluded as they need sepolia keys or sepolia url
+            export TEST_PKGS="\
+              ./op-alt-da/... \
+              ./op-batcher/... \
+              ./op-chain-ops/... \
+              ./op-node/... \
+              ./op-proposer/... \
+              ./op-challenger/... \
+              ./op-faucet/... \
+              ./op-dispute-mon/... \
+              ./op-conductor/... \
+              ./op-program/... \
+              ./op-service/... \
+              ./op-supervisor/... \
+              ./op-test-sequencer/... \
+              ./op-fetcher/... \
+              ./op-e2e/system/... \
+              ./op-e2e/e2eutils/... \
+              ./op-e2e/opgeth/... \
+              ./op-e2e/interop/... \
+              ./packages/contracts-bedrock/scripts/checks/... \
+              ./op-dripper/... \
+              ./devnet-sdk/... \
+              ./op-acceptance-tests/... \
+              ./kurtosis-devnet/... \
+              ./op-devstack/... \
+              ./op-deployer/pkg/deployer/artifacts/... \
+              ./op-deployer/pkg/deployer/broadcaster/... \
+              ./op-deployer/pkg/deployer/clean/... \
+              ./op-deployer/pkg/deployer/integration_test/... \
+              ./op-deployer/pkg/deployer/interop/... \
+              ./op-deployer/pkg/deployer/standard/... \
+              ./op-deployer/pkg/deployer/state/..."
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
@@ -3580,6 +3588,7 @@ workflows:
       - cannon-kona-prestate: # needed for sysgo tests (if any package is in-memory)
           context:
             - circleci-repo-readonly-authenticated-github-token
+            - discord
       - cannon-kona-host: # needed for sysgo tests (if any package is in-memory)
           context:
             - circleci-repo-readonly-authenticated-github-token
@@ -3589,6 +3598,27 @@ workflows:
           binaries: "kona-node kona-supervisor"
           build_command: cargo build --release --bin kona-node --bin kona-supervisor
           needs_clang: true
+      # Generate flaky test report : CircleCI API token not configured TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
+      # - generate-flaky-report:
+      #     name: generate-flaky-tests-report
+      #     context:
+      #       - circleci-repo-readonly-authenticated-github-token
+      #       - circleci-api-token
+
+  # Acceptance tests (pre-merge to develop)
+  acceptance-tests-pr:
+    when:
+      not:
+        equal: [<< pipeline.git.branch >>, "develop"]
+    jobs:
+      # KURTOSIS (Simple)
+      - op-acceptance-tests:
+          # Acceptance Testing params
+          name: kurtosis-simple
+          devnet: simple
+          gate: base
+          # CircleCI params
+          no_output_timeout: 30m
           context:
             - circleci-repo-readonly-authenticated-github-token
       - rust-binary-build:
