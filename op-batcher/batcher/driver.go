@@ -213,6 +213,10 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
 
+		// Limit teeAuthGroup to at most 128 concurrent goroutines as an arbitrary
+		// not-too-big limit for the number of BatchInbox transactions that can be
+		// simultaneously waiting for corresponding BatchAuthenticator transaction to be
+		// confirmed before submission to L1.
 		l.teeAuthGroup.SetLimit(128)
 
 		l.wg.Add(4)
@@ -529,7 +533,7 @@ func (l *BatchSubmitter) publishingLoop(ctx context.Context, wg *sync.WaitGroup,
 	}
 
 	// Wait for all transactions requiring TEE authentication to complete to prevent new
-	// transactions being quieued
+	// transactions being queued
 	if err := l.teeAuthGroup.Wait(); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			l.Log.Error("error waiting for transaction authentication requests to complete", "err", err)
