@@ -100,9 +100,7 @@ func testStandardVersionNetwork(t *testing.T, network string) {
 		t.Fatalf("Invalid network: %s", network)
 	}
 
-	if rpcURL == "" {
-		t.Skip("RPC URL not set, skipping test")
-	}
+	require.NotEmpty(t, rpcURL, "RPC URL is empty")
 
 	contractVersions := []string{
 		standard.ContractsV180Tag,
