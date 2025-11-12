@@ -8,23 +8,44 @@ ARG TARGETARCH
 # Base builder image
 FROM golang:1.23.8-alpine3.20 AS builder
 
-RUN apk add --no-cache curl netcat-openbsd tar gzip make gcc musl-dev linux-headers git jq bash
+RUN apk add --no-cache \
+  curl netcat-openbsd tar gzip make gcc g++ musl-dev \
+  linux-headers git bash jq yq
 
 # Install mise for toolchain management
 RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 
-# Install yq
+# Install yq, dasel and foundry
 RUN case "$TARGETARCH" in \
-  "amd64") YQ_ARCH="amd64" ;; \
-  "arm64") YQ_ARCH="arm64" ;; \
-  *) YQ_ARCH="amd64" ;; \
+  "amd64") ARCH="amd64" ;; \
+  "arm64") ARCH="arm64" ;; \
+  *) ARCH="amd64" ;; \
   esac && \
-  wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$YQ_ARCH -O /usr/local/bin/yq && \
-  chmod +x /usr/local/bin/yq
+  wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$ARCH -O /usr/local/bin/yq && \
+  chmod +x /usr/local/bin/yq && \
+  wget https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_$ARCH -O /usr/local/bin/dasel && \
+  chmod +x /usr/local/bin/dasel && \
+  wget https://github.com/foundry-rs/foundry/releases/download/v1.4.4/foundry_v1.4.4_linux_$ARCH.tar.gz -O foundry.tgz && \
+  tar -xzf foundry.tgz -C /usr/local/bin && \
+  chmod +x /usr/local/bin/chisel && \
+  chmod +x /usr/local/bin/anvil && \
+  chmod +x /usr/local/bin/cast && \
+  chmod +x /usr/local/bin/forge
 
 # Install versioned toolchain
 COPY ./mise.toml .
 RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+
+# Fetch rust libs for dynamic linking
+ARG ESPRESSO_SDK_VER=0.3.2
+ARG ESPRESSO_SDK_HELPER_HASH_AARCH64=ec6ce7b37edd173206ad338c84a6a771a0e9dc8b184081af7440ebfc0c531a71
+ARG ESPRESSO_SDK_HELPER_HASH_X86_64=49c50949ec1acf52107cb190c90911e05cc9c4e9d72dd7455496163443760b92
+ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_AARCH64} \
+  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so \
+  /lib/
+ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_X86_64} \
+  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so \
+  /lib/
 
 # Copy and download Go dependencies
 COPY ./go.mod /app/go.mod
@@ -39,38 +60,8 @@ COPY . /app
 ARG GIT_COMMIT
 ARG GIT_DATE
 
-# CGO builder for components that need Espresso crypto linking
-FROM golang:1.23.8-alpine3.20 AS op-cgo-builder
-# Install dependencies
-RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
-# Install just from mise
-COPY ./mise.toml .
-RUN case $(uname -m) in \
-  "arm64"|"aarch64") JUST_ARCH="aarch64" ;; \
-  *) JUST_ARCH="x86_64" ;; \
-  esac && \
-  curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-$JUST_ARCH-unknown-linux-musl.tar.gz | \
-  tar xz -C /usr/local/bin just
-# Fetch rust libs for dynamic linking
-ARG ESPRESSO_SDK_VER=0.3.2
-ARG ESPRESSO_SDK_HELPER_HASH_AARCH64=ec6ce7b37edd173206ad338c84a6a771a0e9dc8b184081af7440ebfc0c531a71
-ARG ESPRESSO_SDK_HELPER_HASH_X86_64=49c50949ec1acf52107cb190c90911e05cc9c4e9d72dd7455496163443760b92
-ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_AARCH64} \
-  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so \
-  /lib/
-ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_X86_64} \
-  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so \
-  /lib/
-# Go sources
-COPY ./go.mod /app/go.mod
-COPY ./go.sum /app/go.sum
-# Warm-up the cache
-WORKDIR /app
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
-COPY . /app
-
 # Build op-node
-FROM op-cgo-builder AS op-node-builder
+FROM builder AS op-node-builder
 ARG OP_NODE_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-node && \
   CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
@@ -78,14 +69,14 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   -o bin/op-node ./cmd/main.go
 
 # Build op-batcher
-FROM op-cgo-builder AS op-batcher-builder
+FROM builder AS op-batcher-builder
 ARG OP_BATCHER_VERSION=v0.0.0
 WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
 
 # Build enclave-tools
-FROM op-cgo-builder AS enclave-tools-builder
+FROM builder AS enclave-tools-builder
 ARG ENCLAVE_TOOLS_VERSION=v0.0.0
 WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
@@ -99,11 +90,11 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-challenger && make op-challenger  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
-FROM golang:1.23-alpine AS deployment-utils-builder
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE
-RUN apk add gcc lld musl-dev # For CGO
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/tomwright/dasel/v2/cmd/dasel@v2.8.1
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go install -ldflags '-linkmode external -extldflags "-static"' github.com/mikefarah/yq/v4@v4.47.1
+# Build op-deployer
+FROM builder AS op-deployer-builder
+ARG OP_DEPLOER_VERSION=v0.0.0
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION" just
 
 
 # Final runtime images
@@ -133,7 +124,7 @@ RUN apk add gcc docker bash jq curl wget
 # Install enclaver for EIF creation
 RUN curl -L https://github.com/enclaver-io/enclaver/releases/download/v0.5.0/enclaver-linux-x86_64-v0.5.0.tar.gz | tar xz --strip-components=1 -C /usr/local/bin enclaver-linux-x86_64-v0.5.0/enclaver
 # Copy source code
-COPY --from=op-cgo-builder /app /source
+COPY --from=builder /app /source
 WORKDIR /source
 # Copy pre-built forge-artifacts from host (faster for development)
 COPY packages/contracts-bedrock/forge-artifacts /source/packages/contracts-bedrock/forge-artifacts
@@ -178,6 +169,10 @@ CMD ["op-challenger"]
 
 FROM $TARGET_BASE_IMAGE AS op-deployer-target
 RUN apk add jq curl bash openssl
-COPY --from=deployment-utils-builder /go/bin/dasel /usr/local/bin/
-COPY --from=deployment-utils-builder /go/bin/yq /usr/local/bin/
+COPY --from=builder /usr/local/bin/dasel /usr/local/bin/
+COPY --from=builder /usr/local/bin/yq /usr/local/bin/
+COPY --from=builder /usr/local/bin/cast /usr/local/bin/
+COPY --from=op-deployer-builder /app/op-deployer/bin/op-deployer /usr/local/bin
+COPY /packages/contracts-bedrock/forge-artifacts /contracts
+ENV DEPLOYER_ARTIFACTS_LOCATOR=/contracts
 CMD ["op-deployer"]
