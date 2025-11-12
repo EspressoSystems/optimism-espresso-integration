@@ -111,6 +111,7 @@ commands:
           name: "Authenticate with GCP using OIDC"
           command: |
             # Configure gcloud to leverage the generated credential configuration
+            # https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
             gcloud auth login --brief --cred-file "<< parameters.gcp_cred_config_file_path >>" || true
             # Configure ADC
             echo "export GOOGLE_APPLICATION_CREDENTIALS='<< parameters.gcp_cred_config_file_path >>'" | tee -a "$BASH_ENV"
