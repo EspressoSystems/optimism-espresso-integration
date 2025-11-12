@@ -111,7 +111,7 @@ commands:
           name: "Authenticate with GCP using OIDC"
           command: |
             # Configure gcloud to leverage the generated credential configuration
-            # https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
+            # TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
             gcloud auth login --brief --cred-file "<< parameters.gcp_cred_config_file_path >>" || true
             # Configure ADC
             echo "export GOOGLE_APPLICATION_CREDENTIALS='<< parameters.gcp_cred_config_file_path >>'" | tee -a "$BASH_ENV"
@@ -2306,7 +2306,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
             - discord
-      # Generate flaky test report : CircleCI API token not configured https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
+      # Generate flaky test report : CircleCI API token not configured TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
       # - generate-flaky-report:
       #     name: generate-flaky-tests-report
       #     context:
@@ -2352,7 +2352,7 @@ workflows:
       #     context:
       #       - circleci-repo-readonly-authenticated-github-token
       #       - discord
-      # Generate flaky test report - Disabled: CircleCI API token not configured https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
+      # Generate flaky test report - Disabled: CircleCI API token not configured TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
       # - generate-flaky-report:
       #     name: generate-flaky-tests-report
       #     context:
@@ -2375,7 +2375,7 @@ workflows:
           context:
             - circleci-repo-optimism
 
-  # Disabled: GCP auth not configured https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
+  # Disabled: GCP auth not configured TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
   # devnet-metrics-collect:
   #   when:
   #     or:
