@@ -23,9 +23,7 @@ func TestSetDisputeGameImpl(t *testing.T) {
 	_, artifacts := testutil.LocalArtifacts(t)
 
 	l1RPCUrl := os.Getenv("SEPOLIA_RPC_URL")
-	if l1RPCUrl == "" {
-		t.Skip("Skipping test, SEPOLIA_RPC_URL not set")
-	}
+	require.NotEmpty(t, l1RPCUrl, "SEPOLIA_RPC_URL must be set")
 
 	l1RPC, err := rpc.Dial(l1RPCUrl)
 	require.NoError(t, err)

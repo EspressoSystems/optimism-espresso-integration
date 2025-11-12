@@ -27,9 +27,7 @@ func TestImplementations(t *testing.T) {
 		t.Run(network, func(t *testing.T) {
 			envVar := strings.ToUpper(network) + "_RPC_URL"
 			rpcURL := os.Getenv(envVar)
-			if rpcURL == "" {
-				t.Skipf("Skipping test, %s not set", envVar)
-			}
+			require.NotEmpty(t, rpcURL, "must specify RPC url via %s env var", envVar)
 			testImplementations(t, rpcURL, testCacheDir)
 		})
 	}

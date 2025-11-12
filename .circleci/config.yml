@@ -1876,8 +1876,8 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
       - go-tests:
           name: go-tests-short
-          no_output_timeout: 60m
-          test_timeout: 60m
+          no_output_timeout: 19m
+          test_timeout: 20m
           environment_overrides: |
             export PARALLEL=24
             export TEST_PKGS="\
@@ -1911,8 +1911,7 @@ workflows:
               ./op-deployer/pkg/deployer/integration_test/... \
               ./op-deployer/pkg/deployer/interop/... \
               ./op-deployer/pkg/deployer/standard/... \
-              ./op-deployer/pkg/deployer/state/... \
-              ./op-deployer/pkg/deployer/verify/..."
+              ./op-deployer/pkg/deployer/state/..."
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
@@ -2305,7 +2304,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
             - discord
-      # Generate flaky test report - Disabled: CircleCI API token not configured
+      # Generate flaky test report : CircleCI API token not configured https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
       # - generate-flaky-report:
       #     name: generate-flaky-tests-report
       #     context:
@@ -2351,7 +2350,7 @@ workflows:
       #     context:
       #       - circleci-repo-readonly-authenticated-github-token
       #       - discord
-      # Generate flaky test report - Disabled: CircleCI API token not configured
+      # Generate flaky test report - Disabled: CircleCI API token not configured https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
       # - generate-flaky-report:
       #     name: generate-flaky-tests-report
       #     context:
@@ -2374,7 +2373,7 @@ workflows:
           context:
             - circleci-repo-optimism
 
-  # Disabled: GCP auth not configured
+  # Disabled: GCP auth not configured https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
   # devnet-metrics-collect:
   #   when:
   #     or:

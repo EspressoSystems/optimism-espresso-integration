@@ -57,9 +57,6 @@ func TestUpgrader_Upgrade(t *testing.T) {
 	lgr := testlog.Logger(t, slog.LevelDebug)
 
 	forkedL1, stopL1, err := devnet.NewForkedSepolia(lgr)
-	if err != nil && err.Error() == "SEPOLIA_RPC_URL not set" {
-		t.Skip("Skipping test, SEPOLIA_RPC_URL not set")
-	}
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, stopL1())
