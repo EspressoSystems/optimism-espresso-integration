@@ -25,7 +25,9 @@ import (
 
 func TestAddGameType(t *testing.T) {
 	rpcURL := os.Getenv("SEPOLIA_RPC_URL")
-	require.NotEmpty(t, rpcURL, "must specify RPC url via SEPOLIA_RPC_URL env var")
+	if rpcURL == "" {
+		t.Skip("Skipping test, SEPOLIA_RPC_URL not set")
+	}
 
 	afacts, _ := testutil.LocalArtifacts(t)
 	v200SepoliaAddrs := validation.StandardVersionsSepolia[standard.ContractsV200Tag]
