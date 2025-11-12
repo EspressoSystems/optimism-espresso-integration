@@ -46,6 +46,11 @@ func (o *OracleL1Client) L1BlockRefByLabel(ctx context.Context, label eth.BlockL
 	return o.head, nil
 }
 
+func (o *OracleL1Client) L1FinalizedBlock() (eth.L1BlockRef, error) {
+	// The L1 head is pre-agreed and unchanging so it can be used as finalized
+	return o.head, nil
+}
+
 func (o *OracleL1Client) L1BlockRefByNumber(ctx context.Context, number uint64) (eth.L1BlockRef, error) {
 	if number > o.head.Number {
 		return eth.L1BlockRef{}, fmt.Errorf("%w: block number %d", ErrNotFound, number)

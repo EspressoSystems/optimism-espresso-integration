@@ -126,8 +126,6 @@ type BatchSubmitter struct {
 
 	throttling atomic.Bool // whether the batcher is throttling sequencers and additional endpoints
 
-	submitter         *espressoTransactionSubmitter
-	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
 	txpoolBlockedBlob bool

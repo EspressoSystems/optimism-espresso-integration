@@ -279,29 +279,29 @@ type NoOpLogger struct{}
 
 var _ log.Logger = (*NoOpLogger)(nil)
 
-func (l *NoOpLogger) With(ctx ...interface{}) log.Logger                   { return l }
-func (l *NoOpLogger) New(ctx ...interface{}) log.Logger                    { return l }
-func (l *NoOpLogger) Log(level slog.Level, msg string, ctx ...interface{}) {}
-func (l *NoOpLogger) Trace(msg string, ctx ...interface{})                 {}
-func (l *NoOpLogger) Debug(msg string, ctx ...interface{})                 {}
-func (l *NoOpLogger) Info(msg string, ctx ...interface{})                  {}
-func (l *NoOpLogger) Warn(msg string, ctx ...interface{})                  {}
-func (l *NoOpLogger) Error(msg string, ctx ...interface{})                 {}
-func (l *NoOpLogger) Crit(msg string, ctx ...interface{})                  { panic("critical error") }
-func (l *NoOpLogger) Write(level slog.Level, msg string, attrs ...any)     {}
-func (l *NoOpLogger) Enabled(ctx context.Context, level slog.Level) bool   { return true }
-func (l *NoOpLogger) Handler() slog.Handler                                { return nil }
+func (l *NoOpLogger) With(ctx ...interface{}) log.Logger                                   { return l }
+func (l *NoOpLogger) New(ctx ...interface{}) log.Logger                                    { return l }
+func (l *NoOpLogger) Log(level slog.Level, msg string, ctx ...interface{})                 {}
+func (l *NoOpLogger) Trace(msg string, ctx ...interface{})                                 {}
+func (l *NoOpLogger) Debug(msg string, ctx ...interface{})                                 {}
+func (l *NoOpLogger) Info(msg string, ctx ...interface{})                                  {}
+func (l *NoOpLogger) Warn(msg string, ctx ...interface{})                                  {}
+func (l *NoOpLogger) Error(msg string, ctx ...interface{})                                 {}
+func (l *NoOpLogger) Crit(msg string, ctx ...interface{})                                  { panic("critical error") }
+func (l *NoOpLogger) Write(level slog.Level, msg string, attrs ...any)                     {}
+func (l *NoOpLogger) Enabled(ctx context.Context, level slog.Level) bool                   { return true }
+func (l *NoOpLogger) Handler() slog.Handler                                                { return nil }
 func (l *NoOpLogger) TraceContext(ctx context.Context, msg string, ctxArgs ...interface{}) {}
 func (l *NoOpLogger) DebugContext(ctx context.Context, msg string, ctxArgs ...interface{}) {}
 func (l *NoOpLogger) InfoContext(ctx context.Context, msg string, ctxArgs ...interface{})  {}
 func (l *NoOpLogger) WarnContext(ctx context.Context, msg string, ctxArgs ...interface{})  {}
 func (l *NoOpLogger) ErrorContext(ctx context.Context, msg string, ctxArgs ...interface{}) {}
-func (l *NoOpLogger) CritContext(ctx context.Context, msg string, ctxArgs ...interface{})  {
+func (l *NoOpLogger) CritContext(ctx context.Context, msg string, ctxArgs ...interface{}) {
 	panic("critical error")
 }
 func (l *NoOpLogger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
 }
-func (l *NoOpLogger) SetContext(ctx context.Context) {}
+func (l *NoOpLogger) SetContext(ctx context.Context)                                          {}
 func (l *NoOpLogger) WriteCtx(ctx context.Context, level slog.Level, msg string, args ...any) {}
 
 func createHashFromHeight(height uint64) common.Hash {
