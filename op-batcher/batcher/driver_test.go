@@ -185,8 +185,7 @@ func TestBatchSubmitter_sendTx_FloorDataGas(t *testing.T) {
 		false,
 		&candidate,
 		q,
-		make(chan txmgr.TxReceipt[txRef]),
-		nil)
+		make(chan txmgr.TxReceipt[txRef]))
 
 	candidateOut := q.Load(txData.ID().String())
 

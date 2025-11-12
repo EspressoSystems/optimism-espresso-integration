@@ -702,28 +702,6 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	}
 }
 
-// AdaptL1BlockRefClient is a wrapper around eth.L1BlockRef that implements the espresso.L1Client interface
-type AdaptL1BlockRefClient struct {
-	L1Client L1Client
-}
-
-// NewAdaptL1BlockRefClient creates a new L1BlockRefClient
-func NewAdaptL1BlockRefClient(L1Client L1Client) *AdaptL1BlockRefClient {
-	return &AdaptL1BlockRefClient{
-		L1Client: L1Client,
-	}
-}
-
-// HeaderHashByNumber implements the espresso.L1Client interface
-func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
-	expectedL1BlockRef, err := c.L1Client.HeaderByNumber(ctx, number)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	return expectedL1BlockRef.Hash(), nil
-}
-
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan struct{}) {
 	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
