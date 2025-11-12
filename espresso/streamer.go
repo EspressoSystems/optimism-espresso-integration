@@ -74,6 +74,7 @@ type BatchStreamer[B Batch] struct {
 	Namespace uint64
 
 	L1Client                      L1Client
+	RollupL1Client                L1Client
 	EspressoClient                EspressoClient
 	EspressoLightClient           LightClientCallerInterface
 	Log                           log.Logger
@@ -87,6 +88,8 @@ type BatchStreamer[B Batch] struct {
 	fallbackBatchPos uint64
 	// HotShot position that we can fallback to, guaranteeing not to skip any unsafe batches
 	fallbackHotShotPos uint64
+	// HotShot position we start reading from, exclusive
+	originHotShotPos uint64
 	// Latest finalized block on the L1.
 	FinalizedL1 eth.L1BlockRef
 
@@ -110,14 +113,17 @@ var _ EspressoStreamer[Batch] = (*BatchStreamer[Batch])(nil)
 func NewEspressoStreamer[B Batch](
 	namespace uint64,
 	l1Client L1Client,
+	rollupL1Client L1Client,
 	espressoClient EspressoClient,
 	lightClient LightClientCallerInterface,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
+	originHotShotPos uint64,
 ) *BatchStreamer[B] {
 	return &BatchStreamer[B]{
 		L1Client:                      l1Client,
+		RollupL1Client:                rollupL1Client,
 		EspressoClient:                espressoClient,
 		EspressoLightClient:           lightClient,
 		Log:                           log,
@@ -127,6 +133,9 @@ func NewEspressoStreamer[B Batch](
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		RemainingBatches:              make(map[common.Hash]B),
 		unmarshalBatch:                unmarshalBatch,
+		originHotShotPos:              originHotShotPos,
+		fallbackHotShotPos:            originHotShotPos,
+		hotShotPos:                    originHotShotPos,
 	}
 }
 
@@ -147,7 +156,10 @@ func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) error {
 		s.Reset()
 	}
 
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to confirm espresso block height: %w", err)
+	}
+	return nil
 }
 
 // Update streamer state based on L1 and L2 sync status
@@ -155,7 +167,7 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 	s.FinalizedL1 = finalizedL1
 
 	if err := s.RefreshSafeL1Origin(safeL1Origin); err != nil {
-		return err
+		return fmt.Errorf("failed to refresh safe L1 origin: %w", err)
 	}
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
@@ -187,7 +199,7 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidi
 		return BatchUndecided, 0
 	}
 
-	l1headerHash, err := s.L1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+	l1headerHash, err := s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
 	if err != nil {
 		// Signal to resync to be able to fetch the L1 header.
 		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
@@ -263,7 +275,7 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 	// the current block height available to process.
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch latest block height: %w", err)
 	}
 
 	// Streaming API implementation
@@ -544,10 +556,10 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
 	if errors.Is(err, bind.ErrNoCode) {
-		s.fallbackHotShotPos = 0
+		s.fallbackHotShotPos = s.originHotShotPos
 		return false, nil
 	} else if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get finalized state from light client: %w", err)
 	}
 
 	shouldReset = hotshotState.BlockHeight < s.fallbackHotShotPos

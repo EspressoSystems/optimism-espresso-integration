@@ -1,11 +1,8 @@
 name: Run Espresso integration tests
 on:
   pull_request:
-    branches:
-      - "celo-integration*"
   push:
     branches:
-      - "master"
       - "celo-integration*"
   workflow_dispatch:
 
