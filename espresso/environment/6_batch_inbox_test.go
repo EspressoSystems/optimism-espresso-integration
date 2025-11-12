@@ -2,6 +2,7 @@ package environment_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ import (
 // Test private key for PreApprovedBatcher (TEE batcher)
 const preApprovedBatcherPrivateKey = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
 
-func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bindings.BatchInbox, *bind.TransactOpts, *bind.TransactOpts, *bind.TransactOpts, *big.Int) {
+func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bindings.BatchInbox, *big.Int) {
     t.Helper()
     launcher := new(env.EspressoDevNodeLauncherDocker)
     system, _, err := launcher.StartE2eDevnet(ctx, t,
@@ -42,68 +43,46 @@ func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bin
     inbox, err := bindings.NewBatchInbox(system.RollupConfig.BatchInboxAddress, l1)
     require.NoError(t, err)
 
-    // Fund the PreApprovedBatcher account for TEE batcher tests
-    preApprovedBatcherPk, err := crypto.HexToECDSA(preApprovedBatcherPrivateKey)
-    require.NoError(t, err)
-    preApprovedBatcherAddr := crypto.PubkeyToAddress(preApprovedBatcherPk.PublicKey)
-    
-    if balance, _ := l1.BalanceAt(ctx, preApprovedBatcherAddr, nil); balance.Cmp(big.NewInt(0)) == 0 {
-        nonce, err := l1.PendingNonceAt(ctx, crypto.PubkeyToAddress(system.Cfg.Secrets.Deployer.PublicKey))
-        require.NoError(t, err)
-        gasPrice, err := l1.SuggestGasPrice(ctx)
-        require.NoError(t, err)
+    // Fund the PreApprovedBatcher account if needed
+    pk, _ := crypto.HexToECDSA(preApprovedBatcherPrivateKey)
+    addr := crypto.PubkeyToAddress(pk.PublicKey)
+    if balance, _ := l1.BalanceAt(ctx, addr, nil); balance.Sign() == 0 {
+        nonce, _ := l1.PendingNonceAt(ctx, crypto.PubkeyToAddress(system.Cfg.Secrets.Deployer.PublicKey))
+        gasPrice, _ := l1.SuggestGasPrice(ctx)
         tx := types.NewTx(&types.LegacyTx{
             Nonce:    nonce,
-            To:       &preApprovedBatcherAddr,
-            Value:    big.NewInt(1000000000000000000), // 1 ETH
+            To:       &addr,
+            Value:    big.NewInt(1e18),
             Gas:      21000,
             GasPrice: gasPrice,
         })
-        signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), system.Cfg.Secrets.Deployer)
-        require.NoError(t, err)
-        require.NoError(t, l1.SendTransaction(ctx, signedTx))
-        _, err = bind.WaitMined(ctx, l1, signedTx)
-        require.NoError(t, err)
+        signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainID), system.Cfg.Secrets.Deployer)
+        l1.SendTransaction(ctx, signedTx)
+        bind.WaitMined(ctx, l1, signedTx)
     }
 
-    deployerAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
-    require.NoError(t, err)
-    teeAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Batcher, chainID)
-    require.NoError(t, err)
-    nonTeeAuth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Bob, chainID)
-    require.NoError(t, err)
-
-    return system, inbox, deployerAuth, teeAuth, nonTeeAuth, chainID
+    return system, inbox, chainID
 }
 
 func authForAddress(t *testing.T, system *e2esys.System, chainID *big.Int, addr common.Address) *bind.TransactOpts {
 	t.Helper()
-	// Check if this is the PreApprovedBatcher address
-	if pk, err := crypto.HexToECDSA(preApprovedBatcherPrivateKey); err == nil {
-		if crypto.PubkeyToAddress(pk.PublicKey) == addr {
-			auth, err := bind.NewKeyedTransactorWithChainID(pk, chainID)
-			require.NoError(t, err)
+	for _, secret := range []*ecdsa.PrivateKey{
+		system.Cfg.Secrets.Deployer,
+		system.Cfg.Secrets.Batcher,
+		system.Cfg.Secrets.Bob,
+	} {
+		if crypto.PubkeyToAddress(secret.PublicKey) == addr {
+			auth, _ := bind.NewKeyedTransactorWithChainID(secret, chainID)
 			return auth
 		}
 	}
-
-	switch addr {
-	case crypto.PubkeyToAddress(system.Cfg.Secrets.Deployer.PublicKey):
-		auth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
-		require.NoError(t, err)
+	// Check PreApprovedBatcher
+	if pk, _ := crypto.HexToECDSA(preApprovedBatcherPrivateKey); crypto.PubkeyToAddress(pk.PublicKey) == addr {
+		auth, _ := bind.NewKeyedTransactorWithChainID(pk, chainID)
 		return auth
-	case crypto.PubkeyToAddress(system.Cfg.Secrets.Batcher.PublicKey):
-		auth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Batcher, chainID)
-		require.NoError(t, err)
-		return auth
-	case crypto.PubkeyToAddress(system.Cfg.Secrets.Bob.PublicKey):
-		auth, err := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Bob, chainID)
-		require.NoError(t, err)
-		return auth
-	default:
-		t.Fatalf("no auth available for address %s", addr)
-		return nil
 	}
+	t.Fatalf("no auth available for address %s", addr)
+	return nil
 }
 
 // TestE2eDevnetWithoutAuthenticatingBatches verifies BatchInboxContract behaviour when batches
@@ -198,7 +177,8 @@ func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 func TestBatchInbox_SwitchActiveBatcher(t *testing.T) {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    system, inbox, deployerAuth, _, _, _ := setupBatchInboxEnv(ctx, t)
+    system, inbox, chainID := setupBatchInboxEnv(ctx, t)
+    deployerAuth, _ := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
     tx, err := inbox.SwitchBatcher(deployerAuth)
     require.NoError(t, err)
     _, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
@@ -208,7 +188,8 @@ func TestBatchInbox_SwitchActiveBatcher(t *testing.T) {
 func TestBatchInbox_ActiveNonTeeBatcherAllowsPosting(t *testing.T) {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    system, inbox, deployerAuth, _, _, chainID := setupBatchInboxEnv(ctx, t)
+    system, inbox, chainID := setupBatchInboxEnv(ctx, t)
+    deployerAuth, _ := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
     tx, err := inbox.SwitchBatcher(deployerAuth)
     require.NoError(t, err)
     _, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
@@ -227,7 +208,8 @@ func TestBatchInbox_ActiveNonTeeBatcherAllowsPosting(t *testing.T) {
 func TestBatchInbox_InactiveBatcherReverts(t *testing.T) {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    system, inbox, deployerAuth, _, _, chainID := setupBatchInboxEnv(ctx, t)
+    system, inbox, chainID := setupBatchInboxEnv(ctx, t)
+    deployerAuth, _ := bind.NewKeyedTransactorWithChainID(system.Cfg.Secrets.Deployer, chainID)
     tx, err := inbox.SwitchBatcher(deployerAuth)
     require.NoError(t, err)
     _, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
@@ -246,7 +228,7 @@ func TestBatchInbox_InactiveBatcherReverts(t *testing.T) {
 func TestBatchInbox_TEEBatcherRequiresAuthentication(t *testing.T) {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    system, inbox, _, _, _, chainID := setupBatchInboxEnv(ctx, t)
+    system, inbox, chainID := setupBatchInboxEnv(ctx, t)
     teeAddr, err := inbox.TeeBatcher(&bind.CallOpts{Context: ctx})
     require.NoError(t, err)
     teeAuth := authForAddress(t, system, chainID, teeAddr)
