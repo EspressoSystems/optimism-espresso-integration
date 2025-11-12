@@ -1023,6 +1023,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		Enabled:                  (cfg.AllocType == config.AllocTypeEspressoWithEnclave) || (cfg.AllocType == config.AllocTypeEspressoWithoutEnclave),
 		PollInterval:             250 * time.Millisecond,
 		L1URL:                    sys.EthInstances[RoleL1].UserRPC().RPC(),
+		RollupL1URL:              sys.EthInstances[RoleL1].UserRPC().RPC(),
 		TestingBatcherPrivateKey: testingBatcherPk,
 	}
 

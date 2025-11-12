@@ -118,6 +118,7 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 		// To create a valid multiple nodes client, we need to provide at least 2 URLs.
 		QueryServiceURLs: []string{u.String(), u.String()},
 		L1URL:            system.L1.UserRPC().RPC(),
+		RollupL1URL:      system.L1.UserRPC().RPC(),
 		LightClientAddr:  common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS),
 	}
 
