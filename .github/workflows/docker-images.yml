@@ -2,17 +2,9 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main, celo*]
-    paths:
-      - "espresso/docker/**"
-      - "espresso/docker-compose.yml"
-      - "config/**"
+    branches:
+      - "celo-integration*"
   pull_request:
-    branches: [main, celo*, integration]
-    paths:
-      - "espresso/docker/**"
-      - "espresso/docker-compose.yml"
-      - "config/**"
   workflow_dispatch:
 
 env:
@@ -45,7 +37,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9  # same as for the nix environment
+          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9 # same as for the nix environment
 
       - name: Install dasel
         run: |
@@ -465,4 +457,3 @@ jobs:
             TARGET_BASE_IMAGE=alpine:3.22
             TARGETOS=linux
             TARGETARCH=amd64
-
