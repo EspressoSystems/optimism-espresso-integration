@@ -24,7 +24,6 @@ import (
 )
 
 func Test_ProgramAction_BlockDataHint(gt *testing.T) {
-	gt.Skip("Skipping flaky test - related to Test_ProgramAction_HoloceneFrames failures")
 	testCfg := &helpers.TestCfg[any]{
 		Hardfork: helpers.LatestFork,
 	}
