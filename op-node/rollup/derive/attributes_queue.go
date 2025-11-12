@@ -9,11 +9,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
-	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -74,60 +71,37 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config, l1Fetcher L1Fetcher) *espresso.BatchStreamer[EspressoBatch] {
-
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.BatchStreamer[EspressoBatch] {
 	if !cfg.CaffNodeConfig.Enabled {
 		log.Info("Espresso streamer not initialized: Caff node is not enabled")
 		return nil
 	}
 
-	// Create an adapter that implements espresso.L1Client
-	l1BlockRefClient := NewL1BlockRefClient(l1Fetcher)
+	if cfg.CaffNodeConfig.Namespace == 0 {
+		log.Info("Using L2 chain ID as namespace by default")
+		cfg.CaffNodeConfig.Namespace = cfg.L2ChainID.Uint64()
+	}
 
-	l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.L1URL)
+	streamer, err := espresso.BatchStreamerFromCLIConfig(cfg.CaffNodeConfig, log, func(data []byte) (*EspressoBatch, error) {
+		return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
+	})
 	if err != nil {
-		log.Error("Espresso streamer not initialized: Failed to connect to L1", "err", err)
+		log.Error("Failed to initialize Espresso streamer", "err", err)
 		return nil
 	}
 
-	lightClient, err := espressoLightClient.NewLightclientCaller(cfg.CaffNodeConfig.LightClientAddr, l1Client)
-	if err != nil {
-		log.Error("Espresso streamer not initialized: Failed to connect to light client", "err", err)
-		return nil
-	}
-
-	client, err := espressoClient.NewMultipleNodesClient(cfg.CaffNodeConfig.QueryServiceURLs)
-	if err != nil {
-		log.Error("Espresso streamer not initialized: Failed to connect to hotshot client", "err", err)
-		return nil
-	}
-	streamer := espresso.NewEspressoStreamer(
-		cfg.L2ChainID.Uint64(),
-		l1BlockRefClient,
-		client,
-		lightClient,
-		log,
-		func(data []byte) (*EspressoBatch, error) {
-			return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
-		},
-		cfg.CaffNodeConfig.PollInterval,
-	)
-	streamer.UseFetchApi = cfg.CaffNodeConfig.UseFetchAPI
-
-	log.Debug("Espresso Streamer namespace:", streamer.Namespace)
-
-	log.Info("Espresso streamer initialized", "namespace", cfg.L2ChainID.Uint64(), "polling hotshot polling interval", cfg.CaffNodeConfig.PollInterval, "hotshot urls", cfg.CaffNodeConfig.QueryServiceURLs)
+	log.Info("Espresso streamer initialized", "namespace", streamer.Namespace, "hotshot polling interval", cfg.CaffNodeConfig.PollInterval, "hotshot urls", cfg.CaffNodeConfig.QueryServiceURLs)
 	return streamer
 }
 
-func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider, l1Fetcher L1Fetcher) *AttributesQueue {
+func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
 	return &AttributesQueue{
 		log:              log,
 		config:           cfg,
 		builder:          builder,
 		prev:             prev,
 		isCaffNode:       cfg.CaffNodeConfig.Enabled,
-		espressoStreamer: initEspressoStreamer(log, cfg, l1Fetcher),
+		espressoStreamer: initEspressoStreamer(log, cfg),
 	}
 }
 
@@ -147,12 +121,11 @@ func CaffNextBatch(s *espresso.BatchStreamer[EspressoBatch], ctx context.Context
 	// Get the L1 finalized block
 	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
 	if err != nil {
-		s.Log.Error("failed to get the L1 finalized block", "err", err)
-		return nil, false, err
+		return nil, false, fmt.Errorf("failed to get the L1 finalized block: %w", err)
 	}
 	// Refresh the sync status
 	if err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("failed to refresh Espresso streamer: %w", err)
 	}
 
 	// Update the streamer if needed

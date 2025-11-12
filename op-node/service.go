@@ -78,6 +78,14 @@ func NewConfig(ctx cliiface.Context, log log.Logger) (*config.Config, error) {
 
 	l1Endpoint := NewL1EndpointConfig(ctx)
 
+	if rollupConfig.CaffNodeConfig.RollupL1URL == "" {
+		rollupConfig.CaffNodeConfig.RollupL1URL = l1Endpoint.L1NodeAddr
+	}
+
+	if l1Endpoint.L1NodeAddr != rollupConfig.CaffNodeConfig.RollupL1URL {
+		log.Warn("Espresso streamer rollup L1 URL does not match L1 node address of caff node", "rollupL1URL", rollupConfig.CaffNodeConfig.RollupL1URL, "l1NodeAddr", l1Endpoint.L1NodeAddr)
+	}
+
 	l2Endpoint, err := NewL2EndpointConfig(ctx, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load l2 endpoints info: %w", err)

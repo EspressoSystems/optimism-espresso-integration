@@ -12,7 +12,6 @@ import (
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -720,37 +719,46 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 		return nil
 	}
 
+	if cfg.Espresso.RollupL1URL == "" {
+		cfg.Espresso.RollupL1URL = cfg.L1EthRpc
+	}
+
+	if cfg.Espresso.RollupL1URL != cfg.L1EthRpc {
+		log.Warn("Espresso Rollup L1 URL differs from batcher's L1EthRpc")
+	}
+
+	if cfg.Espresso.L1URL == "" {
+		log.Warn("Espresso L1 URL not provided, using batcher's L1EthRpc")
+		cfg.Espresso.L1URL = cfg.L1EthRpc
+	}
+	if cfg.Espresso.Namespace == 0 {
+		log.Info("Using L2 chain ID as namespace by default")
+		cfg.Espresso.Namespace = bs.RollupConfig.L2ChainID.Uint64()
+	}
+
+	if err := cfg.Espresso.Check(); err != nil {
+		return fmt.Errorf("invalid Espresso config: %w", err)
+	}
+
 	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 
-	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
+	espressoClient, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
 	if err != nil {
 		return fmt.Errorf("failed to create Espresso client: %w", err)
 	}
-	bs.EspressoClient = client
-
-	espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create Espresso light client")
-	}
-	bs.EspressoLightClient = espressoLightClient
+	bs.EspressoClient = espressoClient
 
 	if err := bs.initKeyPair(); err != nil {
 		return fmt.Errorf("failed to create key pair for batcher: %w", err)
 	}
 
-	unbufferedStreamer := espresso.NewEspressoStreamer(
-		bs.RollupConfig.L2ChainID.Uint64(),
-		NewAdaptL1BlockRefClient(bs.L1Client),
-		client,
-		bs.EspressoLightClient,
-		bs.Log,
-		func(data []byte) (*derive.EspressoBatch, error) {
-			return derive.UnmarshalEspressoTransaction(data, bs.TxManager.From())
-		},
-		2*time.Second,
-	)
-	unbufferedStreamer.UseFetchApi = cfg.Espresso.UseFetchAPI
+	unbufferedStreamer, err := espresso.BatchStreamerFromCLIConfig(cfg.Espresso, bs.Log, func(data []byte) (*derive.EspressoBatch, error) {
+		return derive.UnmarshalEspressoTransaction(data, bs.TxManager.From())
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create unbuffered Espresso streamer: %w", err)
+	}
 
 	// We wrap the streamer in a BufferedStreamer to reduce impact of streamer resets
 	bs.EspressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
