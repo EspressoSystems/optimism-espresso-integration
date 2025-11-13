@@ -97,7 +97,9 @@ func computeSyncActions[T channelStatuser](
 		s := syncActions{
 			blocksToLoad: allUnsafeBlocks,
 		}
-		m.Info("no blocks in state", "syncActions", s.TerminalString())
+		// TODO: Fix upstream compatibility for logs.
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+		m.Debug("no blocks in state", "syncActions", s.TerminalString())
 		return s, false
 	}
 

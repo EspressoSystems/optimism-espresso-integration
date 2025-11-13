@@ -295,7 +295,9 @@ func (l *L2OutputSubmitter) FetchDGFOutput(ctx context.Context) (source.Proposal
 		return source.Proposal{}, false, nil
 	}
 
-	l.Log.Info("No proposals found for at least proposal interval, submitting proposal now", "proposalInterval", l.Cfg.ProposalInterval)
+	// TODO: Fix upstream compatibility for logs.
+	// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+	l.Log.Debug("No proposals found for at least proposal interval, submitting proposal now", "proposalInterval", l.Cfg.ProposalInterval)
 
 	return output, true, nil
 }
@@ -309,7 +311,6 @@ func (l *L2OutputSubmitter) FetchCurrentBlockNumber(ctx context.Context) (uint64
 	}
 
 	// Use either the finalized or safe head depending on the config. Finalized head is default & safer.
-	l.Log.Info("Proposer config for finality", "AllowNonFinalized", l.Cfg.AllowNonFinalized)
 	if l.Cfg.AllowNonFinalized {
 		return status.SafeL2, nil
 	}
@@ -378,7 +379,9 @@ func (l *L2OutputSubmitter) waitForL1Head(ctx context.Context, blockNum uint64) 
 
 // sendTransaction creates & sends transactions through the underlying transaction manager.
 func (l *L2OutputSubmitter) sendTransaction(ctx context.Context, output source.Proposal) error {
-	l.Log.Info("Proposing output root", "output", output.Root, "sequenceNum", output.SequenceNum, "extraData", output.ExtraData())
+	// TODO: Fix upstream compatibility for logs.
+	// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+	l.Log.Debug("Proposing output root", "output", output.Root, "block", output.SequenceNum)
 	var receipt *types.Receipt
 	if l.Cfg.DisputeGameFactoryAddr != nil {
 		candidate, err := l.ProposeL2OutputDGFTxCandidate(ctx, output)
