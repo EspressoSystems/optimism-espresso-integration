@@ -73,9 +73,9 @@ contract DeployEspressoOutput is BaseDeployIO {
 }
 
 contract DeployEspresso is Script {
-    function run(DeployEspressoInput input, DeployEspressoOutput output) public {
+    function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
-        IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
+        IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
         deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(output);
     }
@@ -83,7 +83,8 @@ contract DeployEspresso is Script {
     function deployBatchAuthenticator(
         DeployEspressoInput input,
         DeployEspressoOutput output,
-        IEspressoTEEVerifier teeVerifier
+        IEspressoTEEVerifier teeVerifier,
+        address owner
     )
         public
         returns (IBatchAuthenticator)
@@ -96,11 +97,14 @@ contract DeployEspresso is Script {
                 _name: "BatchAuthenticator",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchAuthenticator.__constructor__, (address(teeVerifier), preApprovedBatcherKey))
+                    abi.encodeCall(
+                        IBatchAuthenticator.__constructor__, (address(teeVerifier), preApprovedBatcherKey, owner)
+                    )
                 )
             })
         );
         vm.label(address(impl), "BatchAuthenticatorImpl");
+
         output.set(output.batchAuthenticatorAddress.selector, address(impl));
         return impl;
     }
