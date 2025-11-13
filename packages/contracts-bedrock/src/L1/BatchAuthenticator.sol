@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
@@ -14,7 +14,7 @@ interface INitroValidator {
         returns (bytes memory attestationTbs, bytes memory signature);
 }
 
-contract BatchAuthenticator is ISemver, OwnableUpgradeable {
+contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -27,10 +27,11 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
     EspressoTEEVerifier public immutable espressoTEEVerifier;
     INitroValidator public immutable nitroValidator;
 
-    constructor(EspressoTEEVerifier _espressoTEEVerifier, address _preApprovedBatcher) OwnableUpgradeable() {
+    constructor(EspressoTEEVerifier _espressoTEEVerifier, address _preApprovedBatcher, address _owner) Ownable() {
         espressoTEEVerifier = _espressoTEEVerifier;
         preApprovedBatcher = _preApprovedBatcher;
         nitroValidator = INitroValidator(address(espressoTEEVerifier.espressoNitroTEEVerifier()));
+        _transferOwnership(_owner);
     }
 
     function decodeAttestationTbs(bytes memory attestation) external view returns (bytes memory, bytes memory) {

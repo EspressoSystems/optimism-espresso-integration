@@ -38,6 +38,7 @@ interface IBatchAuthenticator {
 
     function __constructor__(
         address _espressoTEEVerifier,
-        address _preApprovedBatcher
+        address _preApprovedBatcher,
+        address _owner
     ) external;
 }
