@@ -124,7 +124,9 @@ func (bs *baseBatchStage) updateOrigins(parent eth.L2BlockRef) {
 			// originBehind is false.
 			bs.l1Blocks = bs.l1Blocks[:0]
 		}
-		bs.log.Info("Advancing bq origin", "origin", bs.origin, "originBehind", originBehind)
+		// TODO: Fix upstream compatibility for logs.
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+		bs.log.Debug("Advancing bq origin", "origin", bs.origin, "originBehind", originBehind)
 	}
 
 	// If the epoch is advanced, update bq.l1Blocks
