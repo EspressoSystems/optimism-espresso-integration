@@ -321,7 +321,7 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 		// Process the remaining batches
 		s.processRemainingBatches(ctx)
 
-		s.Log.Info("Fetching hotshot blocks", "from", start, "upTo", finish)
+		s.Log.Debug("Fetching hotshot blocks", "from", start, "upTo", finish)
 
 		// Process the new batches fetched from Espresso
 		if err := s.fetchHotShotRange(ctx, start, finish); err != nil {
