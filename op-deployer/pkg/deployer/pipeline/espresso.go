@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/opcm"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/state"
@@ -36,11 +37,21 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	var eo opcm.DeployEspressoOutput
+	// Read batch authenticator owner address from environment variable, fallback to env.Deployer
+	var batchAuthenticatorOwnwerAddress common.Address
+	if batchAuthenticatorOwnerEnv := os.Getenv("BATCH_AUTHENTICATOR_OWNER_ADDRESS"); batchAuthenticatorOwnerEnv != "" {
+		batchAuthenticatorOwnwerAddress = common.HexToAddress(batchAuthenticatorOwnerEnv)
+		lgr.Info("Using batch authenticator owner address from BATCH_AUTHENTICATOR_OWNER_ADDRESS env var", "address", batchAuthenticatorOwnwerAddress.Hex())
+	} else {
+		batchAuthenticatorOwnwerAddress = env.Deployer
+		lgr.Info("Using deployer address from env.Deployer", "address", batchAuthenticatorOwnwerAddress.Hex())
+	}
+
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		Salt:                  st.Create2Salt,
 		PreApprovedBatcherKey: chainIntent.PreApprovedBatcherKey,
 		NitroTEEVerifier:      nvo.NitroTEEVerifierAddress,
-	})
+	}, batchAuthenticatorOwnwerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)
 	}
