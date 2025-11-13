@@ -274,7 +274,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
-			log.Info("Espresso transaction submitter queue status",
+			log.Debug("Espresso transaction submitter queue status",
 				"submitJobQueue", len(s.submitJobQueue),
 				"submitRespQueue", len(s.submitRespQueue),
 				"verifyReceiptJobQueue", len(s.verifyReceiptJobQueue),
