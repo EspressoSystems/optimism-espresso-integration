@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-if git diff --cached --name-only | grep -q "^.env$"; then
+if git diff --cached --name-only | grep -q "^espresso/.env$"; then
   echo "⚠️  WARNING: You updated .env."
   echo "You MUST also update image versions in tee-op-deploy, or create a ticket to do so."
   echo "See .env header for details."
