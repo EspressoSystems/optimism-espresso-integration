@@ -346,7 +346,9 @@ func (d *Sequencer) onPayloadSuccess(x engine.PayloadSuccessEvent) {
 		return
 	}
 	d.latest = BuildingState{}
-	d.log.Info("Sequencer inserted block",
+	// TODO: Fix upstream compatibility for logs.
+	// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+	d.log.Debug("Sequencer inserted block",
 		"block", x.Ref, "parent", x.Envelope.ExecutionPayload.ParentID())
 	// The payload was already published upon sealing.
 	// Now that we have processed it ourselves we don't need it anymore.
@@ -528,7 +530,9 @@ func (d *Sequencer) startBuildingBlock() {
 		return
 	}
 
-	d.log.Info("Started sequencing new block", "parent", l2Head, "l1Origin", l1Origin)
+	// TODO: Fix upstream compatibility for logs.
+	// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+	d.log.Debug("Started sequencing new block", "parent", l2Head, "l1Origin", l1Origin)
 
 	fetchCtx, cancel := context.WithTimeout(ctx, time.Second*20)
 	defer cancel()

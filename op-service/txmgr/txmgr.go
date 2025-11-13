@@ -388,6 +388,9 @@ func (m *SimpleTxManager) prepare(ctx context.Context, candidate TxCandidate) (*
 		tx, err := m.craftTx(ctx, candidate)
 		// TODO: Fix upstream compatibility for logs.
 		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=tr
+		if err != nil {
+			m.l.Debug("Failed to create a transaction, will retry", "err", err)
+		}
 		return tx, err
 	})
 	if err != nil {
@@ -756,7 +759,9 @@ func (m *SimpleTxManager) sendTx(ctx context.Context, tx *types.Transaction) (*t
 func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, sendState *SendState) (*types.Transaction, bool, error) {
 	l := m.txLogger(tx, true)
 
-	l.Info("Publishing transaction")
+	// TODO: Fix upstream compatibility for logs.
+	// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+	l.Debug("Publishing transaction")
 
 	for {
 		if sendState.bumpFees {
