@@ -2,8 +2,6 @@ name: Run enclave tests on EC2 instance
 
 on:
   pull_request:
-    branches:
-      - "celo-integration*"
   push:
     branches:
       - "celo-integration*"
@@ -19,7 +17,6 @@ jobs:
     timeout-minutes: 40
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 

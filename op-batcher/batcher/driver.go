@@ -126,8 +126,6 @@ type BatchSubmitter struct {
 
 	throttling atomic.Bool // whether the batcher is throttling sequencers and additional endpoints
 
-	submitter         *espressoTransactionSubmitter
-	streamer          espresso.EspressoStreamer[derive.EspressoBatch]
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
 	txpoolBlockedBlob bool
@@ -137,6 +135,9 @@ type BatchSubmitter struct {
 	prevCurrentL1   eth.L1BlockRef // cached CurrentL1 from the last syncStatus
 
 	espressoSubmitter *espressoTransactionSubmitter
+	// Group to limit number of concurrent batches waiting for approval
+	// from BatchAuthenticator contract, only relevant when running with Espresso enabled
+	teeAuthGroup errgroup.Group
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -211,6 +212,12 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		)
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
+
+		// Limit teeAuthGroup to at most 128 concurrent goroutines as an arbitrary
+		// not-too-big limit for the number of BatchInbox transactions that can be
+		// simultaneously waiting for corresponding BatchAuthenticator transaction to be
+		// confirmed before submission to L1.
+		l.teeAuthGroup.SetLimit(128)
 
 		l.wg.Add(4)
 		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
@@ -522,6 +529,14 @@ func (l *BatchSubmitter) publishingLoop(ctx context.Context, wg *sync.WaitGroup,
 	if err := daGroup.Wait(); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			l.Log.Error("error waiting for DA requests to complete", "err", err)
+		}
+	}
+
+	// Wait for all transactions requiring TEE authentication to complete to prevent new
+	// transactions being queued
+	if err := l.teeAuthGroup.Wait(); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			l.Log.Error("error waiting for transaction authentication requests to complete", "err", err)
 		}
 	}
 
@@ -910,7 +925,7 @@ func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh 
 		panic(err) // this error should not happen
 	}
 	l.Log.Warn("sending a cancellation transaction to unblock txpool", "blocked_blob", isBlockedBlob)
-	l.sendTx(txData{}, true, candidate, queue, receiptsCh, nil)
+	l.sendTx(txData{}, true, candidate, queue, receiptsCh)
 }
 
 // publishToAltDAAndStoreCommitment posts the txdata to the DA Provider and stores the returned commitment
@@ -994,7 +1009,7 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 	if candidate == nil {
 		l.Log.Crit("txcandidate should have been set by one of the three branches above.")
 	}
-	l.sendTx(txdata, false, candidate, queue, receiptsCh, daGroup)
+	l.sendTx(txdata, false, candidate, queue, receiptsCh)
 	return nil
 }
 
@@ -1004,18 +1019,14 @@ type TxSender[T any] interface {
 
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
-func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group) {
+func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	if l.Config.UseEspresso && !isCancel {
-		goroutineSpawned := daGroup.TryGo(
+		l.teeAuthGroup.Go(
 			func() error {
 				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
 				return nil
 			},
 		)
-		if !goroutineSpawned {
-			log.Warn("failed to spawn Espresso tx goroutine")
-			l.recordFailedDARequest(txdata.ID(), nil)
-		}
 		return
 	}
 	floorDataGas, err := core.FloorDataGas(candidate.TxData)

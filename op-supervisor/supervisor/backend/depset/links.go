@@ -58,10 +58,7 @@ func (lc *LinkCheckerImpl) CanExecute(execInChain eth.ChainID,
 		return false
 	}
 	expiresAt := safemath.SaturatingAdd(initTimestamp, lc.cfg.MessageExpiryWindow())
-	if expiresAt < execInTimestamp { // expiry check
-		return false
-	}
-	return true
+	return expiresAt >= execInTimestamp // expiry check
 }
 
 // LinkCheckFn is a function-type that implements LinkChecker, for testing and other special case definitions
