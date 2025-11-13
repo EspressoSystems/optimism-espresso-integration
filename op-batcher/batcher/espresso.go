@@ -274,7 +274,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
-			log.Info("Espresso transaction submitter queue status",
+			log.Debug("Espresso transaction submitter queue status",
 				"submitJobQueue", len(s.submitJobQueue),
 				"submitRespQueue", len(s.submitRespQueue),
 				"verifyReceiptJobQueue", len(s.verifyReceiptJobQueue),
@@ -790,7 +790,7 @@ func (l *BlockLoader) reset(ctx context.Context) {
 }
 
 func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusiveBlockRange) {
-	l.batcher.Log.Info("Loading and queueing blocks", "range", blocksToQueue)
+	l.batcher.Log.Debug("Loading and queueing blocks", "range", blocksToQueue)
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
 		if err != nil {
@@ -799,7 +799,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 		}
 
 		for _, txn := range block.Transactions() {
-			l.batcher.Log.Info("tx hash before submitting to Espresso", "hash", txn.Hash().String())
+			l.batcher.Log.Debug("tx hash before submitting to Espresso", "hash", txn.Hash().String())
 		}
 
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
@@ -1082,9 +1082,17 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	txData, err = abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
+	// Extract PCR0 hash from attestation document
+	pcr0Hash := crypto.Keccak256Hash(l.Attestation.Document.PCRs[0])
+
+	// Extract enclave address from attestation document public key
+	// The publicKey's first byte 0x04 determines if the public key is compressed or not, so we ignore it
+	publicKeyHash := crypto.Keccak256Hash(l.Attestation.Document.PublicKey[1:])
+	enclaveAddress := common.BytesToAddress(publicKeyHash[12:])
+
+	txData, err = abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
 	if err != nil {
-		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
+		return fmt.Errorf("failed to create RegisterSignerWithoutAttestationVerification transaction: %w", err)
 	}
 
 	candidate := txmgr.TxCandidate{
