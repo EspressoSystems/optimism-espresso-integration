@@ -2792,9 +2792,11 @@ workflows:
   #           - contracts-bedrock-build
   #           - cannon-prestate-quick
   main:
+    # Run on all branches via webhook or API
     when:
       or:
         - equal: ["webhook", << pipeline.trigger_source >>]
+        - equal: ["api", << pipeline.trigger_source >>]
         - and:
             - equal: [true, <<pipeline.parameters.main_dispatch>>]
             - equal: ["api", << pipeline.trigger_source >>]
