@@ -7,6 +7,8 @@
   <br />
 </div>
 
+Note: For Espresso-specific README, read `README_ESPRESSO.md`.
+
 **Table of Contents**
 
 <!--TOC-->
