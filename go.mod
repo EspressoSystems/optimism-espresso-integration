@@ -82,6 +82,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/joho/godotenv v1.5.1
+
 require (
 	codeberg.org/go-fonts/liberation v0.5.0 // indirect
 	codeberg.org/go-latex/latex v0.1.0 // indirect
