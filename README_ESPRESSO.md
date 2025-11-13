@@ -70,63 +70,6 @@ To run the devnet tests:
 > just devnet-tests
 ```
 
-### Run the Kurtosis devnet
-
-- Install tools.
-		- Install Docker Desktop via https://www.docker.com/products/docker-desktop/.
-				- Or podman, colima, etc.
-				- Verify Docker is installed:
-						```console
-						docker version
-						```
-
-		- Install Kurtosis via https://docs.kurtosis.com/install/.
-
-- Run the devnet.
-		- In the Nix environment:
-				```console
-				cd kurtosis-devnet
-				just espresso-devnet
-				```
-
-		- If you get the `command not found` or the `"kurtosis": executable file not found in $PATH`
-		error, add the Docker's binary directory to `PATH`. E.g., if the Docker CLI lives at
-		`/Applications/Docker.app/Contents/Resources/bin/`, run:
-				```console
-				echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.bash_profile
-				source ~/.bash_profile
-				```
-				or:
-				```console
-				echo 'export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"' >> ~/.zshrc
-				source ~/.zshrc
-				```
-				if you are using Zsh. Then restart the devnet test.
-
-		- Kurtosis devnet can be quite slow to start, especially on the first run. Verify everything is
-		running with:
-				```console
-				kurtosis enclave inspect espresso-devnet
-				```
-
-		- Read logs:
-				```console
-				kurtosis service logs espresso-devnet <service-name>
-
-				# show all the logs
-				kurtosis service logs -a espresso-devnet <service-name>
-
-				# frequently used commands
-				kurtosis service logs -a espresso-devnet op-batcher-op-kurtosis
-				kurtosis service logs -a espresso-devnet op-cl-1-op-node-op-geth-op-kurtosis
-				```
-
-		- Clean up:
-				```console
-				kurtosis clean -a
-				```
-
-
 ### Misc commands
 
 In order to run the go linter do:
@@ -453,7 +396,9 @@ OP_RPC_CAFF=http://caff.example.com:4545 \
 ./espresso/scripts/demo_tmux_get_sync_status.sh
 ```
 
-### Prepare for the Demo
+## Celo Deployment
+
+### Prepare for the Deployment
 * Go to the scripts directory.
 ```console
 cd espresso/scripts
@@ -470,18 +415,20 @@ USE_TEE=true ./startup.sh
 ```
 
 ### View Logs
-There are 15 services in total, as listed in `logs.sh`. It is supported to run logs for any
-service, but we may want to show logs selectively, e.g., by running the following commands one by
-one. Note that some service names are replaced by more convenient alias, but it is also suported to
-use their full names.
+There are 17 services in total, as listed in `logs.sh`. Run the script with the service name to
+view its logs, e.g., `./logs.sh op-geth-sequencer`. Note that some service names can be replaced
+by more convenient alias, e.g., `sequencer` instead of `op-node-sequencer`, but it is also suported
+to use their full names.
+
+The following are common commands to view the logs of critical services. Add `-tee` to the batcher
+and the proposer services if running with the TEE.
 ```console
-./logs.sh l1-geth
 ./logs.sh dev-node
-./logs.sh op-geth-sequencer
 ./logs.sh sequencer
 ./logs.sh verifier
 ./logs.sh caff-node
 ./logs.sh batcher
+./logs.sh proposer
 ```
 
 ### Shut Down All Services
