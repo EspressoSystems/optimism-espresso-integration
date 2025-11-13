@@ -61,4 +61,17 @@ contract BatchAuthenticator is ISemver, OwnableUpgradeable {
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
         espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
     }
+
+    function registerSignerWithoutAttestationVerification(
+        bytes32 pcr0Hash,
+        bytes calldata attestationTbs,
+        bytes calldata signature,
+        address enclaveAddress
+    )
+        external
+    {
+        espressoTEEVerifier.espressoNitroTEEVerifier().registerSignerWithoutAttestationVerification(
+            pcr0Hash, attestationTbs, signature, enclaveAddress
+        );
+    }
 }
