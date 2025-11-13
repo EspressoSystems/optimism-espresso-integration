@@ -1082,9 +1082,17 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	txData, err = abi.Pack("registerSigner", l.Attestation.COSESign1, l.Attestation.Signature)
+	// Extract PCR0 hash from attestation document
+	pcr0Hash := crypto.Keccak256Hash(l.Attestation.Document.PCRs[0])
+
+	// Extract enclave address from attestation document public key
+	// The publicKey's first byte 0x04 determines if the public key is compressed or not, so we ignore it
+	publicKeyHash := crypto.Keccak256Hash(l.Attestation.Document.PublicKey[1:])
+	enclaveAddress := common.BytesToAddress(publicKeyHash[12:])
+
+	txData, err = abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
 	if err != nil {
-		return fmt.Errorf("failed to create RegisterSigner transaction: %w", err)
+		return fmt.Errorf("failed to create RegisterSignerWithoutAttestationVerification transaction: %w", err)
 	}
 
 	candidate := txmgr.TxCandidate{
