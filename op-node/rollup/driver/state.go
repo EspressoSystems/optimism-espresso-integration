@@ -134,7 +134,9 @@ func (s *Driver) eventLoop() {
 			<-sequencerCh
 		}
 		delta := time.Until(nextAction)
-		s.log.Info("Scheduled sequencer action", "delta", delta)
+		// TODO: Fix upstream compatibility for logs.
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+		s.log.Debug("Scheduled sequencer action", "delta", delta)
 		sequencerTimer.Reset(delta)
 	}
 

@@ -115,7 +115,9 @@ func (st *StatusTracker) OnEvent(ctx context.Context, ev event.Event) bool {
 		st.metrics.RecordL1Ref("l1_safe", x.L1Safe)
 		st.data.SafeL1 = x.L1Safe
 	case finality.FinalizeL1Event:
-		st.log.Info("New L1 finalized block", "l1_finalized", x.FinalizedL1)
+		// TODO: Fix upstream compatibility for logs.
+		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+		st.log.Debug("New L1 finalized block", "l1_finalized", x.FinalizedL1)
 		st.metrics.RecordL1Ref("l1_finalized", x.FinalizedL1)
 		st.data.FinalizedL1 = x.FinalizedL1
 		st.data.CurrentL1Finalized = x.FinalizedL1

@@ -34,7 +34,6 @@ if [ "$MODE" = "genesis" ]; then
       "$L1_RPC" | jq -r '.result.number')
 
     if [[ -z "$finalized_block" || "$finalized_block" == "null" ]]; then
-      echo "No finalized block yet, waiting..."
       sleep 3
       continue
     fi
