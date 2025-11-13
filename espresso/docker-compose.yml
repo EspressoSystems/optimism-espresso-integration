@@ -357,6 +357,8 @@ services:
         condition: service_started
       eigenda-proxy:
         condition: service_healthy
+      eigenda-proxy:
+        condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
     environment:
@@ -384,7 +386,13 @@ services:
       - --altda.enabled=true
       - --altda.da-server=http://eigenda-proxy:3100
       - --altda.da-service=true
+      - --altda.enabled=true
+      - --altda.da-server=http://eigenda-proxy:3100
+      - --altda.da-service=true
       - --altda.max-concurrent-da-requests=32
+      - --altda.put-timeout=30s
+      - --altda.get-timeout=30s
+      - --data-availability-type=calldata
       - --altda.put-timeout=30s
       - --altda.get-timeout=30s
       - --data-availability-type=calldata
@@ -553,7 +561,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 240s
+      start_period: 120s
     restart: unless-stopped
 
   espresso-dev-node:
