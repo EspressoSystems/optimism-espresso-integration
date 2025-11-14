@@ -25,31 +25,31 @@ contract BatchInbox {
     }
 
     fallback() external {
-        // TODO Philippe Wrong  logic
         address expectedBatcher = activeIsTee ? teeBatcher : nonTeeBatcher;
         if (msg.sender != expectedBatcher) {
             revert("BatchInbox: unauthorized batcher");
         }
 
-        if (blobhash(0) != 0) {
-            bytes memory concatenatedHashes = new bytes(0);
-            uint256 currentBlob = 0;
-            while (blobhash(currentBlob) != 0) {
-                concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(currentBlob));
-                currentBlob++;
-            }
-            bytes32 hash = keccak256(concatenatedHashes);
-            if (!batchAuthenticator.validBatchInfo(hash)) {
-                revert("Invalid blob batch");
-            }
-        } else {
-            bytes32 hash = keccak256(msg.data);
-            if (!batchAuthenticator.validBatchInfo(hash)) {
-                revert("Invalid calldata batch");
+        // Only TEE batchers require authentication
+        if (activeIsTee) {
+            if (blobhash(0) != 0) {
+                bytes memory concatenatedHashes = new bytes(0);
+                uint256 currentBlob = 0;
+                while (blobhash(currentBlob) != 0) {
+                    concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(currentBlob));
+                    currentBlob++;
+                }
+                bytes32 hash = keccak256(concatenatedHashes);
+                if (!batchAuthenticator.validBatchInfo(hash)) {
+                    revert("Invalid blob batch");
+                }
+            } else {
+                bytes32 hash = keccak256(msg.data);
+                if (!batchAuthenticator.validBatchInfo(hash)) {
+                    revert("Invalid calldata batch");
+                }
             }
         }
-
-        _requireAuthorized(keccak256(msg.data));
     }
 
     function _requireAuthorized(bytes32 commitment) internal view {
