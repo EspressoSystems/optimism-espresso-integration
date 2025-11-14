@@ -117,7 +117,9 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         (bool success, bytes memory returnData) = address(inbox).call("unauthorized");
         assertFalse(success, "Should revert");
         // Check the revert reason
-        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", "BatchInbox: unauthorized batcher")));
+        assertEq(
+            string(returnData), string(abi.encodeWithSignature("Error(string)", "BatchInbox: unauthorized batcher"))
+        );
     }
 
     /// @notice Test that TEE batcher requires authentication
