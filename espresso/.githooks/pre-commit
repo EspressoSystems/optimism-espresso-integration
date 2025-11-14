@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 if git diff --cached --name-only | grep -q "^espresso/.env$"; then
-  echo "⚠️  WARNING: You updated .env."
-  echo "You MUST also update image versions in tee-op-deploy, or create a ticket to do so."
+  echo "⚠️ WARNING: You updated .env."
+  echo "You MUST also update image versions in tee-op-deploy, or create a ticket there."
   echo "See .env header for details."
-  echo ""
-  read -p "Proceed with commit? (yes/no): " yn
-  if [ "$yn" != "yes" ]; then
-    echo "Commit aborted."
-    exit 1
-  fi
+  echo "After either updating tee-op-deploy or create a ticket, commit with: git commit --no-verify"
 fi
