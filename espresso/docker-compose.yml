@@ -1,6 +1,13 @@
 # Espresso OP Integration Docker Setup
 # Trigger docker-images workflow
 
+###########################################################################################
+# WARNING: Keep Terraform in sync.                                                        #
+#                                                                                         #
+# Whenever changing any setting here, update the corresponding setting (if applicable) in #
+# https://github.com/espressosystems/tee-op-deploy, or create a ticket there.             #
+###########################################################################################
+
 services:
   l1-data-init:
     image: busybox

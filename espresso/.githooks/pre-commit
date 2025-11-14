@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-if git diff --cached --name-only | grep -q "^espresso/.env$"; then
-  echo "⚠️ WARNING: You updated .env."
-  echo "You MUST also update image versions in tee-op-deploy, or create a ticket there."
-  echo "See .env header for details."
-  echo "After either updating tee-op-deploy or create a ticket, commit with: git commit --no-verify"
+if git diff --cached --name-only | grep -qE "^espresso/(.env|docker-compose\.yml)$"; then
+  echo "⚠️ WARNING: You updated .env or docker-compose.yml."
+  echo "See their headers for details about updating tee-op-deploy."
+  echo "AFTER taking the required action, commit with: git commit --no-verify"
   echo "Commit aborted."
   exit 1
 fi
