@@ -278,17 +278,16 @@ func initAllocType(root string, allocType AllocType) {
 			intent := defaultIntent(root, loc, deployerAddr, allocType)
 			if allocType == AllocTypeAltDA {
 				intent.Chains[0].DangerousAltDAConfig = genesis.AltDADeployConfig{
-					UseAltDA:                   true,
-					DACommitmentType:           "KeccakCommitment",
-					DAChallengeWindow:          16,
-					DAResolveWindow:            16,
-					DABondSize:                 1000000,
-					DAResolverRefundPercentage: 0,
+					UseAltDA:          true,
+					DACommitmentType:  "KeccakCommitment",
+					DAChallengeWindow: 16,
+					DAResolveWindow:   16,
+					DABondSize:        1000000,
 				}
 			}
 
 			// Configure Espresso allocation types
-			if allocType == AllocTypeEspressoWithoutEnclave || allocType == AllocTypeEspressoWithEnclave {
+			if allocType == AllocTypeEspresso || allocType == AllocTypeEspressoWithoutEnclave || allocType == AllocTypeEspressoWithEnclave {
 				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
