@@ -16,6 +16,8 @@ contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _preApprovedBatcherKey;
     address internal _nitroTEEVerifier;
+    address internal _teeBatcher;
+    address internal _nonTeeBatcher;
 
     function set(bytes4 _sel, bytes32 _val) public {
         if (_sel == this.salt.selector) _salt = _val;
@@ -27,6 +29,10 @@ contract DeployEspressoInput is BaseDeployIO {
             _preApprovedBatcherKey = _val;
         } else if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
+        } else if (_sel == this.teeBatcher.selector) {
+            _teeBatcher = _val;
+        } else if (_sel == this.nonTeeBatcher.selector) {
+            _nonTeeBatcher = _val;
         } else {
             revert("DeployEspressoInput: unknown selector");
         }
@@ -43,6 +49,14 @@ contract DeployEspressoInput is BaseDeployIO {
 
     function preApprovedBatcherKey() public view returns (address) {
         return _preApprovedBatcherKey;
+    }
+
+    function teeBatcher() public view returns (address) {
+        return _teeBatcher;
+    }
+
+    function nonTeeBatcher() public view returns (address) {
+        return _nonTeeBatcher;
     }
 }
 
@@ -135,7 +149,10 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator)))
+                    abi.encodeCall(
+                        IBatchInbox.__constructor__,
+                        (input.teeBatcher(), input.nonTeeBatcher(), address(batchAuthenticator))
+                    )
                 )
             })
         );

@@ -287,17 +287,13 @@ func initAllocType(root string, allocType AllocType) {
 				}
 			}
 
-			if allocType == AllocTypeEspressoWithoutEnclave {
+			if allocType == AllocTypeEspresso || allocType == AllocTypeEspressoWithoutEnclave || allocType == AllocTypeEspressoWithEnclave {
 				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
 				}
 				intent.Chains[0].EspressoEnabled = true
 				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
-			}
-
-			if allocType == AllocTypeEspressoWithEnclave {
-				intent.Chains[0].EspressoEnabled = true
 			}
 
 			baseUpgradeSchedule := map[string]any{
