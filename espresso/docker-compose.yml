@@ -211,12 +211,21 @@ services:
         condition: service_healthy
       l1-validator:
         condition: service_started
+      eigenda-proxy:
+        condition: service_healthy
     environment:
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-sequencer:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${ROLLUP_PORT}
       OP_NODE_SAFEDB_PATH: /data/safedb
+      OP_NODE_ALTDA_ENABLED: "true"
+      OP_NODE_ALTDA_DA_SERVICE: "true"
+      OP_NODE_ALTDA_VERIFY_ON_READ: "false"
+      OP_NODE_ALTDA_DA_SERVER: http://eigenda-proxy:3100
+      OP_NODE_ALTDA_MAX_CONCURRENT_DA_REQUESTS: "32"
+      OP_NODE_ALTDA_PUT_TIMEOUT: "30s"
+      OP_NODE_ALTDA_GET_TIMEOUT: "30s"
     ports:
       - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     volumes:
@@ -252,12 +261,21 @@ services:
         condition: service_started
       l1-validator:
         condition: service_started
+      eigenda-proxy:
+        condition: service_healthy
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-verifier:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${VERIFIER_PORT}
+      OP_NODE_ALTDA_ENABLED: "true"
+      OP_NODE_ALTDA_DA_SERVICE: "true"
+      OP_NODE_ALTDA_VERIFY_ON_READ: "false"
+      OP_NODE_ALTDA_DA_SERVER: http://eigenda-proxy:3100
+      OP_NODE_ALTDA_MAX_CONCURRENT_DA_REQUESTS: "32"
+      OP_NODE_ALTDA_PUT_TIMEOUT: "30s"
+      OP_NODE_ALTDA_GET_TIMEOUT: "30s"
     ports:
       - "${VERIFIER_PORT}:${VERIFIER_PORT}"
     volumes:
