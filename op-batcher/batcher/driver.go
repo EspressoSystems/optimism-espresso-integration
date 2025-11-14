@@ -1106,7 +1106,7 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 	if l.Config.UseEspresso && !isCancel {
 		l.teeAuthGroup.Go(
 			func() error {
-				l.sendEspressoTx(txdata, isCancel, candidate, queue, receiptsCh)
+				l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)
 				return nil
 			},
 		)
