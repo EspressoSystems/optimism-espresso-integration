@@ -287,7 +287,8 @@ func initAllocType(root string, allocType AllocType) {
 				}
 			}
 
-			if allocType == AllocTypeEspressoWithoutEnclave {
+			// Configure all Espresso allocation types
+			if allocType == AllocTypeEspresso || allocType == AllocTypeEspressoWithoutEnclave || allocType == AllocTypeEspressoWithEnclave {
 				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
