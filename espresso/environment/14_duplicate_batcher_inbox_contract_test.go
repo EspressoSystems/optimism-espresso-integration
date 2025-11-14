@@ -52,8 +52,10 @@ func setupBatchInboxEnv(ctx context.Context, t *testing.T) (*e2esys.System, *bin
 			GasPrice: gasPrice,
 		})
 		signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainID), system.Cfg.Secrets.Deployer)
-		l1.SendTransaction(ctx, signedTx)
-		bind.WaitMined(ctx, l1, signedTx)
+		err = l1.SendTransaction(ctx, signedTx)
+		require.NoError(t, err)
+		_, err = bind.WaitMined(ctx, l1, signedTx)
+		require.NoError(t, err)
 	}
 
 	return system, inbox, chainID
