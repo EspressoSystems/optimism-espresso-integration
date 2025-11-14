@@ -6,12 +6,6 @@ on:
     branches:
       - "celo-integration*"
   workflow_dispatch:
-    inputs:
-      create_ami:
-        description: 'Create the AMI used for enclave tests'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   id-token: write
@@ -20,7 +14,7 @@ permissions:
 jobs:
   enclave-tests-on-ec2:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -74,36 +68,12 @@ jobs:
             --port 22 \
             --cidr 0.0.0.0/0 || true
 
-      - name: Determine AMI ID
-        id: ami_setup
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.create_ami }}" == "true" ]]; then
-            # Use Amazon Linux 2023 as base image for AMI creation
-            BASE_AMI_ID=$(aws ec2 describe-images \
-              --owners amazon \
-              --filters "Name=name,Values=al2023-ami-*-x86_64" "Name=state,Values=available" \
-              --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
-              --output text)
-            echo "ami_id=$BASE_AMI_ID" >> $GITHUB_OUTPUT
-            echo "create_ami=true" >> $GITHUB_OUTPUT
-            echo "Using base AMI for AMI creation: $BASE_AMI_ID"
-          else
-            # Verify the pre-built AMI exists
-            if ! aws ec2 describe-images --image-ids ami-0ff5662328e9bbc2f >/dev/null 2>&1; then
-              echo "ERROR: Pre-built AMI ami-0ff5662328e9bbc2f does not exist!"
-              echo "Please run this workflow with 'Create the AMI' option enabled first."
-              exit 1
-            fi
-            echo "ami_id=ami-0ff5662328e9bbc2f" >> $GITHUB_OUTPUT
-            echo "create_ami=false" >> $GITHUB_OUTPUT
-            echo "Using existing test AMI: ami-0ff5662328e9bbc2f"
-          fi
-
       - name: Launch EC2 Instance
         id: ec2
         run: |
+          AMI_ID=ami-088107b1b9cba4cbf
           INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id "${{ steps.ami_setup.outputs.ami_id }}" \
+          --image-id "$AMI_ID" \
           --count 1 \
           --instance-type m6a.2xlarge \
           --key-name github-key \
@@ -128,82 +98,6 @@ jobs:
           echo "DNS=$DNS" >> $GITHUB_ENV
           echo "dns=$DNS" >> $GITHUB_OUTPUT
 
-      - name: Prepare AMI (if creating)
-        if: ${{ steps.ami_setup.outputs.create_ami == 'true' }}
-        timeout-minutes: 45
-        run: |
-          scp -o StrictHostKeyChecking=no -i key.pem espresso/scripts/enclave-prepare-ami.sh ec2-user@$DNS:/home/ec2-user/
-          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@$DNS "chmod +x enclave-prepare-ami.sh"
-          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -i key.pem ec2-user@$DNS << 'EOF'
-            ./enclave-prepare-ami.sh
-          EOF
-
-      - name: Stop instance and create AMI
-        if: ${{ steps.ami_setup.outputs.create_ami == 'true' }}
-        id: new_ami
-        run: |
-          aws ec2 stop-instances --instance-ids $INSTANCE_ID
-          aws ec2 wait instance-stopped --instance-ids $INSTANCE_ID
-
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          NEW_AMI_ID=$(aws ec2 create-image \
-            --instance-id $INSTANCE_ID \
-            --name "enclave-test-ami-$TIMESTAMP" \
-            --description "AMI for running enclave tests with Nix, Docker, and Nitro Enclaves CLI" \
-            --output text)
-
-          echo "ami_id=$NEW_AMI_ID" >> $GITHUB_OUTPUT
-          echo "Created AMI: $NEW_AMI_ID"
-
-          aws ec2 wait image-available --image-ids $NEW_AMI_ID
-          echo "AMI $NEW_AMI_ID is now available"
-
-          echo "### AMI Created Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "New AMI ID: \`$NEW_AMI_ID\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Update the AMI ID in .github/workflows/espresso-enclave.yaml line 100:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`yaml" >> $GITHUB_STEP_SUMMARY
-          echo "echo \"ami_id=$NEW_AMI_ID\" >> \$GITHUB_OUTPUT" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-      - name: Terminate first instance
-        if: ${{ steps.ami_setup.outputs.create_ami == 'true' }}
-        run: |
-          aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-          aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID
-
-      - name: Launch test instance from new AMI
-        if: ${{ steps.ami_setup.outputs.create_ami == 'true' }}
-        id: test_ec2
-        run: |
-          TEST_INSTANCE_ID=$(aws ec2 run-instances \
-          --image-id "${{ steps.new_ami.outputs.ami_id }}" \
-          --count 1 \
-          --instance-type m6a.2xlarge \
-          --key-name github-key \
-          --security-group-ids ${{ steps.sg.outputs.id }} \
-          --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
-          --enclave-options 'Enabled=true' \
-          --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner-Test}]' \
-          --output text \
-          --query 'Instances[0].InstanceId')
-
-          echo "TEST_INSTANCE_ID=$TEST_INSTANCE_ID" >> $GITHUB_ENV
-          echo "test_instance_id=$TEST_INSTANCE_ID" >> $GITHUB_OUTPUT
-
-      - name: Wait for test instance to be running
-        if: ${{ steps.ami_setup.outputs.create_ami == 'true' }}
-        run: |
-          aws ec2 wait instance-status-ok --instance-ids $TEST_INSTANCE_ID
-
-      - name: Get test instance DNS
-        if: ${{ steps.ami_setup.outputs.create_ami == 'true' }}
-        run: |
-          TEST_DNS=$(aws ec2 describe-instances --instance-ids $TEST_INSTANCE_ID \
-            --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
-          echo "DNS=$TEST_DNS" >> $GITHUB_ENV
-
       - name: Upload run-tests.sh to EC2
         run: |
           scp -o StrictHostKeyChecking=no -i key.pem espresso/scripts/run-tests-github-actions.sh ec2-user@$DNS:/home/ec2-user/
@@ -220,12 +114,5 @@ jobs:
       - name: Terminate EC2 instance
         if: ${{ always() }}
         run: |
-          # Terminate test instance if it exists
-          if [ ! -z "$TEST_INSTANCE_ID" ]; then
-            aws ec2 terminate-instances --instance-ids $TEST_INSTANCE_ID
-            aws ec2 wait instance-terminated --instance-ids $TEST_INSTANCE_ID
-          fi
-          # Terminate original instance if it still exists (shouldn't happen but safety check)
-          if [ ! -z "$INSTANCE_ID" ]; then
-            aws ec2 terminate-instances --instance-ids $INSTANCE_ID 2>/dev/null || true
-          fi
+          aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+          aws ec2 wait instance-terminated --instance-ids $INSTANCE_ID

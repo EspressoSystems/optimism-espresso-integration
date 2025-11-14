@@ -401,7 +401,7 @@ In order to run the tests for the enclave in EC2 via github actions one must cre
 }
 ```
 
-Currently, the github workflow in `.github/workflows/enclave.yaml` relies on a custom AWS AMI with id `ami-0ff5662328e9bbc2f`.
+Currently, the github workflow in `.github/workflows/enclave.yaml` relies on a custom AWS AMI with id `ami-088107b1b9cba4cbf`.
 In order to refresh this AMI one needs to:
 1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/enclave.yaml` *Launch EC2 Instance* job).
 2. Copy the script `espresso/scrips/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
