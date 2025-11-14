@@ -21,10 +21,6 @@ Metrics that belong on the dashboard:
   `"Submitted transaction to Espresso"`
 - L1 batch submissions
   `"Transaction confirmed"`
-- Espresso transaction queue size
-  `"Espresso transaction submitter queue status"`
-- AltDA submissions
-  `"Sent txdata to altda layer and received commitment"`
 - Espresso batches fetched
   `"Inserting accepted batch"`
 
