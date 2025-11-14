@@ -892,13 +892,13 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 	}
 
 	if safeL2.Number > firstQueuedBlock.Number {
-		numFinalizedBlocks := safeL2.Number - firstQueuedBlock.Number
+		numFinalizedBlocksInQueue := safeL2.Number - firstQueuedBlock.Number
 		l.batcher.Log.Warn(
 			"Removing finalized blocks from queued",
-			"numFinalizedBlocks", numFinalizedBlocks,
+			"numFinalizedBlocksInQueue", numFinalizedBlocksInQueue,
 			"safeL2", safeL2,
 			"firstQueuedBlock", firstQueuedBlock)
-		l.queuedBlocks = l.queuedBlocks[numFinalizedBlocks:]
+		l.queuedBlocks = l.queuedBlocks[numFinalizedBlocksInQueue:]
 	}
 
 	return inclusiveBlockRange{lastQueuedBlock.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
@@ -1111,9 +1111,9 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	return nil
 }
 
-// sendEspressoTx uses the txmgr queue to send the given transaction candidate after setting its
-// gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
-func (l *BatchSubmitter) sendEspressoTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
+// sendTxWithEspresso uses the txmgr queue to send the given transaction candidate after setting
+// its gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
+func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
 	l.Log.Debug("Sending Espresso-enabled L1 transaction", "txRef", transactionReference)
 
