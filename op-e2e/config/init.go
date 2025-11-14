@@ -278,11 +278,12 @@ func initAllocType(root string, allocType AllocType) {
 			intent := defaultIntent(root, loc, deployerAddr, allocType)
 			if allocType == AllocTypeAltDA {
 				intent.Chains[0].DangerousAltDAConfig = genesis.AltDADeployConfig{
-					UseAltDA:          true,
-					DACommitmentType:  "KeccakCommitment",
-					DAChallengeWindow: 16,
-					DAResolveWindow:   16,
-					DABondSize:        1000000,
+					UseAltDA:                   true,
+					DACommitmentType:           "KeccakCommitment",
+					DAChallengeWindow:          16,
+					DAResolveWindow:            16,
+					DABondSize:                 1000000,
+					DAResolverRefundPercentage: 0,
 				}
 			}
 
