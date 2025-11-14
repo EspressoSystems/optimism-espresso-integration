@@ -91,6 +91,10 @@ func TestBatchInbox_SwitchActiveBatcher(t *testing.T) {
 	require.NoError(t, err)
 	_, err = bind.WaitMined(ctx, system.NodeClient(e2esys.RoleL1), tx)
 	require.NoError(t, err)
+	// Verify the active batcher has switched to non-TEE
+	activeIsTee, err := inbox.ActiveIsTee(&bind.CallOpts{Context: ctx})
+	require.NoError(t, err)
+	require.False(t, activeIsTee, "Active batcher should be non-TEE after switch")
 }
 
 func TestBatchInbox_ActiveNonTeeBatcherAllowsPosting(t *testing.T) {
