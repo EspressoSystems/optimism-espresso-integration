@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/joho/godotenv"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
@@ -42,6 +44,18 @@ type Devnet struct {
 	L2SeqRollup   *sources.RollupClient
 	L2Verif       *ethclient.Client
 	L2VerifRollup *sources.RollupClient
+}
+
+// LoadEnvFile loads environment variables from a .env file
+func LoadEnvFile(filename string) error {
+	return godotenv.Load(filename)
+}
+
+// LoadDevnetEnv loads the espresso/.env file for devnet tests
+func LoadDevnetEnv() error {
+	// Get the path to the espresso/.env file relative to the test directory
+	envPath := filepath.Join("..", ".env")
+	return LoadEnvFile(envPath)
 }
 
 func NewDevnet(ctx context.Context, t *testing.T) *Devnet {

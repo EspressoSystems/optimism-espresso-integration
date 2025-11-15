@@ -67,3 +67,4 @@ gha-creds-*.json
 # Ignore keys
 *.pem
 
+packages/contracts-bedrock/lib/automate/

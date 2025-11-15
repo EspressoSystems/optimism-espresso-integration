@@ -18,10 +18,12 @@ VALID_SERVICES=(
     "op-geth-caff-node"
     "l2-rollup"
     "op-node-sequencer"
+    "op-node-sequencer-tee"
     "op-node-verifier"
     "caff-node"
     "op-batcher"
     "op-proposer"
+    "op-proposer-tee"
 )
 
 # Function to display usage
@@ -38,6 +40,9 @@ show_usage() {
     echo "  • sequencer → op-node-sequencer"
     echo "  • verifier → op-node-verifier"
     echo "  • batcher → op-batcher"
+    echo "  • batcher-tee → op-batcher-tee"
+    echo "  • proposer → op-proposer"
+    echo "  • proposer-tee → op-proposer-tee"
     echo ""
     echo "Examples:"
     echo "  $0 op-node-sequencer"
@@ -76,6 +81,18 @@ resolve_service_name() {
             ;;
         "batcher")
             echo "op-batcher"
+            return 0
+            ;;
+        "batcher-tee")
+            echo "op-batcher-tee"
+            return 0
+            ;;
+        "proposer")
+            echo "op-proposer"
+            return 0
+            ;;
+        "proposer-tee")
+            echo "op-proposer-tee"
             return 0
             ;;
     esac
