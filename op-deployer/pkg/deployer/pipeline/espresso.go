@@ -48,11 +48,10 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
-		Salt:                  st.Create2Salt,
-		PreApprovedBatcherKey: chainIntent.PreApprovedBatcherKey,
-		NitroTEEVerifier:      nvo.NitroTEEVerifierAddress,
-		TeeBatcher:            chainIntent.Roles.Batcher,
-		NonTeeBatcher:         chainIntent.PreApprovedBatcherKey,
+		Salt:             st.Create2Salt,
+		NitroTEEVerifier: nvo.NitroTEEVerifierAddress,
+		TeeBatcher:       chainIntent.Roles.Batcher,
+		NonTeeBatcher:    chainIntent.NonTeeBatcher,
 	}, batchAuthenticatorOwnwerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)

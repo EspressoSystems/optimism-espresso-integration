@@ -1016,7 +1016,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		batcherTargetNumFrames = 1
 	}
 
-	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
+	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pre-approved batcher private key: %w", err)
 	}

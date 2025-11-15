@@ -14,7 +14,6 @@ import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier
 
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
-    address internal _preApprovedBatcherKey;
     address internal _nitroTEEVerifier;
     address internal _teeBatcher;
     address internal _nonTeeBatcher;
@@ -25,9 +24,7 @@ contract DeployEspressoInput is BaseDeployIO {
     }
 
     function set(bytes4 _sel, address _val) public {
-        if (_sel == this.preApprovedBatcherKey.selector) {
-            _preApprovedBatcherKey = _val;
-        } else if (_sel == this.nitroTEEVerifier.selector) {
+        if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
         } else if (_sel == this.teeBatcher.selector) {
             _teeBatcher = _val;
@@ -45,10 +42,6 @@ contract DeployEspressoInput is BaseDeployIO {
 
     function nitroTEEVerifier() public view returns (address) {
         return _nitroTEEVerifier;
-    }
-
-    function preApprovedBatcherKey() public view returns (address) {
-        return _preApprovedBatcherKey;
     }
 
     function teeBatcher() public view returns (address) {
@@ -104,7 +97,6 @@ contract DeployEspresso is Script {
         returns (IBatchAuthenticator)
     {
         bytes32 salt = input.salt();
-        address preApprovedBatcherKey = input.preApprovedBatcherKey();
         vm.broadcast(msg.sender);
         IBatchAuthenticator impl = IBatchAuthenticator(
             DeployUtils.create2({
@@ -112,7 +104,7 @@ contract DeployEspresso is Script {
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
                     abi.encodeCall(
-                        IBatchAuthenticator.__constructor__, (address(teeVerifier), preApprovedBatcherKey, owner)
+                        IBatchAuthenticator.__constructor__, (address(teeVerifier), input.nonTeeBatcher(), owner)
                     )
                 )
             })
