@@ -97,7 +97,15 @@ func (d *Devnet) isRunning() bool {
 	return len(out) > 0
 }
 
-func (d *Devnet) Up(tee bool) (err error) {
+// The setting for `COMPOES_PROFILES` when running the Docker Compose.
+type ComposeProfile string
+
+const (
+	TEE     ComposeProfile = "tee"
+	NON_TEE ComposeProfile = "default"
+)
+
+func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	if d.isRunning() {
 		if err := d.Down(); err != nil {
 			return err
@@ -111,13 +119,10 @@ func (d *Devnet) Up(tee bool) (err error) {
 		d.ctx,
 		"docker", "compose", "up", "-d",
 	)
-	if tee {
-		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES=tee")
-	}
+	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
 	cmd.Env = append(
 		os.Environ(),
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-		"COMPOSE_PROFILES=default",
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
