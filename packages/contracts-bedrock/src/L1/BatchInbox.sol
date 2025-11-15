@@ -27,6 +27,7 @@ contract BatchInbox {
     /// @param _batchAuthenticator Address of the batch authenticator contract.
     constructor(address _teeBatcher, address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator) {
         require(_teeBatcher != address(0) && _nonTeeBatcher != address(0), "BatchInbox: zero batcher");
+        require(_teeBatcher != _nonTeeBatcher, "BatchInbox: identical batchers");
         teeBatcher = _teeBatcher;
         nonTeeBatcher = _nonTeeBatcher;
         batchAuthenticator = _batchAuthenticator;

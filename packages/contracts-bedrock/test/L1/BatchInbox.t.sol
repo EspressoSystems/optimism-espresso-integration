@@ -64,6 +64,13 @@ contract BatchInbox_Constructor_Test is Test {
         new BatchInbox(address(0), address(0), IBatchAuthenticator(batchAuthenticator));
     }
 
+    /// @notice Test that constructor reverts when TEE and non-TEE batcher addresses are identical
+    function test_constructor_revertsWhenBatchersAreEqual() external {
+        address same = address(0xBEEF);
+        vm.expectRevert("BatchInbox: identical batchers");
+        new BatchInbox(same, same, IBatchAuthenticator(batchAuthenticator));
+    }
+
     /// @notice Test that constructor succeeds with valid addresses
     function test_constructor_succeedsWithValidAddresses() external {
         BatchInbox testInbox = new BatchInbox(teeBatcher, nonTeeBatcher, IBatchAuthenticator(batchAuthenticator));
