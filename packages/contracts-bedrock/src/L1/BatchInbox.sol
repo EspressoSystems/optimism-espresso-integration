@@ -3,14 +3,28 @@ pragma solidity 0.8.28;
 
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
+/// @title BatchInbox
+/// @notice Receives batches from either a TEE batcher or a non-TEE batcher and enforces
+///         that TEE batches are authenticated by the configured batch authenticator.
 contract BatchInbox {
+    /// @notice Address of the TEE-based batcher.
     address public immutable teeBatcher;
+
+    /// @notice Address of the non-TEE (fallback) batcher.
     address public immutable nonTeeBatcher;
+
+    /// @notice Contract responsible for authenticating TEE batch commitments.
     IBatchAuthenticator public immutable batchAuthenticator;
 
-    // true if teeBatcher is active, false if nonTeeBatcher is active
+    /// @notice Flag indicating which batcher is currently active.
+    /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
     bool public activeIsTee;
 
+    /// @notice Initializes the contract with the TEE and non-TEE batcher addresses
+    ///         and the batch authenticator.
+    /// @param _teeBatcher Address of the TEE batcher.
+    /// @param _nonTeeBatcher Address of the non-TEE batcher.
+    /// @param _batchAuthenticator Address of the batch authenticator contract.
     constructor(address _teeBatcher, address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator) {
         require(_teeBatcher != address(0) && _nonTeeBatcher != address(0), "BatchInbox: zero batcher");
         teeBatcher = _teeBatcher;
@@ -20,10 +34,16 @@ contract BatchInbox {
         activeIsTee = true;
     }
 
+    /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
     function switchBatcher() external {
         activeIsTee = !activeIsTee;
     }
 
+    /// @notice Fallback entry point for batch submissions.
+    /// @dev Enforces that the caller matches the currently active batcher and, when
+    ///      the TEE batcher is active, that the batch commitment is approved by
+    ///      the batch authenticator. For non-TEE batches, only the caller check
+    ///      is enforced.
     fallback() external {
         address expectedBatcher = activeIsTee ? teeBatcher : nonTeeBatcher;
         if (msg.sender != expectedBatcher) {
@@ -52,14 +72,9 @@ contract BatchInbox {
         }
     }
 
-    function _requireAuthorized(bytes32 commitment) internal view {
-        (address active, bool isTee) = _activeBatcher();
-        require(msg.sender == active, "BatchInbox: inactive batcher");
-        if (isTee) {
-            require(batchAuthenticator.validBatchInfo(commitment), "BatchInbox: invalid batch");
-        }
-    }
-
+    /// @notice Returns the currently active batcher and whether it is the TEE batcher.
+    /// @return active Address of the currently active batcher.
+    /// @return isTee True if the active batcher is the TEE batcher, false if it is the non-TEE batcher.
     function _activeBatcher() internal view returns (address active, bool isTee) {
         if (activeIsTee) {
             return (teeBatcher, true);
