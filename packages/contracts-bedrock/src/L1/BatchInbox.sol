@@ -22,13 +22,10 @@ contract BatchInbox {
 
     /// @notice Initializes the contract with the TEE and non-TEE batcher addresses
     ///         and the batch authenticator.
-    /// @param _teeBatcher Address of the TEE batcher.
     /// @param _nonTeeBatcher Address of the non-TEE batcher.
     /// @param _batchAuthenticator Address of the batch authenticator contract.
-    constructor(address _teeBatcher, address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator) {
-        require(_teeBatcher != address(0) && _nonTeeBatcher != address(0), "BatchInbox: zero batcher");
-        //require(_teeBatcher != _nonTeeBatcher, "BatchInbox: identical batchers");
-        teeBatcher = _teeBatcher;
+    constructor(address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator) {
+        require(_nonTeeBatcher != address(0), "BatchInbox: zero address for non tee batcher");
         nonTeeBatcher = _nonTeeBatcher;
         batchAuthenticator = _batchAuthenticator;
         // By default, start with the TEE batcher active
@@ -46,13 +43,7 @@ contract BatchInbox {
     ///      the batch authenticator. For non-TEE batches, only the caller check
     ///      is enforced.
     fallback() external {
-        address expectedBatcher = activeIsTee ? teeBatcher : nonTeeBatcher;
-        if (!activeIsTee && msg.sender != expectedBatcher) {
-            // For the non active TEE case, the batcher must be authenticated in the Inbox contract
-            revert("BatchInbox: unauthorized batcher");
-        }
-
-        // Only TEE batchers require authentication
+        // TEE batchers require batch authentication
         if (activeIsTee) {
             if (blobhash(0) != 0) {
                 bytes memory concatenatedHashes = new bytes(0);
@@ -70,6 +61,12 @@ contract BatchInbox {
                 if (!batchAuthenticator.validBatchInfo(hash)) {
                     revert("Invalid calldata batch");
                 }
+            }
+        } else {
+            // Non TEE batcher require batcher address authentication
+            if (msg.sender != nonTeeBatcher) {
+                // For the non active TEE case, the batcher must be authenticated in the Inbox contract
+                revert("BatchInbox: unauthorized batcher");
             }
         }
     }

@@ -35,40 +35,26 @@ contract BatchInbox_Test is Test {
 
     function setUp() public virtual {
         authenticator = new MockBatchAuthenticator();
-        inbox = new BatchInbox(teeBatcher, nonTeeBatcher, IBatchAuthenticator(address(authenticator)));
+        inbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(address(authenticator)));
     }
 }
 
 /// @title BatchInbox_Constructor_Test
 /// @notice Tests for the BatchInbox constructor
 contract BatchInbox_Constructor_Test is Test {
-    address teeBatcher = address(0x1234);
     address nonTeeBatcher = address(0x5678);
     address batchAuthenticator = address(0x9ABC);
 
-    /// @notice Test that constructor reverts when TEE batcher is zero address
-    function test_constructor_revertsWhenTeeBatcherIsZero() external {
-        vm.expectRevert("BatchInbox: zero batcher");
-        new BatchInbox(address(0), nonTeeBatcher, IBatchAuthenticator(batchAuthenticator));
-    }
-
     /// @notice Test that constructor reverts when non-TEE batcher is zero address
     function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
-        vm.expectRevert("BatchInbox: zero batcher");
-        new BatchInbox(teeBatcher, address(0), IBatchAuthenticator(batchAuthenticator));
-    }
-
-    /// @notice Test that constructor reverts when both batchers are zero addresses
-    function test_constructor_revertsWhenBothBatchersAreZero() external {
-        vm.expectRevert("BatchInbox: zero batcher");
-        new BatchInbox(address(0), address(0), IBatchAuthenticator(batchAuthenticator));
+        vm.expectRevert("BatchInbox: zero address for non tee batcher");
+        new BatchInbox(address(0), IBatchAuthenticator(batchAuthenticator));
     }
 
     /// @notice Test that constructor succeeds with valid addresses
     function test_constructor_succeedsWithValidAddresses() external {
-        BatchInbox testInbox = new BatchInbox(teeBatcher, nonTeeBatcher, IBatchAuthenticator(batchAuthenticator));
+        BatchInbox testInbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(batchAuthenticator));
 
-        assertEq(testInbox.teeBatcher(), teeBatcher, "TEE batcher should match");
         assertEq(testInbox.nonTeeBatcher(), nonTeeBatcher, "Non-TEE batcher should match");
         assertEq(address(testInbox.batchAuthenticator()), batchAuthenticator, "Batch authenticator should match");
         assertTrue(testInbox.activeIsTee(), "Active batcher should be TEE by default");
