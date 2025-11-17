@@ -50,7 +50,6 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		Salt:             st.Create2Salt,
 		NitroTEEVerifier: nvo.NitroTEEVerifierAddress,
-		TeeBatcher:       chainIntent.TeeBatcher,
 		NonTeeBatcher:    chainIntent.NonTeeBatcher,
 	}, batchAuthenticatorOwnwerAddress)
 	if err != nil {

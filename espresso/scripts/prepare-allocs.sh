@@ -73,10 +73,8 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --outdir ${DEPLOYER_DIR}
 
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
-# Use a distinct address for the non-TEE batcher to satisfy the BatchInbox constructor
-# In devnet we reuse the proposer address for the non-TEE batcher role.
+
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].nonTeeBatcher -v "${OPERATOR_ADDRESS}"
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].teeBatcher -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`

@@ -15,7 +15,6 @@ import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _nitroTEEVerifier;
-    address internal _teeBatcher;
     address internal _nonTeeBatcher;
 
     function set(bytes4 _sel, bytes32 _val) public {
@@ -26,8 +25,6 @@ contract DeployEspressoInput is BaseDeployIO {
     function set(bytes4 _sel, address _val) public {
         if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
-        } else if (_sel == this.teeBatcher.selector) {
-            _teeBatcher = _val;
         } else if (_sel == this.nonTeeBatcher.selector) {
             _nonTeeBatcher = _val;
         } else {
@@ -42,10 +39,6 @@ contract DeployEspressoInput is BaseDeployIO {
 
     function nitroTEEVerifier() public view returns (address) {
         return _nitroTEEVerifier;
-    }
-
-    function teeBatcher() public view returns (address) {
-        return _teeBatcher;
     }
 
     function nonTeeBatcher() public view returns (address) {
@@ -141,10 +134,7 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(
-                        IBatchInbox.__constructor__,
-                        (input.teeBatcher(), input.nonTeeBatcher(), address(batchAuthenticator))
-                    )
+                    abi.encodeCall(IBatchInbox.__constructor__, (input.nonTeeBatcher(), address(batchAuthenticator)))
                 )
             })
         );
