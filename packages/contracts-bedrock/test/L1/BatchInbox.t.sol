@@ -170,15 +170,10 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
 
     /// @notice Test that unauthorized address cannot post
     function test_fallback_unauthorizedAddressReverts() external {
-        // Try with unauthorized address when TEE is active
-        vm.prank(unauthorized);
-        (bool success,) = address(inbox).call("unauthorized");
-        assertFalse(success, "Unauthorized should revert when TEE is active");
-
-        // Switch to non-TEE and try again
+        // Switch to non-TEE batcher. In this case the batch inbox should revert if the batcher is not authorized.
         inbox.switchBatcher();
         vm.prank(unauthorized);
-        (success,) = address(inbox).call("unauthorized");
+        (bool success,) = address(inbox).call("unauthorized");
         assertFalse(success, "Unauthorized should revert when non-TEE is active");
     }
 }

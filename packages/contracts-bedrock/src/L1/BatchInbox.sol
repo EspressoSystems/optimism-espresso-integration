@@ -47,7 +47,8 @@ contract BatchInbox {
     ///      is enforced.
     fallback() external {
         address expectedBatcher = activeIsTee ? teeBatcher : nonTeeBatcher;
-        if (msg.sender != expectedBatcher) {
+        if (!activeIsTee && msg.sender != expectedBatcher) {
+            // For the non active TEE case, the batcher must be authenticated in the Inbox contract
             revert("BatchInbox: unauthorized batcher");
         }
 
