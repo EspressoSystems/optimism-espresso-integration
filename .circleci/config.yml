@@ -1800,12 +1800,14 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - discord
       - contracts-bedrock-tests:
+          filters: "false"
           # Test everything except PreimageOracle.t.sol since it's slow.
           name: contracts-bedrock-tests
           test_list: find test -name "*.t.sol" -not -name "PreimageOracle.t.sol"
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests:
+          filters: "false"
           # PreimageOracle test is slow, run it separately to unblock CI.
           name: contracts-bedrock-tests-preimage-oracle
           test_list: find test -name "PreimageOracle.t.sol"
@@ -1831,6 +1833,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks:
+          filters: "false"
           requires:
             - contracts-bedrock-build
           context:
@@ -1878,6 +1881,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - go-tests:
+          filters: "false"
           name: go-tests-short
           no_output_timeout: 19m
           test_timeout: 20m
@@ -2277,6 +2281,7 @@ workflows:
     jobs:
       # KURTOSIS (Simple)
       - op-acceptance-tests:
+          filters: "false"
           # Acceptance Testing params
           name: kurtosis-simple
           devnet: simple
@@ -2288,6 +2293,7 @@ workflows:
             - discord
       # KURTOSIS (Isthmus)
       - op-acceptance-tests:
+          filters: "false"
           # Acceptance Testing params
           name: kurtosis-isthmus
           devnet: isthmus
