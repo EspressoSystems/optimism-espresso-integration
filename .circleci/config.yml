@@ -1270,6 +1270,7 @@ jobs:
       # Run the acceptance tests (if the devnet is running)
       - run:
           name: Run acceptance tests (gate=<<parameters.gate>>)
+          filter="false"
           working_directory: op-acceptance-tests
           no_output_timeout: 1h
           environment:
