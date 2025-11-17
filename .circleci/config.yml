@@ -2281,9 +2281,9 @@ workflows:
     jobs:
       # KURTOSIS (Simple)
       - op-acceptance-tests:
-          filters: "false"
           # Acceptance Testing params
           name: kurtosis-simple
+          filters: "false"
           devnet: simple
           gate: base
           # CircleCI params
@@ -2293,9 +2293,9 @@ workflows:
             - discord
       # KURTOSIS (Isthmus)
       - op-acceptance-tests:
-          filters: "false"
           # Acceptance Testing params
           name: kurtosis-isthmus
+          filters: "false"
           devnet: isthmus
           gate: isthmus
           # CircleCI params
@@ -2307,6 +2307,7 @@ workflows:
       - op-acceptance-tests:
           # Acceptance Testing params
           name: kurtosis-interop
+          filters: "false"
           devnet: interop
           gate: interop
           # CircleCI params
