@@ -38,9 +38,6 @@ import (
 
 const ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
 
-// cast wallet address --mnemonic "test test ... junk" --hd-path "m/44'/60'/0'/0/5"
-const TEE_BATCHER_ADDRESS = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
-
 // legacy geth log levels - the geth command line --verbosity flag wasn't
 // migrated to use slog's numerical levels.
 const (
@@ -298,7 +295,7 @@ func initAllocType(root string, allocType AllocType) {
 				}
 				intent.Chains[0].EspressoEnabled = true
 				intent.Chains[0].NonTeeBatcher = crypto.PubkeyToAddress(batcherPk.PublicKey)
-				intent.Chains[0].TeeBatcher = common.HexToAddress(TEE_BATCHER_ADDRESS)
+				intent.Chains[0].TeeBatcher = crypto.PubkeyToAddress(batcherPk.PublicKey)
 			}
 
 			baseUpgradeSchedule := map[string]any{
