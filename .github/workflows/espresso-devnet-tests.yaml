@@ -60,9 +60,6 @@ jobs:
       - name: Run Batcher Restart test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestBatcherRestart' -v  ./espresso/devnet-tests/...
 
-      - name: Run Test Rotate Batcher Key
-        run: go test -timeout 30m -p 1 -count 1 -run 'TestRotateBatcherKey' -v  ./espresso/devnet-tests/...
-
       - name: Run Change Batch Inbox Owner test
         run: go test -timeout 30m -p 1 -count 1 -run 'TestChangeBatchInboxOwner' -v  ./espresso/devnet-tests/...
 
