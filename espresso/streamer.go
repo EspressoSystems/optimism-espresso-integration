@@ -2,7 +2,6 @@ package espresso
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -150,25 +149,18 @@ func (s *BatchStreamer[B]) Reset() {
 // RefreshSafeL1Origin is a convenience method that allows us to update the
 // safe L1 origin of the Streamer. It will confirm the Espresso Block Height
 // and reset the state if necessary.
-func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) error {
-	shouldReset, err := s.confirmEspressoBlockHeight(safeL1Origin)
+func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) {
+	shouldReset := s.confirmEspressoBlockHeight(safeL1Origin)
 	if shouldReset {
 		s.Reset()
 	}
-
-	if err != nil {
-		return fmt.Errorf("failed to confirm espresso block height: %w", err)
-	}
-	return nil
 }
 
 // Update streamer state based on L1 and L2 sync status
 func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
 	s.FinalizedL1 = finalizedL1
 
-	if err := s.RefreshSafeL1Origin(safeL1Origin); err != nil {
-		return fmt.Errorf("failed to refresh safe L1 origin: %w", err)
-	}
+	s.RefreshSafeL1Origin(safeL1Origin)
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
@@ -552,19 +544,23 @@ func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
 //
 // For reference on why doing this guarantees we won't skip any unsafe blocks:
 // https://eng-wiki.espressosys.com/mainch30.html#:Components:espresso%20streamer:initializing%20hotshot%20height
-func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) (shouldReset bool, err error) {
+//
+// We do not propagate the error if Light Client is unreachable - this is not an essential
+// operation and streamer can continue operation
+func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) (shouldReset bool) {
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
-	if errors.Is(err, bind.ErrNoCode) {
-		s.fallbackHotShotPos = s.originHotShotPos
-		return false, nil
-	} else if err != nil {
-		return false, fmt.Errorf("failed to get finalized state from light client: %w", err)
+
+	if err != nil {
+		// If we have already advanced our fallback position before, there's no need to roll it back
+		s.fallbackHotShotPos = max(s.fallbackHotShotPos, s.originHotShotPos)
+		s.Log.Warn("failed to get finalized state from light client", "err", err)
+		return false
 	}
 
 	shouldReset = hotshotState.BlockHeight < s.fallbackHotShotPos
 	s.fallbackHotShotPos = hotshotState.BlockHeight
-	return shouldReset, nil
+	return shouldReset
 }
 
 // UnmarshalBatch implements EspressoStreamerIFace
