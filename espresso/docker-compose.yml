@@ -1,6 +1,13 @@
 # Espresso OP Integration Docker Setup
 # Trigger docker-images workflow
 
+###########################################################################################
+# WARNING: Keep Terraform in sync.                                                        #
+#                                                                                         #
+# Whenever changing any setting here, update the corresponding setting (if applicable) in #
+# https://github.com/espressosystems/tee-op-deploy, or create a ticket there.             #
+###########################################################################################
+
 services:
   l1-data-init:
     image: busybox
@@ -32,7 +39,7 @@ services:
       - l1-data:/data
 
   l1-validator:
-    image: sigp/lighthouse:v7.1.0
+    image: ${LIGHTHOUSE_IMAGE}
     depends_on:
       l1-genesis:
         condition: service_completed_successfully
@@ -57,7 +64,7 @@ services:
       - ${OPERATOR_ADDRESS}
 
   l1-beacon:
-    image: sigp/lighthouse:v7.1.0
+    image: ${LIGHTHOUSE_IMAGE}
     depends_on:
       l1-genesis:
         condition: service_completed_successfully
@@ -498,7 +505,7 @@ services:
       OP_CHALLENGER_TRACE_TYPE: permissioned
 
   espresso-dev-node:
-    image: ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-fix-cors
+    image: ${ESPRESSO_DEV_NODE_IMAGE}
     depends_on:
       l1-geth:
         condition: service_healthy
