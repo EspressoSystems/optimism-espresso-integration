@@ -63,11 +63,6 @@ svm-rs = "ubi:alloy-rs/svm-rs[exe=svm]"
 
 # These are disabled, but latest mise versions error if they don't have a known
 # install source even though it won't ever actually use that source.
-kontrol = "ubi:ethereum-optimism/fake-kontrol"
-binary_signer = "ubi:ethereum-optimism/fake-binary_signer"
-
-# These are disabled, but latest mise versions error if they don't have a known
-# install source even though it won't ever actually use that source.
 asterisc = "ubi:ethereum-optimism/fake-asterisc"
 kontrol = "ubi:ethereum-optimism/fake-kontrol"
 binary_signer = "ubi:ethereum-optimism/fake-binary_signer"
