@@ -41,7 +41,7 @@ type EspressoStreamer[B Batch] interface {
 	//
 	// NOTE: This will only automatically reset the Streamer if the
 	// `safeL1Origin` moves backwards.
-	RefreshSafeL1Origin(safeL1Origin eth.BlockID) error
+	RefreshSafeL1Origin(safeL1Origin eth.BlockID)
 
 	// Reset will reset the Streamer to the last known good safe state.
 	// This generally means resetting to the last know good safe batch
