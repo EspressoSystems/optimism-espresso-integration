@@ -100,7 +100,7 @@ func (b *BufferedEspressoStreamer[B]) handleL2PositionUpdate(nextPosition uint64
 // RefreshSafeL1Origin updates the safe L1 origin for the buffered streamer.
 // This method attempts to safely handle the adjustment of the safeL1Origin
 // without needing to defer to the underlying streamer unless necessary.
-func (b *BufferedEspressoStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) error {
+func (b *BufferedEspressoStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) {
 	if safeL1Origin.Number < b.currentSafeL1Origin.Number {
 		// If the safeL1Origin is before the starting batch position, we need to
 		// reset the buffered streamer to ensure we don't miss any batches.
@@ -108,24 +108,19 @@ func (b *BufferedEspressoStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.Block
 		b.startingBatchPos = 0
 		b.readPos = 0
 		b.batches = make([]*B, 0)
-		if cast, castOk := b.streamer.(interface{ RefreshSafeL1Origin(eth.BlockID) error }); castOk {
-			// If the underlying streamer has a method to refresh the safe L1 origin,
-			// we call it to ensure it is aware of the new safe L1 origin.
-			return cast.RefreshSafeL1Origin(safeL1Origin)
-		}
-		return nil
+		// we call underlying streamer's RefreshSafeL1Origin to ensure it is aware of
+		// the new safe L1 origin.
+		b.streamer.RefreshSafeL1Origin(safeL1Origin)
+		return
 	}
 
 	b.currentSafeL1Origin = safeL1Origin
-	return nil
 }
 
 // Refresh implements EspressoStreamerIFace
 func (b *BufferedEspressoStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
 	b.handleL2PositionUpdate(safeBatchNumber)
-	if err := b.RefreshSafeL1Origin(safeL1Origin); err != nil {
-		return err
-	}
+	b.RefreshSafeL1Origin(safeL1Origin)
 
 	return b.streamer.Refresh(ctx, finalizedL1, safeBatchNumber, safeL1Origin)
 }
