@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -396,7 +397,9 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 
 		// We're done with this job and transaction, we have successfully
 		// confirmed that the transaction was submitted to Espresso
-		log.Info("Transaction confirmed on Espresso", "hash", jobResp.job.transaction.transaction.Commit())
+		commitment := jobResp.job.transaction.transaction.Commit()
+		hash, _ := tagged_base64.New("TX", commitment[:])
+		log.Info("Transaction confirmed on Espresso", "hash", hash.String())
 	}
 }
 
