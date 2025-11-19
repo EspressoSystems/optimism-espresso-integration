@@ -213,6 +213,8 @@ type Settings struct {
 	EVMVersion      string            `json:"evmVersion"`
 	Metadata        MetadataSettings  `json:"metadata"`
 	OutputSelection OutputSelection   `json:"outputSelection"`
+	Remappings      []string          `json:"remappings"`
+	ViaIR           bool              `json:"viaIR"`
 }
 
 type OptimizerSettings struct {
@@ -238,6 +240,8 @@ func newStandardInput(artifact *contractArtifact) StandardInput {
 		Language: "Solidity",
 		Sources:  artifact.Sources,
 		Settings: Settings{
+			ViaIR:      artifact.ViaIR,
+			Remappings: artifact.Remappings,
 			Optimizer: OptimizerSettings{
 				Enabled: artifact.Optimizer.Enabled,
 				Runs:    artifact.Optimizer.Runs,
