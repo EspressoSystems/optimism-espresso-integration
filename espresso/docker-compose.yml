@@ -553,8 +553,8 @@ services:
       sh -c "bin/blockscout eval \"Elixir.Explorer.ReleaseTasks.create_and_migrate()\" && bin/blockscout start"
     environment:
       ETHEREUM_JSONRPC_VARIANT: geth
-      ETHEREUM_JSONRPC_HTTP_URL: http://op-geth-sequencer:${OP_HTTP_PORT}
-      ETHEREUM_JSONRPC_WS_URL: ws://op-geth-sequencer:${OP_HTTP_PORT}
+      ETHEREUM_JSONRPC_HTTP_URL: http://op-geth-caff-node:${OP_HTTP_PORT}
+      ETHEREUM_JSONRPC_WS_URL: ws://op-geth-caff-node:${OP_HTTP_PORT}
       INDEXER_DISABLE_INTERNAL_TRANSACTIONS_FETCHER: "true"
       INDEXER_DISABLE_PENDING_TRANSACTIONS_FETCHER: "true"
       DATABASE_URL: postgresql://blockscout:password@blockscout-db:5432/blockscout?ssl=false
@@ -584,8 +584,8 @@ services:
       NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL: ws
       NEXT_PUBLIC_API_BASE_PATH: "/"
       NEXT_PUBLIC_NETWORK_ID: "${L2_CHAIN_ID}"
-      NEXT_PUBLIC_NETWORK_NAME: "Celo x Espresso"
-      NEXT_PUBLIC_NETWORK_RPC_URL: http://op-geth-sequencer:${OP_HTTP_PORT}
+      NEXT_PUBLIC_NETWORK_NAME: "Celo x Espresso (Caff node)"
+      NEXT_PUBLIC_NETWORK_RPC_URL: http://op-geth-caff-node:${OP_HTTP_PORT}
       NEXT_PUBLIC_NETWORK_CURRENCY_NAME: Ether
       NEXT_PUBLIC_NETWORK_CURRENCY_SYMBOL: ETH
       NEXT_PUBLIC_NETWORK_CURRENCY_DECIMALS: "18"
