@@ -17,6 +17,8 @@ type contractArtifact struct {
 	EVMVersion      string
 	Sources         map[string]SourceContent
 	ConstructorArgs abi.Arguments
+	Remappings      []string
+	ViaIR           bool
 }
 
 // Map state.json struct fields to forge artifact paths
@@ -72,9 +74,8 @@ func (v *Verifier) getContractArtifact(name string) (*contractArtifact, error) {
 	// Add all sources (main contract and dependencies)
 	sources := make(map[string]SourceContent)
 	for sourcePath, sourceInfo := range art.Metadata.Sources {
-		remappedKey := art.SearchRemappings(sourcePath)
-		sources[remappedKey] = SourceContent{Content: sourceInfo.Content}
-		v.log.Debug("added source contract", "originalPath", sourcePath, "remappedKey", remappedKey)
+		sources[sourcePath] = SourceContent{Content: sourceInfo.Content}
+		v.log.Debug("added source contract", "originalPath", sourcePath)
 	}
 
 	var optimizer OptimizerSettings
@@ -97,5 +98,7 @@ func (v *Verifier) getContractArtifact(name string) (*contractArtifact, error) {
 		EVMVersion:      art.Metadata.Settings.EVMVersion,
 		Sources:         sources,
 		ConstructorArgs: art.ABI.Constructor.Inputs,
+		Remappings:      art.Metadata.Settings.Remappings,
+		ViaIR:           art.Metadata.Settings.ViaIR,
 	}, nil
 }

@@ -91,6 +91,8 @@ type Metadata struct {
 		EVMVersion string `json:"evmVersion"`
 		// Libraries data
 		Libraries json.RawMessage `json:"libraries"`
+		// ViaIR indicates whether the contract was compiled with the IR compiler.
+		ViaIR bool `json:"viaIR"`
 	} `json:"settings"`
 
 	Sources map[string]ContractSource `json:"sources"`
