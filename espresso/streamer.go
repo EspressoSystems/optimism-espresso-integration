@@ -350,7 +350,9 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 
 		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, height, s.Namespace)
 		if err != nil {
-			return fmt.Errorf("failed to fetch transactions in block: %w", err)
+			// TODO (QuentinI): workaround for lagging query service payload availability
+			// SDK needs an update to allow us to distinguish 404s from other errors
+			return nil
 		}
 
 		s.Log.Trace("Fetched HotShot block", "block", height, "txns", len(txns.Transactions))
