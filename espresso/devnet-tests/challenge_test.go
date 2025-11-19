@@ -15,7 +15,7 @@ func TestChallengeGame(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up())
+	require.NoError(t, d.Up(NON_TEE))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
