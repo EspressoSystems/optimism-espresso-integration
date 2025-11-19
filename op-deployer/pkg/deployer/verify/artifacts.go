@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -29,6 +30,9 @@ type ArtifactMetadata struct {
 	Optimizer       OptimizerSettings
 	EVMVersion      string
 	Sources         map[string]SourceContent
+	ConstructorArgs abi.Arguments
+	Remappings      []string
+	ViaIR           bool
 }
 
 // Map state.json struct fields to forge artifact paths
@@ -173,6 +177,9 @@ func loadArtifact(artifactsFS foundry.StatDirFs, artifactPath string, logger log
 		Optimizer:       optimizer,
 		EVMVersion:      evmVersion,
 		Sources:         sources,
+		ConstructorArgs: art.ABI.Constructor.Inputs,
+		Remappings:      art.Metadata.Settings.Remappings,
+		ViaIR:           art.Metadata.Settings.ViaIR,
 	}
 
 	return &art, metadata, nil
