@@ -550,6 +550,8 @@ func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
 // We do not propagate the error if Light Client is unreachable - this is not an essential
 // operation and streamer can continue operation
 func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) (shouldReset bool) {
+	shouldReset = false
+
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})
 
@@ -560,8 +562,23 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 		return false
 	}
 
+
+	// If hotshot block height at L1 origin is lower than our
+	// hotshot origin, we never want to update our fallback
+	// position to this height, or we risk dipping below
+	// hotshot origin on reset.
+	if hotshotState.BlockHeight <= s.originHotShotPos {
+		s.Log.Info("HotShot height at L1 Origin less than HotShot origin of the streamer, ignoring")
+		return shouldReset
+	}
+
+	// If we assigned to fallback position from hotsthot height before
+	// and now the light client reports a smaller height, there was an L1
+	// reorg and we should reset our state
 	shouldReset = hotshotState.BlockHeight < s.fallbackHotShotPos
+
 	s.fallbackHotShotPos = hotshotState.BlockHeight
+
 	return shouldReset
 }
 
