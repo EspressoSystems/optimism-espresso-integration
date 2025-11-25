@@ -356,8 +356,7 @@ services:
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --throttle-threshold=0
-      - --max-channel-duration=2
-      - --target-num-frames=1
+      - --max-channel-duration=32
       - --max-pending-tx=32
       - --altda.max-concurrent-da-requests=32
 
