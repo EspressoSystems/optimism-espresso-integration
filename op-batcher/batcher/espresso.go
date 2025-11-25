@@ -677,6 +677,10 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)
 	}
 
+	commitment := transaction.Commit()
+	hash, _ := tagged_base64.New("TX", commitment[:])
+	l.Log.Info("Created Espresso transaction from batch", "hash", hash, "batchNr", espressoBatch.BatchHeader.Number.Uint64())
+
 	l.espressoSubmitter.SubmitTransaction(transaction)
 
 	return nil
