@@ -41,9 +41,6 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
 
-# Add a cache-busting layer
-RUN echo "Cache bust: $(date)" > /cache-bust.txt
-
 # For healtcheck and JSON operations.
 RUN apk add curl jq openssl
 
