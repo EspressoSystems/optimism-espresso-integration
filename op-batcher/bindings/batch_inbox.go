@@ -31,8 +31,8 @@ var (
 
 // BatchInboxMetaData contains all meta data concerning the BatchInbox contract.
 var BatchInboxMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_nonTeeBatcher\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_batchAuthenticator\",\"type\":\"address\",\"internalType\":\"contractIBatchAuthenticator\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activeIsTee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"batchAuthenticator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBatchAuthenticator\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nonTeeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"switchBatcher\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"teeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"}]",
-	Bin: "0x60e060405234801561000f575f5ffd5b50604051610bef380380610bef833981810160405281019061003191906101c0565b5f73ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff160361009f576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100969061027e565b60405180910390fd5b8173ffffffffffffffffffffffffffffffffffffffff1660a08173ffffffffffffffffffffffffffffffffffffffff16815250508073ffffffffffffffffffffffffffffffffffffffff1660c08173ffffffffffffffffffffffffffffffffffffffff168152505060015f5f6101000a81548160ff021916908315150217905550505061029c565b5f5ffd5b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f6101548261012b565b9050919050565b6101648161014a565b811461016e575f5ffd5b50565b5f8151905061017f8161015b565b92915050565b5f61018f8261014a565b9050919050565b61019f81610185565b81146101a9575f5ffd5b50565b5f815190506101ba81610196565b92915050565b5f5f604083850312156101d6576101d5610127565b5b5f6101e385828601610171565b92505060206101f4858286016101ac565b9150509250929050565b5f82825260208201905092915050565b7f4261746368496e626f783a207a65726f206164647265737320666f72206e6f6e5f8201527f2074656520626174636865720000000000000000000000000000000000000000602082015250565b5f610268602c836101fe565b91506102738261020e565b604082019050919050565b5f6020820190508181035f8301526102958161025c565b9050919050565b60805160a05160c0516109146102db5f395f818161011b01528181610215015261048701525f81816102f3015261041701525f61046301526109145ff3fe608060405234801561000f575f5ffd5b5060043610610059575f3560e01c80637877a9ed14610382578063b1bd4285146103a0578063bc347f47146103be578063d909ba7c146103c8578063e7584573146103e65761005a565b5b5f5f9054906101000a900460ff16156102f1575f5f1b5f49146101f8575f5f67ffffffffffffffff811115610092576100916104a9565b5b6040519080825280601f01601f1916602001820160405280156100c45781602001600182028036833780820191505090505b5090505f5f90505b5f5f1b81491461010e578181496040516020016100ea929190610551565b60405160208183030381529060405291508080610106906105ae565b9150506100cc565b5f828051906020012090507f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663f81f2083826040518263ffffffff1660e01b81526004016101729190610604565b602060405180830381865afa15801561018d573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906101b19190610656565b6101f0576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101e7906106db565b60405180910390fd5b5050506102ec565b5f5f3660405161020992919061072b565b604051809103902090507f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663f81f2083826040518263ffffffff1660e01b815260040161026c9190610604565b602060405180830381865afa158015610287573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906102ab9190610656565b6102ea576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016102e19061078d565b60405180910390fd5b505b610380565b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461037f576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610376906107f5565b60405180910390fd5b5b005b61038a610404565b6040516103979190610822565b60405180910390f35b6103a8610415565b6040516103b5919061087a565b60405180910390f35b6103c6610439565b005b6103d0610461565b6040516103dd919061087a565b60405180910390f35b6103ee610485565b6040516103fb91906108ee565b60405180910390f35b5f5f9054906101000a900460ff1681565b7f000000000000000000000000000000000000000000000000000000000000000081565b5f5f9054906101000a900460ff16155f5f6101000a81548160ff021916908315150217905550565b7f000000000000000000000000000000000000000000000000000000000000000081565b7f000000000000000000000000000000000000000000000000000000000000000081565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b5f81519050919050565b5f81905092915050565b8281835e5f83830152505050565b5f610502826104d6565b61050c81856104e0565b935061051c8185602086016104ea565b80840191505092915050565b5f819050919050565b5f819050919050565b61054b61054682610528565b610531565b82525050565b5f61055c82856104f8565b9150610568828461053a565b6020820191508190509392505050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f819050919050565b5f6105b8826105a5565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82036105ea576105e9610578565b5b600182019050919050565b6105fe81610528565b82525050565b5f6020820190506106175f8301846105f5565b92915050565b5f5ffd5b5f8115159050919050565b61063581610621565b811461063f575f5ffd5b50565b5f815190506106508161062c565b92915050565b5f6020828403121561066b5761066a61061d565b5b5f61067884828501610642565b91505092915050565b5f82825260208201905092915050565b7f496e76616c696420626c6f6220626174636800000000000000000000000000005f82015250565b5f6106c5601283610681565b91506106d082610691565b602082019050919050565b5f6020820190508181035f8301526106f2816106b9565b9050919050565b828183375f83830152505050565b5f61071283856104e0565b935061071f8385846106f9565b82840190509392505050565b5f610737828486610707565b91508190509392505050565b7f496e76616c69642063616c6c64617461206261746368000000000000000000005f82015250565b5f610777601683610681565b915061078282610743565b602082019050919050565b5f6020820190508181035f8301526107a48161076b565b9050919050565b7f4261746368496e626f783a20756e617574686f72697a656420626174636865725f82015250565b5f6107df602083610681565b91506107ea826107ab565b602082019050919050565b5f6020820190508181035f83015261080c816107d3565b9050919050565b61081c81610621565b82525050565b5f6020820190506108355f830184610813565b92915050565b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f6108648261083b565b9050919050565b6108748161085a565b82525050565b5f60208201905061088d5f83018461086b565b92915050565b5f819050919050565b5f6108b66108b16108ac8461083b565b610893565b61083b565b9050919050565b5f6108c78261089c565b9050919050565b5f6108d8826108bd565b9050919050565b6108e8816108ce565b82525050565b5f6020820190506109015f8301846108df565b9291505056fea164736f6c634300081c000a",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_nonTeeBatcher\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_batchAuthenticator\",\"type\":\"address\",\"internalType\":\"contractIBatchAuthenticator\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activeIsTee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"batchAuthenticator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBatchAuthenticator\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nonTeeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"switchBatcher\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"teeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false}]",
+	Bin: "0x60e060405234801561000f575f5ffd5b506040516109c23803806109c283398101604081905261002e91610142565b610037336100dc565b6001600160a01b0383166100a65760405162461bcd60e51b815260206004820152602c60248201527f4261746368496e626f783a207a65726f206164647265737320666f72206e6f6e60448201526b103a32b2903130ba31b432b960a11b606482015260840160405180910390fd5b6001600160a01b0380841660a052821660c0525f805460ff60a01b1916600160a01b1790556100d4816100dc565b50505061018c565b5f80546001600160a01b038381166001600160a01b0319831681178455604051919092169283917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09190a35050565b6001600160a01b038116811461013f575f5ffd5b50565b5f5f5f60608486031215610154575f5ffd5b835161015f8161012b565b60208501519093506101708161012b565b60408501519092506101818161012b565b809150509250925092565b60805160a05160c0516107f76101cb5f395f81816101350152818161026801526104c501525f8181610364015261046f01525f61049e01526107f75ff3fe608060405234801561000f575f5ffd5b5060043610610086575f3560e01c8063bc347f4711610059578063bc347f4714610491578063d909ba7c14610499578063e7584573146104c0578063f2fde38b146104e757610086565b8063715018a6146103eb5780637877a9ed146103f35780638da5cb5b1461042c578063b1bd42851461046a575b5f5474010000000000000000000000000000000000000000900460ff161561034c575f491561022057604080515f80825260208201909252905b8049156100ff578181496040516020016100db92919061070c565b604051602081830303815290604052915080806100f790610726565b9150506100c0565b815160208301206040517ff81f2083000000000000000000000000000000000000000000000000000000008152600481018290527f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff169063f81f208390602401602060405180830381865afa15801561018f573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906101b39190610782565b61021e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601260248201527f496e76616c696420626c6f62206261746368000000000000000000000000000060448201526064015b60405180910390fd5b005b5f5f366040516102319291906107a8565b6040519081900381207ff81f20830000000000000000000000000000000000000000000000000000000082526004820181905291507f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff169063f81f208390602401602060405180830381865afa1580156102c2573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906102e69190610782565b61021e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f496e76616c69642063616c6c64617461206261746368000000000000000000006044820152606401610215565b3373ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000161461021e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4261746368496e626f783a20756e617574686f72697a656420626174636865726044820152606401610215565b61021e6104fa565b5f546104179074010000000000000000000000000000000000000000900460ff1681565b60405190151581526020015b60405180910390f35b5f5473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff9091168152602001610423565b6104457f000000000000000000000000000000000000000000000000000000000000000081565b61021e61050d565b6104457f000000000000000000000000000000000000000000000000000000000000000081565b6104457f000000000000000000000000000000000000000000000000000000000000000081565b61021e6104f53660046107b7565b610561565b610502610618565b61050b5f610698565b565b610515610618565b5f80547fffffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffff8116740100000000000000000000000000000000000000009182900460ff1615909102179055565b610569610618565b73ffffffffffffffffffffffffffffffffffffffff811661060c576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602660248201527f4f776e61626c653a206e6577206f776e657220697320746865207a65726f206160448201527f64647265737300000000000000000000000000000000000000000000000000006064820152608401610215565b61061581610698565b50565b5f5473ffffffffffffffffffffffffffffffffffffffff16331461050b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e65726044820152606401610215565b5f805473ffffffffffffffffffffffffffffffffffffffff8381167fffffffffffffffffffffffff0000000000000000000000000000000000000000831681178455604051919092169283917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09190a35050565b5f83518060208601845e9190910191825250602001919050565b5f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff820361077b577f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5060010190565b5f60208284031215610792575f5ffd5b815180151581146107a1575f5ffd5b9392505050565b818382375f9101908152919050565b5f602082840312156107c7575f5ffd5b813573ffffffffffffffffffffffffffffffffffffffff811681146107a1575f5ffdfea164736f6c634300081c000a",
 }
 
 // BatchInboxABI is the input ABI used to generate the binding from.
@@ -44,7 +44,7 @@ var BatchInboxABI = BatchInboxMetaData.ABI
 var BatchInboxBin = BatchInboxMetaData.Bin
 
 // DeployBatchInbox deploys a new Ethereum contract, binding an instance of BatchInbox to it.
-func DeployBatchInbox(auth *bind.TransactOpts, backend bind.ContractBackend, _nonTeeBatcher common.Address, _batchAuthenticator common.Address) (common.Address, *types.Transaction, *BatchInbox, error) {
+func DeployBatchInbox(auth *bind.TransactOpts, backend bind.ContractBackend, _nonTeeBatcher common.Address, _batchAuthenticator common.Address, _owner common.Address) (common.Address, *types.Transaction, *BatchInbox, error) {
 	parsed, err := BatchInboxMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -53,7 +53,7 @@ func DeployBatchInbox(auth *bind.TransactOpts, backend bind.ContractBackend, _no
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(BatchInboxBin), backend, _nonTeeBatcher, _batchAuthenticator)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(BatchInboxBin), backend, _nonTeeBatcher, _batchAuthenticator, _owner)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -295,6 +295,37 @@ func (_BatchInbox *BatchInboxCallerSession) NonTeeBatcher() (common.Address, err
 	return _BatchInbox.Contract.NonTeeBatcher(&_BatchInbox.CallOpts)
 }
 
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_BatchInbox *BatchInboxCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BatchInbox.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_BatchInbox *BatchInboxSession) Owner() (common.Address, error) {
+	return _BatchInbox.Contract.Owner(&_BatchInbox.CallOpts)
+}
+
+// Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
+//
+// Solidity: function owner() view returns(address)
+func (_BatchInbox *BatchInboxCallerSession) Owner() (common.Address, error) {
+	return _BatchInbox.Contract.Owner(&_BatchInbox.CallOpts)
+}
+
 // TeeBatcher is a free data retrieval call binding the contract method 0xd909ba7c.
 //
 // Solidity: function teeBatcher() view returns(address)
@@ -326,6 +357,27 @@ func (_BatchInbox *BatchInboxCallerSession) TeeBatcher() (common.Address, error)
 	return _BatchInbox.Contract.TeeBatcher(&_BatchInbox.CallOpts)
 }
 
+// RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
+//
+// Solidity: function renounceOwnership() returns()
+func (_BatchInbox *BatchInboxTransactor) RenounceOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _BatchInbox.contract.Transact(opts, "renounceOwnership")
+}
+
+// RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
+//
+// Solidity: function renounceOwnership() returns()
+func (_BatchInbox *BatchInboxSession) RenounceOwnership() (*types.Transaction, error) {
+	return _BatchInbox.Contract.RenounceOwnership(&_BatchInbox.TransactOpts)
+}
+
+// RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
+//
+// Solidity: function renounceOwnership() returns()
+func (_BatchInbox *BatchInboxTransactorSession) RenounceOwnership() (*types.Transaction, error) {
+	return _BatchInbox.Contract.RenounceOwnership(&_BatchInbox.TransactOpts)
+}
+
 // SwitchBatcher is a paid mutator transaction binding the contract method 0xbc347f47.
 //
 // Solidity: function switchBatcher() returns()
@@ -347,6 +399,27 @@ func (_BatchInbox *BatchInboxTransactorSession) SwitchBatcher() (*types.Transact
 	return _BatchInbox.Contract.SwitchBatcher(&_BatchInbox.TransactOpts)
 }
 
+// TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
+//
+// Solidity: function transferOwnership(address newOwner) returns()
+func (_BatchInbox *BatchInboxTransactor) TransferOwnership(opts *bind.TransactOpts, newOwner common.Address) (*types.Transaction, error) {
+	return _BatchInbox.contract.Transact(opts, "transferOwnership", newOwner)
+}
+
+// TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
+//
+// Solidity: function transferOwnership(address newOwner) returns()
+func (_BatchInbox *BatchInboxSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
+	return _BatchInbox.Contract.TransferOwnership(&_BatchInbox.TransactOpts, newOwner)
+}
+
+// TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
+//
+// Solidity: function transferOwnership(address newOwner) returns()
+func (_BatchInbox *BatchInboxTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
+	return _BatchInbox.Contract.TransferOwnership(&_BatchInbox.TransactOpts, newOwner)
+}
+
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() returns()
@@ -366,4 +439,157 @@ func (_BatchInbox *BatchInboxSession) Fallback(calldata []byte) (*types.Transact
 // Solidity: fallback() returns()
 func (_BatchInbox *BatchInboxTransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
 	return _BatchInbox.Contract.Fallback(&_BatchInbox.TransactOpts, calldata)
+}
+
+// BatchInboxOwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the BatchInbox contract.
+type BatchInboxOwnershipTransferredIterator struct {
+	Event *BatchInboxOwnershipTransferred // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchInboxOwnershipTransferredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchInboxOwnershipTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchInboxOwnershipTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchInboxOwnershipTransferredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchInboxOwnershipTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchInboxOwnershipTransferred represents a OwnershipTransferred event raised by the BatchInbox contract.
+type BatchInboxOwnershipTransferred struct {
+	PreviousOwner common.Address
+	NewOwner      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterOwnershipTransferred is a free log retrieval operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
+//
+// Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
+func (_BatchInbox *BatchInboxFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*BatchInboxOwnershipTransferredIterator, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _BatchInbox.contract.FilterLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchInboxOwnershipTransferredIterator{contract: _BatchInbox.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+}
+
+// WatchOwnershipTransferred is a free log subscription operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
+//
+// Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
+func (_BatchInbox *BatchInboxFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *BatchInboxOwnershipTransferred, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _BatchInbox.contract.WatchLogs(opts, "OwnershipTransferred", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchInboxOwnershipTransferred)
+				if err := _BatchInbox.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOwnershipTransferred is a log parse operation binding the contract event 0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0.
+//
+// Solidity: event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
+func (_BatchInbox *BatchInboxFilterer) ParseOwnershipTransferred(log types.Log) (*BatchInboxOwnershipTransferred, error) {
+	event := new(BatchInboxOwnershipTransferred)
+	if err := _BatchInbox.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }

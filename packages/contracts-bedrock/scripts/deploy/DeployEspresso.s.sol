@@ -76,7 +76,7 @@ contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
-        deployBatchInbox(input, output, batchAuthenticator);
+        deployBatchInbox(input, output, batchAuthenticator, deployerAddress);
         checkOutput(output);
     }
 
@@ -123,7 +123,8 @@ contract DeployEspresso is Script {
     function deployBatchInbox(
         DeployEspressoInput input,
         DeployEspressoOutput output,
-        IBatchAuthenticator batchAuthenticator
+        IBatchAuthenticator batchAuthenticator,
+        address owner
     )
         public
     {
@@ -134,7 +135,7 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (input.nonTeeBatcher(), address(batchAuthenticator)))
+                    abi.encodeCall(IBatchInbox.__constructor__, (input.nonTeeBatcher(), address(batchAuthenticator), owner))
                 )
             })
         );

@@ -35,7 +35,7 @@ contract BatchInbox_Test is Test {
 
     function setUp() public virtual {
         authenticator = new MockBatchAuthenticator();
-        inbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(address(authenticator)));
+        inbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(address(authenticator)), deployer);
     }
 }
 
@@ -44,16 +44,17 @@ contract BatchInbox_Test is Test {
 contract BatchInbox_Constructor_Test is Test {
     address nonTeeBatcher = address(0x5678);
     address batchAuthenticator = address(0x9ABC);
+    address owner = address(0xABCD);
 
     /// @notice Test that constructor reverts when non-TEE batcher is zero address
     function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
         vm.expectRevert("BatchInbox: zero address for non tee batcher");
-        new BatchInbox(address(0), IBatchAuthenticator(batchAuthenticator));
+        new BatchInbox(address(0), IBatchAuthenticator(batchAuthenticator), owner);
     }
 
     /// @notice Test that constructor succeeds with valid addresses
     function test_constructor_succeedsWithValidAddresses() external {
-        BatchInbox testInbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(batchAuthenticator));
+        BatchInbox testInbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(batchAuthenticator), owner);
 
         assertEq(testInbox.nonTeeBatcher(), nonTeeBatcher, "Non-TEE batcher should match");
         assertEq(address(testInbox.batchAuthenticator()), batchAuthenticator, "Batch authenticator should match");
@@ -70,12 +71,24 @@ contract BatchInbox_SwitchBatcher_Test is BatchInbox_Test {
         assertTrue(inbox.activeIsTee(), "Should start with TEE batcher active");
 
         // Switch to non-TEE batcher
+        vm.prank(deployer);
         inbox.switchBatcher();
         assertFalse(inbox.activeIsTee(), "Should switch to non-TEE batcher");
 
         // Switch back to TEE batcher
+        vm.prank(deployer);
         inbox.switchBatcher();
         assertTrue(inbox.activeIsTee(), "Should switch back to TEE batcher");
+    }
+
+    /// @notice Test that only the owner can switch the active batcher
+    function test_switchBatcher_revertsForNonOwner() external {
+        // Initially TEE batcher is active
+        assertTrue(inbox.activeIsTee(), "Should start with TEE batcher active");
+
+        vm.prank(unauthorized);
+        vm.expectRevert("Ownable: caller is not the owner");
+        inbox.switchBatcher();
     }
 }
 
@@ -85,6 +98,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     /// @notice Test that non-TEE batcher can post after switching
     function test_fallback_nonTeeBatcherCanPostAfterSwitch() external {
         // Switch to non-TEE batcher
+        vm.prank(deployer);
         inbox.switchBatcher();
 
         // Non-TEE batcher should be able to post
@@ -96,6 +110,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     /// @notice Test that inactive batcher reverts
     function test_fallback_inactiveBatcherReverts() external {
         // Switch to non-TEE batcher (making TEE batcher inactive)
+        vm.prank(deployer);
         inbox.switchBatcher();
 
         // TEE batcher (now inactive) should revert
@@ -143,6 +158,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     /// @notice Test that non-TEE batcher doesn't require authentication
     function test_fallback_nonTeeBatcherDoesNotRequireAuth() external {
         // Switch to non-TEE batcher
+        vm.prank(deployer);
         inbox.switchBatcher();
 
         bytes memory data = "no-auth-needed";
@@ -157,6 +173,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     /// @notice Test that unauthorized address cannot post
     function test_fallback_unauthorizedAddressReverts() external {
         // Switch to non-TEE batcher. In this case the batch inbox should revert if the batcher is not authorized.
+        vm.prank(deployer);
         inbox.switchBatcher();
         vm.prank(unauthorized);
         (bool success,) = address(inbox).call("unauthorized");

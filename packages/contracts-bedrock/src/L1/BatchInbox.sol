@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
 /// @title BatchInbox
 /// @notice Receives batches from either a TEE batcher or a non-TEE batcher and enforces
 ///         that TEE batches are authenticated by the configured batch authenticator.
-contract BatchInbox {
+contract BatchInbox is Ownable {
     /// @notice Address of the TEE-based batcher.
     address public immutable teeBatcher;
 
@@ -24,16 +25,17 @@ contract BatchInbox {
     ///         and the batch authenticator.
     /// @param _nonTeeBatcher Address of the non-TEE batcher.
     /// @param _batchAuthenticator Address of the batch authenticator contract.
-    constructor(address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator) {
+    constructor(address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator, address _owner) Ownable() {
         require(_nonTeeBatcher != address(0), "BatchInbox: zero address for non tee batcher");
         nonTeeBatcher = _nonTeeBatcher;
         batchAuthenticator = _batchAuthenticator;
         // By default, start with the TEE batcher active
         activeIsTee = true;
+        _transferOwnership(_owner);
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
-    function switchBatcher() external {
+    function switchBatcher() external onlyOwner {
         activeIsTee = !activeIsTee;
     }
 
