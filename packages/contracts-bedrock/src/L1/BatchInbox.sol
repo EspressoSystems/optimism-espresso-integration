@@ -8,9 +8,6 @@ import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 /// @notice Receives batches from either a TEE batcher or a non-TEE batcher and enforces
 ///         that TEE batches are authenticated by the configured batch authenticator.
 contract BatchInbox is Ownable {
-    /// @notice Address of the TEE-based batcher.
-    address public immutable teeBatcher;
-
     /// @notice Address of the non-TEE (fallback) batcher.
     address public immutable nonTeeBatcher;
 
@@ -70,17 +67,6 @@ contract BatchInbox is Ownable {
                 // For the non active TEE case, the batcher must be authenticated in the Inbox contract
                 revert("BatchInbox: unauthorized batcher");
             }
-        }
-    }
-
-    /// @notice Returns the currently active batcher and whether it is the TEE batcher.
-    /// @return active Address of the currently active batcher.
-    /// @return isTee True if the active batcher is the TEE batcher, false if it is the non-TEE batcher.
-    function _activeBatcher() internal view returns (address active, bool isTee) {
-        if (activeIsTee) {
-            return (teeBatcher, true);
-        } else {
-            return (nonTeeBatcher, false);
         }
     }
 }
