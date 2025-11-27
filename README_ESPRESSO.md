@@ -314,6 +314,11 @@ restarting.
 ### Log monitoring
 For a selection of important metrics to monitor for and corresponding log lines see `espresso/docs/metrics.md`
 
+### Blockscout
+
+Blockscout is a block explorer that reads from the sequencer node. It can be accessed at `http://localhost:3000`.
+
+
 ## Continuous Integration environment
 
 ### Running enclave tests in EC2
