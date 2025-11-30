@@ -172,9 +172,6 @@ export PERMISSIONLESS_MODE="true"
 
 pushd "${OP_ROOT}/packages/contracts-bedrock"
 
-echo "Building contracts-bedrock succinct deployment script..."
-forge build
-
 echo "Running local DeployOPSuccinctFDG.s.sol script..."
 forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
 	--broadcast \
