@@ -155,101 +155,85 @@ ANCHOR_STATE_REGISTRY_ADDRESS=${ANCHOR_STATE_REGISTRY}
 EOF
 echo "Created succinct env file at ${SUCCINCT_ENV_FILE}"
 
-# Check if op-succinct-espresso repo exists
-OP_SUCCINCT_DIR="${OP_ROOT}/../op-succinct-espresso"
-if [ ! -d "${OP_SUCCINCT_DIR}" ]; then
-    echo "Warning: op-succinct-espresso repo not found at ${OP_SUCCINCT_DIR}"
-    echo "Skipping op-succinct contract deployment."
-    echo "To enable succinct: git clone https://github.com/EspressoSystems/op-succinct.git ${OP_SUCCINCT_DIR}"
+# Deploy op-succinct contracts using local contracts-bedrock deployment script
+
+echo "Deploying op-succinct contracts from local packages/contracts-bedrock..."
+
+# Export environment variables consumed by DeployOPSuccinctFDG.s.sol
+export FACTORY_ADDRESS="${DISPUTE_GAME_FACTORY}"
+export ANCHOR_STATE_REGISTRY_ADDRESS="${ANCHOR_STATE_REGISTRY}"
+export GAME_TYPE="${GAME_TYPE}"
+export INITIAL_BOND_WEI="${INITIAL_BOND_WEI}"
+export CHALLENGER_BOND_WEI="${CHALLENGER_BOND_WEI}"
+export MAX_CHALLENGE_DURATION="${MAX_CHALLENGE_DURATION}"
+export MAX_PROVE_DURATION="${MAX_PROVE_DURATION}"
+export USE_SP1_MOCK_VERIFIER="true"
+export PERMISSIONLESS_MODE="true"
+
+pushd "${OP_ROOT}/packages/contracts-bedrock"
+
+echo "Building contracts-bedrock succinct deployment script..."
+forge build
+
+echo "Running local DeployOPSuccinctFDG.s.sol script..."
+forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
+	--broadcast \
+	--no-storage-caching \
+	--slow \
+	--rpc-url "${ANVIL_URL}" \
+	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: local op-succinct deployment failed, continuing..."
+
+popd
+
+# Wire OPSuccinctFaultDisputeGame implementation into DisputeGameFactory
+echo "Configuring DisputeGameFactory for game type ${GAME_TYPE}..."
+
+# Locate the deployed OPSuccinctFaultDisputeGame implementation address from the forge broadcast
+BROADCAST_DIR="${OP_ROOT}/packages/contracts-bedrock/broadcast/DeployOPSuccinctFDG.s.sol/${L1_CHAIN_ID}"
+BROADCAST_FILE="${BROADCAST_DIR}/run-latest.json"
+
+if [ -f "${BROADCAST_FILE}" ]; then
+	FDG_IMPL=$(jq -r '.transactions[] | select(.contractName=="OPSuccinctFaultDisputeGame") | .contractAddress' "${BROADCAST_FILE}")
+	if [ -z "${FDG_IMPL}" ] || [ "${FDG_IMPL}" = "null" ]; then
+		echo "Warning: could not find OPSuccinctFaultDisputeGame in ${BROADCAST_FILE}; skipping factory config"
+	else
+		echo "  OPSuccinctFaultDisputeGame implementation: ${FDG_IMPL}"
+		# Set implementation for GAME_TYPE on the factory
+		cast send "${DISPUTE_GAME_FACTORY}" \
+			"setImplementation(uint32,address)" "${GAME_TYPE}" "${FDG_IMPL}" \
+			--rpc-url "${ANVIL_URL}" \
+			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setImplementation failed, continuing..."
+
+		# Set init bond for GAME_TYPE to match challenger bond
+		cast send "${DISPUTE_GAME_FACTORY}" \
+			"setInitBond(uint32,uint256)" "${GAME_TYPE}" "${CHALLENGER_BOND_WEI}" \
+			--rpc-url "${ANVIL_URL}" \
+			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setInitBond failed, continuing..."
+	fi
 else
-    # Get the L1 proxy admin owner from state.json (this is the factory owner)
-    L1_PROXY_ADMIN_OWNER=$(jq -r '.appliedIntent.chains[0].roles.l1ProxyAdminOwner' "${DEPLOYER_DIR}/state.json")
-    echo "L1 Proxy Admin Owner: ${L1_PROXY_ADMIN_OWNER}"
-
-    # Create the op-succinct FDG config JSON
-    # Note: activateContracts is false because op-succinct calls setRespectedGameType
-    # on OptimismPortal2, but in our fork this function is on AnchorStateRegistry.
-    # We'll activate manually after deployment.
-    OP_SUCCINCT_CONFIG="${DEPLOYER_DIR}/opsuccinctfdgconfig.json"
-    cat > "${OP_SUCCINCT_CONFIG}" << EOF
-{
-  "activateContracts": false,
-  "aggregationVkey": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "anchorStateRegistryAddress": "${ANCHOR_STATE_REGISTRY}",
-  "celoSuperchainConfigAddress": "0x0000000000000000000000000000000000000000",
-  "challengerAddresses": ["${OPERATOR_ADDRESS}"],
-  "challengerBondWei": ${CHALLENGER_BOND_WEI},
-  "configureContracts": true,
-  "disputeGameFactoryAddress": "${DISPUTE_GAME_FACTORY}",
-  "disputeGameFinalityDelaySeconds": ${DISPUTE_GAME_FINALITY_DELAY_SECONDS},
-  "fallbackTimeoutFpSecs": ${FALLBACK_TIMEOUT_FP_SECS},
-  "gameType": ${GAME_TYPE},
-  "initialBondWei": ${INITIAL_BOND_WEI},
-  "maxChallengeDuration": ${MAX_CHALLENGE_DURATION},
-  "maxProveDuration": ${MAX_PROVE_DURATION},
-  "optimismPortal2Address": "${OPTIMISM_PORTAL}",
-  "permissionlessMode": false,
-  "proposerAddresses": ["${PROPOSER_ADDRESS}"],
-  "rangeVkeyCommitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "rollupConfigHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "startingL2BlockNumber": ${STARTING_L2_BLOCK},
-  "startingRoot": "${STARTING_ROOT}",
-  "useSp1MockVerifier": true,
-  "verifierAddress": "0x0000000000000000000000000000000000000000"
-}
-EOF
-
-    echo "Created op-succinct config at ${OP_SUCCINCT_CONFIG}"
-
-    # Copy config to op-succinct contracts directory
-    cp "${OP_SUCCINCT_CONFIG}" "${OP_SUCCINCT_DIR}/contracts/opsuccinctfdgconfig.json"
-
-    # Deploy op-succinct contracts using forge
-    pushd "${OP_SUCCINCT_DIR}/contracts"
-
-    # Install dependencies if not already installed
-    if [ ! -d "lib/forge-std" ]; then
-        echo "Installing forge dependencies..."
-        forge install --no-commit
-    fi
-
-    # Build contracts
-    echo "Building op-succinct contracts..."
-    forge build
-
-    # Run the deployment script
-    echo "Running op-succinct deployment script..."
-    forge script script/fp/DeployOPSuccinctFDG.s.sol \
-        --broadcast \
-        --no-storage-caching \
-        --slow \
-        --rpc-url "${ANVIL_URL}" \
-        --private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: op-succinct deployment failed, continuing..."
-
-    popd
-
-    # Manually activate game type 42 on AnchorStateRegistry
-    # (op-succinct script calls wrong contract for setRespectedGameType)
-    echo "Activating game type ${GAME_TYPE} on AnchorStateRegistry..."
-    cast send "${ANCHOR_STATE_REGISTRY}" \
-        "setRespectedGameType(uint32)" "${GAME_TYPE}" \
-        --rpc-url "${ANVIL_URL}" \
-        --private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
-
-    # Verify the starting anchor root is set (should be set by op-deployer initialization)
-    echo "Verifying starting anchor root..."
-    ANCHOR_ROOT=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | head -1)
-    ANCHOR_BLOCK=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | tail -1)
-    echo "  Anchor root: ${ANCHOR_ROOT}"
-    echo "  Anchor L2 block: ${ANCHOR_BLOCK}"
-
-    if [ "${ANCHOR_ROOT}" = "0x0000000000000000000000000000000000000000000000000000000000000000" ]; then
-        echo "ERROR: Anchor root is zero! AnchorStateRegistry was not initialized correctly."
-        echo "This will cause 'AnchorRootNotFound' errors when creating games."
-    fi
-
-    echo "Op-succinct contracts deployment complete!"
+	echo "Warning: broadcast file ${BROADCAST_FILE} not found; skipping factory config"
 fi
+
+# Manually activate game type on AnchorStateRegistry (op-succinct script targets OptimismPortal2)
+echo "Activating game type ${GAME_TYPE} on AnchorStateRegistry..."
+cast send "${ANCHOR_STATE_REGISTRY}" \
+	"setRespectedGameType(uint32)" "${GAME_TYPE}" \
+	--rpc-url "${ANVIL_URL}" \
+	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
+
+# Verify the starting anchor root is set (should be set by op-deployer initialization)
+echo "Verifying starting anchor root..."
+ANCHOR_ROOT=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | head -1)
+ANCHOR_BLOCK=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | tail -1)
+echo "  Anchor root: ${ANCHOR_ROOT}"
+echo "  Anchor L2 block: ${ANCHOR_BLOCK}"
+
+if [ "${ANCHOR_ROOT}" = "0x0000000000000000000000000000000000000000000000000000000000000000" ]; then
+	echo "ERROR: Anchor root is zero! AnchorStateRegistry was not initialized correctly."
+	echo "This will cause 'AnchorRootNotFound' errors when creating games."
+fi
+
+echo "Local op-succinct contracts deployment complete!"
 
 # =====================================================================
 # End of op-succinct deployment

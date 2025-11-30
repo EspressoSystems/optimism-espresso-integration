@@ -485,7 +485,7 @@ services:
   # Succinct proposer for ZK fault proofs
   succinct-proposer:
     profiles: ["default"]
-    image: op-succinct-proposer:espresso
+    image: ghcr.io/philippecamacho/proposer-eigenda:sha-42c9e14
     depends_on:
       l1-data-init:
         condition: service_completed_successfully
@@ -578,7 +578,7 @@ services:
   # Succinct challenger for ZK fault proofs
   succinct-challenger:
     profiles: ["default"]
-    image: op-succinct-challenger:espresso
+    image: ghcr.io/philippecamacho/challenger:sha-42c9e14
     depends_on:
       l1-geth:
         condition: service_started
