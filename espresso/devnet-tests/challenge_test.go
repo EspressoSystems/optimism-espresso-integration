@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,6 +68,16 @@ func TestChallengeGame(t *testing.T) {
 
 	// Verify the game has at least 1 claim (the root claim from proposer)
 	require.GreaterOrEqual(t, games[0].Claims, uint64(1), "Game should have at least 1 claim")
+
+	// Bind the dispute game contract and log its initial status.
+	disputeGame, err := bindings.NewFaultDisputeGame(games[0].Address, d.L1)
+	require.NoError(t, err)
+	statusRaw, err := disputeGame.Status(&bind.CallOpts{})
+	require.NoError(t, err)
+	gameStatus, err := types.GameStatusFromUint8(statusRaw)
+	require.NoError(t, err)
+	t.Logf("dispute game initial status: %s (%d)", gameStatus.String(), statusRaw)
+	require.Equal(t, types.GameStatusInProgress, gameStatus, "Dispute game should start InProgress")
 
 	t.Logf("TestChallengeGame passed: dispute game successfully created by succinct-proposer")
 }

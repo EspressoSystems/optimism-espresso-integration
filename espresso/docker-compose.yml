@@ -603,6 +603,7 @@ services:
       GAME_TYPE: "42"
       FETCH_INTERVAL: "10"
       MOCK_MODE: "true"
+      DISABLE_MONITOR_ONLY: "true"
       RUST_LOG: info
     restart: unless-stopped
 
