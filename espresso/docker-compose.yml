@@ -345,6 +345,8 @@ services:
       OP_BATCHER_L2_ETH_RPC: http://op-geth-sequencer:${OP_HTTP_PORT}
       OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
       OP_BATCHER_ESPRESSO_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
+      OP_BATCHER_MAX_CHANNEL_DURATION: ${MAX_CHANNEL_DURATION:-32}
+      OP_BATCHER_MAX_PENDING_TX: ${MAX_PENDING_TX:-32}
     volumes:
       - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
     command:
@@ -356,8 +358,6 @@ services:
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --throttle-threshold=0
-      - --max-channel-duration=32
-      - --max-pending-tx=32
       - --altda.max-concurrent-da-requests=32
 
   op-batcher-tee:
