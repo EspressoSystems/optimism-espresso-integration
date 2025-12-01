@@ -11,14 +11,14 @@ import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 /// @title MockBatchAuthenticator
 /// @notice Mock implementation for testing - only implements validBatchInfo
 contract MockBatchAuthenticator {
-    mapping(bytes32 => bool) private validHashes;
+    mapping(bytes32 => bool) private isHashValid;
 
     function setValidBatchInfo(bytes32 hash, bool valid) external {
-        validHashes[hash] = valid;
+        isHashValid[hash] = valid;
     }
 
     function validBatchInfo(bytes32 hash) external view returns (bool) {
-        return validHashes[hash];
+        return isHashValid[hash];
     }
 }
 
