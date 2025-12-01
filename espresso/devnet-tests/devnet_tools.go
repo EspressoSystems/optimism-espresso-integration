@@ -593,36 +593,13 @@ func ParseChallengeGame(s string) (ChallengeGame, error) {
 }
 
 func (d *Devnet) ListChallengeGames() ([]ChallengeGame, error) {
-	// Try contract-based query first (works with succinct)
+	// Succinct only supports contract-based query
 	games, err := d.ListChallengeGamesFromContract()
 	if err == nil && len(games) > 0 {
 		return games, nil
 	}
 
-	// Fall back to op-challenger CLI (legacy mode)
-	output, err := d.OpChallengerOutput("list-games")
-	if err != nil {
-		return nil, err
-	}
-
-	for i, line := range strings.Split(output, "\n") {
-		if i == 0 {
-			// Ignore header.
-			continue
-		}
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			// Ignore empty lines (e.g. trailing newline)
-			continue
-		}
-
-		game, err := ParseChallengeGame(line)
-		if err != nil {
-			return nil, fmt.Errorf("game %v is invalid: %w", i, err)
-		}
-		games = append(games, game)
-	}
-	return games, nil
+	return nil, fmt.Errorf("failed to list challenge games: %w", err)
 }
 
 // ListChallengeGamesFromContract queries games directly from the DisputeGameFactory contract

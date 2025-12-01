@@ -79,5 +79,38 @@ func TestChallengeGame(t *testing.T) {
 	t.Logf("dispute game initial status: %s (%d)", gameStatus.String(), statusRaw)
 	require.Equal(t, types.GameStatusInProgress, gameStatus, "Dispute game should start InProgress")
 
+	// Observe the dispute game for a limited time to see if it resolves.
+	maxObservation := 15 * time.Minute
+	pollInterval := 10 * time.Second
+	waitStart := time.Now()
+	finalStatus := gameStatus
+	finalStatusRaw := statusRaw
+
+	t.Logf("Observing dispute game %s for up to %s to see if it resolves...", games[0].Address.Hex(), maxObservation)
+
+	for time.Since(waitStart) < maxObservation {
+		statusRaw, err := disputeGame.Status(&bind.CallOpts{})
+		require.NoError(t, err)
+		status, err := types.GameStatusFromUint8(statusRaw)
+		require.NoError(t, err)
+
+		finalStatus = status
+		finalStatusRaw = statusRaw
+
+		if status != types.GameStatusInProgress {
+			t.Logf("dispute game resolved during observation window: %s (%d)", status.String(), statusRaw)
+			require.Equal(t, types.GameStatusDefenderWon, status, "Expected honest proposer/defender to win succinct dispute game")
+			break
+		}
+
+		time.Sleep(pollInterval)
+	}
+
+	t.Logf("dispute game observed final status after %s: %s (%d)", time.Since(waitStart), finalStatus.String(), finalStatusRaw)
+	require.Equal(t, finalStatus, types.GameStatusDefenderWon,
+		"succinct dispute game final status must be DefenderWon, got %s (%d)",
+		finalStatus.String(), finalStatusRaw,
+	)
+
 	t.Logf("TestChallengeGame passed: dispute game successfully created by succinct-proposer")
 }
