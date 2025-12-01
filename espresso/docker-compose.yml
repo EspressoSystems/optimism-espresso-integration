@@ -211,12 +211,21 @@ services:
         condition: service_healthy
       l1-validator:
         condition: service_started
+      eigenda-proxy:
+        condition: service_healthy
     environment:
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-sequencer:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${ROLLUP_PORT}
       OP_NODE_SAFEDB_PATH: /data/safedb
+      OP_NODE_ALTDA_ENABLED: "true"
+      OP_NODE_ALTDA_DA_SERVICE: "true"
+      OP_NODE_ALTDA_VERIFY_ON_READ: "false"
+      OP_NODE_ALTDA_DA_SERVER: http://eigenda-proxy:3100
+      OP_NODE_ALTDA_MAX_CONCURRENT_DA_REQUESTS: "32"
+      OP_NODE_ALTDA_PUT_TIMEOUT: "30s"
+      OP_NODE_ALTDA_GET_TIMEOUT: "30s"
     ports:
       - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     volumes:
@@ -252,12 +261,21 @@ services:
         condition: service_started
       l1-validator:
         condition: service_started
+      eigenda-proxy:
+        condition: service_healthy
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-verifier:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${VERIFIER_PORT}
+      OP_NODE_ALTDA_ENABLED: "true"
+      OP_NODE_ALTDA_DA_SERVICE: "true"
+      OP_NODE_ALTDA_VERIFY_ON_READ: "false"
+      OP_NODE_ALTDA_DA_SERVER: http://eigenda-proxy:3100
+      OP_NODE_ALTDA_MAX_CONCURRENT_DA_REQUESTS: "32"
+      OP_NODE_ALTDA_PUT_TIMEOUT: "30s"
+      OP_NODE_ALTDA_GET_TIMEOUT: "30s"
     ports:
       - "${VERIFIER_PORT}:${VERIFIER_PORT}"
     volumes:
@@ -337,6 +355,8 @@ services:
         condition: service_started
       espresso-dev-node:
         condition: service_started
+      eigenda-proxy:
+        condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
     environment:
@@ -358,7 +378,16 @@ services:
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --throttle-threshold=0
+      - --max-channel-duration=2
+      - --target-num-frames=1
+      - --max-pending-tx=32
+      - --altda.enabled=true
+      - --altda.da-server=http://eigenda-proxy:3100
+      - --altda.da-service=true
       - --altda.max-concurrent-da-requests=32
+      - --altda.put-timeout=30s
+      - --altda.get-timeout=30s
+      - --data-availability-type=calldata
 
   op-batcher-tee:
     profiles: ["tee"]
@@ -502,6 +531,30 @@ services:
       OP_CHALLENGER_CANNON_ROLLUP_CONFIG: /config/rollup.json
       OP_CHALLENGER_CANNON_L2_GENESIS: /config/genesis.json
       OP_CHALLENGER_TRACE_TYPE: permissioned
+
+  eigenda-proxy:
+    image: ghcr.io/layr-labs/eigenda-proxy:2.2.1
+    platform: linux/amd64
+    ports:
+      - "${EIGENDA_PROXY_PORT:-3100}:3100"
+    environment:
+      EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
+      EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2
+      EIGENDA_PROXY_EIGENDA_V2_NETWORK: ${EIGENDA_PROXY_EIGENDA_V2_NETWORK:-sepolia_testnet}
+      EIGENDA_PROXY_MEMSTORE_ENABLED: ${EIGENDA_PROXY_MEMSTORE_ENABLED:-true}
+      EIGENDA_PROXY_MEMSTORE_EXPIRATION: ${EIGENDA_PROXY_MEMSTORE_EXPIRATION:-25m0s}
+      EIGENDA_PROXY_LOG_FORMAT: ${EIGENDA_PROXY_LOG_FORMAT:-text}
+      EIGENDA_PROXY_LOG_LEVEL: ${EIGENDA_PROXY_LOG_LEVEL:-INFO}
+
+      # PORT configuration
+      PORT: "3100"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3100 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 240s
+    restart: unless-stopped
 
   espresso-dev-node:
     image: ${ESPRESSO_DEV_NODE_IMAGE}
