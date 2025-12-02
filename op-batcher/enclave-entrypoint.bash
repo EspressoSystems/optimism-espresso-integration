@@ -74,8 +74,8 @@ launch_socat() {
     local original_url="$1"
     local socat_port="$2"
 
-    local host port scheme path
-    if ! read -r host port scheme path < <(trurl --url "$original_url" --default-port --get "{host} {port} {scheme} {path}"); then
+    local host port scheme
+    if ! read -r host port scheme < <(trurl --url "$original_url" --default-port --get "{host} {port} {scheme}"); then
         echo "Failed to parse URL" >&2
         return 1
     fi
@@ -102,16 +102,9 @@ launch_socat() {
       return 1
     }
 
-    # return socat-proxied url - preserve the original path (e.g., /v2/API_KEY for Alchemy)
-    local rewritten_url
-    rewritten_url="$(trurl --url "$original_url" --set host="127.0.0.1" --set port="$socat_port")"
-
-    # Ensure path is preserved (trurl should handle this, but double-check)
-    if [[ -n "$path" ]] && [[ "$path" != "/" ]]; then
-        rewritten_url="$(trurl --url "$rewritten_url" --set path="$path")"
-    fi
-
-    echo "$rewritten_url"
+    # return socat-proxied url
+    # trurl --set should preserve all components not explicitly changed (path, query, etc.)
+    echo "$(trurl --url "$original_url" --set host="127.0.0.1" --set port="$socat_port")"
 
     return 0
 }
