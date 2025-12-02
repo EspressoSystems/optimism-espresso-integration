@@ -357,8 +357,6 @@ services:
         condition: service_started
       eigenda-proxy:
         condition: service_healthy
-      eigenda-proxy:
-        condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
     environment:
