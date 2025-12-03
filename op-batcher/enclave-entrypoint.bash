@@ -103,8 +103,9 @@ launch_socat() {
     }
 
     # return socat-proxied url
+    # Convert to http since socat handles the HTTPS connection to the real server
     # trurl --set should preserve all components not explicitly changed (path, query, etc.)
-    echo "$(trurl --url "$original_url" --set host="127.0.0.1" --set port="$socat_port")"
+    echo "$(trurl --url "$original_url" --set scheme="http" --set host="127.0.0.1" --set port="$socat_port")"
 
     return 0
 }
