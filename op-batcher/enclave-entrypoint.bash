@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 
 # Entrypoint for op-batcher running in enclaver image.
-# Main goal of the script is to rewrite the URLs passed to the batcher to use the Odyn proxy
+# Main goal of the script is to use the Odyn HTTP proxy for external connections
 # and recover batcher's CLI arguments from ENCLAVE_BATCHER_ARGS env variable (there's no way
 # to directly pass commandline arguments when starting EIF images)
-
-# We will need to start a proxy for each of those urls
-URL_ARG_RE='^(--altda\.da-server|--espresso\.urls|--espresso.\l1-url|--espresso.rollup-l1-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
 
 # Re-populate the arguments passed through the environment
 if [ -n "$ENCLAVE_BATCHER_ARGS" ]; then
@@ -25,7 +22,9 @@ else
   exit 1
 fi
 
-unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
+# Keep HTTP_PROXY set so Go's net/http client uses it for all requests
+export HTTP_PROXY="$http_proxy"
+export HTTPS_PROXY="$http_proxy"
 
 # Store the original arguments from ENCLAVE_BATCHER_ARGS
 original_args=("$@")
@@ -56,73 +55,16 @@ else
     set -- "${original_args[@]}" "${received_args[@]}"
 fi
 
-wait_for_port() {
-  local port="$1"
+# Rewrite localhost URLs to use 'host' inside the enclave
+# The enclave's /etc/hosts maps 'host' to the parent instance
+declare -a final_args=()
+URL_ARG_RE='^(--altda\.da-server|--espresso\.urls|--espresso\.l1-url|--espresso.rollup-l1-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
 
-  for ((i=0; i<100; i++)); do
-      if nc -z 127.0.0.1 "$port" 2>/dev/null; then
-          return 0
-      fi
-      sleep 0.3
-  done
-
-  echo "Error: socat did not open port $port in time" >&2
-  return 1
-}
-
-launch_socat() {
-    local original_url="$1"
-    local socat_port="$2"
-
-    local host port scheme
-    if ! read -r host port scheme < <(trurl --url "$original_url" --default-port --get "{host} {port} {scheme}"); then
-        echo "Failed to parse URL" >&2
-        return 1
-    fi
-
-    # If original host was 127.0.0.1, we need to map it to `host` inside the enclave
-    if [[ "$host" == "localhost" ]] || [[ "$host" == "127.0.0.1" ]] || [[ "$host" == "::1" ]]; then
-      echo "Rewriting '$host' to 'host'" >&2
-      host="host"
-    fi
-
-    if [[ "$scheme" != "http" ]] && [[ "$scheme" != "https" ]]; then
-        echo "Invalid scheme: '$scheme'. Only http and https are supported." >&2
-        return 1
-    fi
-
-    # start socat
-    socat -t 10 -d TCP4-LISTEN:"${socat_port}",reuseaddr,fork PROXY:127.0.0.1:"$host":"$port",proxyport="${ODYN_PROXY_PORT}" > /dev/null 2>&1 &
-    socat_pid=$!
-    disown "$socat_pid"
-
-    wait_for_port "${socat_port}" || {
-      kill "$socat_pid" 2>/dev/null
-      wait "$socat_pid" 2>/dev/null
-      return 1
-    }
-
-    # return socat-proxied url
-    # Convert to http since socat handles the HTTPS connection to the real server
-    # trurl --set should preserve all components not explicitly changed (path, query, etc.)
-    echo "$(trurl --url "$original_url" --set scheme="http" --set host="127.0.0.1" --set port="$socat_port")"
-
-    return 0
-}
-
-# Initialize arrays for filtered arguments and extracted URLs
-filtered_args=()
-url_args=()
-
-SOCAT_PORT=10001
-echo "Arguments: $@"
-# Process all arguments
 while [ $# -gt 0 ]; do
     echo "Processing argument: $1"
     # Check if the argument matches the URL pattern
     if [[ $1 =~ $URL_ARG_RE ]]; then
       echo "Found URL argument: $1"
-      # Extract the flag part and possible value part
       flag=${BASH_REMATCH[1]}
 
       # extract value from "--flag=value" or "--flag value"
@@ -133,37 +75,21 @@ while [ $# -gt 0 ]; do
         value="$1"
       fi
 
-      # Handle comma-separated values for any flag
-      if [[ "$value" == *","* ]]; then
-        IFS=',' read -r -a parts <<< "$value"
-        for part in "${parts[@]}"; do
-          if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
-            echo "Failed to launch socat for $flag=$part"; exit 1
-          fi
-          echo "Rewritten: $new_url"
-          url_args+=("${flag}=${new_url}")
-          ((SOCAT_PORT++))
-        done
-      else
-        if ! new_url=$(launch_socat "$value" "$SOCAT_PORT"); then
-          echo "Failed to launch socat for $flag=$value"; exit 1
-        fi
-        echo "Rewritten: $new_url"
-        url_args+=("$flag" "$new_url")
-        ((SOCAT_PORT++))
+      # Rewrite localhost to 'host' for internal services
+      if [[ "$value" == http://localhost:* ]] || [[ "$value" == http://127.0.0.1:* ]]; then
+        value=$(echo "$value" | sed 's|localhost|host|; s|127\.0\.0\.1|host|')
+        echo "Rewrote localhost to host: $value"
       fi
+
+      final_args+=("$flag" "$value")
     else
-      filtered_args+=("$1")
+      final_args+=("$1")
     fi
     shift
-  done
+done
 
-
-# Combine the rewritten URL arguments with the other arguments
-all_args=("${filtered_args[@]}" "${url_args[@]}")
-
-echo "${all_args[@]}"
-op-batcher "${all_args[@]}"
+echo "Final arguments: ${final_args[@]}"
+op-batcher "${final_args[@]}"
 exit_code=$?
 echo "Debug: op-batcher exited with code $exit_code"
 exit $exit_code
