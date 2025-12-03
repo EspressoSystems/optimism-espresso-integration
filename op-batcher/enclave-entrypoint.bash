@@ -124,12 +124,15 @@ launch_socat() {
     echo "[DEBUG] socat proxy ready on port ${socat_port}" >&2
 
     # return socat-proxied url
+    # IMPORTANT: Change scheme to http because socat proxy is plain TCP
+    # The socat proxy will forward to the HTTPS destination through Odyn
     local rewritten_url
-    rewritten_url="$(trurl --url "$original_url" --set host="127.0.0.1" --set port="$socat_port")"
+    rewritten_url="$(trurl --url "$original_url" --set scheme="http" --set host="127.0.0.1" --set port="$socat_port")"
 
     echo "[DEBUG] URL rewrite:" >&2
     echo "[DEBUG]   Original:  $original_url" >&2
     echo "[DEBUG]   Rewritten: $rewritten_url" >&2
+    echo "[DEBUG]   Note: Scheme changed to http because socat proxy handles HTTPS through Odyn" >&2
 
     # Verify path is preserved
     local original_path rewritten_path
