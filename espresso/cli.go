@@ -186,10 +186,8 @@ func BatchStreamerFromCLIConfig[B Batch](
 		return nil, fmt.Errorf("failed to dial Rollup L1 RPC at %s: %w", cfg.RollupL1URL, err)
 	}
 
-	espressoClient, err := espressoClient.NewMultipleNodesClient(cfg.QueryServiceURLs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Espresso client: %w", err)
-	}
+	urlZero := cfg.QueryServiceURLs[0]
+	espressoClient := espressoClient.NewClient(urlZero)
 
 	espressoLightClient, err := espressoLightClient.NewLightclientCaller(cfg.LightClientAddr, l1Client)
 	if err != nil {
