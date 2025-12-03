@@ -744,10 +744,9 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 
-	espressoClient, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
-	if err != nil {
-		return fmt.Errorf("failed to create Espresso client: %w", err)
-	}
+	urlZero := cfg.Espresso.QueryServiceURLs[0]
+	espressoClient := espressoClient.NewClient(urlZero)
+
 	bs.EspressoClient = espressoClient
 
 	if err := bs.initKeyPair(); err != nil {
