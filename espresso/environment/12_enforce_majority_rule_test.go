@@ -103,6 +103,7 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 //
 //	If M>N, the chain should make progress, otherwise it should not.
 func TestEnforceMajorityRule(t *testing.T) {
+	t.Skip("Skipping test: MajorityRule has been deprecated and replaced by SingleNode.")
 
 	// To create a valid multiple nodes client, we need to provide at least 2 URLs.
 	runWithMultiClient(t, 2, 0, NO_ERROR_EXPECTED)
