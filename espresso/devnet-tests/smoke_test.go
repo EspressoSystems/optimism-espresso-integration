@@ -13,7 +13,7 @@ func TestSmokeWithoutTEE(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(DevnetProfileNonTee))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -27,7 +27,7 @@ func TestSmokeWithTEE(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(TEE))
+	require.NoError(t, d.Up(DevnetProfileTee))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()

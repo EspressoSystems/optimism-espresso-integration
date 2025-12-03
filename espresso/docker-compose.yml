@@ -466,6 +466,8 @@ services:
       CONTAINER_MONITOR_INTERVAL: ${CONTAINER_MONITOR_INTERVAL:-1}
       ENCLAVE_MEMORY_MB: ${ENCLAVE_MEMORY_MB:-4096}
       ENCLAVE_CPU_COUNT: ${ENCLAVE_CPU_COUNT:-2}
+      OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_BATCHER_ESPRESSO_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ..:/source:ro

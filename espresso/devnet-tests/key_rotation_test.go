@@ -23,7 +23,7 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 
 	d := NewDevnet(ctx, t)
 
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(DevnetProfileNonTee))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()

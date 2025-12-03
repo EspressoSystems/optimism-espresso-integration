@@ -23,15 +23,17 @@ func testRestart(t *testing.T, tee bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	profile := DevnetProfileNonTee
+	if tee {
+		profile = DevnetProfileTee
+	}
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(profile))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
 
-	d.tee = tee
-
-	require.NoError(t, d.WaitForL2Operational())
+	require.NoError(t, d.WaitForL2Operational(true))
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())

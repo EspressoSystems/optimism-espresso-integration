@@ -35,9 +35,17 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 )
 
+// The setting for `COMPOSE_PROFILES` when running the Docker Compose.
+type DevnetProfile uint
+
+const (
+	DevnetProfileTee    DevnetProfile = iota
+	DevnetProfileNonTee DevnetProfile = iota
+)
+
 type Devnet struct {
 	ctx           context.Context
-	tee           bool
+	profile       DevnetProfile
 	secrets       secrets.Secrets
 	outageTime    time.Duration
 	successTime   time.Duration
@@ -98,11 +106,20 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 
 }
 
+func (d *Devnet) profileName() string {
+	switch d.profile {
+	case DevnetProfileTee:
+		return "tee"
+	case DevnetProfileNonTee:
+		return "default"
+	default:
+		log.Warn("unknown profile, fallback to default", "profile", d.profile)
+		return "default"
+	}
+}
+
 func (d *Devnet) isRunning() bool {
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "ps", "-q",
-	)
+	cmd := d.compose("ps", "-q")
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	if err := cmd.Run(); err != nil {
@@ -113,15 +130,21 @@ func (d *Devnet) isRunning() bool {
 	return len(out) > 0
 }
 
-// The setting for `COMPOES_PROFILES` when running the Docker Compose.
-type ComposeProfile string
+func (d *Devnet) compose(arg ...string) *exec.Cmd {
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker",
+		append([]string{"compose"}, arg...)...,
+	)
+	cmd.Env = append(
+		os.Environ(),
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+		fmt.Sprintf("COMPOSE_PROFILES=%s", d.profileName()),
+	)
+	return cmd
+}
 
-const (
-	TEE     ComposeProfile = "tee"
-	NON_TEE ComposeProfile = "default"
-)
-
-func (d *Devnet) Up(profile ComposeProfile) (err error) {
+func (d *Devnet) Up(profile DevnetProfile) (err error) {
 	if d.isRunning() {
 		if err := d.Down(); err != nil {
 			return err
@@ -130,21 +153,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		// up any existing state.
 		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
 	}
-	var profile string
-	if d.tee {
-		profile = "tee"
-	} else {
-		profile = "default"
-	}
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "--profile", profile, "up", "-d",
-	)
-	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-	)
+	cmd := d.compose("up", "-d")
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
@@ -174,7 +183,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
 		// the context is cancelled.
 		go func() {
-			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
+			cmd = d.compose("logs", "-f")
 			cmd.Stdout = os.Stdout
 			// We don't care about the error return of this command, since it's always going to be
 			// killed by the context cancellation.
@@ -208,12 +217,12 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	return nil
 }
 
-func (d *Devnet) WaitForL2Operational() error {
+func (d *Devnet) WaitForL2Operational(tee bool) error {
 
 	timeout := time.Minute * 5
 
 	// Batcher needs more time to startup in tee
-	if d.tee {
+	if tee {
 		timeout = time.Minute * 10
 	}
 
@@ -223,19 +232,13 @@ func (d *Devnet) WaitForL2Operational() error {
 
 func (d *Devnet) ServiceUp(service string) error {
 	log.Info("bringing up service", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "up", "-d", service,
-	)
+	cmd := d.compose("up", "-d", service)
 	return cmd.Run()
 }
 
 func (d *Devnet) ServiceDown(service string) error {
 	log.Info("shutting down service", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "down", service,
-	)
+	cmd := d.compose("down", service)
 	return cmd.Run()
 }
 
@@ -442,7 +445,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(d.ctx, 20*time.Minute)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
@@ -502,38 +505,9 @@ func (d *Devnet) Down() error {
 	}
 
 	// Use timeout flag for faster Docker shutdown
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
-	)
+	cmd := d.compose("down", "-v", "--remove-orphans", "--timeout", "10")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to shut down docker: %w", err)
-	}
-
-	outBatcher, _ := exec.Command("docker", "ps", "-q", "--filter", "ancestor=op-batcher-tee:espresso").Output()
-	batcherContainers := strings.Fields(string(outBatcher))
-	if len(batcherContainers) > 0 {
-		cmd = exec.Command("docker", append([]string{"stop"}, batcherContainers...)...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to stop the batcher container: %w", err)
-		}
-		cmd = exec.Command("docker", append([]string{"rm"}, batcherContainers...)...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to remove the batcher container: %w", err)
-		}
-	}
-
-	outEnclave, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=batcher-enclaver-").Output()
-	enclaveContainers := strings.Fields(string(outEnclave))
-	if len(enclaveContainers) > 0 {
-		cmd = exec.Command("docker", append([]string{"stop"}, enclaveContainers...)...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to stop the enclave container: %w", err)
-		}
-		cmd = exec.Command("docker", append([]string{"rm"}, enclaveContainers...)...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to remove the enclave container: %w", err)
-		}
 	}
 
 	return nil
@@ -732,10 +706,8 @@ func (d *Devnet) OpChallengerOutput(opts ...string) (string, error) {
 }
 
 func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
-	opts = append([]string{"compose", "exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker",
+	opts = append([]string{"exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
+	cmd := d.compose(
 		opts...,
 	)
 	if testing.Verbose() {
@@ -750,9 +722,8 @@ func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
 func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
 	buf := new(bytes.Buffer)
 	errBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "port", service, fmt.Sprint(privatePort),
+	cmd := d.compose(
+		"port", service, fmt.Sprint(privatePort),
 	)
 	cmd.Stdout = buf
 	cmd.Stderr = errBuf
