@@ -14,26 +14,13 @@ contract BatchInbox is Ownable {
     /// @notice Contract responsible for authenticating TEE batch commitments.
     IBatchAuthenticator public immutable batchAuthenticator;
 
-    /// @notice Flag indicating which batcher is currently active.
-    /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
-    bool public activeIsTee;
-
-    /// @notice Initializes the contract with the TEE and non-TEE batcher addresses
-    ///         and the batch authenticator.
-    /// @param _nonTeeBatcher Address of the non-TEE batcher.
+    /// @notice Initializes the contract with the batch authenticator.
     /// @param _batchAuthenticator Address of the batch authenticator contract.
-    constructor(address _nonTeeBatcher, IBatchAuthenticator _batchAuthenticator, address _owner) Ownable() {
-        require(_nonTeeBatcher != address(0), "BatchInbox: zero address for non tee batcher");
+    constructor(IBatchAuthenticator _batchAuthenticator, address _owner) Ownable() {
+        address _nonTeeBatcher = _batchAuthenticator.nonTeeBatcher();
         nonTeeBatcher = _nonTeeBatcher;
         batchAuthenticator = _batchAuthenticator;
-        // By default, start with the TEE batcher active
-        activeIsTee = true;
         _transferOwnership(_owner);
-    }
-
-    /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
-    function switchBatcher() external onlyOwner {
-        activeIsTee = !activeIsTee;
     }
 
     /// @notice Fallback entry point for batch submissions.
@@ -43,7 +30,7 @@ contract BatchInbox is Ownable {
     ///      is enforced.
     fallback() external {
         // TEE batchers require batch authentication
-        if (activeIsTee) {
+        if (batchAuthenticator.activeIsTee()) {
             if (blobhash(0) != 0) {
                 bytes memory concatenatedHashes = new bytes(0);
                 uint256 currentBlob = 0;

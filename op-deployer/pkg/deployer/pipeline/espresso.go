@@ -51,6 +51,7 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		Salt:             st.Create2Salt,
 		NitroTEEVerifier: nvo.NitroTEEVerifierAddress,
 		NonTeeBatcher:    chainIntent.NonTeeBatcher,
+		TeeBatcher:       chainIntent.TeeBatcher,
 	}, batchAuthenticatorOwnwerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)

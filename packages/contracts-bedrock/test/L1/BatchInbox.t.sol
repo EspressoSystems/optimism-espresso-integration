@@ -6,19 +6,24 @@ import { Test } from "forge-std/Test.sol";
 
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
+import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { MockNitroTEEVerifier, MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
 
-/// @title MockBatchAuthenticator
-/// @notice Mock implementation for testing - only implements validBatchInfo
-contract MockBatchAuthenticator {
-    mapping(bytes32 => bool) private isHashValid;
+contract TestBatchAuthenticator is BatchAuthenticator {
+    constructor(
+        IEspressoTEEVerifier _espressoTEEVerifier,
+        address _teeBatcher,
+        address _nonTeeBatcher,
+        address _owner
+    )
+        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
+    { }
 
+    // Test helper to bypass signature verification in authenticateBatchInfo.
     function setValidBatchInfo(bytes32 hash, bool valid) external {
-        isHashValid[hash] = valid;
-    }
-
-    function validBatchInfo(bytes32 hash) external view returns (bool) {
-        return isHashValid[hash];
+        validBatchInfo[hash] = valid;
     }
 }
 
@@ -26,7 +31,10 @@ contract MockBatchAuthenticator {
 /// @notice Base test contract with common setup
 contract BatchInbox_Test is Test {
     BatchInbox public inbox;
-    MockBatchAuthenticator public authenticator;
+    TestBatchAuthenticator public authenticator;
+
+    MockNitroTEEVerifier public nitroVerifier;
+    MockEspressoTEEVerifier public teeVerifier;
 
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
@@ -34,72 +42,50 @@ contract BatchInbox_Test is Test {
     address public unauthorized = address(0xDEAD);
 
     function setUp() public virtual {
-        authenticator = new MockBatchAuthenticator();
-        inbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(address(authenticator)), deployer);
+        nitroVerifier = new MockNitroTEEVerifier();
+        teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
+
+        vm.prank(deployer);
+        authenticator =
+            new TestBatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+
+        inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
     }
 }
 
-/// @title BatchInbox_Constructor_Test
-/// @notice Tests for the BatchInbox constructor
-contract BatchInbox_Constructor_Test is Test {
-    address nonTeeBatcher = address(0x5678);
-    address batchAuthenticator = address(0x9ABC);
-    address owner = address(0xABCD);
-
-    /// @notice Test that constructor reverts when non-TEE batcher is zero address
-    function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
-        vm.expectRevert("BatchInbox: zero address for non tee batcher");
-        new BatchInbox(address(0), IBatchAuthenticator(batchAuthenticator), owner);
-    }
-
-    /// @notice Test that constructor succeeds with valid addresses
-    function test_constructor_succeedsWithValidAddresses() external {
-        BatchInbox testInbox = new BatchInbox(nonTeeBatcher, IBatchAuthenticator(batchAuthenticator), owner);
-
-        assertEq(testInbox.nonTeeBatcher(), nonTeeBatcher, "Non-TEE batcher should match");
-        assertEq(address(testInbox.batchAuthenticator()), batchAuthenticator, "Batch authenticator should match");
-        assertTrue(testInbox.activeIsTee(), "Active batcher should be TEE by default");
+/// @notice Minimal authenticator mock that returns a zero non-TEE batcher.
+contract ConstructorMockBatchAuthenticatorZeroNonTee {
+    function nonTeeBatcher() external pure returns (address) {
+        return address(0);
     }
 }
 
-/// @title BatchInbox_SwitchBatcher_Test
-/// @notice Tests for switching between batchers
-contract BatchInbox_SwitchBatcher_Test is BatchInbox_Test {
-    /// @notice Test that switchBatcher toggles the active batcher
-    function test_switchBatcher_togglesActiveBatcher() external {
-        // Initially TEE batcher is active
-        assertTrue(inbox.activeIsTee(), "Should start with TEE batcher active");
+/// @notice Minimal authenticator mock that returns a configured non-TEE batcher.
+contract ConstructorMockBatchAuthenticatorNonZero {
+    address public nonTeeBatcherValue;
 
-        // Switch to non-TEE batcher
-        vm.prank(deployer);
-        inbox.switchBatcher();
-        assertFalse(inbox.activeIsTee(), "Should switch to non-TEE batcher");
-
-        // Switch back to TEE batcher
-        vm.prank(deployer);
-        inbox.switchBatcher();
-        assertTrue(inbox.activeIsTee(), "Should switch back to TEE batcher");
+    constructor(address _nonTeeBatcherValue) {
+        nonTeeBatcherValue = _nonTeeBatcherValue;
     }
 
-    /// @notice Test that only the owner can switch the active batcher
-    function test_switchBatcher_revertsForNonOwner() external {
-        // Initially TEE batcher is active
-        assertTrue(inbox.activeIsTee(), "Should start with TEE batcher active");
-
-        vm.prank(unauthorized);
-        vm.expectRevert("Ownable: caller is not the owner");
-        inbox.switchBatcher();
+    function nonTeeBatcher() external view returns (address) {
+        return nonTeeBatcherValue;
     }
 }
 
 /// @title BatchInbox_Fallback_Test
 /// @notice Tests for the fallback function
+/// @dev Behavior matrix:
+///      - When the TEE batcher is active (`activeIsTee == true`), any caller must provide
+///        a previously authenticated batch commitment via `batchAuthenticator.validBatchInfo`.
+///      - When the non-TEE batcher is active (`activeIsTee == false`), only `nonTeeBatcher`
+///        may send batches and no additional authentication is required.
 contract BatchInbox_Fallback_Test is BatchInbox_Test {
     /// @notice Test that non-TEE batcher can post after switching
     function test_fallback_nonTeeBatcherCanPostAfterSwitch() external {
         // Switch to non-TEE batcher
         vm.prank(deployer);
-        inbox.switchBatcher();
+        authenticator.switchBatcher();
 
         // Non-TEE batcher should be able to post
         vm.prank(nonTeeBatcher);
@@ -111,7 +97,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     function test_fallback_inactiveBatcherReverts() external {
         // Switch to non-TEE batcher (making TEE batcher inactive)
         vm.prank(deployer);
-        inbox.switchBatcher();
+        authenticator.switchBatcher();
 
         // TEE batcher (now inactive) should revert
         vm.prank(teeBatcher);
@@ -159,10 +145,11 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     function test_fallback_nonTeeBatcherDoesNotRequireAuth() external {
         // Switch to non-TEE batcher
         vm.prank(deployer);
-        inbox.switchBatcher();
+        authenticator.switchBatcher();
 
         bytes memory data = "no-auth-needed";
-        // Don't set any authentication
+        bytes32 hash = keccak256(data);
+        authenticator.setValidBatchInfo(hash, false);
 
         // Non-TEE batcher should succeed without authentication
         vm.prank(nonTeeBatcher);
@@ -174,9 +161,26 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
     function test_fallback_unauthorizedAddressReverts() external {
         // Switch to non-TEE batcher. In this case the batch inbox should revert if the batcher is not authorized.
         vm.prank(deployer);
-        inbox.switchBatcher();
+        authenticator.switchBatcher();
         vm.prank(unauthorized);
         (bool success,) = address(inbox).call("unauthorized");
         assertFalse(success, "Unauthorized should revert when non-TEE is active");
+    }
+
+    /// @notice Test that non-TEE batcher is rejected while TEE batcher is active if batch is not authenticated
+    function test_fallback_nonTeeBatcherRevertsWhenTeeActiveAndUnauthenticated() external {
+        // By default, the TEE batcher is active (activeIsTee == true).
+        bytes memory data = "nontee-unauth";
+        bytes32 hash = keccak256(data);
+
+        // Ensure this batch is not marked as valid in the authenticator.
+        authenticator.setValidBatchInfo(hash, false);
+
+        // Even though nonTeeBatcher is the configured non-TEE batcher, it must provide
+        // a previously authenticated batch when the TEE batcher is active.
+        vm.prank(nonTeeBatcher);
+        (bool success, bytes memory returnData) = address(inbox).call(data);
+        assertFalse(success, "Should revert when TEE is active and batch is not authenticated");
+        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", "Invalid calldata batch")));
     }
 }
