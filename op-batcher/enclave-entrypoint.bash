@@ -25,6 +25,12 @@ fi
 # Keep HTTP_PROXY set so Go's net/http client uses it for all requests
 export HTTP_PROXY="$http_proxy"
 export HTTPS_PROXY="$http_proxy"
+# Don't proxy local/internal services
+export NO_PROXY="localhost,127.0.0.1,host,.private"
+
+echo "HTTP_PROXY=$HTTP_PROXY"
+echo "HTTPS_PROXY=$HTTPS_PROXY"
+echo "NO_PROXY=$NO_PROXY"
 
 # Store the original arguments from ENCLAVE_BATCHER_ARGS
 original_args=("$@")
