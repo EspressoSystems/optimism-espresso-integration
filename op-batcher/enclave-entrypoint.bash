@@ -36,7 +36,18 @@ else
   exit 1
 fi
 
-unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
+# IMPORTANT: Keep the proxy environment variables so Go's HTTP client can use them
+# This way, the client will send CONNECT requests through the proxy while preserving
+# the original hostname in SNI and Host headers
+echo "[DEBUG] Preserving proxy environment variables for Go HTTP client" >&2
+export HTTPS_PROXY="$http_proxy"
+export HTTP_PROXY="$http_proxy"
+export https_proxy="$http_proxy"
+export NO_PROXY="localhost,127.0.0.1,::1,host"
+export no_proxy="$NO_PROXY"
+echo "[DEBUG] Set HTTP_PROXY=$HTTP_PROXY and HTTPS_PROXY=$HTTPS_PROXY" >&2
+echo "[DEBUG] Set NO_PROXY=$NO_PROXY for local services" >&2
+echo "[DEBUG] Go's HTTP client will use proxy for external URLs with proper SNI/Host headers" >&2
 
 # Store the original arguments from ENCLAVE_BATCHER_ARGS
 original_args=("$@")
@@ -174,24 +185,47 @@ while [ $# -gt 0 ]; do
         value="$1"
       fi
 
+      # Determine if this URL needs rewriting (only local URLs need socat)
+      # External URLs will use HTTP_PROXY directly
+      needs_rewriting() {
+        local url="$1"
+        local host
+        host="$(trurl --url "$url" --get "{host}")" || return 1
+        # Only rewrite localhost/127.0.0.1 addresses that need to be mapped to "host"
+        if [[ "$host" == "localhost" ]] || [[ "$host" == "127.0.0.1" ]] || [[ "$host" == "::1" ]]; then
+          return 0  # needs rewriting
+        fi
+        return 1  # external URL, use HTTP_PROXY
+      }
+
       # Handle comma-separated values for any flag
       if [[ "$value" == *","* ]]; then
         IFS=',' read -r -a parts <<< "$value"
         for part in "${parts[@]}"; do
-          if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
-            echo "Failed to launch socat for $flag=$part"; exit 1
+          if needs_rewriting "$part"; then
+            if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
+              echo "Failed to launch socat for $flag=$part"; exit 1
+            fi
+            echo "Rewritten (local): $new_url"
+            url_args+=("${flag}=${new_url}")
+            ((SOCAT_PORT++))
+          else
+            echo "[DEBUG] Keeping external URL unchanged (will use HTTP_PROXY): $part" >&2
+            url_args+=("${flag}=${part}")
           fi
-          echo "Rewritten: $new_url"
-          url_args+=("${flag}=${new_url}")
-          ((SOCAT_PORT++))
         done
       else
-        if ! new_url=$(launch_socat "$value" "$SOCAT_PORT"); then
-          echo "Failed to launch socat for $flag=$value"; exit 1
+        if needs_rewriting "$value"; then
+          if ! new_url=$(launch_socat "$value" "$SOCAT_PORT"); then
+            echo "Failed to launch socat for $flag=$value"; exit 1
+          fi
+          echo "Rewritten (local): $new_url"
+          url_args+=("$flag" "$new_url")
+          ((SOCAT_PORT++))
+        else
+          echo "[DEBUG] Keeping external URL unchanged (will use HTTP_PROXY): $value" >&2
+          url_args+=("$flag" "$value")
         fi
-        echo "Rewritten: $new_url"
-        url_args+=("$flag" "$new_url")
-        ((SOCAT_PORT++))
       fi
     else
       filtered_args+=("$1")
