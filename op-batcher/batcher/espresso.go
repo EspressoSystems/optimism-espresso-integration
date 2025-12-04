@@ -1058,14 +1058,15 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		}
 
 		l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
-		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-			TxData: txData,
-			To:     &certManagerAddress,
-		})
+		// Sishan TODO: skip now as this will run out-of-gas, going to replace it with zk tee nitro verifier later
+		// _, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+		// 	TxData: txData,
+		// 	To:     &certManagerAddress,
+		// })
 
-		if err != nil {
-			return fmt.Errorf("verify certificate transaction failed: %w", err)
-		}
+		// if err != nil {
+		// 	return fmt.Errorf("verify certificate transaction failed: %w", err)
+		// }
 	}
 
 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
