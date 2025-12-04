@@ -985,6 +985,7 @@ func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certMa
 	}
 }
 
+// Sishan TODO: skip lots of verification for now as this will run out-of-gas, going to replace it with zk tee nitro verifier later
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -1040,50 +1041,49 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
 	}
 
-	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
-	// that could happen if CertManager verifies the whole certificate chain in one transaction.
+	// // Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
+	// // that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for i, cert := range l.Attestation.Document.CABundle {
-		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
-		if err != nil {
-			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
-		}
+	// for i, cert := range l.Attestation.Document.CABundle {
+	// 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to create verify certificate transaction: %w", err)
+	// 	}
 
-		parentCertHash = crypto.Keccak256Hash(cert)
+	// 	parentCertHash = crypto.Keccak256Hash(cert)
 
-		// If createVerifyCertTransaction returned nil, certificate is already verified
-		// and there's no need to send a verification transaction for this certificate
-		if txData == nil {
-			continue
-		}
+	// If createVerifyCertTransaction returned nil, certificate is already verified
+	// and there's no need to send a verification transaction for this certificate
+	// 	if txData == nil {
+	// 		continue
+	// 	}
 
-		l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
-		// Sishan TODO: skip now as this will run out-of-gas, going to replace it with zk tee nitro verifier later
-		// _, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-		// 	TxData: txData,
-		// 	To:     &certManagerAddress,
-		// })
+	// 	l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
+	// 	_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+	// 		TxData: txData,
+	// 		To:     &certManagerAddress,
+	// 	})
 
-		// if err != nil {
-		// 	return fmt.Errorf("verify certificate transaction failed: %w", err)
-		// }
-	}
+	// 	if err != nil {
+	// 		return fmt.Errorf("verify certificate transaction failed: %w", err)
+	// 	}
+	// }
 
 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
 	if err != nil {
 		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
 	}
-	if txData != nil {
-		l.Log.Info("Verifying Client Certificate")
-		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-			TxData: txData,
-			To:     &certManagerAddress,
-		})
+	// if txData != nil {
+	// 	l.Log.Info("Verifying Client Certificate")
+	// 	_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+	// 		TxData: txData,
+	// 		To:     &certManagerAddress,
+	// 	})
 
-		if err != nil {
-			return fmt.Errorf("verify client certificate transaction failed: %w", err)
-		}
-	}
+	// 	if err != nil {
+	// 		return fmt.Errorf("verify client certificate transaction failed: %w", err)
+	// 	}
+	// }
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
