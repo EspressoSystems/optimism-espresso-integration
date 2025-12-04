@@ -384,9 +384,6 @@ services:
       - --altda.enabled=true
       - --altda.da-server=http://eigenda-proxy:3100
       - --altda.da-service=true
-      - --altda.enabled=true
-      - --altda.da-server=http://eigenda-proxy:3100
-      - --altda.da-service=true
       - --altda.max-concurrent-da-requests=32
       - --altda.put-timeout=30s
       - --altda.get-timeout=30s
