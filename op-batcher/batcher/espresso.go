@@ -14,6 +14,7 @@ import (
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
+	// Sishan TODO: commented out due to we skip lots of certificate verification
 	// "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
