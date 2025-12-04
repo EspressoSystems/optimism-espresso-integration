@@ -12,9 +12,9 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	// Sishan TODO: commented out due to we skip lots of certificate verification
+	// "github.com/ethereum/go-ethereum/accounts/abi"
 	// "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -967,25 +967,27 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
+// Sishan TODO: Commented out due to certificate verification being skipped
+// Will be replaced with ZK verifier
 // createVerifyCertTransaction creates transactiondata to verify a certificate `cert` against provided certManager.
 // Returns (nil, nil) in case `cert` is already verified.
-func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
-	certHash := crypto.Keccak256Hash(cert)
-	verified, err := certManager.Verified(nil, certHash)
-	if err != nil {
-		return nil, err
-	}
+// func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
+// 	certHash := crypto.Keccak256Hash(cert)
+// 	verified, err := certManager.Verified(nil, certHash)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	if len(verified) != 0 {
-		return nil, nil
-	}
+// 	if len(verified) != 0 {
+// 		return nil, nil
+// 	}
 
-	if isCa {
-		return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
-	} else {
-		return certManagerAbi.Pack("verifyClientCert", cert, parentCertHash)
-	}
-}
+// 	if isCa {
+// 		return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
+// 	} else {
+// 		return certManagerAbi.Pack("verifyClientCert", cert, parentCertHash)
+// 	}
+// }
 
 // Sishan TODO: I've skipped lots of verification for now as this will run out-of-gas, will replace it with zk tee nitro verifier later
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
