@@ -2878,6 +2878,7 @@ workflows:
       #     context:
       #       - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks:
+          filters: "false"
           requires:
             - contracts-bedrock-build
           context:
@@ -2945,6 +2946,7 @@ workflows:
             - contracts-bedrock-build
             - cannon-prestate-quick
       - go-tests:
+          filters: "false"
           name: go-tests-short
           parallelism: 12
           no_output_timeout: 19m
@@ -3616,6 +3618,7 @@ workflows:
       # KURTOSIS (Simple)
       - op-acceptance-tests:
           # Acceptance Testing params
+          filters: "false"
           name: kurtosis-simple
           devnet: simple
           gate: base
