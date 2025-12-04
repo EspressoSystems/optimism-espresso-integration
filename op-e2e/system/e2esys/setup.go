@@ -1023,12 +1023,12 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		batcherTargetNumFrames = 1
 	}
 
-	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
+	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pre-approved batcher private key: %w", err)
 	}
 	espressoCfg := espresso.CLIConfig{
-		Enabled:                  (cfg.AllocType == config.AllocTypeEspressoWithEnclave) || (cfg.AllocType == config.AllocTypeEspressoWithoutEnclave),
+		Enabled:                  (cfg.AllocType == config.AllocTypeEspresso) || (cfg.AllocType == config.AllocTypeEspressoWithEnclave) || (cfg.AllocType == config.AllocTypeEspressoWithoutEnclave),
 		PollInterval:             250 * time.Millisecond,
 		L1URL:                    sys.EthInstances[RoleL1].UserRPC().RPC(),
 		RollupL1URL:              sys.EthInstances[RoleL1].UserRPC().RPC(),

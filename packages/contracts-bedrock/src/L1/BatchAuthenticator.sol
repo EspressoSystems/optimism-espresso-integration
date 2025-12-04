@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.28;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
-import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 
 interface INitroValidator {
@@ -22,20 +21,46 @@ contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Mapping of batches verified by this contract
     mapping(bytes32 => bool) public validBatchInfo;
 
-    address public immutable preApprovedBatcher;
+    /// @notice Address of the TEE batcher whose signatures may authenticate batches.
+    address public immutable teeBatcher;
 
-    EspressoTEEVerifier public immutable espressoTEEVerifier;
+    /// @notice Address of the non-TEE (fallback) batcher that can post when TEE is inactive.
+    address public immutable nonTeeBatcher;
+
+    IEspressoTEEVerifier public immutable espressoTEEVerifier;
     INitroValidator public immutable nitroValidator;
 
-    constructor(EspressoTEEVerifier _espressoTEEVerifier, address _preApprovedBatcher, address _owner) Ownable() {
+    /// @notice Flag indicating which batcher is currently active.
+    /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
+    bool public activeIsTee;
+
+    constructor(
+        IEspressoTEEVerifier _espressoTEEVerifier,
+        address _teeBatcher,
+        address _nonTeeBatcher,
+        address _owner
+    )
+        Ownable()
+    {
+        require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
+        require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
+
         espressoTEEVerifier = _espressoTEEVerifier;
-        preApprovedBatcher = _preApprovedBatcher;
+        teeBatcher = _teeBatcher;
+        nonTeeBatcher = _nonTeeBatcher;
         nitroValidator = INitroValidator(address(espressoTEEVerifier.espressoNitroTEEVerifier()));
+        // By default, start with the TEE batcher active.
+        activeIsTee = true;
         _transferOwnership(_owner);
     }
 
     function decodeAttestationTbs(bytes memory attestation) external view returns (bytes memory, bytes memory) {
         return nitroValidator.decodeAttestationTbs(attestation);
+    }
+
+    /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
+    function switchBatcher() external onlyOwner {
+        activeIsTee = !activeIsTee;
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
@@ -52,7 +77,7 @@ contract BatchAuthenticator is ISemver, Ownable {
             revert("Invalid signature");
         }
 
-        if (!espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer) && signer != preApprovedBatcher) {
+        if (!espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer) && signer != teeBatcher) {
             revert("Invalid signer");
         }
 
