@@ -14,8 +14,9 @@ import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier
 
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
-    address internal _preApprovedBatcherKey;
     address internal _nitroTEEVerifier;
+    address internal _nonTeeBatcher;
+    address internal _teeBatcher;
 
     function set(bytes4 _sel, bytes32 _val) public {
         if (_sel == this.salt.selector) _salt = _val;
@@ -23,10 +24,12 @@ contract DeployEspressoInput is BaseDeployIO {
     }
 
     function set(bytes4 _sel, address _val) public {
-        if (_sel == this.preApprovedBatcherKey.selector) {
-            _preApprovedBatcherKey = _val;
-        } else if (_sel == this.nitroTEEVerifier.selector) {
+        if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
+        } else if (_sel == this.nonTeeBatcher.selector) {
+            _nonTeeBatcher = _val;
+        } else if (_sel == this.teeBatcher.selector) {
+            _teeBatcher = _val;
         } else {
             revert("DeployEspressoInput: unknown selector");
         }
@@ -41,8 +44,12 @@ contract DeployEspressoInput is BaseDeployIO {
         return _nitroTEEVerifier;
     }
 
-    function preApprovedBatcherKey() public view returns (address) {
-        return _preApprovedBatcherKey;
+    function nonTeeBatcher() public view returns (address) {
+        return _nonTeeBatcher;
+    }
+
+    function teeBatcher() public view returns (address) {
+        return _teeBatcher;
     }
 }
 
@@ -76,7 +83,7 @@ contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
-        deployBatchInbox(input, output, batchAuthenticator);
+        deployBatchInbox(input, output, batchAuthenticator, deployerAddress);
         checkOutput(output);
     }
 
@@ -90,7 +97,6 @@ contract DeployEspresso is Script {
         returns (IBatchAuthenticator)
     {
         bytes32 salt = input.salt();
-        address preApprovedBatcherKey = input.preApprovedBatcherKey();
         vm.broadcast(msg.sender);
         IBatchAuthenticator impl = IBatchAuthenticator(
             DeployUtils.create2({
@@ -98,7 +104,8 @@ contract DeployEspresso is Script {
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
                     abi.encodeCall(
-                        IBatchAuthenticator.__constructor__, (address(teeVerifier), preApprovedBatcherKey, owner)
+                        IBatchAuthenticator.__constructor__,
+                        (address(teeVerifier), input.teeBatcher(), input.nonTeeBatcher(), owner)
                     )
                 )
             })
@@ -124,7 +131,8 @@ contract DeployEspresso is Script {
     function deployBatchInbox(
         DeployEspressoInput input,
         DeployEspressoOutput output,
-        IBatchAuthenticator batchAuthenticator
+        IBatchAuthenticator batchAuthenticator,
+        address owner
     )
         public
     {
@@ -135,7 +143,7 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator)))
+                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator), owner))
                 )
             })
         );
