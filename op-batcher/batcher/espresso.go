@@ -985,7 +985,7 @@ func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certMa
 	}
 }
 
-// Sishan TODO: skip lots of verification for now as this will run out-of-gas, going to replace it with zk tee nitro verifier later
+// Sishan TODO: I've skipped lots of verification for now as this will run out-of-gas, will replace it with zk tee nitro verifier later
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -1041,8 +1041,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
 	}
 
-	// // Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
-	// // that could happen if CertManager verifies the whole certificate chain in one transaction.
+	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
+	// that could happen if CertManager verifies the whole certificate chain in one transaction.
 	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
 	// for i, cert := range l.Attestation.Document.CABundle {
 	// 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
