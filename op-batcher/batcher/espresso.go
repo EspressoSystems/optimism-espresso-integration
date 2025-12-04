@@ -232,7 +232,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 	}
 
 	if !errors.Is(err, espressoClient.ErrEphemeral) {
-		// Log the warning for a potentially missed error handling, but stil retry it.
+		// Log the warning for a potentially missed error handling, but still retry it.
 		log.Warn("error not explicitly marked as retryable or not", "err", err)
 	}
 
