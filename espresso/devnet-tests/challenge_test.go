@@ -28,23 +28,15 @@ func TestChallengeGame(t *testing.T) {
 	// Verify devnet is running and generate some L2 activity
 	require.NoError(t, d.RunSimpleL2Burn())
 
-	// Generate additional transactions to ensure blocks are produced
-	// The proposer will decide when to create games based on its own logic
-	t.Log("Generating L2 activity...")
-	for i := 0; i < 15; i++ {
-		_, _ = d.SubmitSimpleL2Burn()
-		time.Sleep(2 * time.Second)
-	}
-
 	// Wait a bit for blocks to be produced and batched
 	t.Log("Waiting for blocks to be produced and batched...")
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// Wait for the succinct proposer to create a dispute game
 	// The proposer creates games when safe L2 head >= anchor + proposal_interval (3 blocks)
 	t.Log("Waiting for succinct-proposer to create a dispute game...")
 	var games []ChallengeGame
-	maxGameWait := 3 * time.Minute
+	maxGameWait := 2 * time.Minute
 	gameWaitStart := time.Now()
 
 	for len(games) == 0 {
@@ -53,13 +45,12 @@ func TestChallengeGame(t *testing.T) {
 		}
 
 		t.Logf("waiting for a challenge game to be created by succinct-proposer...")
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		var err error
 		games, err = d.ListChallengeGames()
 		if err != nil {
 			t.Logf("error listing games (will retry): %v", err)
-			continue
 		}
 	}
 
