@@ -23,7 +23,9 @@ interface IBatchAuthenticator {
 
     function owner() external view returns (address);
 
-    function preApprovedBatcher() external view returns (address);
+    function teeBatcher() external view returns (address);
+
+    function nonTeeBatcher() external view returns (address);
 
     function registerSigner(
         bytes memory attestationTbs,
@@ -36,9 +38,14 @@ interface IBatchAuthenticator {
 
     function validBatchInfo(bytes32) external view returns (bool);
 
+    function activeIsTee() external view returns (bool);
+
+    function switchBatcher() external;
+
     function __constructor__(
         address _espressoTEEVerifier,
-        address _preApprovedBatcher,
+        address _teeBatcher,
+        address _nonTeeBatcher,
         address _owner
     ) external;
 }

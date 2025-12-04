@@ -88,8 +88,9 @@ type ChainIntent struct {
 	L2DevGenesisParams *L2DevGenesisParams `json:"l2DevGenesisParams,omitempty" toml:"l2DevGenesisParams,omitempty"`
 
 	// Espresso-specific fields
-	EspressoEnabled       bool           `json:"espressoEnabled,omitzero" toml:"espressoEnabled,omitzero"`
-	PreApprovedBatcherKey common.Address `json:"preApprovedBatcherKey,omitzero" toml:"preApprovedBatcherKey,omitzero"`
+	EspressoEnabled bool           `json:"espressoEnabled,omitzero" toml:"espressoEnabled,omitzero"`
+	NonTeeBatcher   common.Address `json:"nonTeeBatcher,omitzero" toml:"nonTeeBatcher,omitzero"`
+	TeeBatcher      common.Address `json:"teeBatcher,omitzero" toml:"teeBatcher,omitzero"`
 }
 
 type ChainRoles struct {

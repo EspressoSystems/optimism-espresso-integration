@@ -36,6 +36,9 @@ golint:
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
 
+run-l1-espresso-contracts-tests: compile-contracts
+ (cd packages/contracts-bedrock && forge test --match-path "/**/test/L1/Batch*.t.sol")
+
 compile-contracts-fast:
  (cd packages/contracts-bedrock && forge build --offline --skip "/**/test/**")
 
