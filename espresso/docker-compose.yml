@@ -391,9 +391,6 @@ services:
       - --altda.put-timeout=30s
       - --altda.get-timeout=30s
       - --data-availability-type=calldata
-      - --altda.put-timeout=30s
-      - --altda.get-timeout=30s
-      - --data-availability-type=calldata
 
   op-batcher-tee:
     profiles: ["tee"]
