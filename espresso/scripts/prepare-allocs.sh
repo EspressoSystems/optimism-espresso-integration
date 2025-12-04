@@ -73,7 +73,11 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --outdir ${DEPLOYER_DIR}
 
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].preApprovedBatcherKey -v "${OPERATOR_ADDRESS}"
+
+# Configure Espresso batchers for devnet. We reuse the operator address for both
+# the non-TEE and TEE batchers to ensure they are non-zero and consistent.
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].nonTeeBatcher -v "${OPERATOR_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].teeBatcher -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`
