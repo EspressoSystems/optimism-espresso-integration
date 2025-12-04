@@ -14,7 +14,6 @@ import (
 // TestChallengeGame verifies that the succinct proposer creates dispute games
 // and that games can be queried from the DisputeGameFactory contract.
 // The succinct proposer needs finalized L2 blocks before creating games.
-// With the minimal beacon preset, L1 finality takes ~48 seconds (2 epochs × 8 slots × 3s).
 func TestChallengeGame(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
