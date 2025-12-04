@@ -1,0 +1,49 @@
+name: L1 Contracts Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "celo-integration*"
+      - "main"
+      - "develop"
+  workflow_dispatch:
+
+jobs:
+  contracts-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9
+
+      - name: Install Just
+        uses: extractions/setup-just@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        working-directory: packages/contracts-bedrock
+        run: just install
+
+      - name: Build go-ffi
+        working-directory: packages/contracts-bedrock
+        run: just build-go-ffi
+
+      - name: Check formatting
+        working-directory: packages/contracts-bedrock
+        run: forge fmt --check
+
+      - name: Run L1 contracts tests
+        working-directory: packages/contracts-bedrock
+        run: forge test --match-path "test/L1/*.t.sol" -vv
+
