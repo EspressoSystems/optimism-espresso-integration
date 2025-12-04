@@ -86,6 +86,8 @@ jobs:
   build-l1-geth:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    # Only build on push to celo-integration* branches, skip on PRs to save time
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -130,6 +132,7 @@ jobs:
   build-op-geth:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -174,6 +177,7 @@ jobs:
   build-op-node:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -229,6 +233,7 @@ jobs:
   build-op-batcher:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -284,6 +289,7 @@ jobs:
   build-op-proposer:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -412,6 +418,7 @@ jobs:
   build-op-proposer-tee:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -473,6 +480,7 @@ jobs:
   build-op-deployer:
     needs: prepare-deployment
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
