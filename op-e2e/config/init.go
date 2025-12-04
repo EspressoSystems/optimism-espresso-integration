@@ -37,7 +37,7 @@ import (
 	_ "embed"
 )
 
-const ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+const ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
 
 // legacy geth log levels - the geth command line --verbosity flag wasn't
 // migrated to use slog's numerical levels.
@@ -273,17 +273,15 @@ func initAllocType(root string, allocType AllocType) {
 				}
 			}
 
-			if allocType == AllocTypeEspressoWithoutEnclave {
-				batcherPk, err := crypto.HexToECDSA(ESPRESSO_PRE_APPROVED_BATCHER_PRIVATE_KEY)
+			// Configure Espresso allocation types
+			if allocType == AllocTypeEspressoWithoutEnclave || allocType == AllocTypeEspressoWithEnclave {
+				batcherPk, err := crypto.HexToECDSA(ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
 				}
 				intent.Chains[0].EspressoEnabled = true
-				intent.Chains[0].PreApprovedBatcherKey = crypto.PubkeyToAddress(batcherPk.PublicKey)
-			}
-
-			if allocType == AllocTypeEspressoWithEnclave {
-				intent.Chains[0].EspressoEnabled = true
+				intent.Chains[0].NonTeeBatcher = crypto.PubkeyToAddress(batcherPk.PublicKey)
+				intent.Chains[0].TeeBatcher = crypto.PubkeyToAddress(batcherPk.PublicKey)
 			}
 
 			baseUpgradeSchedule := map[string]any{

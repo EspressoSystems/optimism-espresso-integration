@@ -1800,12 +1800,14 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - discord
       - contracts-bedrock-tests:
+          filters: "false"
           # Test everything except PreimageOracle.t.sol since it's slow.
           name: contracts-bedrock-tests
           test_list: find test -name "*.t.sol" -not -name "PreimageOracle.t.sol"
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests:
+          filters: "false"
           # PreimageOracle test is slow, run it separately to unblock CI.
           name: contracts-bedrock-tests-preimage-oracle
           test_list: find test -name "PreimageOracle.t.sol"
@@ -1831,6 +1833,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks:
+          filters: "false"
           requires:
             - contracts-bedrock-build
           context:
@@ -1878,6 +1881,7 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - go-tests:
+          filters: "false"
           name: go-tests-short
           no_output_timeout: 19m
           test_timeout: 20m
@@ -2279,6 +2283,7 @@ workflows:
       - op-acceptance-tests:
           # Acceptance Testing params
           name: kurtosis-simple
+          filters: "false"
           devnet: simple
           gate: base
           # CircleCI params
@@ -2290,6 +2295,7 @@ workflows:
       - op-acceptance-tests:
           # Acceptance Testing params
           name: kurtosis-isthmus
+          filters: "false"
           devnet: isthmus
           gate: isthmus
           # CircleCI params
@@ -2301,6 +2307,7 @@ workflows:
       - op-acceptance-tests:
           # Acceptance Testing params
           name: kurtosis-interop
+          filters: "false"
           devnet: interop
           gate: interop
           # CircleCI params
@@ -2324,6 +2331,7 @@ workflows:
       # KURTOSIS (Simple)
       - op-acceptance-tests:
           # Acceptance Testing params
+          filters: "false"
           name: kurtosis-simple
           devnet: simple
           gate: base
@@ -2336,6 +2344,7 @@ workflows:
       - op-acceptance-tests:
           # Acceptance Testing params
           name: kurtosis-isthmus
+          filters: "false"
           devnet: isthmus
           gate: isthmus
           # CircleCI params
