@@ -13,7 +13,8 @@ import (
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
+	// "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1001,49 +1002,49 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("No contract deployed at this address %w", err)
 	}
 
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create BatchAuthenticator contract bindings: %w", err)
-	}
+	// batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create BatchAuthenticator contract bindings: %w", err)
+	// }
 
-	verifierAddress, err := batchAuthenticator.EspressoTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get EspressoTEEVerifier address from BatchAuthenticator contract: %w", err)
-	}
+	// verifierAddress, err := batchAuthenticator.EspressoTEEVerifier(&bind.CallOpts{})
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get EspressoTEEVerifier address from BatchAuthenticator contract: %w", err)
+	// }
 
-	espressoTEEVerifier, err := bindings.NewEspressoTEEVerifierCaller(verifierAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create EspressoTEEVerifier contract bindings: %w", err)
-	}
+	// espressoTEEVerifier, err := bindings.NewEspressoTEEVerifierCaller(verifierAddress, l.L1Client)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create EspressoTEEVerifier contract bindings: %w", err)
+	// }
 
-	nitroVerifierAddress, err := espressoTEEVerifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get EspressoNitroTEEVerifier address from verifier contract: %w", err)
-	}
+	// nitroVerifierAddress, err := espressoTEEVerifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get EspressoNitroTEEVerifier address from verifier contract: %w", err)
+	// }
 
-	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifierCaller(nitroVerifierAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create EspressoNitroTEEVerifier contract bindings: %w", err)
-	}
+	// nitroVerifier, err := bindings.NewEspressoNitroTEEVerifierCaller(nitroVerifierAddress, l.L1Client)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create EspressoNitroTEEVerifier contract bindings: %w", err)
+	// }
 
-	certManagerAddress, err := nitroVerifier.CertManager(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get CertManager address from EspressoNitroTEEVerifier contract: %w", err)
-	}
+	// certManagerAddress, err := nitroVerifier.CertManager(&bind.CallOpts{})
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get CertManager address from EspressoNitroTEEVerifier contract: %w", err)
+	// }
 
-	certManager, err := bindings.NewCertManagerCaller(certManagerAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
-	}
+	// certManager, err := bindings.NewCertManagerCaller(certManagerAddress, l.L1Client)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
+	// }
 
-	certManagerAbi, err := bindings.CertManagerMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
-	}
+	// certManagerAbi, err := bindings.CertManagerMetaData.GetAbi()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
+	// }
 
 	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
 	// that could happen if CertManager verifies the whole certificate chain in one transaction.
-	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
+	// parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
 	// for i, cert := range l.Attestation.Document.CABundle {
 	// 	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
 	// 	if err != nil {
@@ -1069,10 +1070,10 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	// 	}
 	// }
 
-	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
-	if err != nil {
-		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
-	}
+	// txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
+	// }
 	// if txData != nil {
 	// 	l.Log.Info("Verifying Client Certificate")
 	// 	_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
@@ -1098,7 +1099,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	publicKeyHash := crypto.Keccak256Hash(l.Attestation.Document.PublicKey[1:])
 	enclaveAddress := common.BytesToAddress(publicKeyHash[12:])
 
-	txData, err = abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
+	txData, err := abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSignerWithoutAttestationVerification transaction: %w", err)
 	}
