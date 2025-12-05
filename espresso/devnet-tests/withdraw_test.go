@@ -293,7 +293,6 @@ func finalizeWithdrawal(d *Devnet, ctx context.Context, t *testing.T, userAddres
 
 func TestWithdrawal(t *testing.T) {
 	t.Skip("Temporarily skipped: Re-enable once Succinct Integration is investigated.")
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

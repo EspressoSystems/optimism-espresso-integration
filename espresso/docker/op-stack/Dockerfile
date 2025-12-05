@@ -126,8 +126,6 @@ RUN curl -L https://github.com/enclaver-io/enclaver/releases/download/v0.5.0/enc
 # Copy source code
 COPY --from=builder /app /source
 WORKDIR /source
-# Copy pre-built forge-artifacts from host (faster for development)
-COPY packages/contracts-bedrock/forge-artifacts /source/packages/contracts-bedrock/forge-artifacts
 # Include the deployment state for contract addresses
 COPY espresso/deployment/ /source/espresso/deployment/
 # Copy the run-enclave.sh script

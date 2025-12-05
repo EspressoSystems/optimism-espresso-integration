@@ -16,9 +16,10 @@ type DeployAWSNitroVerifierOutput struct {
 }
 
 type DeployEspressoInput struct {
-	Salt                  common.Hash
-	PreApprovedBatcherKey common.Address
-	NitroTEEVerifier      common.Address
+	Salt             common.Hash
+	NitroTEEVerifier common.Address
+	NonTeeBatcher    common.Address
+	TeeBatcher       common.Address
 }
 
 type DeployEspressoOutput struct {

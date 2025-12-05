@@ -29,11 +29,6 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -344,7 +339,7 @@ jobs:
 
   build-op-batcher-tee:
     needs: prepare-deployment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-8core
     permissions:
       contents: read
       packages: write
