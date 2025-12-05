@@ -1,8 +1,8 @@
 package batcher
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"context"
@@ -210,16 +210,13 @@ const (
 	Skip
 )
 
-// TODO (Keyao) Update the espresso-network-go repo for better error handling.
-// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210405729138484?focus=true>
-//
 // Evaluate the submission job.
 //
 // # Returns
 //
 // * If there is no error: Handle.
 //
-// * If there is an issue on our side: Skip.
+// * If there is a permanent issue that won't be fixed by a retry: Skip.
 //
 // * Otherwise: RetrySubmission.
 func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluation {
@@ -230,25 +227,13 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 		return Handle
 	}
 
-	msg := err.Error()
-
-	// If the transaction is invalid due to a JSON error, skip the submission.
-	if strings.Contains(msg, "json: unsupported type:") ||
-		strings.Contains(msg, "json: unsupported value:") ||
-		strings.Contains(msg, "json: error calling") ||
-		strings.Contains(msg, "json: invalid UTF-8 in string") ||
-		strings.Contains(msg, "json: invalid number literal") ||
-		strings.Contains(msg, "json: encoding error for type") {
-		log.Warn("json.Marshal fails, skipping", "msg", msg)
+	if errors.Is(err, espressoClient.ErrPermanent) {
 		return Skip
 	}
 
-	// If the request is invalid (likely due to API change), skip the submission.
-	if strings.Contains(msg, "net/http: nil Context") ||
-		strings.Contains(msg, "net/http: invalid method") ||
-		strings.HasPrefix(msg, "parse ") {
-		log.Warn("NewRequestWithContext fails, skipping", "msg", msg)
-		return Skip
+	if !errors.Is(err, espressoClient.ErrEphemeral) {
+		// Log the warning for a potentially missed error handling, but still retry it.
+		log.Warn("error not explicitly marked as retryable or not", "err", err)
 	}
 
 	// Otherwise, retry the submission.
@@ -319,16 +304,13 @@ const VERIFY_RECEIPT_TIMEOUT = 4 * time.Second
 // retrying a job that failed to verify the receipt.
 const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 
-// TODO (Keyao) Update the espresso-network-go repo for better error handling.
-// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1210405729138484?focus=true>
-//
 // Evaluate the verification job.
 //
 // # Returns
 //
 // * If there is no error: Handle.
 //
-// * If there is an issue on our side: Skip.
+// * If there is a permanent issue that won't be fixed by a retry: Skip.
 //
 // * If the verification times out: RetrySubmission.
 //
@@ -341,10 +323,13 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 		return Handle
 	}
 
-	// If the hash is invalid, skip the verification.
-	if strings.Contains(err.Error(), "hash is nil") {
-		log.Warn("Hash is nil, skipping")
+	if errors.Is(err, espressoClient.ErrPermanent) {
 		return Skip
+	}
+
+	if !errors.Is(err, espressoClient.ErrEphemeral) {
+		// Log the warning for a potentially missed error handling, but still retry it.
+		log.Warn("error not explicitly marked as retryable or not", "err", err)
 	}
 
 	// If the verification times out, degrade to the submission phase and try again.
