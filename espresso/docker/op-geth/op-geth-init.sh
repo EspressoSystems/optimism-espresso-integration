@@ -72,6 +72,8 @@ elif [ "$MODE" = "geth" ]; then
   echo "Starting OP Geth..."
   exec geth \
     --datadir=/data/geth \
+    --gcmode=archive \
+    --state.scheme=hash \
     --networkid=${L2_CHAIN_ID} \
     --http \
     --http.addr=0.0.0.0 \
