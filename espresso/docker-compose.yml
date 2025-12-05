@@ -446,8 +446,9 @@ services:
         export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
+  # Legacy op-proposer (for non-succinct mode)
   op-proposer:
-    profiles: ["default"]
+    profiles: ["legacy"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -472,6 +473,39 @@ services:
       OP_PROPOSER_MNEMONIC: "test test test test test test test test test test test junk"
       OP_PROPOSER_HD_PATH: "m/44'/60'/0'/0/1"
       OP_PROPOSER_GAME_TYPE: "1"
+
+  # Succinct proposer for ZK fault proofs
+  succinct-proposer:
+    profiles: ["default"]
+    image: ghcr.io/philippecamacho/proposer-eigenda:sha-42c9e14
+    depends_on:
+      l1-data-init:
+        condition: service_completed_successfully
+      l2-rollup:
+        condition: service_completed_successfully
+      op-node-sequencer:
+        condition: service_started
+      op-batcher:
+        condition: service_started
+      eigenda-proxy:
+        condition: service_started
+    volumes:
+      - ./deployment/deployer:/deployer:ro
+    env_file:
+      - ./deployment/deployer/succinct.env
+    environment:
+      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      L1_BEACON_RPC: http://l1-beacon:${L1_BEACON_PORT}
+      L2_RPC: http://op-geth-verifier:${OP_HTTP_PORT}
+      L2_NODE_RPC: http://op-node-verifier:${VERIFIER_PORT}
+      PRIVATE_KEY: ${PROPOSER_PRIVATE_KEY}
+      GAME_TYPE: "42"
+      PROPOSAL_INTERVAL_IN_BLOCKS: "3"
+      FETCH_INTERVAL: "10"
+      MOCK_MODE: "true"
+      USE_SAFE_HEAD_FOR_PROPOSALS: "true"
+      RUST_LOG: info
+    restart: unless-stopped
 
   op-proposer-tee:
     profiles: ["tee"]
@@ -500,8 +534,9 @@ services:
       OP_PROPOSER_HD_PATH: "m/44'/60'/0'/0/1"
       OP_PROPOSER_GAME_TYPE: "1"
 
+  # Legacy op-challenger (for non-succinct mode)
   op-challenger:
-    profiles: ["default"]
+    profiles: ["legacy"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -531,6 +566,42 @@ services:
       OP_CHALLENGER_CANNON_ROLLUP_CONFIG: /config/rollup.json
       OP_CHALLENGER_CANNON_L2_GENESIS: /config/genesis.json
       OP_CHALLENGER_TRACE_TYPE: permissioned
+
+  # Succinct challenger for ZK fault proofs
+  succinct-challenger:
+    profiles: ["default"]
+    image: ghcr.io/philippecamacho/challenger:sha-42c9e14
+    depends_on:
+      l1-geth:
+        condition: service_started
+      l1-beacon:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      op-geth-sequencer:
+        condition: service_started
+      op-node-verifier:
+        condition: service_started
+      op-geth-verifier:
+        condition: service_started
+      eigenda-proxy:
+        condition: service_started
+    volumes:
+      - ./deployment/deployer:/deployer:ro
+    env_file:
+      - ./deployment/deployer/succinct.env
+    environment:
+      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      L1_BEACON_RPC: http://l1-beacon:${L1_BEACON_PORT}
+      L2_RPC: http://op-geth-verifier:${OP_HTTP_PORT}
+      L2_NODE_RPC: http://op-node-verifier:${VERIFIER_PORT}
+      PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
+      GAME_TYPE: "42"
+      FETCH_INTERVAL: "10"
+      MOCK_MODE: "true"
+      DISABLE_MONITOR_ONLY: "true"
+      RUST_LOG: info
+    restart: unless-stopped
 
   eigenda-proxy:
     image: ghcr.io/layr-labs/eigenda-proxy:2.2.1
