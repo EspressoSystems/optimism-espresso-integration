@@ -593,29 +593,81 @@ func ParseChallengeGame(s string) (ChallengeGame, error) {
 }
 
 func (d *Devnet) ListChallengeGames() ([]ChallengeGame, error) {
-	output, err := d.OpChallengerOutput("list-games")
+	// Succinct only supports contract-based query
+	games, err := d.ListChallengeGamesFromContract()
+	if err == nil && len(games) > 0 {
+		return games, nil
+	}
+
+	return nil, fmt.Errorf("failed to list challenge games: %w", err)
+}
+
+// ListChallengeGamesFromContract queries games directly from the DisputeGameFactory contract
+// Only supports OPSuccinctFaultDisputeGame (game type 42)
+func (d *Devnet) ListChallengeGamesFromContract() ([]ChallengeGame, error) {
+	ctx := d.ctx
+
+	// Get SystemConfig to find DisputeGameFactory address
+	systemConfig, _, err := d.SystemConfig(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get system config: %w", err)
+	}
+
+	factoryAddr, err := systemConfig.DisputeGameFactory(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dispute game factory address: %w", err)
+	}
+
+	// Bind to DisputeGameFactory
+	factory, err := bindings.NewDisputeGameFactory(factoryAddr, d.L1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind to dispute game factory: %w", err)
+	}
+
+	// Get game count
+	gameCount, err := factory.GameCount(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get game count: %w", err)
 	}
 
 	var games []ChallengeGame
-	for i, line := range strings.Split(output, "\n") {
-		if i == 0 {
-			// Ignore header.
-			continue
-		}
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			// Ignore empty lines (e.g. trailing newline)
+	for i := uint64(0); i < gameCount.Uint64(); i++ {
+		// Get game at index
+		gameInfo, err := factory.GameAtIndex(&bind.CallOpts{}, new(big.Int).SetUint64(i))
+		if err != nil {
+			log.Warn("failed to get game at index", "index", i, "error", err)
 			continue
 		}
 
-		game, err := ParseChallengeGame(line)
-		if err != nil {
-			return nil, fmt.Errorf("game %v is invalid: %w", i, err)
+		// Only include game type 42 (OPSuccinctFaultDisputeGame)
+		if gameInfo.GameType != 42 {
+			continue
 		}
-		games = append(games, game)
+
+		gameProxy := gameInfo.Proxy
+
+		// Get root claim from the game contract
+		// OPSuccinctFaultDisputeGame only has root claim, no claim tree
+		disputeGame, err := bindings.NewFaultDisputeGame(gameProxy, d.L1)
+		if err != nil {
+			log.Warn("failed to bind to dispute game", "address", gameProxy, "error", err)
+			continue
+		}
+
+		rootClaim, err := disputeGame.RootClaim(&bind.CallOpts{})
+		if err != nil {
+			log.Warn("failed to get root claim", "address", gameProxy, "error", err)
+			continue
+		}
+
+		games = append(games, ChallengeGame{
+			Index:      i,
+			Address:    gameProxy,
+			OutputRoot: rootClaim[:],
+			Claims:     1, // OPSuccinctFaultDisputeGame only has root claim
+		})
 	}
+
 	return games, nil
 }
 

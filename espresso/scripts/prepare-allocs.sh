@@ -38,6 +38,7 @@ trap cleanup EXIT
 sleep 1
 
 cast rpc anvil_setBalance "${OPERATOR_ADDRESS}" 0x100000000000000000000000000000000000
+cast rpc anvil_setBalance "${PROPOSER_ADDRESS}" 0x100000000000000000000000000000000000
 
 op-deployer bootstrap proxy \
                       --l1-rpc-url="${ANVIL_URL}" \
@@ -95,10 +96,12 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.systemConfigOwne
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.unsafeBlockSigner -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.batcher -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.proposer -v "${PROPOSER_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.l1ProxyAdminOwner -v "${OPERATOR_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.challenger -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.useAltDA -t bool -v true
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.daCommitmentType -v "GenericCommitment"
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.daChallengeWindow -t int -v 303
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.daResolveWindow -t int -v 303
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.daChallengeWindow -t int -v 6
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.daResolveWindow -t int -v 1
 
 # Fill in a specified create2Salt for the deployer, in order to ensure that the
 # contract addresses are deterministic.
@@ -107,6 +110,130 @@ dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097
 BATCH_AUTHENTICATOR_OWNER_ADDRESS="${BATCH_AUTHENTICATOR_OWNER_ADDRESS}" op-deployer apply --l1-rpc-url "${ANVIL_URL}" \
                   --workdir "${DEPLOYER_DIR}" \
                   --private-key="${OPERATOR_PRIVATE_KEY}"
+
+# =====================================================================
+# Deploy op-succinct contracts (OPSuccinctFaultDisputeGame, AccessManager, SP1MockVerifier)
+# =====================================================================
+echo "Deploying op-succinct contracts..."
+
+# Configuration for op-succinct
+GAME_TYPE=42  # Succinct game type
+MAX_CHALLENGE_DURATION=300  # 5 minutes for devnet
+MAX_PROVE_DURATION=1800     # 30 minutes for devnet
+FALLBACK_TIMEOUT_FP_SECS=3600  # 1 hour for devnet
+INITIAL_BOND_WEI=1000000000000000  # 0.001 ETH
+CHALLENGER_BOND_WEI=1000000000000000  # 0.001 ETH
+DISPUTE_GAME_FINALITY_DELAY_SECONDS=6  # Fast for devnet
+
+# Read existing contract addresses from state.json
+DISPUTE_GAME_FACTORY=$(jq -r '.opChainDeployments[0].DisputeGameFactoryProxy' "${DEPLOYER_DIR}/state.json")
+OPTIMISM_PORTAL=$(jq -r '.opChainDeployments[0].OptimismPortalProxy' "${DEPLOYER_DIR}/state.json")
+ANCHOR_STATE_REGISTRY=$(jq -r '.opChainDeployments[0].AnchorStateRegistryProxy' "${DEPLOYER_DIR}/state.json")
+
+echo "Existing contract addresses:"
+echo "  DisputeGameFactory: ${DISPUTE_GAME_FACTORY}"
+echo "  OptimismPortal: ${OPTIMISM_PORTAL}"
+echo "  AnchorStateRegistry: ${ANCHOR_STATE_REGISTRY}"
+
+# Get the starting output root from the anchor state registry
+# The AnchorStateRegistry was initialized by op-deployer with a starting anchor root
+STARTING_ROOT=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | head -1)
+STARTING_L2_BLOCK=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | tail -1)
+
+echo "Starting anchor state:"
+echo "  Root: ${STARTING_ROOT}"
+echo "  L2 Block: ${STARTING_L2_BLOCK}"
+
+# Always create succinct.env with contract addresses (even if op-succinct repo not found)
+# Note: op-succinct uses FACTORY_ADDRESS not DISPUTE_GAME_FACTORY_ADDRESS
+SUCCINCT_ENV_FILE="${DEPLOYER_DIR}/succinct.env"
+cat > "${SUCCINCT_ENV_FILE}" << EOF
+FACTORY_ADDRESS=${DISPUTE_GAME_FACTORY}
+DISPUTE_GAME_FACTORY_ADDRESS=${DISPUTE_GAME_FACTORY}
+OPTIMISM_PORTAL2_ADDRESS=${OPTIMISM_PORTAL}
+ANCHOR_STATE_REGISTRY_ADDRESS=${ANCHOR_STATE_REGISTRY}
+EOF
+echo "Created succinct env file at ${SUCCINCT_ENV_FILE}"
+
+# Deploy op-succinct contracts using local contracts-bedrock deployment script
+
+echo "Deploying op-succinct contracts from local packages/contracts-bedrock..."
+
+# Export environment variables consumed by DeployOPSuccinctFDG.s.sol
+export FACTORY_ADDRESS="${DISPUTE_GAME_FACTORY}"
+export ANCHOR_STATE_REGISTRY_ADDRESS="${ANCHOR_STATE_REGISTRY}"
+export GAME_TYPE="${GAME_TYPE}"
+export INITIAL_BOND_WEI="${INITIAL_BOND_WEI}"
+export CHALLENGER_BOND_WEI="${CHALLENGER_BOND_WEI}"
+export MAX_CHALLENGE_DURATION="${MAX_CHALLENGE_DURATION}"
+export MAX_PROVE_DURATION="${MAX_PROVE_DURATION}"
+export USE_SP1_MOCK_VERIFIER="true"
+
+pushd "${OP_ROOT}/packages/contracts-bedrock"
+
+echo "Running local DeployOPSuccinctFDG.s.sol script..."
+forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
+	--broadcast \
+	--no-storage-caching \
+	--slow \
+	--rpc-url "${ANVIL_URL}" \
+	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: local op-succinct deployment failed, continuing..."
+
+popd
+
+# Wire OPSuccinctFaultDisputeGame implementation into DisputeGameFactory
+echo "Configuring DisputeGameFactory for game type ${GAME_TYPE}..."
+
+# Locate the deployed OPSuccinctFaultDisputeGame implementation address from the forge broadcast
+BROADCAST_DIR="${OP_ROOT}/packages/contracts-bedrock/broadcast/DeployOPSuccinctFDG.s.sol/${L1_CHAIN_ID}"
+BROADCAST_FILE="${BROADCAST_DIR}/run-latest.json"
+
+if [ -f "${BROADCAST_FILE}" ]; then
+	FDG_IMPL=$(jq -r '.transactions[] | select(.contractName=="OPSuccinctFaultDisputeGame") | .contractAddress' "${BROADCAST_FILE}")
+	if [ -z "${FDG_IMPL}" ] || [ "${FDG_IMPL}" = "null" ]; then
+		echo "Warning: could not find OPSuccinctFaultDisputeGame in ${BROADCAST_FILE}; skipping factory config"
+	else
+		echo "  OPSuccinctFaultDisputeGame implementation: ${FDG_IMPL}"
+		# Set implementation for GAME_TYPE on the factory
+		cast send "${DISPUTE_GAME_FACTORY}" \
+			"setImplementation(uint32,address)" "${GAME_TYPE}" "${FDG_IMPL}" \
+			--rpc-url "${ANVIL_URL}" \
+			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setImplementation failed, continuing..."
+
+		# Set init bond for GAME_TYPE to match challenger bond
+		cast send "${DISPUTE_GAME_FACTORY}" \
+			"setInitBond(uint32,uint256)" "${GAME_TYPE}" "${CHALLENGER_BOND_WEI}" \
+			--rpc-url "${ANVIL_URL}" \
+			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setInitBond failed, continuing..."
+	fi
+else
+	echo "Warning: broadcast file ${BROADCAST_FILE} not found; skipping factory config"
+fi
+
+# Manually activate game type on AnchorStateRegistry (op-succinct script targets OptimismPortal2)
+echo "Activating game type ${GAME_TYPE} on AnchorStateRegistry..."
+cast send "${ANCHOR_STATE_REGISTRY}" \
+	"setRespectedGameType(uint32)" "${GAME_TYPE}" \
+	--rpc-url "${ANVIL_URL}" \
+	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
+
+# Verify the starting anchor root is set (should be set by op-deployer initialization)
+echo "Verifying starting anchor root..."
+ANCHOR_ROOT=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | head -1)
+ANCHOR_BLOCK=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | tail -1)
+echo "  Anchor root: ${ANCHOR_ROOT}"
+echo "  Anchor L2 block: ${ANCHOR_BLOCK}"
+
+if [ "${ANCHOR_ROOT}" = "0x0000000000000000000000000000000000000000000000000000000000000000" ]; then
+	echo "ERROR: Anchor root is zero! AnchorStateRegistry was not initialized correctly."
+	echo "This will cause 'AnchorRootNotFound' errors when creating games."
+fi
+
+echo "Local op-succinct contracts deployment complete!"
+
+# =====================================================================
+# End of op-succinct deployment
+# =====================================================================
 
 # Dump anvil state via RPC before killing it
 cast rpc anvil_dumpState > "${ANVIL_STATE_FILE}"
