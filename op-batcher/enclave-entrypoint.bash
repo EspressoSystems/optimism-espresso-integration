@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # Entrypoint for op-batcher running in enclaver image.
-# Main goal: rewrite URLs to use socat proxies through Odyn
-# This ensures both internal and external URLs work correctly through the enclave proxy
+# Uses HTTPS_PROXY for external URLs (preserving SNI/Host headers)
+# Only rewrites internal localhost URLs to map to enclave's "host"
 
 set -e
 
@@ -36,12 +36,18 @@ else
   exit 1
 fi
 
-# IMPORTANT: Unset proxy environment variables
-# We'll use socat to handle all proxying instead of relying on Go's HTTP client
-# This avoids DNS resolution issues with the "host" hostname
-unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY no_proxy NO_PROXY
+# CRITICAL: Preserve proxy environment variables for Go's HTTP client
+# This allows external HTTPS URLs to work with correct SNI and Host headers
+export HTTPS_PROXY="$http_proxy"
+export HTTP_PROXY="$http_proxy"
+export https_proxy="$http_proxy"
+export NO_PROXY="localhost,127.0.0.1,::1,host"
+export no_proxy="$NO_PROXY"
 
-echo "[DEBUG] Using socat for all URL proxying (avoids DNS resolution issues)"
+echo "[DEBUG] Proxy environment configured:"
+echo "  HTTPS_PROXY=$HTTPS_PROXY"
+echo "  NO_PROXY=$NO_PROXY"
+echo "[DEBUG] External URLs will use proxy with correct SNI/Host headers"
 echo ""
 
 # Store the original arguments from ENCLAVE_BATCHER_ARGS
@@ -71,6 +77,21 @@ else
     set -- "${original_args[@]}" "${received_args[@]}"
 fi
 
+# Helper function to check if URL needs socat proxying
+# URLs pointing to localhost, 127.0.0.1, or "host" need socat because:
+# - Go's HTTP client cannot resolve "host" hostname via DNS
+# - These are internal enclave connections that need special handling
+needs_socat_proxy() {
+    local url="$1"
+    local host
+    host="$(trurl --url "$url" --get "{host}" 2>/dev/null)" || return 1
+
+    if [[ "$host" == "localhost" ]] || [[ "$host" == "127.0.0.1" ]] || [[ "$host" == "::1" ]] || [[ "$host" == "host" ]]; then
+        return 0  # needs socat
+    fi
+    return 1  # is external, use HTTPS_PROXY
+}
+
 # Helper function to wait for socat to open a port
 wait_for_port() {
     local port="$1"
@@ -86,18 +107,18 @@ wait_for_port() {
     return 1
 }
 
-# Helper function to launch socat proxy for a URL
+# Helper function to launch socat proxy for internal URLs
 launch_socat() {
     local original_url="$1"
     local socat_port="$2"
 
-    local host port scheme
-    if ! read -r host port scheme < <(trurl --url "$original_url" --default-port --get "{host} {port} {scheme}"); then
+    local host port scheme path
+    if ! read -r host port scheme path < <(trurl --url "$original_url" --default-port --get "{host} {port} {scheme} {path}"); then
         echo "[ERROR] Failed to parse URL: $original_url" >&2
         return 1
     fi
 
-    # If original host was localhost/127.0.0.1, map it to 'host' inside the enclave
+    # Map localhost to "host" for enclave's parent
     if [[ "$host" == "localhost" ]] || [[ "$host" == "127.0.0.1" ]] || [[ "$host" == "::1" ]]; then
         echo "[DEBUG] Rewriting '$host' to 'host'" >&2
         host="host"
@@ -108,7 +129,7 @@ launch_socat() {
         return 1
     fi
 
-    # Start socat to proxy through Odyn
+    # Start socat to proxy through Odyn to "host"
     echo "[DEBUG] Starting socat: 127.0.0.1:${socat_port} -> PROXY:${host}:${port} via Odyn:${ODYN_PROXY_PORT}" >&2
     socat -t 10 -d TCP4-LISTEN:"${socat_port}",reuseaddr,fork PROXY:127.0.0.1:"$host":"$port",proxyport="${ODYN_PROXY_PORT}" > /dev/null 2>&1 &
     socat_pid=$!
@@ -138,17 +159,15 @@ SOCAT_PORT=10001
 
 echo "Processing arguments..."
 while [ $# -gt 0 ]; do
-    echo "[DEBUG] Processing argument: $1" >&2
     # Check if the argument matches the URL pattern
     if [[ $1 =~ $URL_ARG_RE ]]; then
-        echo "[DEBUG] Found URL argument: $1" >&2
         flag=${BASH_REMATCH[1]}
 
         # Extract value from "--flag=value" or "--flag value"
         if [[ "$1" == *=* ]]; then
             value="${1#*=}"
         else
-            shift || { echo "[ERROR] $flag missing value"; exit 1; }
+            shift || { echo "$flag missing value"; exit 1; }
             value="$1"
         fi
 
@@ -157,25 +176,35 @@ while [ $# -gt 0 ]; do
             IFS=',' read -r -a parts <<< "$value"
             rewritten_parts=()
             for part in "${parts[@]}"; do
-                if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
-                    echo "[ERROR] Failed to launch socat for $flag=$part" >&2
-                    exit 1
+                if needs_socat_proxy "$part"; then
+                    if ! new_url=$(launch_socat "$part" "$SOCAT_PORT"); then
+                        echo "[ERROR] Failed to launch socat for $flag=$part" >&2
+                        exit 1
+                    fi
+                    echo "[DEBUG] Proxying internal URL via socat: $part -> $new_url" >&2
+                    rewritten_parts+=("$new_url")
+                    ((SOCAT_PORT++))
+                else
+                    echo "[DEBUG] Keeping external URL unchanged (will use HTTPS_PROXY): $part" >&2
+                    rewritten_parts+=("$part")
                 fi
-                echo "[DEBUG] Rewritten: $part -> $new_url" >&2
-                rewritten_parts+=("$new_url")
-                ((SOCAT_PORT++))
             done
             # Join with commas
             joined=$(IFS=,; echo "${rewritten_parts[*]}")
             url_args+=("${flag}=${joined}")
         else
-            if ! new_url=$(launch_socat "$value" "$SOCAT_PORT"); then
-                echo "[ERROR] Failed to launch socat for $flag=$value" >&2
-                exit 1
+            if needs_socat_proxy "$value"; then
+                if ! new_url=$(launch_socat "$value" "$SOCAT_PORT"); then
+                    echo "[ERROR] Failed to launch socat for $flag=$value" >&2
+                    exit 1
+                fi
+                echo "[DEBUG] Proxying internal URL via socat: $value -> $new_url" >&2
+                url_args+=("$flag" "$new_url")
+                ((SOCAT_PORT++))
+            else
+                echo "[DEBUG] Keeping external URL unchanged (will use HTTPS_PROXY): $value" >&2
+                url_args+=("$flag" "$value")
             fi
-            echo "[DEBUG] Rewritten: $value -> $new_url" >&2
-            url_args+=("$flag" "$new_url")
-            ((SOCAT_PORT++))
         fi
     else
         filtered_args+=("$1")
@@ -196,7 +225,4 @@ echo "===================================" >&2
 echo ""
 
 echo "[DEBUG] Launching op-batcher..." >&2
-op-batcher "${all_args[@]}"
-exit_code=$?
-echo "[DEBUG] op-batcher exited with code $exit_code" >&2
-exit $exit_code
+exec op-batcher "${all_args[@]}"
