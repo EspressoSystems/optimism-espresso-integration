@@ -21,8 +21,12 @@ devnet-tests: build-devnet
 devnet-smoke-test-without-tee: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmokeWithoutTEE' -v ./espresso/devnet-tests/...
 
-devnet-withdrawal-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdraw ./espresso/devnet-tests/...
+devnet-challenge-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./espresso/devnet-tests/...
+
+
+devnet-withdraw-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdrawal ./espresso/devnet-tests/...
 
 build-devnet: compile-contracts
   rm -Rf espresso/deployment
