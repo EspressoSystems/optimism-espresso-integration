@@ -397,3 +397,24 @@ and the proposer services if running with the TEE.
 ```console
 ./shutdown.sh
 ```
+
+# OP Succint Lite dependencies
+
+## Repositories
+
+
+![image](docs/op-succint-repos.svg)
+
+
+| External | Celo        | Espresso | Default Branch name |
+| :-------:| :----:      | :------:| :------: |
+| [kona](https://github.com/op-rs/kona)     | [Celo/kona](https://github.com/celo-org/kona) | [kona](https://github.com/) |EspressoSystems/kona | [espresso-integration-v1.1.7](https://github.com/EspressoSystems/kona/tree/espresso-integration-v1.1.7) |
+|          | [celo-kona](https://github.com/celo-org/celo-kona)  | [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona) | espresso-integration(TBD) |
+| [op-succint]() | [Celo/op-succint](https://github.com/celo-org/op-succinct) | [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)| [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration) |
+
+
+* https://github.com/EspressoSystems/op-succinct/tree/espresso-integration
+* After running CI, check for new images of the succint proposer and challenger services at
+  * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-eigenda
+  * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-eigenda
+* These images should be updated in the docker-compose.yml file when new versions are available. give an example

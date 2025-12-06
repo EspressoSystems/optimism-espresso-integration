@@ -1,0 +1,40 @@
+@startuml
+
+package "External Dependencies" {
+  [ Kona ] as KonaExternal
+  [OP Succinct] as OPSuccintExternal
+}
+
+package "Celo" {
+  [Kona] as KonaCelo
+  [Celo Kona] as CeloKonaCelo
+  [OP Succint] as OPSuccintCelo
+}
+
+package "Espresso" {
+  [Kona] as KonaEspresso
+  [Celo Kona] as CeloKonaEspresso
+  [OP Succint] as OPSuccintEspresso
+  [OP Integration] as OpIntegration
+}
+
+
+ KonaCelo--> CeloKonaCelo: imports
+
+ CeloKonaCelo--> OPSuccintCelo : imports
+ KonaExternal--> OPSuccintExternal : imports
+KonaCelo  --> OPSuccintCelo: imports
+
+KonaExternal --> KonaCelo: fork
+OPSuccintExternal --> OPSuccintCelo: fork
+KonaCelo --> KonaEspresso: fork
+CeloKonaCelo --> CeloKonaEspresso: fork
+OPSuccintCelo --> OPSuccintEspresso: fork
+
+OpIntegration --> OPSuccintEspresso : docker images
+CeloKonaEspresso  --> KonaEspresso: imports
+OPSuccintEspresso --> CeloKonaEspresso: imports
+OPSuccintEspresso --> KonaEspresso: imports
+
+
+@enduml
