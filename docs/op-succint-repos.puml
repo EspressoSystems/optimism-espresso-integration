@@ -32,7 +32,7 @@ CeloKonaCelo --> CeloKonaEspresso: fork
 OPSuccintCelo --> OPSuccintEspresso: fork
 
 OpIntegration --> OPSuccintEspresso : docker images
-CeloKonaEspresso  --> KonaEspresso: imports
+KonaEspresso   --> CeloKonaEspresso: imports
 CeloKonaEspresso  --> OPSuccintEspresso : imports
 KonaEspresso --> OPSuccintEspresso : imports
 

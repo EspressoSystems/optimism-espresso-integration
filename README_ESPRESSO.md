@@ -418,3 +418,5 @@ and the proposer services if running with the TEE.
   * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-eigenda
   * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-eigenda
 * These images should be updated in the docker-compose.yml file when new versions are available. give an example
+
+
