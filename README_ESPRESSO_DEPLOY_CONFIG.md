@@ -31,7 +31,15 @@ docker-compose-op-geth.yml # Docker Compose for the OP Geth services
 
 ## Configuration Pipeline
 
-See [espresso-deploy-config-pipeline.drawio.png](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/espresso-deploy-config-pipeline.drawio.png) for the pipeline diagram.
+![Espresso Deployment Configuration Pipeline](./espresso-deploy-config-pipeline.drawio.png)
+
+The general flow to start up a deployment is to:
+1. Build the deployer and contracts.
+2. Run `prepare_allocs.sh` to prepare contract allocations.
+3. Build `docker-compose.yml` to mount deployment files.
+4. Spin up services.
+
+See [README_ESPRESSO.md#run-docker-compose](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/README_ESPRESSO.md#run-docker-compose) for details about manual steps, which are also included in the `startup.sh` script.
 
 ## L1 Configuration
 
