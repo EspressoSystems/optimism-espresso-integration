@@ -413,10 +413,21 @@ and the proposer services if running with the TEE.
 | [op-succint]() | [Celo/op-succint](https://github.com/celo-org/op-succinct) | [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)| [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration) |
 
 
-* https://github.com/EspressoSystems/op-succinct/tree/espresso-integration
-* After running CI, check for new images of the succint proposer and challenger services at
+## Making a change to the derivation pipeline and propagating them to the relevant repositories.
+
+In our setting changes to the derivation pipeline are made in the [kona](https://github.com/EspressoSystems/kona/tree/espresso-integration-v1.1.7) repository. Then these changes need to be propagated to the [celo-kona](https://github.com/EspressoSystems/celo-kona) and [op-succinct](https://github.com/EspressoSystems/op-succinct) repositories, generate the docker images for the challenger and proposer, and use these images in [optimism-espresso-integration](https://github.com/EspressoSystems/optimism-espresso-integration) as follows.
+
+
+1. Merge your PR into the kona repository to the branch [espresso-integration-v1.1.7](https://github.com/EspressoSystems/kona/tree/espresso-integration-v1.1.7)
+1. Create a PR in [celo-kona](https://github.com/EspressoSystems/celo-kona) and merge it to the branch [celo-kona](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona version.
+See for example ...
+1. Create a PR in [op-succinct](https://github.com/EspressoSystems/op-succinct) and merge it the the branch [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona and celo-kona version.
+1. After running CI, check for new images of the succint proposer and challenger services at
   * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-eigenda
   * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-eigenda
-* These images should be updated in the docker-compose.yml file when new versions are available. give an example
+* These images should be updated in the [docker-compose.yml](https://github.com/EspressoSystems/optimism-espresso-integration/blob/b73ee83611418cd6ce3aa2d27e00881d9df7e012/espresso/docker-compose.yml) file when new versions are available. See for example [bd90858b0f871441785d4ac6437ff78b76d4b1f8](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
+
+
+Note that periodically we need to merge upstream changes in the `kona`, `celo-kona`, and `op-succinct` repositories to keep our integration branches up to date. This ensures that our custom modifications don't drift too far from the upstream codebase and that we can easily incorporate bug fixes and new features from the upstream projects.
 
 
