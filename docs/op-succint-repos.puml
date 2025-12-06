@@ -34,7 +34,7 @@ OPSuccintCelo --> OPSuccintEspresso: fork
 OpIntegration --> OPSuccintEspresso : docker images
 CeloKonaEspresso  --> KonaEspresso: imports
 OPSuccintEspresso --> CeloKonaEspresso: imports
-OPSuccintEspresso --> KonaEspresso: imports
+KonaEspresso --> OPSuccintEspresso : imports
 
 
 @enduml
