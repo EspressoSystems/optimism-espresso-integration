@@ -6,7 +6,6 @@ package "External Dependencies" {
 }
 
 package "Celo" {
-  [Kona] as KonaCelo
   [Celo Kona] as CeloKonaCelo
   [OP Succint] as OPSuccintCelo
 }
@@ -19,17 +18,16 @@ package "Espresso" {
 }
 
 
-KonaCelo--> CeloKonaCelo: imports
+KonaExternal--> CeloKonaCelo: imports
 
 CeloKonaCelo--> OPSuccintCelo : imports
 KonaExternal--> OPSuccintExternal : imports
-KonaCelo  --> OPSuccintCelo: imports
+KonaExternal --> OPSuccintCelo: imports
 
-KonaExternal --> KonaCelo: fork
 OPSuccintExternal --> OPSuccintCelo: fork
-KonaCelo --> KonaEspresso: fork
 CeloKonaCelo --> CeloKonaEspresso: fork
 OPSuccintCelo --> OPSuccintEspresso: fork
+KonaExternal --> KonaEspresso: fork
 
 OpIntegration --> OPSuccintEspresso : docker images
 KonaEspresso   --> CeloKonaEspresso: imports

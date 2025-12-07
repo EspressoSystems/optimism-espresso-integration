@@ -408,8 +408,8 @@ and the proposer services if running with the TEE.
 
 | External | Celo        | Espresso | Default Branch name |
 | :-------:| :----:      | :------:| :------: |
-| [kona](https://github.com/op-rs/kona)     | [Celo/kona](https://github.com/celo-org/kona) | [kona](https://github.com/EspressoSystems/kona/tree/celo-integration) | [celo-integration](https://github.com/EspressoSystems/kona/tree/celo-integration) |
-|          | [celo-kona](https://github.com/celo-org/celo-kona)  | [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona) | [espresso-integration](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) |
+| [kona](https://github.com/op-rs/kona)     |  | [Espresso/kona](https://github.com/EspressoSystems/kona/tree/celo-integration) | [celo-integration](https://github.com/EspressoSystems/kona/tree/celo-integration) |
+|          | [Celo/celo-kona](https://github.com/celo-org/celo-kona)  | [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona) | [espresso-integration](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) |
 | [op-succint]() | [Celo/op-succint](https://github.com/celo-org/op-succinct) | [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)| [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration) |
 
 
@@ -420,7 +420,7 @@ In our setting changes to the derivation pipeline are made in the [kona](https:/
 
 1. Merge your PR into the [kona](https://github.com/EspressoSystems/kona/) repository to the branch [celo-integration](https://github.com/EspressoSystems/kona/tree/celo-integration).
 1. Create a PR in [celo-kona](https://github.com/EspressoSystems/celo-kona) and merge it to the branch [celo-kona](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona version, e.g: [921beb6](https://github.com/EspressoSystems/celo-kona/commit/921beb60bfc8b5d8dc2440463f63c18efcfee301)
-1. Create a PR in [op-succinct](https://github.com/EspressoSystems/op-succinct) and merge it the the branch [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona and celo-kona version.
+1. Create a PR in [op-succinct](https://github.com/EspressoSystems/op-succinct) and merge it the the branch [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona and celo-kona version, e.g: [94b9a5e](https://github.com/EspressoSystems/op-succinct/pull/3/commits/94b9a5e9c85d7519fdc33bb1554021e759fd35dc)
 1. After running CI, check for new images of the succint proposer and challenger services at
   * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-eigenda
   * https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-eigenda
