@@ -404,11 +404,11 @@ and the proposer services if running with the TEE.
 
 There are three types of repositories:
 1. Kona implements the OP stack in Rust.
-2. Celo Kona is a wrapped of Kona with Celo specific changes.
-3. OP Succint: uses Kona and in our case also Celo Kona in order to computes zk proofs for an OP rollup state change which is used in the challenger and proposer services.
+2. Celo-Kona is a wrapper of Kona with Celo specific changes.
+3. OP Succint: uses Kona and in our case also Celo-Kona in order to computes zk proofs for an OP rollup state change which is used in the challenger and proposer services.
 
 The diagram below shows the relationship between the repositories.
-Note importantly that OP Succing (both in the case of Celo and Espresso) import not only Celo Kona but also Kona.
+Note importantly that OP Succinct (both in the case of Celo and Espresso) import not only Celo-Kona but also Kona.
 
 The OP Succint repository for Espresso generates using Github actions the docker images for the challenger and proposer services.
 
