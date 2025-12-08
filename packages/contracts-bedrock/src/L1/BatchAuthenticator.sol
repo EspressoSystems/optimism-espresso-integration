@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { ISemver } from "interfaces/universal/ISemver.sol";
-import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-
-interface INitroValidator {
-    function decodeAttestationTbs(bytes memory attestation)
-        external
-        pure
-        returns (bytes memory attestationTbs, bytes memory signature);
-}
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ISemver} from "interfaces/universal/ISemver.sol";
+import {
+    IEspressoTEEVerifier
+} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 
 contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Semantic version.
@@ -28,7 +23,6 @@ contract BatchAuthenticator is ISemver, Ownable {
     address public immutable nonTeeBatcher;
 
     IEspressoTEEVerifier public immutable espressoTEEVerifier;
-    INitroValidator public immutable nitroValidator;
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
@@ -39,23 +33,22 @@ contract BatchAuthenticator is ISemver, Ownable {
         address _teeBatcher,
         address _nonTeeBatcher,
         address _owner
-    )
-        Ownable()
-    {
-        require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
-        require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
+    ) Ownable() {
+        require(
+            _teeBatcher != address(0),
+            "BatchAuthenticator: zero tee batcher"
+        );
+        require(
+            _nonTeeBatcher != address(0),
+            "BatchAuthenticator: zero non-tee batcher"
+        );
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
         nonTeeBatcher = _nonTeeBatcher;
-        nitroValidator = INitroValidator(address(espressoTEEVerifier.espressoNitroTEEVerifier()));
         // By default, start with the TEE batcher active.
         activeIsTee = true;
         _transferOwnership(_owner);
-    }
-
-    function decodeAttestationTbs(bytes memory attestation) external view returns (bytes memory, bytes memory) {
-        return nitroValidator.decodeAttestationTbs(attestation);
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
@@ -63,7 +56,10 @@ contract BatchAuthenticator is ISemver, Ownable {
         activeIsTee = !activeIsTee;
     }
 
-    function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
+    function authenticateBatchInfo(
+        bytes32 commitment,
+        bytes calldata _signature
+    ) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
         uint8 v = uint8(signature[64]);
@@ -77,14 +73,25 @@ contract BatchAuthenticator is ISemver, Ownable {
             revert("Invalid signature");
         }
 
-        if (!espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer) && signer != teeBatcher) {
+        if (
+            !espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(
+                signer
+            ) && signer != teeBatcher
+        ) {
             revert("Invalid signer");
         }
 
         validBatchInfo[commitment] = true;
     }
 
-    function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
-        espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
+    function registerSigner(
+        bytes calldata attestationTbs,
+        bytes calldata signature
+    ) external {
+        espressoTEEVerifier.registerSigner(
+            attestationTbs,
+            signature,
+            IEspressoTEEVerifier.TeeType.NITRO
+        );
     }
 }
