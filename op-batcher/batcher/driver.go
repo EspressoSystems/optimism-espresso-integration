@@ -112,6 +112,22 @@ type DriverSetup struct {
 	Attestation      *nitrite.Result
 }
 
+type OnchainProof struct {
+	Zktype      string `json:"zktype"`
+	ZkvmVersion string `json:"zkvm_version"`
+	ProgramID   struct {
+		VerifierID      string `json:"verifier_id"`
+		VerifierProofID string `json:"verifier_proof_id"`
+		AggregatorID    string `json:"aggregator_id"`
+	} `json:"program_id"`
+	RawProof struct {
+		EncodedProof string `json:"encoded_proof"`
+		Journal      string `json:"journal"`
+	} `json:"raw_proof"`
+	OnchainProof string `json:"onchain_proof"`
+	ProofType    string `json:"proof_type"`
+}
+
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
 // batches to L1 for availability.
 type BatchSubmitter struct {

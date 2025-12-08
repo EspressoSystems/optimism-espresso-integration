@@ -1,8 +1,13 @@
 package batcher
 
 import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"context"
@@ -12,9 +17,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -950,26 +952,6 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
-// createVerifyCertTransaction creates transactiondata to verify a certificate `cert` against provided certManager.
-// Returns (nil, nil) in case `cert` is already verified.
-func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
-	certHash := crypto.Keccak256Hash(cert)
-	verified, err := certManager.Verified(nil, certHash)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(verified) != 0 {
-		return nil, nil
-	}
-
-	if isCa {
-		return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
-	} else {
-		return certManagerAbi.Pack("verifyClientCert", cert, parentCertHash)
-	}
-}
-
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -979,94 +961,10 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
-		return fmt.Errorf("Failed to check code at contrat address: %w", err)
+		return fmt.Errorf("failed to check code at contrat address: %w", err)
 	}
 	if len(code) == 0 {
-		return fmt.Errorf("No contract deployed at this address %w", err)
-	}
-
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create BatchAuthenticator contract bindings: %w", err)
-	}
-
-	verifierAddress, err := batchAuthenticator.EspressoTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get EspressoTEEVerifier address from BatchAuthenticator contract: %w", err)
-	}
-
-	espressoTEEVerifier, err := bindings.NewEspressoTEEVerifierCaller(verifierAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create EspressoTEEVerifier contract bindings: %w", err)
-	}
-
-	nitroVerifierAddress, err := espressoTEEVerifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get EspressoNitroTEEVerifier address from verifier contract: %w", err)
-	}
-
-	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifierCaller(nitroVerifierAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create EspressoNitroTEEVerifier contract bindings: %w", err)
-	}
-
-	certManagerAddress, err := nitroVerifier.CertManager(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get CertManager address from EspressoNitroTEEVerifier contract: %w", err)
-	}
-
-	certManager, err := bindings.NewCertManagerCaller(certManagerAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
-	}
-
-	certManagerAbi, err := bindings.CertManagerMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
-	}
-
-	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
-	// that could happen if CertManager verifies the whole certificate chain in one transaction.
-	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for i, cert := range l.Attestation.Document.CABundle {
-		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
-		if err != nil {
-			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
-		}
-
-		parentCertHash = crypto.Keccak256Hash(cert)
-
-		// If createVerifyCertTransaction returned nil, certificate is already verified
-		// and there's no need to send a verification transaction for this certificate
-		if txData == nil {
-			continue
-		}
-
-		l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
-		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-			TxData: txData,
-			To:     &certManagerAddress,
-		})
-
-		if err != nil {
-			return fmt.Errorf("verify certificate transaction failed: %w", err)
-		}
-	}
-
-	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
-	if err != nil {
-		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
-	}
-	if txData != nil {
-		l.Log.Info("Verifying Client Certificate")
-		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-			TxData: txData,
-			To:     &certManagerAddress,
-		})
-
-		if err != nil {
-			return fmt.Errorf("verify client certificate transaction failed: %w", err)
-		}
+		return fmt.Errorf("no contract deployed at this address %w", err)
 	}
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
@@ -1074,17 +972,28 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	// Extract PCR0 hash from attestation document
-	pcr0Hash := crypto.Keccak256Hash(l.Attestation.Document.PCRs[0])
-
-	// Extract enclave address from attestation document public key
-	// The publicKey's first byte 0x04 determines if the public key is compressed or not, so we ignore it
-	publicKeyHash := crypto.Keccak256Hash(l.Attestation.Document.PublicKey[1:])
-	enclaveAddress := common.BytesToAddress(publicKeyHash[12:])
-
-	txData, err = abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
+	attestationDocBytes, err := json.Marshal(l.Attestation.Document)
 	if err != nil {
-		return fmt.Errorf("failed to create RegisterSignerWithoutAttestationVerification transaction: %w", err)
+		return fmt.Errorf("failed to marshal attestation document: %w", err)
+	}
+	onchainProof, err := l.GenerateZKProof(ctx, attestationDocBytes)
+	if err != nil {
+		return fmt.Errorf("failed to generate zk proof from nitro attestation: %w", err)
+	}
+
+	journalBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.RawProof.Journal))
+	if err != nil {
+		return fmt.Errorf("failed to decode journal hex string: %w", err)
+	}
+	onchainProofBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.OnchainProof))
+	if err != nil {
+		return fmt.Errorf("failed to decode onchain proof hex string: %w", err)
+	}
+	log.Info("successfully generated zk proof from nitro attestation")
+
+	txData, err := abi.Pack("registerSigner", journalBytes, onchainProofBytes)
+	if err != nil {
+		return fmt.Errorf("failed to create registerSigner transaction: %w", err)
 	}
 
 	candidate := txmgr.TxCandidate{
@@ -1101,6 +1010,38 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	l.Log.Info("Registered batcher with the batch inbox contract")
 
 	return nil
+}
+
+func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*OnchainProof, error) {
+	if l.Config.EspressoAttestationServiceURL == "" {
+		return nil, fmt.Errorf("espresso attestation service URL is not set")
+	}
+	request, err := http.NewRequestWithContext(ctx, "POST", l.Config.EspressoAttestationServiceURL+"/generate_proof", bytes.NewBuffer(attestationBytes))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/octet-stream")
+	client := http.Client{
+		Timeout: 30 * time.Second,
+	}
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	responseData, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var zkProof OnchainProof
+	err = json.Unmarshal(responseData, &zkProof)
+	if err != nil {
+		return nil, err
+	}
+
+	return &zkProof, nil
 }
 
 // sendTxWithEspresso uses the txmgr queue to send the given transaction candidate after setting
@@ -1183,4 +1124,11 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 
 	l.Log.Debug("Queueing transaction", "txRef", transactionReference)
 	queue.Send(transactionReference, *candidate, receiptsCh)
+}
+
+func stripHexPrefix(hexStr string) string {
+	if len(hexStr) >= 2 && hexStr[:2] == "0x" {
+		return hexStr[2:]
+	}
+	return hexStr
 }

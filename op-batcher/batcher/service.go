@@ -39,10 +39,11 @@ import (
 var ErrAlreadyStopped = errors.New("already stopped")
 
 type BatcherConfig struct {
-	NetworkTimeout         time.Duration
-	PollInterval           time.Duration
-	EspressoPollInterval   time.Duration
-	MaxPendingTransactions uint64
+	NetworkTimeout                time.Duration
+	PollInterval                  time.Duration
+	EspressoPollInterval          time.Duration
+	EspressoAttestationServiceURL string
+	MaxPendingTransactions        uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
