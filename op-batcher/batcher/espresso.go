@@ -17,6 +17,11 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
+<<<<<<< HEAD
+=======
+
+	"github.com/ethereum/go-ethereum/common"
+>>>>>>> fc3e44cea150203d58649b171c22961f9b5684db
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
