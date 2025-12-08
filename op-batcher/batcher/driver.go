@@ -112,7 +112,7 @@ type DriverSetup struct {
 	Attestation      *nitrite.Result
 }
 
-type OnchainProof struct {
+type EspressoOnchainProof struct {
 	Zktype      string `json:"zktype"`
 	ZkvmVersion string `json:"zkvm_version"`
 	ProgramID   struct {

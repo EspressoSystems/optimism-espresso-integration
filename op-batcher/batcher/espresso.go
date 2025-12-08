@@ -1012,17 +1012,14 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	return nil
 }
 
-func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*OnchainProof, error) {
-	if l.Config.EspressoAttestationServiceURL == "" {
-		return nil, fmt.Errorf("espresso attestation service URL is not set")
-	}
+func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
 	request, err := http.NewRequestWithContext(ctx, "POST", l.Config.EspressoAttestationServiceURL+"/generate_proof", bytes.NewBuffer(attestationBytes))
 	if err != nil {
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/octet-stream")
 	client := http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 2 * time.Minute,
 	}
 	res, err := client.Do(request)
 	if err != nil {
@@ -1035,7 +1032,7 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 		return nil, err
 	}
 
-	var zkProof OnchainProof
+	var zkProof EspressoOnchainProof
 	err = json.Unmarshal(responseData, &zkProof)
 	if err != nil {
 		return nil, err

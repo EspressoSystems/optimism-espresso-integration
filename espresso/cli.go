@@ -117,6 +117,7 @@ type CLIConfig struct {
 	TestingBatcherPrivateKey *ecdsa.PrivateKey
 	Namespace                uint64
 	OriginHeight             uint64
+	AttestationServiceURL    string
 }
 
 func (c CLIConfig) Check() error {
@@ -136,6 +137,9 @@ func (c CLIConfig) Check() error {
 		}
 		if c.Namespace == 0 {
 			return fmt.Errorf("namespace is required when Espresso is enabled")
+		}
+		if c.AttestationServiceURL == "" {
+			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
 		}
 	}
 	return nil
