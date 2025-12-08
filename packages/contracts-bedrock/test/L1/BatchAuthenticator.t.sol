@@ -23,25 +23,6 @@ contract MockNitroTEEVerifier is IEspressoNitroTEEVerifier {
 
     function registerSigner(bytes calldata, bytes calldata) external pure override { }
 
-    function registerSignerWithoutAttestationVerification(
-        bytes32,
-        bytes calldata,
-        bytes calldata,
-        address
-    )
-        external
-        pure
-        override
-    { }
-
-    function verifyCACert(bytes calldata, bytes32) external pure override { }
-
-    function verifyClientCert(bytes calldata, bytes32) external pure override { }
-
-    function certVerified(bytes32) external pure override returns (bool) {
-        return false;
-    }
-
     function setEnclaveHash(bytes32, bool) external pure override { }
 
     function deleteRegisteredSigners(address[] memory) external pure override { }

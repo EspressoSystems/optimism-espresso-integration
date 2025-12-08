@@ -359,6 +359,7 @@ services:
         condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
+
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
@@ -374,6 +375,7 @@ services:
       - --espresso.enabled=true
       - --espresso.fetch-api=true
       - --espresso.poll-interval=1s
+      - --espresso.espresso-attestation-service=http://attestation-service-zk:8080
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
@@ -626,6 +628,20 @@ services:
       retries: 5
       start_period: 240s
     restart: unless-stopped
+
+  attestation-service-zk:
+    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-146d85a
+    platform: linux/amd64
+    environment:
+      # This is a demo private key for tests, it doesnt contain any funds
+      NETWORK_PRIVATE_KEY: "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3"
+      NETWORK_RPC_URL: "https://rpc.mainnet.succinct.xyz"
+      SP1_PROVER: "mock"
+      RPC_URL: "https://rpc.ankr.com/eth_sepolia/ece75e2d2d01c537031b3b31a619b7830674b9cd1b9fe6bc957a3d393c035dbb"
+      NITRO_VERIFIER_ADDRESS: "0x2D7fbBAD6792698Ba92e67b7e180f8010B9Ec788"
+      USE_DOCKER: "1"
+      SKIP_TIME_VALIDITY_CHECK: "true"
+      RUST_LOG: "info"
 
   espresso-dev-node:
     image: ${ESPRESSO_DEV_NODE_IMAGE}
