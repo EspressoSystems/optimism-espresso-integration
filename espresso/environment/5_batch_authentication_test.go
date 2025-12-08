@@ -18,6 +18,10 @@ import (
 // when provided with an invalid attestation. This test ensures that the batch inbox contract
 // properly validates attestations
 func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
+	// Sishan TODO: this test is skipped now as we skip the attestation verification, should be restored after https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211868671079203?focus=true
+	// Related task: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1212349352131215?focus=true
+	t.Skip("skipping E2E invalid attestation test for now as we skip the attestation verification, should be restored after zk verification added.")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
