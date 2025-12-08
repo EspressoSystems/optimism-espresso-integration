@@ -885,6 +885,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// The altDACLIConfig is shared by the batcher and rollup nodes.
 	var altDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
+		panic("****** DEBUG: forced panic in setup.go to verify test invocation path")
 		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
 		if err := fakeAltDAServer.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
@@ -892,8 +893,9 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		sys.FakeAltDAServer = fakeAltDAServer
 
 		altDACLIConfig = altda.CLIConfig{
-			Enabled:               cfg.DeployConfig.UseAltDA,
-			DAServerURL:           fakeAltDAServer.HttpEndpoint(),
+			Enabled: cfg.DeployConfig.UseAltDA,
+			//DAServerURL:         fakeAltDAServer.HttpEndpoint(),
+			DAServerURL:           "http://127.0.0.1:9999", // unreachable on purpose
 			VerifyOnRead:          true,
 			GenericDA:             true,
 			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
