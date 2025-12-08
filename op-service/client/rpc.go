@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"regexp"
 	"time"
 
@@ -188,6 +189,13 @@ func CheckAndDial(ctx context.Context, log log.Logger, addr string, connectTimeo
 }
 
 func IsURLAvailable(ctx context.Context, address string, timeout time.Duration) bool {
+	// Skip availability check if using HTTP proxy (e.g., in enclave environment)
+	// The actual RPC dial will use the proxy, but this TCP pre-check cannot.
+	if os.Getenv("HTTPS_PROXY") != "" || os.Getenv("https_proxy") != "" || os.Getenv("HTTP_PROXY") != "" || os.Getenv("http_proxy") != "" {
+		// When using a proxy, assume the URL is available
+		// The actual dial will properly use the proxy and fail there if needed
+		return true
+	}
 	u, err := url.Parse(address)
 	if err != nil {
 		return false
