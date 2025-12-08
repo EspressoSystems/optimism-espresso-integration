@@ -12,8 +12,7 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -950,26 +949,6 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
-// createVerifyCertTransaction creates transactiondata to verify a certificate `cert` against provided certManager.
-// Returns (nil, nil) in case `cert` is already verified.
-func createVerifyCertTransaction(certManager *bindings.CertManagerCaller, certManagerAbi *abi.ABI, cert []byte, isCa bool, parentCertHash common.Hash) ([]byte, error) {
-	certHash := crypto.Keccak256Hash(cert)
-	verified, err := certManager.Verified(nil, certHash)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(verified) != 0 {
-		return nil, nil
-	}
-
-	if isCa {
-		return certManagerAbi.Pack("verifyCACert", cert, parentCertHash)
-	} else {
-		return certManagerAbi.Pack("verifyClientCert", cert, parentCertHash)
-	}
-}
-
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -985,89 +964,9 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("No contract deployed at this address %w", err)
 	}
 
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create BatchAuthenticator contract bindings: %w", err)
-	}
-
-	verifierAddress, err := batchAuthenticator.EspressoTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get EspressoTEEVerifier address from BatchAuthenticator contract: %w", err)
-	}
-
-	espressoTEEVerifier, err := bindings.NewEspressoTEEVerifierCaller(verifierAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create EspressoTEEVerifier contract bindings: %w", err)
-	}
-
-	nitroVerifierAddress, err := espressoTEEVerifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get EspressoNitroTEEVerifier address from verifier contract: %w", err)
-	}
-
-	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifierCaller(nitroVerifierAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create EspressoNitroTEEVerifier contract bindings: %w", err)
-	}
-
-	certManagerAddress, err := nitroVerifier.CertManager(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get CertManager address from EspressoNitroTEEVerifier contract: %w", err)
-	}
-
-	certManager, err := bindings.NewCertManagerCaller(certManagerAddress, l.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
-	}
-
-	certManagerAbi, err := bindings.CertManagerMetaData.GetAbi()
-	if err != nil {
-		return fmt.Errorf("failed to create CertManager contract bindings: %w", err)
-	}
-
-	// Verify every CA certiciate in the chain in an individual transaction. This avoids running into block gas limit
-	// that could happen if CertManager verifies the whole certificate chain in one transaction.
-	parentCertHash := crypto.Keccak256Hash(l.Attestation.Document.CABundle[0])
-	for i, cert := range l.Attestation.Document.CABundle {
-		txData, err := createVerifyCertTransaction(certManager, certManagerAbi, cert, true, parentCertHash)
-		if err != nil {
-			return fmt.Errorf("failed to create verify certificate transaction: %w", err)
-		}
-
-		parentCertHash = crypto.Keccak256Hash(cert)
-
-		// If createVerifyCertTransaction returned nil, certificate is already verified
-		// and there's no need to send a verification transaction for this certificate
-		if txData == nil {
-			continue
-		}
-
-		l.Log.Info("Verifying CABundle", "certNumber", i, "certsTotal", len(l.Attestation.Document.CABundle))
-		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-			TxData: txData,
-			To:     &certManagerAddress,
-		})
-
-		if err != nil {
-			return fmt.Errorf("verify certificate transaction failed: %w", err)
-		}
-	}
-
-	txData, err := createVerifyCertTransaction(certManager, certManagerAbi, l.Attestation.Document.Certificate, false, parentCertHash)
-	if err != nil {
-		return fmt.Errorf("failed to create verify client certificate transaction: %w", err)
-	}
-	if txData != nil {
-		l.Log.Info("Verifying Client Certificate")
-		_, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-			TxData: txData,
-			To:     &certManagerAddress,
-		})
-
-		if err != nil {
-			return fmt.Errorf("verify client certificate transaction failed: %w", err)
-		}
-	}
+	// Sishan TODO: I've skipped lots of verification for now as this will run out-of-gas, should replace it with zk tee nitro verifier later.
+	// Sishan TODO: this is also why `TestE2eDevnetWithInvalidAttestation` is failing now and we skipped it.
+	// Sishan TODO: relevant task and PR https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211868671079203?focus=true https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1212349352131215?focus=true https://github.com/EspressoSystems/optimism-espresso-integration/pull/288
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
@@ -1082,7 +981,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	publicKeyHash := crypto.Keccak256Hash(l.Attestation.Document.PublicKey[1:])
 	enclaveAddress := common.BytesToAddress(publicKeyHash[12:])
 
-	txData, err = abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
+	txData, err := abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create RegisterSignerWithoutAttestationVerification transaction: %w", err)
 	}
