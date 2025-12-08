@@ -1,0 +1,231 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.0.3 Chrome/140.0.7339.249 Electron/38.7.0 Safari/537.36" version="29.0.3">
+  <diagram name="Espresso Deployment Configuration Pipeline" id="T1fiL70RJWN1tJitomo0">
+    <mxGraphModel dx="130359" dy="85990" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="-98575.2" y="-76970" width="800" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-2" value="&lt;b&gt;docker-compose*.yml&lt;/b&gt;&lt;div&gt;(Docker Compose for all services)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d2e6ff;strokeColor=#6c8ebf;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="20" y="210" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-37" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" parent="OOECQmNCELzmuSimg1M3-1" source="OOECQmNCELzmuSimg1M3-2" target="OOECQmNCELzmuSimg1M3-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-64" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-37" vertex="1" connectable="0">
+          <mxGeometry x="0.1047" y="-3" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" parent="OOECQmNCELzmuSimg1M3-1" source="OOECQmNCELzmuSimg1M3-4" target="OOECQmNCELzmuSimg1M3-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-65" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-38" vertex="1" connectable="0">
+          <mxGeometry x="-0.3508" y="-2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-63" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="OOECQmNCELzmuSimg1M3-1" source="OOECQmNCELzmuSimg1M3-62" target="OOECQmNCELzmuSimg1M3-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-66" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-63" vertex="1" connectable="0">
+          <mxGeometry x="-0.2544" y="2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-3" value="&lt;b&gt;.env&lt;/b&gt;&lt;div&gt;(Local env vars)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d2e6ff;strokeColor=#6c8ebf;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="287" y="80.01" width="236.81" height="57.14" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-73" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="OOECQmNCELzmuSimg1M3-1" source="OOECQmNCELzmuSimg1M3-2" target="OOECQmNCELzmuSimg1M3-62" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-74" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-73" vertex="1" connectable="0">
+          <mxGeometry x="-0.1457" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-4" value="scripts/&lt;b&gt;prepare-allocs.sh&lt;/b&gt;&lt;br&gt;(Prepare allocs, generate intent.toml, run op-deployer)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="570" y="210" width="210" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-31" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;Repo: EspressoSystems / &lt;b&gt;optimism-espresso-integration&lt;/b&gt;&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;Directory: &lt;b&gt;espresso&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="210" y="20.005714285714284" width="390.95" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-62" value="&lt;div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="277.26" y="180" width="256.43" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-67" value="&lt;div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="2020" y="1280" width="180" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-69" value="op-geth/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="375.48" y="250" width="40" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-68" value="l1-geth/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="300" y="250" width="50" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-71" value="op-batcher-tee/&lt;br&gt;&lt;br&gt;&lt;div&gt;op-stack/&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="435.48" y="250" width="71.91" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-91" value="&lt;b&gt;docker/&lt;/b&gt;&lt;div&gt;(Dockerfile and initiation scripts)&lt;br&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-1" vertex="1">
+          <mxGeometry x="332" y="210" width="146.79" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-6" style="endArrow=block;strokeColor=#555;" parent="1" source="OOECQmNCELzmuSimg1M3-2" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-7" style="endArrow=block;strokeColor=#555;" parent="1" source="OOECQmNCELzmuSimg1M3-3" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-8" style="endArrow=block;strokeColor=#555;" parent="1" source="OOECQmNCELzmuSimg1M3-4" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-10" style="endArrow=block;strokeColor=#555;" parent="1" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-11" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3f3f3;strokeColor=#999;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="-98555.2" y="-76550" width="760" height="271" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-15" value="&lt;div&gt;&lt;b&gt;L1 configuration&lt;/b&gt;&lt;/div&gt;&lt;b&gt;l1-config&lt;/b&gt;/&lt;div&gt;&lt;br&gt;&lt;div&gt;genesis.json&lt;br&gt;genesis.ssz&lt;/div&gt;&lt;div&gt;config.yml&lt;/div&gt;&lt;div&gt;jwt.txt&lt;/div&gt;&lt;div&gt;deposit_contract*.txt&lt;br&gt;keystore/&lt;br&gt;&lt;/div&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-11" vertex="1">
+          <mxGeometry x="22.725499999999997" y="70" width="228.10450000000003" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-40" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;&lt;b&gt;/deployment/&lt;/b&gt;&lt;/span&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-11" vertex="1">
+          <mxGeometry x="261.25" y="9.285714285714286" width="237.5" height="27.857142857142858" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-86" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="OOECQmNCELzmuSimg1M3-11" vertex="1">
+          <mxGeometry x="294.5" y="50" width="427.5" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-14" value="&lt;b&gt;l2-config&lt;/b&gt;/&lt;br&gt;&lt;br&gt;genesis.json&lt;br&gt;rollup.json&lt;br&gt;jwt.txt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-11" vertex="1">
+          <mxGeometry x="332.5" y="89" width="142.5" height="121" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-13" value="&lt;b&gt;deployer&lt;/b&gt;/&lt;div&gt;&lt;div&gt;&lt;br&gt;intent.toml&lt;/div&gt;&lt;div&gt;state.json&lt;br&gt;bootstrap_*.json&lt;/div&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-11" vertex="1">
+          <mxGeometry x="530" y="89" width="142.5" height="121" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-87" value="&lt;b&gt;L2 configuration&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-11" vertex="1">
+          <mxGeometry x="456" y="59" width="104.5" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-16" style="endArrow=block;strokeColor=#555;" parent="1" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-17" style="endArrow=block;strokeColor=#555;" parent="1" target="OOECQmNCELzmuSimg1M3-13" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-18" style="endArrow=block;strokeColor=#555;" parent="1" target="OOECQmNCELzmuSimg1M3-14" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-19" style="endArrow=block;strokeColor=#555;" parent="1" target="OOECQmNCELzmuSimg1M3-15" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-23" style="endArrow=block;strokeColor=#555;" parent="1" source="OOECQmNCELzmuSimg1M3-15" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-24" style="endArrow=block;strokeColor=#555;" parent="1" source="OOECQmNCELzmuSimg1M3-14" edge="1" />
+        <mxCell id="OOECQmNCELzmuSimg1M3-25" value="" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="-98555.2" y="-76230" width="760" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-27" value="&lt;div&gt;&lt;b&gt;L1 services&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;l1-genesis&lt;br&gt;l1-geth&lt;br&gt;l1-beacon&lt;div&gt;l1-validator&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-25" vertex="1">
+          <mxGeometry x="33.13913636363636" y="60" width="207.27272727272728" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-44" value="&lt;b&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;Services&lt;/font&gt;&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-25" vertex="1">
+          <mxGeometry x="351.5" y="15" width="57" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-45" value="&lt;div&gt;&lt;br&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="OOECQmNCELzmuSimg1M3-25" vertex="1">
+          <mxGeometry x="294.5" y="50" width="425.5" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-26" value="&lt;div&gt;op-batcher(-tee)&lt;/div&gt;&lt;div&gt;op-proposer(-tee)&lt;/div&gt;&lt;div&gt;op-challenger&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-25" vertex="1">
+          <mxGeometry x="528.43" y="100" width="145.64" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-28" value="&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;l2-genesis&lt;/span&gt;&lt;/div&gt;&lt;div&gt;op-geth-*&lt;br&gt;op-node-*&lt;/div&gt;&lt;div&gt;caff-node&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="OOECQmNCELzmuSimg1M3-25" vertex="1">
+          <mxGeometry x="332.5" y="100" width="142.5" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-46" value="&lt;b&gt;L2 services&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" parent="OOECQmNCELzmuSimg1M3-25" vertex="1">
+          <mxGeometry x="443.65" y="60" width="95" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-41" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-1" target="OOECQmNCELzmuSimg1M3-11" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-98055.2" y="-76580" as="sourcePoint" />
+            <mxPoint x="-98005.2" y="-76630" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-42" value="Mounts" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-41" vertex="1" connectable="0">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-27" target="OOECQmNCELzmuSimg1M3-15" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-54" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-53" vertex="1" connectable="0">
+          <mxGeometry x="-0.194" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-57" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-28" target="OOECQmNCELzmuSimg1M3-14" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-58" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-57" vertex="1" connectable="0">
+          <mxGeometry x="-0.2409" y="-1" relative="1" as="geometry">
+            <mxPoint x="-1" y="-5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-59" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-26" target="OOECQmNCELzmuSimg1M3-13" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-61" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-59" vertex="1" connectable="0">
+          <mxGeometry x="-0.1843" y="-2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-60" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-26" target="OOECQmNCELzmuSimg1M3-14" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-97915.2" y="-76250" as="sourcePoint" />
+            <mxPoint x="-98175.2" y="-76290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-92" value="Reads" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-60" vertex="1" connectable="0">
+          <mxGeometry x="-0.2088" y="-4" relative="1" as="geometry">
+            <mxPoint x="-3" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-78" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1" target="OOECQmNCELzmuSimg1M3-68">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-98315.19813636354" y="-76080" as="sourcePoint" />
+            <mxPoint x="-98275.61" y="-76730" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="-98295.2" y="-76080" />
+              <mxPoint x="-98295.2" y="-76690" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-79" value="Depends on" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-78" vertex="1" connectable="0">
+          <mxGeometry x="0.0773" y="-3" relative="1" as="geometry">
+            <mxPoint x="-3" y="-159" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-82" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-26" target="OOECQmNCELzmuSimg1M3-71" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-97755.2" y="-76070" />
+              <mxPoint x="-97755.2" y="-76630" />
+              <mxPoint x="-98104.2" y="-76630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-84" value="Depends on" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-82" vertex="1" connectable="0">
+          <mxGeometry x="-0.5147" y="1" relative="1" as="geometry">
+            <mxPoint y="-349" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-89" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-2" target="OOECQmNCELzmuSimg1M3-25" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-98535.2" y="-76720.00000000003" as="sourcePoint" />
+            <mxPoint x="-98605.2" y="-76179.85" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="-98595.2" y="-76715" />
+              <mxPoint x="-98595.2" y="-76155" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-90" value="Started up" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-89" vertex="1" connectable="0">
+          <mxGeometry x="-0.0466" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-93" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" source="OOECQmNCELzmuSimg1M3-28" target="OOECQmNCELzmuSimg1M3-69" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-98265.2" y="-76070" />
+              <mxPoint x="-98265.2" y="-76630" />
+              <mxPoint x="-98179.2" y="-76630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OOECQmNCELzmuSimg1M3-94" value="Depends on" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="OOECQmNCELzmuSimg1M3-93" vertex="1" connectable="0">
+          <mxGeometry x="0.4288" y="1" relative="1" as="geometry">
+            <mxPoint y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
