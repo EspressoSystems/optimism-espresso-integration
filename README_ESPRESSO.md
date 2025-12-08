@@ -1,5 +1,7 @@
 # Optimism Espresso Integration
 
+Note: For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
+
 ## Development environment
 
 ### Clone the repository and initialize the submodules
