@@ -6,6 +6,7 @@ package "External Dependencies" {
 }
 
 package "Celo" {
+  [Kona] as KonaCelo
   [Celo Kona] as CeloKonaCelo
   [OP Succint] as OPSuccintCelo
 }
@@ -20,6 +21,7 @@ package "Espresso" {
 
 KonaExternal--> CeloKonaCelo: imports
 
+KonaCelo --> CeloKonaCelo: imports
 CeloKonaCelo--> OPSuccintCelo : imports
 KonaExternal--> OPSuccintExternal : imports
 KonaExternal --> OPSuccintCelo: imports

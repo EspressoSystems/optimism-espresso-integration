@@ -22,7 +22,7 @@ Note: For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
 ```
 
 
-## Docker
+## Local devnet
 
 In order to download the docker images required by this project you may need to authenticate using a PAT.
 
@@ -406,9 +406,9 @@ and the proposer services if running with the TEE.
 ![image](docs/op-succint-repos.svg)
 
 
-| External | Celo        | Espresso | Default Branch name |
+| External | Celo        | Espresso | Branch |
 | :-------:| :----:      | :------:| :------: |
-| [kona](https://github.com/op-rs/kona)     |  | [Espresso/kona](https://github.com/EspressoSystems/kona/tree/celo-integration) | [celo-integration](https://github.com/EspressoSystems/kona/tree/celo-integration) |
+| [kona](https://github.com/op-rs/kona)     | [Celo/kona](https://github.com/celo-org/kona)/[palango/kona-1.1.7-celo](https://github.com/celo-org/kona/tree/palango/kona-1.1.7-celo) | [Espresso/kona](https://github.com/EspressoSystems/kona-celo-fork)/[espresso-integration](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration) |
 |          | [Celo/celo-kona](https://github.com/celo-org/celo-kona)  | [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona) | [espresso-integration](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) |
 | [op-succint]() | [Celo/op-succint](https://github.com/celo-org/op-succinct) | [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)| [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration) |
 
