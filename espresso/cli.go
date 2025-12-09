@@ -107,17 +107,17 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 }
 
 type CLIConfig struct {
-	Enabled                  bool
-	PollInterval             time.Duration
-	UseFetchAPI              bool
-	QueryServiceURLs         []string
-	LightClientAddr          common.Address
-	L1URL                    string
-	RollupL1URL              string
-	TestingBatcherPrivateKey *ecdsa.PrivateKey
-	Namespace                uint64
-	OriginHeight             uint64
-	AttestationServiceURL    string
+	Enabled                    bool
+	PollInterval               time.Duration
+	UseFetchAPI                bool
+	QueryServiceURLs           []string
+	LightClientAddr            common.Address
+	L1URL                      string
+	RollupL1URL                string
+	TestingBatcherPrivateKey   *ecdsa.PrivateKey
+	Namespace                  uint64
+	OriginHeight               uint64
+	EspressoAttestationService string
 }
 
 func (c CLIConfig) Check() error {
@@ -138,7 +138,7 @@ func (c CLIConfig) Check() error {
 		if c.Namespace == 0 {
 			return fmt.Errorf("namespace is required when Espresso is enabled")
 		}
-		if c.AttestationServiceURL == "" {
+		if c.EspressoAttestationService == "" {
 			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
 		}
 	}

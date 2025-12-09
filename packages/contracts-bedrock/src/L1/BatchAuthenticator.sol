@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ISemver} from "interfaces/universal/ISemver.sol";
-import {
-    IEspressoTEEVerifier
-} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ISemver } from "interfaces/universal/ISemver.sol";
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 
 contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Semantic version.
@@ -33,15 +31,11 @@ contract BatchAuthenticator is ISemver, Ownable {
         address _teeBatcher,
         address _nonTeeBatcher,
         address _owner
-    ) Ownable() {
-        require(
-            _teeBatcher != address(0),
-            "BatchAuthenticator: zero tee batcher"
-        );
-        require(
-            _nonTeeBatcher != address(0),
-            "BatchAuthenticator: zero non-tee batcher"
-        );
+    )
+        Ownable()
+    {
+        require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
+        require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
@@ -56,10 +50,7 @@ contract BatchAuthenticator is ISemver, Ownable {
         activeIsTee = !activeIsTee;
     }
 
-    function authenticateBatchInfo(
-        bytes32 commitment,
-        bytes calldata _signature
-    ) external {
+    function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
         uint8 v = uint8(signature[64]);
@@ -73,25 +64,14 @@ contract BatchAuthenticator is ISemver, Ownable {
             revert("Invalid signature");
         }
 
-        if (
-            !espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(
-                signer
-            ) && signer != teeBatcher
-        ) {
+        if (!espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer) && signer != teeBatcher) {
             revert("Invalid signer");
         }
 
         validBatchInfo[commitment] = true;
     }
 
-    function registerSigner(
-        bytes calldata attestationTbs,
-        bytes calldata signature
-    ) external {
-        espressoTEEVerifier.registerSigner(
-            attestationTbs,
-            signature,
-            IEspressoTEEVerifier.TeeType.NITRO
-        );
+    function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
+        espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
     }
 }

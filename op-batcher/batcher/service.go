@@ -39,11 +39,11 @@ import (
 var ErrAlreadyStopped = errors.New("already stopped")
 
 type BatcherConfig struct {
-	NetworkTimeout                time.Duration
-	PollInterval                  time.Duration
-	EspressoPollInterval          time.Duration
-	EspressoAttestationServiceURL string
-	MaxPendingTransactions        uint64
+	NetworkTimeout             time.Duration
+	PollInterval               time.Duration
+	EspressoPollInterval       time.Duration
+	EspressoAttestationService string
+	MaxPendingTransactions     uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
@@ -565,7 +565,7 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 
 	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
-	bs.EspressoAttestationServiceURL = cfg.Espresso.AttestationServiceURL
+	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 
 	urlZero := cfg.Espresso.QueryServiceURLs[0]
 	espressoClient := espressoClient.NewClient(urlZero)

@@ -1013,7 +1013,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 }
 
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
-	request, err := http.NewRequestWithContext(ctx, "POST", l.Config.EspressoAttestationServiceURL+"/generate_proof", bytes.NewBuffer(attestationBytes))
+	request, err := http.NewRequestWithContext(ctx, "POST", l.Config.EspressoAttestationService+"/generate_proof", bytes.NewBuffer(attestationBytes))
 	if err != nil {
 		return nil, err
 	}
