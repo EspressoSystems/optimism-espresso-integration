@@ -19,17 +19,18 @@ package "Espresso" {
 }
 
 
-KonaExternal--> CeloKonaCelo: imports
+
 
 KonaCelo --> CeloKonaCelo: imports
 CeloKonaCelo--> OPSuccinctCelo : imports
 KonaExternal--> OPSuccinctExternal : imports
-KonaExternal --> OPSuccinctCelo: imports
+KonaCelo --> OPSuccinctCelo: imports
 
 OPSuccinctExternal --> OPSuccinctCelo: fork
 CeloKonaCelo --> CeloKonaEspresso: fork
 OPSuccinctCelo --> OPSuccinctEspresso: fork
-KonaExternal --> KonaEspresso: fork
+KonaExternal --> KonaCelo: fork
+KonaCelo --> KonaEspresso: fork
 
 OpIntegration --> OPSuccinctEspresso : docker images
 KonaEspresso   --> CeloKonaEspresso: imports
