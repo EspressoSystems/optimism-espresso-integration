@@ -449,6 +449,7 @@ services:
         export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
         export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
         export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+        export ATTESTATION_SERVICE_URL="http://localhost:8080"
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   # Legacy op-proposer (for non-succinct mode)

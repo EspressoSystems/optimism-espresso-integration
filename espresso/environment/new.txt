@@ -1,0 +1,5 @@
+- Check that docker compose down also shuts down attestation veifier service
+- Check that you can add tests for contracts
+- check that the docker compose yml you edited has some effect? Basically use it in some test
+and see if it works
+- Also add a test in go code, is it going to be part of devnet tests? unit tests?
