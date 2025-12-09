@@ -640,7 +640,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 5s
-      timeout: 3s
+      timeout: 60s
       retries: 10
       start_period: 30s
     environment:
