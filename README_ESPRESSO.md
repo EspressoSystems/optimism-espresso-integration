@@ -22,7 +22,7 @@ Note: For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
 ```
 
 
-## Docker
+## Local devnet
 
 In order to download the docker images required by this project you may need to authenticate using a PAT.
 
@@ -397,3 +397,51 @@ and the proposer services if running with the TEE.
 ```console
 ./shutdown.sh
 ```
+
+# OP Succinct Lite dependencies
+
+## Repositories
+
+There are three types of repositories:
+1. Kona implements the OP stack in Rust.
+2. Celo-Kona is a wrapper of Kona with Celo specific changes.
+3. OP Succinct: uses Kona and in our case also Celo-Kona in order to compute zk proofs for an OP rollup state change which is used in the challenger and proposer services.
+
+The diagram below shows the relationship between the repositories.
+Note importantly that OP Succinct (both in the case of Celo and Espresso) import not only Celo-Kona but also Kona.
+
+The OP Succinct repository for Espresso generates using Github actions the docker images for the challenger and proposer services.
+
+
+![image](docs/op-succinct-repos.svg)
+
+The table below is more specific regarding which branches of these repositories are used.
+
+
+| External                                    |  Celo (rep/branch)                                                                                                                     | Espresso  (rep/branch)|
+| :-------:                                   | :----:      | :------:|
+| [kona](https://github.com/op-rs/kona)       | [Celo/kona](https://github.com/celo-org/kona)/[palango/kona-1.1.7-celo](https://github.com/celo-org/kona/tree/palango/kona-1.1.7-celo) | [Espresso/kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork)/[espresso-integration](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration) |
+|                                             | [Celo/celo-kona](https://github.com/celo-org/celo-kona)/[main](https://github.com/celo-org/celo-kona/tree/main)  | [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona)/[espresso-integration](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) |
+| [op-succinct](https://github.com/succinctlabs/op-succinct) | [Celo/op-succinct](https://github.com/celo-org/op-succinct)/[develop](https://github.com/celo-org/op-succinct/tree/develop) | [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)/[espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration)|
+
+
+## Making a change to the derivation pipeline and propagating it to the relevant repositories.
+
+In our setting changes to the derivation pipeline are made in the [kona](https://github.com/EspressoSystems/kona/tree/espresso-integration-v1.1.7) repository. Then these changes need to be propagated to the [celo-kona](https://github.com/EspressoSystems/celo-kona) and [op-succinct](https://github.com/EspressoSystems/op-succinct) repositories, generate the docker images for the challenger and proposer, and use these images in [optimism-espresso-integration](https://github.com/EspressoSystems/optimism-espresso-integration) as follows.
+
+
+1. Merge your PR into [kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration). This PR contains some changes to the derivation pipeline. E.g.: [bfabb62](https://github.com/EspressoSystems/kona-celo-fork/commit/bfabb62754bc53317ecb93442bb09d347cd6aad9).
+
+1. Create a PR against [celo-kona](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona version, e.g: [a94b317](https://github.com/EspressoSystems/celo-kona/commit/a94b3172b1248a7cd650d692226c9d17b832eec9).
+
+1. Create a PR in [op-succinct](https://github.com/EspressoSystems/op-succinct) and merge it into the branch [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona and celo-kona version, e.g: [41780a3](https://github.com/EspressoSystems/op-succinct/pull/3/commits/41780a339bb1e177281957fcfe0383dfa41eff15).
+
+1. After running CI, check for new images of the succinct proposer and challenger services at
+  * [containers/op-succinct-lite-proposer-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo)
+  * [containers/op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
+* These images should be updated in the [docker-compose.yml](https://github.com/EspressoSystems/optimism-espresso-integration/blob/b73ee83611418cd6ce3aa2d27e00881d9df7e012/espresso/docker-compose.yml) file when new versions are available. See for example [bd90858](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
+
+
+Note that periodically we need to merge upstream changes in the `kona`, `celo-kona`, and `op-succinct` repositories to keep our integration branches up to date. This ensures that our custom modifications don't drift too far from the upstream codebase and that we can easily incorporate bug fixes and new features from the upstream projects.
+
+
