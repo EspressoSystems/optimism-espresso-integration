@@ -154,13 +154,14 @@ func (c CLIConfig) Check() error {
 
 func ReadCLIConfig(c *cli.Context) CLIConfig {
 	config := CLIConfig{
-		Enabled:      c.Bool(EnabledFlagName),
-		PollInterval: c.Duration(PollIntervalFlagName),
-		UseFetchAPI:  c.Bool(UseFetchApiFlagName),
-		L1URL:        c.String(L1UrlFlagName),
-		RollupL1URL:  c.String(RollupL1UrlFlagName),
-		Namespace:    c.Uint64(NamespaceFlagName),
-		OriginHeight: c.Uint64(OriginHeight),
+		Enabled:                    c.Bool(EnabledFlagName),
+		PollInterval:               c.Duration(PollIntervalFlagName),
+		UseFetchAPI:                c.Bool(UseFetchApiFlagName),
+		L1URL:                      c.String(L1UrlFlagName),
+		RollupL1URL:                c.String(RollupL1UrlFlagName),
+		Namespace:                  c.Uint64(NamespaceFlagName),
+		OriginHeight:               c.Uint64(OriginHeight),
+		EspressoAttestationService: c.String(AttestationServiceFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
