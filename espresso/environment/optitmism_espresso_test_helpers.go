@@ -74,6 +74,17 @@ const ESPRESSO_BUILDER_PORT = "31003"
 const ESPRESSO_SEQUENCER_API_PORT = "24000"
 const ESPRESSO_DEV_NODE_PORT = "24002"
 
+const ATTESTATION_VERIFIER_ZK_SERVER_DOCKER_IMAGE = "ghcr.io/espressosystems/attestation-verifier-zk:sha-146d85a"
+const ATTESTATION_VERIFIER_ZK_SERVER_PORT = "8080"
+const SP1_PROVER = "mock"
+const NETWORK_RPC_URL = "https://rpc.mainnet.succinct.xyz"
+const NETWORK_PRIVATE_KEY = "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3" // Default Hardhat Key
+const NITRO_VERIFIER_ADDRESS = "0x2D7fbBAD6792698Ba92e67b7e180f8010B9Ec788"
+const USE_DOCKER = "1"
+const SKIP_TIME_VALIDITY_CHECK = "true"
+const RUST_LOG = "info"
+const RPC_URL = "https://rpc.ankr.com/eth_sepolia/ece75e2d2d01c537031b3b31a619b7830674b9cd1b9fe6bc957a3d393c035dbb"
+
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
 // allowance.
@@ -345,7 +356,7 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetWithFaultDisputeSysConfig(ct
 func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...E2eDevnetLauncherOption) ([]e2esys.StartOption, *E2eDevnetLauncherContext) {
 	initialOptions := []E2eDevnetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
-		launchEspressoDevNodeDocker(),
+		launchEspressoDevNodeAndAttestationServiceDocker(),
 	}
 
 	if l.EnclaveBatcher {
@@ -801,10 +812,11 @@ func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerC
 	}
 }
 
-// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
+// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches th
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
+// Additionally, it launches the Attestation Verifier ZK server in a Docker container.
+func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
 	return e2esys.StartOption{
 		Role: "launch-espresso-dev-node",
 		BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
@@ -867,6 +879,38 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
 			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
+
+			// Now we need to launch the attestation verifier zk server
+			fmt.Printf("launching attestation verifier service")
+			dockerConfig = DockerContainerConfig{
+				Image:   ATTESTATION_VERIFIER_ZK_SERVER_DOCKER_IMAGE,
+				Network: determineDockerNetworkMode(),
+				Ports: []string{
+					ATTESTATION_VERIFIER_ZK_SERVER_PORT,
+				},
+				Platform: "linux/amd64",
+				Environment: map[string]string{
+					"NETWORK_RPC_URL":          NETWORK_RPC_URL,
+					"SP1_PROVER":               SP1_PROVER,
+					"NITRO_VERIFIER_ADDRESS":   NITRO_VERIFIER_ADDRESS,
+					"USE_DOCKER":               USE_DOCKER,
+					"SKIP_TIME_VALIDITY_CHECK": SKIP_TIME_VALIDITY_CHECK,
+					"RUST_LOG":                 RUST_LOG,
+					"NETWORK_PRIVATE_KEY":      NETWORK_PRIVATE_KEY,
+					"RPC_URL":                  RPC_URL,
+				},
+			}
+			containerCli = new(DockerCli)
+
+			_, err = containerCli.LaunchContainer(ct.Ctx, dockerConfig)
+			if err != nil {
+				fmt.Printf("failed to start the container: %v", err)
+				ct.Error = FailedToLaunchDockerContainer{Cause: err}
+				return
+			}
+			// url pf the attestation verifier zk server
+			c.Espresso.EspressoAttestationService = "http://localhost:" + ATTESTATION_VERIFIER_ZK_SERVER_PORT
+
 		},
 	}
 
@@ -875,11 +919,11 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 // launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeDocker() E2eDevnetLauncherOption {
+func launchEspressoDevNodeAndAttestationServiceDocker() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
-				launchEspressoDevNodeStartOption(ct),
+				launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct),
 			},
 		}
 	}

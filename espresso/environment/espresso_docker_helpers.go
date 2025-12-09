@@ -44,8 +44,9 @@ type DockerContainerConfig struct {
 
 	Ports []string
 
-	Network string
-	AutoRM  bool
+	Network  string
+	AutoRM   bool
+	Platform string
 }
 
 // DockerBuildArg is a configuration struct that is used to pass
@@ -90,6 +91,10 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 			for _, port := range config.Ports {
 				args = append(args, "-p", port)
 			}
+		}
+		// Add platform support
+		if config.Platform != "" {
+			args = append(args, "--platform", config.Platform)
 		}
 
 		for key, value := range config.Environment {

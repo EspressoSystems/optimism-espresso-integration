@@ -359,7 +359,8 @@ services:
         condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
-
+      attestation-service-zk:
+        condition: service_started
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
@@ -419,6 +420,8 @@ services:
         condition: service_started
       l2-genesis:
         condition: service_completed_successfully
+      attestation-service-zk:
+        condition: service_started
     network_mode: "host"
     environment:
       http_proxy: http://127.0.0.1:3128
