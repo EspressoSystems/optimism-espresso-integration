@@ -150,8 +150,8 @@ launch_socat() {
 }
 
 # URL argument regex pattern
-URL_ARG_RE='^(--altda\.da-server|--espresso\.urls|--espresso\.l1-url|--espresso\.rollup-l1-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
-
+# Line 156
+URL_ARG_RE='^(--altda\.da-server|--espresso\.attestation-service|--espresso\.urls|--espresso\.l1-url|--espresso\.rollup-l1-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
 # Process all arguments
 filtered_args=()
 url_args=()

@@ -36,6 +36,7 @@ var (
 	OriginHeight                     = espressoFlags("origin-height")
 	NamespaceFlagName                = espressoFlags("namespace")
 	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
+	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -101,6 +102,12 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Name:     RollupL1UrlFlagName,
 			Usage:    "RPC URL of L1 backing the Rollup we're streaming for",
 			EnvVars:  espressoEnvs(envPrefix, "ROLLUP_L1_URL"),
+			Category: category,
+		},
+		&cli.StringFlag{
+			Name:     AttestationServiceFlagName,
+			Usage:    "URL of the Espresso attestation service",
+			EnvVars:  espressoEnvs(envPrefix, "ESPRESSO_ATTESTATION_SERVICE"),
 			Category: category,
 		},
 	}
