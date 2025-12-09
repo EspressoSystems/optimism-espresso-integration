@@ -74,7 +74,7 @@ const ESPRESSO_BUILDER_PORT = "31003"
 const ESPRESSO_SEQUENCER_API_PORT = "24000"
 const ESPRESSO_DEV_NODE_PORT = "24002"
 
-const ATTESTATION_VERIFIER_ZK_SERVER_DOCKER_IMAGE = "ghcr.io/espressosystems/attestation-verifier-zk:sha-146d85a"
+const ATTESTATION_VERIFIER_ZK_SERVER_DOCKER_IMAGE = "ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3"
 const ATTESTATION_VERIFIER_ZK_SERVER_PORT = "8080"
 const SP1_PROVER = "mock"
 const NETWORK_RPC_URL = "https://rpc.mainnet.succinct.xyz"
@@ -888,6 +888,7 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 				Ports: []string{
 					ATTESTATION_VERIFIER_ZK_SERVER_PORT,
 				},
+				Name:     "attestation-verifier-zk",
 				Platform: "linux/amd64",
 				Environment: map[string]string{
 					"NETWORK_RPC_URL":          NETWORK_RPC_URL,
@@ -898,19 +899,60 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 					"RUST_LOG":                 RUST_LOG,
 					"NETWORK_PRIVATE_KEY":      NETWORK_PRIVATE_KEY,
 					"RPC_URL":                  RPC_URL,
+					"HOST":                     "0.0.0.0",
+					"PORT":                     "8080",
 				},
 			}
 			containerCli = new(DockerCli)
 
-			_, err = containerCli.LaunchContainer(ct.Ctx, dockerConfig)
+			attestationVerifierInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
 			if err != nil {
 				fmt.Printf("failed to start the container: %v", err)
 				ct.Error = FailedToLaunchDockerContainer{Cause: err}
 				return
 			}
-			// url pf the attestation verifier zk server
-			c.Espresso.EspressoAttestationService = "http://localhost:" + ATTESTATION_VERIFIER_ZK_SERVER_PORT
 
+			// Get the actual mapped port
+			ports := attestationVerifierInfo.PortMap[ATTESTATION_VERIFIER_ZK_SERVER_PORT]
+			if len(ports) == 0 {
+				ct.Error = fmt.Errorf("no port mapping found for attestation verifier")
+				return
+			}
+
+			healthCheckCtx, cancel := context.WithTimeout(ct.Ctx, 60*time.Second)
+			defer cancel()
+
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+			attestationHostPort, err := getContainerRemappedHostPort(ports[0])
+			if err != nil {
+				ct.Error = err
+				return
+			}
+
+			// Use the actual host:port for health check
+			attestationURL := "http://" + attestationHostPort
+
+			// url pf the attestation verifier zk server
+			c.Espresso.EspressoAttestationService = attestationURL
+
+			for {
+				select {
+				case <-healthCheckCtx.Done():
+					ct.Error = fmt.Errorf("attestation verifier did not become healthy: %w", healthCheckCtx.Err())
+					return
+				case <-ticker.C:
+					resp, err := http.Get(attestationURL + "/health")
+					if err == nil && resp.StatusCode == http.StatusOK {
+						resp.Body.Close()
+						goto healthy
+					}
+					if resp != nil {
+						resp.Body.Close()
+					}
+				}
+			}
+		healthy:
 		},
 	}
 

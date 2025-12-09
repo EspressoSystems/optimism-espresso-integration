@@ -635,14 +635,14 @@ services:
     restart: unless-stopped
 
   attestation-service-zk:
-    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-146d85a
+    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
     platform: linux/amd64
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
-      interval: 5s
-      timeout: 60s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 500s
+      timeout: 300s
       retries: 10
-      start_period: 30s
+      start_period: 300s
     environment:
       # This is a demo private key for tests, it doesnt contain any funds
       NETWORK_PRIVATE_KEY: "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3"
@@ -653,6 +653,8 @@ services:
       USE_DOCKER: "1"
       SKIP_TIME_VALIDITY_CHECK: "true"
       RUST_LOG: "info"
+      HOST: "0.0.0.0"
+      PORT: "8080"
 
   espresso-dev-node:
     image: ${ESPRESSO_DEV_NODE_IMAGE}
