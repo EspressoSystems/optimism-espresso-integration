@@ -360,7 +360,7 @@ services:
       l2-genesis:
         condition: service_completed_successfully
       attestation-service-zk:
-        condition: service_started
+        condition: service_healthy
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
@@ -421,7 +421,7 @@ services:
       l2-genesis:
         condition: service_completed_successfully
       attestation-service-zk:
-        condition: service_started
+        condition: service_healthy
     network_mode: "host"
     environment:
       http_proxy: http://127.0.0.1:3128
@@ -431,7 +431,7 @@ services:
       CONTAINER_MONITOR_INTERVAL: ${CONTAINER_MONITOR_INTERVAL:-1}
       ENCLAVE_MEMORY_MB: ${ENCLAVE_MEMORY_MB:-4096}
       ENCLAVE_CPU_COUNT: ${ENCLAVE_CPU_COUNT:-2}
-      ATTESTATION_SERVICE_URL: "http://localhost:8080"
+      ATTESTATION_SERVICE_URL: "http://attestation-service-zk:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ..:/source:ro
@@ -450,7 +450,7 @@ services:
         export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
         export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
         export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
-        export ATTESTATION_SERVICE_URL="http://localhost:8080"
+        export ATTESTATION_SERVICE_URL="http://attestation-service-zk:8080"
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   # Legacy op-proposer (for non-succinct mode)
@@ -637,6 +637,12 @@ services:
   attestation-service-zk:
     image: ghcr.io/espressosystems/attestation-verifier-zk:sha-146d85a
     platform: linux/amd64
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     environment:
       # This is a demo private key for tests, it doesnt contain any funds
       NETWORK_PRIVATE_KEY: "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3"
