@@ -974,19 +974,23 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 
 	attestationDocBytes, err := json.Marshal(l.Attestation.Document)
 	if err != nil {
+		l.Log.Error("failed to marshal attestation document", "err", err)
 		return fmt.Errorf("failed to marshal attestation document: %w", err)
 	}
 	onchainProof, err := l.GenerateZKProof(ctx, attestationDocBytes)
 	if err != nil {
+		l.Log.Error("failed to generate zk proof from nitro attestation", "err", err)
 		return fmt.Errorf("failed to generate zk proof from nitro attestation: %w", err)
 	}
 
 	journalBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.RawProof.Journal))
 	if err != nil {
+		l.Log.Error("failed to decode journal hex string", "err", err)
 		return fmt.Errorf("failed to decode journal hex string: %w", err)
 	}
 	onchainProofBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.OnchainProof))
 	if err != nil {
+		l.Log.Error("failed to decode onchain proof hex string", "err", err)
 		return fmt.Errorf("failed to decode onchain proof hex string: %w", err)
 	}
 	log.Info("successfully generated zk proof from nitro attestation")

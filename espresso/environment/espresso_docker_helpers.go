@@ -73,6 +73,13 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Remove existing container with the same name if it exists
+	if config.Name != "" {
+		// Try to remove the container, ignore errors if it doesn't exist
+		removeCmd := exec.CommandContext(ctx, "docker", "rm", "-f", config.Name)
+		_ = removeCmd.Run() // Ignore errors - container might not exist
+	}
+
 	outputBuffer := new(bytes.Buffer)
 	var args []string
 	// Let's build the arguments for the docker launch command
