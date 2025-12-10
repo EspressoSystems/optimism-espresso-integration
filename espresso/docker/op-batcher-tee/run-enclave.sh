@@ -43,10 +43,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL2"
 
 # Use private key if provided, otherwise fall back to test mnemonic
-if [ -n "$BATCHER_PRIVATE_KEY" ]; then
-    echo "Using BATCHER_PRIVATE_KEY for authentication"
-    BATCHER_ARGS="$BATCHER_ARGS,--private-key=$BATCHER_PRIVATE_KEY"
-elif [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
+if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
     echo "Using OP_BATCHER_PRIVATE_KEY for authentication"
     BATCHER_ARGS="$BATCHER_ARGS,--private-key=$OP_BATCHER_PRIVATE_KEY"
 else
