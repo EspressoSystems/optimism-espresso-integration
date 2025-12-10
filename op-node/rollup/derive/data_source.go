@@ -94,10 +94,10 @@ type DataSourceConfig struct {
 // isValidBatchTx returns true if:
 //  1. the transaction is not reverted
 //  2. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
-//  3. the transaction has a To() address that matches the batch inbox address, and
-//  4. the transaction has a valid signature from the batcher address
-func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
+//  3. the transaction has a To() address that matches the batch inbox address
+func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, _ types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
 	if receipt.Status != types.ReceiptStatusSuccessful {
+		logger.Warn("tx in inbox with invalid status", "hash", tx.Hash(), "status", receipt.Status)
 		return false
 	}
 
@@ -110,15 +110,12 @@ func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, l1Signer type
 	if to == nil || *to != batchInboxAddr {
 		return false
 	}
-	seqDataSubmitter, err := l1Signer.Sender(tx) // optimization: only derive sender if To is correct
-	if err != nil {
-		logger.Warn("tx in inbox with invalid signature", "hash", tx.Hash(), "err", err)
-		return false
-	}
-	// some random L1 user might have sent a transaction to our batch inbox, ignore them
-	if seqDataSubmitter != batcherAddr {
-		logger.Warn("tx in inbox with unauthorized submitter", "addr", seqDataSubmitter, "hash", tx.Hash(), "err", err)
-		return false
-	}
+
+	// NOTE: contrary to a standard OP batcher, we can safely skip any verification related
+	// to the sender of the transaction. Indeed the Batch Inbox contract takes care of
+	// ensuring the sender of the batch information is a legitimate batcher.
+	// Thus the parameters l1Signer is not used anymore.
+	// However, it is kept for compatibility with upstream code.
+
 	return true
 }
