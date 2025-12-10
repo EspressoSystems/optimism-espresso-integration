@@ -63,15 +63,14 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 // TestE2eDevnetWithUnattestedBatcherKey verifies that when a batcher key is not properly
 // attested, the L2 chain can still produce unsafe blocks but cannot progress to safe L2 blocks.
 func TestE2eDevnetWithUnattestedBatcherKey(t *testing.T) {
-	t.Skip("skip for now")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	privateKey, err := crypto.GenerateKey()
+	privateKey, err := crypto.HexToECDSA("841c29acb9520a7ea8a48e7686cd825b93e8a3ecd966b62cb396ff8a2cd7e80e")
 	if err != nil {
-		t.Fatalf("failed to generate private key")
+		t.Fatalf("failed to parse private key: %v", err)
 	}
 
 	system, _, err :=

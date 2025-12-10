@@ -12,7 +12,11 @@ import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/
 contract MockEspressoNitroTEEVerifier is IEspressoNitroTEEVerifier {
     constructor() { }
 
-    function registeredSigners(address) external pure override returns (bool) {
+    function registeredSigners(address signer) external pure override returns (bool) {
+        // Added this special condition for test TestE2eDevnetWithUnattestedBatcherKey
+        if (signer == address(0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C)) {
+            return false;
+        }
         return true;
     }
 
