@@ -972,12 +972,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	attestationDocBytes, err := json.Marshal(l.Attestation.Document)
-	if err != nil {
-		l.Log.Error("failed to marshal attestation document", "err", err)
-		return fmt.Errorf("failed to marshal attestation document: %w", err)
-	}
-	onchainProof, err := l.GenerateZKProof(ctx, attestationDocBytes)
+	onchainProof, err := l.GenerateZKProof(ctx, l.Attestation)
 	if err != nil {
 		l.Log.Error("failed to generate zk proof from nitro attestation", "err", err)
 		return fmt.Errorf("failed to generate zk proof from nitro attestation: %w", err)

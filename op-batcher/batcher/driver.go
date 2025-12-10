@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -109,7 +108,7 @@ type DriverSetup struct {
 	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
 	EspressoClient   espressoClient.EspressoClient
 	ChainSigner      opcrypto.ChainSigner
-	Attestation      *nitrite.Result
+	Attestation      []byte
 }
 
 type EspressoOnchainProof struct {

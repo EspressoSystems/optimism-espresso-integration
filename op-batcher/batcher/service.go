@@ -95,7 +95,7 @@ type BatcherService struct {
 	opcrypto.ChainSigner
 	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
 	EspressoClient   espressoClient.EspressoClient
-	Attestation      *nitrite.Result
+	Attestation      []byte
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -608,11 +608,11 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	} else {
 		// output length of attestation
 		bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
-		result, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
+		_, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
 		if err != nil {
 			return fmt.Errorf("Couldn't verify attestation: %w", err)
 		}
-		bs.Attestation = result
+		bs.Attestation = attestationBytes
 	}
 
 	return nil
