@@ -638,11 +638,27 @@ services:
     image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
     platform: linux/amd64
     healthcheck:
+      attestation-service-zk:
+    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
+    platform: linux/amd64
+    healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 500s
-      timeout: 300s
-      retries: 10
-      start_period: 300s
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 150s
+    environment:
+      # This is a demo private key for tests, it doesnt contain any funds
+      NETWORK_PRIVATE_KEY: "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3"
+      NETWORK_RPC_URL: "https://rpc.mainnet.succinct.xyz"
+      SP1_PROVER: "mock"
+      RPC_URL: "https://rpc.ankr.com/eth_sepolia/ece75e2d2d01c537031b3b31a619b7830674b9cd1b9fe6bc957a3d393c035dbb"
+      NITRO_VERIFIER_ADDRESS: "0x2D7fbBAD6792698Ba92e67b7e180f8010B9Ec788"
+      USE_DOCKER: "1"
+      SKIP_TIME_VALIDITY_CHECK: "true"
+      RUST_LOG: "info"
+      HOST: "0.0.0.0"
+      PORT: "8080"
     environment:
       # This is a demo private key for tests, it doesnt contain any funds
       NETWORK_PRIVATE_KEY: "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3"
