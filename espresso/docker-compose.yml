@@ -431,7 +431,6 @@ services:
       CONTAINER_MONITOR_INTERVAL: ${CONTAINER_MONITOR_INTERVAL:-1}
       ENCLAVE_MEMORY_MB: ${ENCLAVE_MEMORY_MB:-4096}
       ENCLAVE_CPU_COUNT: ${ENCLAVE_CPU_COUNT:-2}
-      ATTESTATION_SERVICE_URL: "http://127.0.0.1:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ..:/source:ro
