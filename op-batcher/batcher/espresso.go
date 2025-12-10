@@ -1016,7 +1016,7 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 	// Remove trailing slash to prevent double slashes in URL
 	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
 	url := attestationServiceURL + "/generate_proof"
-	request, err := http.NewRequestWithContext(ctx, "POST", url+"/generate_proof", bytes.NewBuffer(attestationBytes))
+	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
 	if err != nil {
 		return nil, err
 	}
