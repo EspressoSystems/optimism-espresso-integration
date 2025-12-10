@@ -1031,10 +1031,13 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 	}
 	defer res.Body.Close()
 
+	l.Log.Info("Received response from attestation service", "status", res.StatusCode)
+
 	responseData, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
+	l.Log.Info("Attestation service response", "bodySize", len(responseData), "body", string(responseData))
 
 	var zkProof EspressoOnchainProof
 	err = json.Unmarshal(responseData, &zkProof)
