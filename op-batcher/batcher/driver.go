@@ -112,8 +112,8 @@ type DriverSetup struct {
 }
 
 type EspressoOnchainProof struct {
-	Zktype      string `json:"zktype"`
-	ZkvmVersion string `json:"zkvm_version"`
+	ZKType      string `json:"zktype"`
+	ZKVMVersion string `json:"zkvm_version"`
 	ProgramID   struct {
 		VerifierID      string `json:"verifier_id"`
 		VerifierProofID string `json:"verifier_proof_id"`

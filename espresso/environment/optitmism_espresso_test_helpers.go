@@ -812,7 +812,7 @@ func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerC
 	}
 }
 
-// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches th
+// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
 // Additionally, it launches the Attestation Verifier ZK server in a Docker container.
@@ -933,7 +933,6 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 			// Use the actual host:port for health check
 			attestationURL := "http://" + attestationHostPort
 
-			// url pf the attestation verifier zk server
 			c.Espresso.EspressoAttestationService = attestationURL
 
 			for {
@@ -958,7 +957,7 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 
 }
 
-// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
+// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
 func launchEspressoDevNodeAndAttestationServiceDocker() E2eDevnetLauncherOption {

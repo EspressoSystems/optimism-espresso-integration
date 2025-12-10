@@ -962,7 +962,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
-		return fmt.Errorf("failed to check code at contrat address: %w", err)
+		return fmt.Errorf("failed to check code at contract address: %w", err)
 	}
 	if len(code) == 0 {
 		return fmt.Errorf("no contract deployed at this address %w", err)

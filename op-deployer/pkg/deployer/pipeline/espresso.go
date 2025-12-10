@@ -35,7 +35,6 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		lgr.Info("Using nitro enclave verifier address from NITRO_ENCLAVE_VERIFIER_ADDRESS env var", "address", nitroEnclaveVerifierAddress.Hex())
 	} else {
 		lgr.Info("NITRO_ENCLAVE_VERIFIER_ADDRESS env var not set, using empty address")
-		fmt.Printf("Nitro enclave verifier address not set")
 		// this means we should deploy a mock verifier ( should only be used in dev / test environments
 		nitroEnclaveVerifierAddress = common.Address{}
 	}
@@ -47,7 +46,6 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		lgr.Info("Using enclave hash from ENCLAVE_HASH env var", "hash", common.Bytes2Hex(enclaveHash[:]))
 	} else {
 		lgr.Info("ENCLAVE_HASH env var not set, using zeroed hash")
-		fmt.Printf("Enclave hash not set, using zeroed hash\n")
 	}
 
 	var nvo opcm.DeployAWSNitroVerifierOutput
