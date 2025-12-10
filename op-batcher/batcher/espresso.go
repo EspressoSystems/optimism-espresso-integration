@@ -1013,7 +1013,6 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 }
 
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
-	// Remove trailing slash to prevent double slashes in URL
 	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
 	url := attestationServiceURL + "/generate_proof"
 	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
@@ -1021,7 +1020,6 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 		return nil, err
 	}
 
-	l.Log.Info("Attestation service URL", "url", url)
 	request.Header.Set("Content-Type", "application/octet-stream")
 	client := http.Client{
 		Timeout: 2 * time.Minute,
@@ -1032,13 +1030,10 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 	}
 	defer res.Body.Close()
 
-	l.Log.Info("Received response from attestation service", "status", res.StatusCode)
-
 	responseData, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
-	l.Log.Info("Attestation service response", "bodySize", len(responseData), "body", string(responseData))
 
 	var zkProof EspressoOnchainProof
 	err = json.Unmarshal(responseData, &zkProof)
