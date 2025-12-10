@@ -1,9 +1,9 @@
 name: Run Espresso Devnet tests
 on:
-  # pull_request:
-  # push:
-  #   branches:
-  #     - "celo-integration*"
+  pull_request:
+  push:
+    branches:
+      - "celo-integration*"
   workflow_dispatch:
 
 jobs:
