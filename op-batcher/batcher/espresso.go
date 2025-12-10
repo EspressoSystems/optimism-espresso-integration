@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"context"
@@ -1012,12 +1013,15 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 }
 
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
-	request, err := http.NewRequestWithContext(ctx, "POST", l.Config.EspressoAttestationService+"/generate_proof", bytes.NewBuffer(attestationBytes))
+	// Remove trailing slash to prevent double slashes in URL
+	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
+	url := attestationServiceURL + "/generate_proof"
+	request, err := http.NewRequestWithContext(ctx, "POST", url+"/generate_proof", bytes.NewBuffer(attestationBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	l.Log.Info("Attestation service URL", "url", l.Config.EspressoAttestationService+"/generate_proof")
+	l.Log.Info("Attestation service URL", "url", url)
 	request.Header.Set("Content-Type", "application/octet-stream")
 	client := http.Client{
 		Timeout: 2 * time.Minute,
