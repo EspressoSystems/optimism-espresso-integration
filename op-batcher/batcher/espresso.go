@@ -1016,6 +1016,8 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 	if err != nil {
 		return nil, err
 	}
+
+	l.Log.Info("Attestation service URL", "url", l.Config.EspressoAttestationService+"/generate_proof")
 	request.Header.Set("Content-Type", "application/octet-stream")
 	client := http.Client{
 		Timeout: 2 * time.Minute,
