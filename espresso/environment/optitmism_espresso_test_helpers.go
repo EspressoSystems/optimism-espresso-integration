@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -73,17 +74,6 @@ var ESPRESSO_CONTRACT_ACCOUNT = common.HexToAddress("0x8943545177806ed17b9f23f0a
 const ESPRESSO_BUILDER_PORT = "31003"
 const ESPRESSO_SEQUENCER_API_PORT = "24000"
 const ESPRESSO_DEV_NODE_PORT = "24002"
-
-const ATTESTATION_VERIFIER_ZK_SERVER_DOCKER_IMAGE = "ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3"
-const ATTESTATION_VERIFIER_ZK_SERVER_PORT = "8080"
-const SP1_PROVER = "mock"
-const NETWORK_RPC_URL = "https://rpc.mainnet.succinct.xyz"
-const NETWORK_PRIVATE_KEY = "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3" // Default Hardhat Key
-const NITRO_VERIFIER_ADDRESS = "0x2D7fbBAD6792698Ba92e67b7e180f8010B9Ec788"
-const USE_DOCKER = "1"
-const SKIP_TIME_VALIDITY_CHECK = "true"
-const RUST_LOG = "info"
-const RPC_URL = "https://rpc.ankr.com/eth_sepolia/ece75e2d2d01c537031b3b31a619b7830674b9cd1b9fe6bc957a3d393c035dbb"
 
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
@@ -880,81 +870,153 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 			c.LogConfig.Level = slog.LevelDebug
 			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
 
-			// Now we need to launch the attestation verifier zk server
-			fmt.Printf("launching attestation verifier service")
-			dockerConfig = DockerContainerConfig{
-				Image:   ATTESTATION_VERIFIER_ZK_SERVER_DOCKER_IMAGE,
-				Network: determineDockerNetworkMode(),
-				Ports: []string{
-					ATTESTATION_VERIFIER_ZK_SERVER_PORT,
-				},
-				Name:     "attestation-verifier-zk",
-				Platform: "linux/amd64",
-				Environment: map[string]string{
-					"NETWORK_RPC_URL":          NETWORK_RPC_URL,
-					"SP1_PROVER":               SP1_PROVER,
-					"NITRO_VERIFIER_ADDRESS":   NITRO_VERIFIER_ADDRESS,
-					"USE_DOCKER":               USE_DOCKER,
-					"SKIP_TIME_VALIDITY_CHECK": SKIP_TIME_VALIDITY_CHECK,
-					"RUST_LOG":                 RUST_LOG,
-					"NETWORK_PRIVATE_KEY":      NETWORK_PRIVATE_KEY,
-					"RPC_URL":                  RPC_URL,
-					"HOST":                     "0.0.0.0",
-					"PORT":                     "8080",
-				},
-			}
-			containerCli = new(DockerCli)
-
-			attestationVerifierInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
-			if err != nil {
-				fmt.Printf("failed to start the container: %v", err)
-				ct.Error = FailedToLaunchDockerContainer{Cause: err}
-				return
-			}
-
-			// Get the actual mapped port
-			ports := attestationVerifierInfo.PortMap[ATTESTATION_VERIFIER_ZK_SERVER_PORT]
-			if len(ports) == 0 {
-				ct.Error = fmt.Errorf("no port mapping found for attestation verifier")
-				return
-			}
-
-			healthCheckCtx, cancel := context.WithTimeout(ct.Ctx, 60*time.Second)
-			defer cancel()
-
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
-			attestationHostPort, err := getContainerRemappedHostPort(ports[0])
-			if err != nil {
-				ct.Error = err
-				return
-			}
-
-			// Use the actual host:port for health check
-			attestationURL := "http://" + attestationHostPort
-
-			c.Espresso.EspressoAttestationService = attestationURL
-
-			for {
-				select {
-				case <-healthCheckCtx.Done():
-					ct.Error = fmt.Errorf("attestation verifier did not become healthy: %w", healthCheckCtx.Err())
-					return
-				case <-ticker.C:
-					resp, err := http.Get(attestationURL + "/health")
-					if err == nil && resp.StatusCode == http.StatusOK {
-						resp.Body.Close()
-						goto healthy
-					}
-					if resp != nil {
-						resp.Body.Close()
-					}
-				}
-			}
-		healthy:
+			// Now launch the attestation verifier zk server
+			launchEspressoAttestationVerifierService(ct, c)
 		},
 	}
+}
 
+// launchEspressoAttestationVerifierService launches the attestation verifier zk server
+// in a Docker container and configures the batcher CLIConfig to use it.
+func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *batcher.CLIConfig) {
+	// Now we need to launch the attestation verifier zk server
+	fmt.Println("Starting attestation verifier zk server...")
+
+	espressoAttestationVerifierNetworkRPCURL := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL")
+	if espressoAttestationVerifierNetworkRPCURL == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierSp1Prover := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER")
+	if espressoAttestationVerifierSp1Prover == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierNitroVerifierAddress := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS")
+	if espressoAttestationVerifierNitroVerifierAddress == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierUseDocker := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER")
+	if espressoAttestationVerifierUseDocker == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierSkipTimeValidityCheck := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK")
+	if espressoAttestationVerifierSkipTimeValidityCheck == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierRustLog := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG")
+	if espressoAttestationVerifierRustLog == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierNetworkPrivateKey := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY")
+	if espressoAttestationVerifierNetworkPrivateKey == "" {
+		ct.Error = fmt.Errorf("networkPrivateKey environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierRPCUrl := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL")
+	if espressoAttestationVerifierRPCUrl == "" {
+		ct.Error = fmt.Errorf("RPC_URL environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierHost := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_HOST")
+	if espressoAttestationVerifierHost == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_HOST environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierPort := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_PORT")
+	if espressoAttestationVerifierPort == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_PORT environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierDockerImage := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE")
+	if espressoAttestationVerifierDockerImage == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE environment variable is not set")
+		return
+	}
+
+	dockerConfig := DockerContainerConfig{
+		Image:   espressoAttestationVerifierDockerImage,
+		Network: determineDockerNetworkMode(),
+		Ports: []string{
+			espressoAttestationVerifierPort,
+		},
+		Name:     "attestation-verifier-zk",
+		Platform: "linux/amd64",
+		Environment: map[string]string{
+			"NETWORK_RPC_URL":          espressoAttestationVerifierNetworkRPCURL,
+			"SP1_PROVER":               espressoAttestationVerifierSp1Prover,
+			"NITRO_VERIFIER_ADDRESS":   espressoAttestationVerifierNitroVerifierAddress,
+			"USE_DOCKER":               espressoAttestationVerifierUseDocker,
+			"SKIP_TIME_VALIDITY_CHECK": espressoAttestationVerifierSkipTimeValidityCheck,
+			"RUST_LOG":                 espressoAttestationVerifierRustLog,
+			"NETWORK_PRIVATE_KEY":      espressoAttestationVerifierNetworkPrivateKey,
+			"RPC_URL":                  espressoAttestationVerifierRPCUrl,
+			"HOST":                     espressoAttestationVerifierHost,
+			"PORT":                     espressoAttestationVerifierPort,
+		},
+	}
+	containerCli := new(DockerCli)
+
+	attestationVerifierInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
+	if err != nil {
+		ct.Error = FailedToLaunchDockerContainer{Cause: err}
+		return
+	}
+
+	// Get the actual mapped port
+	ports := attestationVerifierInfo.PortMap[espressoAttestationVerifierPort]
+	if len(ports) == 0 {
+		ct.Error = fmt.Errorf("no port mapping found for attestation verifier")
+		return
+	}
+
+	healthCheckCtx, cancel := context.WithTimeout(ct.Ctx, 60*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	attestationHostPort, err := getContainerRemappedHostPort(ports[0])
+	if err != nil {
+		ct.Error = err
+		return
+	}
+
+	// Use the actual host:port for health check
+	attestationURL := "http://" + attestationHostPort
+
+	c.Espresso.EspressoAttestationService = attestationURL
+
+	for {
+		select {
+		case <-healthCheckCtx.Done():
+			ct.Error = fmt.Errorf("attestation verifier did not become healthy: %w", healthCheckCtx.Err())
+			return
+		case <-ticker.C:
+			resp, err := http.Get(attestationURL + "/health")
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				goto healthy
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
+		}
+	}
+healthy:
 }
 
 // launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the

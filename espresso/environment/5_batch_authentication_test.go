@@ -63,6 +63,12 @@ func TestE2eDevnetWithUnattestedBatcherKey(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
+	// This is a random private key belonging to address 0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C that will result in Mock Nitro verifier to return `false`
+	// because the given key is not registered as an attested batcher.
+	// Check the following code in Mock Espresso Nitro verifier:
+	//    if (signer == address(0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C)) {
+	//        return false;
+	//   }
 	privateKey, err := crypto.HexToECDSA("841c29acb9520a7ea8a48e7686cd825b93e8a3ecd966b62cb396ff8a2cd7e80e")
 	if err != nil {
 		t.Fatalf("failed to parse private key: %v", err)
