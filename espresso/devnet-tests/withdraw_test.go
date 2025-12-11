@@ -172,7 +172,8 @@ func TestWithdrawal(t *testing.T) {
 		}
 		// Try manual resolution
 		resolveOpts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-		disputeGame.Resolve(resolveOpts)
+		_, err := disputeGame.Resolve(resolveOpts)
+		require.NoError(t, err)
 		return false
 	}, 5*time.Minute, 5*time.Second, "game not resolved")
 
