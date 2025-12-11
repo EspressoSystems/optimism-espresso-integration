@@ -12,16 +12,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [0, 1, 2]
+        group: [0, 1, 2, 3]
         include:
           - group: 0
-            tests: "TestSmokeWithoutTEE|TestChallengeGame"
+            tests: "|TestChallengeGame|TestChangeBatchInboxOwner"
             tee: false
           - group: 1
-            tests: "TestWithdrawal|TestBatcherRestart"
+            tests: "|TestSmokeWithoutTEE|TestBatcherRestart"
             tee: false
           - group: 2
-            tests: "TestSmokeWithTEE|TestChangeBatchInboxOwner"
+            tests: "TestWithdrawal"
+            tee: false
+          - group: 3
+            tests: "TestSmokeWithTEE"
             tee: true
     env:
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"

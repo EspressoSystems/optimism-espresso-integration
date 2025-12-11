@@ -7,7 +7,6 @@ import (
 	"time"
 
 	espressobindings "github.com/ethereum-optimism/optimism/op-batcher/bindings"
-	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
@@ -20,6 +19,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// l2BlockFromExtraData extracts the L2 block number from a dispute game's ExtraData.
+// The first 32 bytes of ExtraData contain the L2 block number as a big-endian uint256.
+func l2BlockFromExtraData(extraData []byte) *big.Int {
+	return new(big.Int).SetBytes(extraData[:32])
+}
+
 func TestWithdrawal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -29,23 +34,28 @@ func TestWithdrawal(t *testing.T) {
 	defer func() { require.NoError(t, d.Down()) }()
 
 	alice := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
+	callOpts := &bind.CallOpts{}
+	l1ChainID, _ := d.L1.ChainID(ctx)
+	l1Transactor := func() *bind.TransactOpts {
+		opts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+		return opts
+	}
 
 	// Get contract addresses
 	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
-	factoryAddr, _ := systemConfig.DisputeGameFactory(&bind.CallOpts{})
-	portalAddr, _ := systemConfig.OptimismPortal(&bind.CallOpts{})
+	factoryAddr, _ := systemConfig.DisputeGameFactory(callOpts)
+	portalAddr, _ := systemConfig.OptimismPortal(callOpts)
 
 	factory, _ := nodebindings.NewDisputeGameFactoryCaller(factoryAddr, d.L1)
 	portal2, _ := nodepreview.NewOptimismPortal2(portalAddr, d.L1)
 	portal2Caller, _ := nodepreview.NewOptimismPortal2Caller(portalAddr, d.L1)
-	gameType, _ := portal2Caller.RespectedGameType(&bind.CallOpts{})
-	l1ChainID, _ := d.L1.ChainID(ctx)
+	gameType, _ := portal2Caller.RespectedGameType(callOpts)
 
 	// Step 1: Wait for proposer to start (just need 1 game)
 	t.Log("Waiting for proposer to create first game...")
 	require.Eventually(t, func() bool {
-		count, _ := factory.GameCount(&bind.CallOpts{})
+		count, _ := factory.GameCount(callOpts)
 		if count != nil && count.Cmp(common.Big0) > 0 {
 			t.Logf("Proposer started: %d games", count)
 			return true
@@ -73,10 +83,10 @@ func TestWithdrawal(t *testing.T) {
 	t.Log("Depositing ETH to L1 bridge...")
 	rollupConfig, _ := d.RollupConfig(ctx)
 	depositContract, _ := bindings.NewOptimismPortal(rollupConfig.DepositContractAddress, d.L1)
-	l1Opts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-	l1Opts.Value = new(big.Int).Mul(withdrawalAmount, big.NewInt(2))
-	l1Opts.GasLimit = 500000
-	depositTx, err := depositContract.DepositTransaction(l1Opts, common.Address{}, l1Opts.Value, 21000, false, nil)
+	depositOpts := l1Transactor()
+	depositOpts.Value = new(big.Int).Mul(withdrawalAmount, big.NewInt(2))
+	depositOpts.GasLimit = 500000
+	depositTx, err := depositContract.DepositTransaction(depositOpts, common.Address{}, depositOpts.Value, 21000, false, nil)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, d.L1, depositTx.Hash())
 	require.NoError(t, err)
@@ -86,20 +96,19 @@ func TestWithdrawal(t *testing.T) {
 	t.Logf("Waiting for dispute game covering L2 block %d...", withdrawReceipt.BlockNumber)
 	var gameIndex *big.Int
 	var gameProxy common.Address
+	var gameL2Block *big.Int
 	require.Eventually(t, func() bool {
-		count, _ := factory.GameCount(&bind.CallOpts{})
+		count, _ := factory.GameCount(callOpts)
 		if count == nil || count.Cmp(common.Big0) == 0 {
 			return false
 		}
-		games, _ := factory.FindLatestGames(&bind.CallOpts{}, gameType,
-			new(big.Int).Sub(count, common.Big1), big.NewInt(1))
+		games, _ := factory.FindLatestGames(callOpts, gameType, new(big.Int).Sub(count, common.Big1), big.NewInt(1))
 		if len(games) > 0 {
-			latestL2Block := new(big.Int).SetBytes(games[0].ExtraData[0:32])
-			t.Logf("Latest game: index=%d, L2Block=%d (need >= %d)",
-				games[0].Index, latestL2Block, withdrawReceipt.BlockNumber)
-			if latestL2Block.Cmp(withdrawReceipt.BlockNumber) >= 0 {
+			gameL2Block = l2BlockFromExtraData(games[0].ExtraData)
+			t.Logf("Latest game: index=%d, L2Block=%d (need >= %d)", games[0].Index, gameL2Block, withdrawReceipt.BlockNumber)
+			if gameL2Block.Cmp(withdrawReceipt.BlockNumber) >= 0 {
 				gameIndex = games[0].Index
-				info, _ := factory.GameAtIndex(&bind.CallOpts{}, games[0].Index)
+				info, _ := factory.GameAtIndex(callOpts, games[0].Index)
 				gameProxy = info.Proxy
 				return true
 			}
@@ -112,8 +121,7 @@ func TestWithdrawal(t *testing.T) {
 	disputeGame, err := espressobindings.NewOPSuccinctFaultDisputeGame(gameProxy, d.L1)
 	require.NoError(t, err)
 
-	l1Opts, _ = bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-	proveTx, err := disputeGame.Prove(l1Opts, []byte{}) // empty proof for mock verifier
+	proveTx, err := disputeGame.Prove(l1Transactor(), []byte{})
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, d.L1, proveTx.Hash())
 	require.NoError(t, err)
@@ -121,18 +129,14 @@ func TestWithdrawal(t *testing.T) {
 
 	// Step 5: Prove withdrawal transaction
 	t.Log("Proving withdrawal transaction...")
-	games, _ := factory.FindLatestGames(&bind.CallOpts{}, gameType, gameIndex, big.NewInt(1))
-	l2BlockNum := new(big.Int).SetBytes(games[0].ExtraData[0:32])
-	l2Header, _ := d.L2Seq.HeaderByNumber(ctx, l2BlockNum)
-
+	l2Header, _ := d.L2Seq.HeaderByNumber(ctx, gameL2Block)
 	proofCl := gethclient.New(d.L2Seq.Client())
 	params, err := withdrawals.ProveWithdrawalParametersForBlock(ctx, proofCl, d.L2Seq, withdrawTx.Hash(), l2Header, gameIndex)
 	require.NoError(t, err)
 
-	wd := crossdomain.NewWithdrawal(params.Nonce, &params.Sender, &params.Target, params.Value, params.GasLimit, params.Data)
 	withdrawalTxStruct := nodepreview.TypesWithdrawalTransaction{
-		Nonce: wd.Nonce, Sender: *wd.Sender, Target: *wd.Target,
-		Value: wd.Value, GasLimit: wd.GasLimit, Data: wd.Data,
+		Nonce: params.Nonce, Sender: params.Sender, Target: params.Target,
+		Value: params.Value, GasLimit: params.GasLimit, Data: params.Data,
 	}
 	outputProof := nodepreview.TypesOutputRootProof{
 		Version:                  params.OutputRootProof.Version,
@@ -141,9 +145,9 @@ func TestWithdrawal(t *testing.T) {
 		LatestBlockhash:          params.OutputRootProof.LatestBlockhash,
 	}
 
-	l1Opts, _ = bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-	l1Opts.GasLimit = 500000
-	proveWithdrawTx, err := portal2.ProveWithdrawalTransaction(l1Opts, withdrawalTxStruct, gameIndex, outputProof, params.WithdrawalProof)
+	proveWithdrawOpts := l1Transactor()
+	proveWithdrawOpts.GasLimit = 500000
+	proveWithdrawTx, err := portal2.ProveWithdrawalTransaction(proveWithdrawOpts, withdrawalTxStruct, gameIndex, outputProof, params.WithdrawalProof)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, d.L1, proveWithdrawTx.Hash())
 	require.NoError(t, err)
@@ -151,42 +155,38 @@ func TestWithdrawal(t *testing.T) {
 
 	// Step 6: Wait for proof maturity + game resolution
 	t.Log("Waiting for proof maturity and game resolution...")
-	maturityDelay, _ := portal2Caller.ProofMaturityDelaySeconds(&bind.CallOpts{})
+	maturityDelay, _ := portal2Caller.ProofMaturityDelaySeconds(callOpts)
 	time.Sleep(time.Duration(maturityDelay.Int64()+5) * time.Second)
 
 	require.Eventually(t, func() bool {
-		status, _ := disputeGame.Status(&bind.CallOpts{})
+		status, _ := disputeGame.Status(callOpts)
 		if status != 0 {
 			t.Logf("Game resolved with status: %d", status)
 			return true
 		}
-		// Try manual resolution (ignore errors, we'll retry)
-		resolveOpts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-		_, _ = disputeGame.Resolve(resolveOpts)
+		_, _ = disputeGame.Resolve(l1Transactor()) // try manual resolution
 		return false
 	}, 5*time.Minute, 5*time.Second, "game not resolved")
 
-	// Wait for dispute game finality delay (game must be resolved for this long before finalization)
 	t.Log("Waiting for dispute game finality delay...")
-	time.Sleep(10 * time.Second) // DISPUTE_GAME_FINALITY_DELAY_SECONDS is 6, add buffer
+	time.Sleep(10 * time.Second) // DISPUTE_GAME_FINALITY_DELAY_SECONDS is 6
 
 	// Step 7: Finalize withdrawal
 	t.Log("Finalizing withdrawal...")
 	balanceBefore, _ := d.L1.BalanceAt(ctx, alice, nil)
 
-	l1Opts, _ = bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-	l1Opts.GasLimit = 300000
-	finalizeTx, err := portal2.FinalizeWithdrawalTransaction(l1Opts, withdrawalTxStruct)
+	finalizeOpts := l1Transactor()
+	finalizeOpts.GasLimit = 300000
+	finalizeTx, err := portal2.FinalizeWithdrawalTransaction(finalizeOpts, withdrawalTxStruct)
 	require.NoError(t, err)
 	finalizeReceipt, err := wait.ForReceiptOK(ctx, d.L1, finalizeTx.Hash())
 	require.NoError(t, err)
 
-	// Verify balance increased
+	// Verify balance increased (withdrawal amount minus gas fees)
 	balanceAfter, _ := d.L1.BalanceAt(ctx, alice, nil)
-	fees := new(big.Int).Mul(new(big.Int).SetUint64(finalizeReceipt.GasUsed), finalizeReceipt.EffectiveGasPrice)
-	expectedChange := new(big.Int).Sub(withdrawalAmount, fees)
-	actualChange := new(big.Int).Sub(balanceAfter, balanceBefore)
-	require.Equal(t, actualChange, expectedChange, "balance mismatch")
+	gasCost := new(big.Int).Mul(big.NewInt(int64(finalizeReceipt.GasUsed)), finalizeReceipt.EffectiveGasPrice)
+	expectedBalance := new(big.Int).Add(balanceBefore, new(big.Int).Sub(withdrawalAmount, gasCost))
+	require.Equal(t, expectedBalance, balanceAfter, "balance mismatch")
 
 	t.Log("Withdrawal completed successfully!")
 }
