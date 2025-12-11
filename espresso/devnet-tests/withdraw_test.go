@@ -3,20 +3,18 @@ package devnet_tests
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
+	espressobindings "github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"
 	nodepreview "github.com/ethereum-optimism/optimism/op-node/bindings/preview"
 	"github.com/ethereum-optimism/optimism/op-node/withdrawals"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/stretchr/testify/require"
@@ -32,7 +30,7 @@ func TestWithdrawal(t *testing.T) {
 
 	alice := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
 
-	// Get contract addresses early (skip RunSimpleL2Burn to keep L2 head low)
+	// Get contract addresses
 	systemConfig, _, err := d.SystemConfig(ctx)
 	require.NoError(t, err)
 	factoryAddr, _ := systemConfig.DisputeGameFactory(&bind.CallOpts{})
@@ -55,7 +53,7 @@ func TestWithdrawal(t *testing.T) {
 		return false
 	}, 3*time.Minute, 2*time.Second, "proposer didn't start")
 
-	// Step 2: Initiate withdrawal IMMEDIATELY (before L2 advances too far)
+	// Step 2: Initiate withdrawal
 	t.Log("Initiating withdrawal on L2...")
 	withdrawalAmount := big.NewInt(1e18) // 1 ETH
 
@@ -84,8 +82,7 @@ func TestWithdrawal(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("Deposit complete!")
 
-	// Step 3: Wait for a dispute game covering this block
-	// Proposer creates ~1 game per 42s covering 3 blocks. 10 min = ~14 games = 42 blocks
+	// Step 3: Wait for a dispute game covering the withdrawal block
 	t.Logf("Waiting for dispute game covering L2 block %d...", withdrawReceipt.BlockNumber)
 	var gameIndex *big.Int
 	var gameProxy common.Address
@@ -112,20 +109,14 @@ func TestWithdrawal(t *testing.T) {
 
 	// Step 4: Prove the dispute game (mock verifier accepts empty proof)
 	t.Log("Proving dispute game...")
-	proveABI, _ := abi.JSON(strings.NewReader(
-		`[{"inputs":[{"type":"bytes"}],"name":"prove","outputs":[{"type":"uint8"}],"stateMutability":"nonpayable","type":"function"}]`))
-	proveData, _ := proveABI.Pack("prove", []byte{})
+	disputeGame, err := espressobindings.NewOPSuccinctFaultDisputeGame(gameProxy, d.L1)
+	require.NoError(t, err)
 
 	l1Opts, _ = bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-	nonce, _ := d.L1.PendingNonceAt(ctx, alice)
-	gasPrice, _ := d.L1.SuggestGasPrice(ctx)
-
-	proveTx := types.NewTransaction(nonce, gameProxy, nil, 500000, gasPrice, proveData)
-	signedProveTx, _ := l1Opts.Signer(alice, proveTx)
-	require.NoError(t, d.L1.SendTransaction(ctx, signedProveTx))
-	proveReceipt, err := bind.WaitMined(ctx, d.L1, signedProveTx)
+	proveTx, err := disputeGame.Prove(l1Opts, []byte{}) // empty proof for mock verifier
 	require.NoError(t, err)
-	require.Equal(t, types.ReceiptStatusSuccessful, proveReceipt.Status, "prove game failed")
+	_, err = wait.ForReceiptOK(ctx, d.L1, proveTx.Hash())
+	require.NoError(t, err)
 	t.Log("Dispute game proven!")
 
 	// Step 5: Prove withdrawal transaction
@@ -143,19 +134,19 @@ func TestWithdrawal(t *testing.T) {
 		Nonce: wd.Nonce, Sender: *wd.Sender, Target: *wd.Target,
 		Value: wd.Value, GasLimit: wd.GasLimit, Data: wd.Data,
 	}
-	var outputProof nodepreview.TypesOutputRootProof
-	copy(outputProof.Version[:], params.OutputRootProof.Version[:])
-	copy(outputProof.StateRoot[:], params.OutputRootProof.StateRoot[:])
-	copy(outputProof.MessagePasserStorageRoot[:], params.OutputRootProof.MessagePasserStorageRoot[:])
-	copy(outputProof.LatestBlockhash[:], params.OutputRootProof.LatestBlockhash[:])
+	outputProof := nodepreview.TypesOutputRootProof{
+		Version:                  params.OutputRootProof.Version,
+		StateRoot:                params.OutputRootProof.StateRoot,
+		MessagePasserStorageRoot: params.OutputRootProof.MessagePasserStorageRoot,
+		LatestBlockhash:          params.OutputRootProof.LatestBlockhash,
+	}
 
 	l1Opts, _ = bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
 	l1Opts.GasLimit = 500000
 	proveWithdrawTx, err := portal2.ProveWithdrawalTransaction(l1Opts, withdrawalTxStruct, gameIndex, outputProof, params.WithdrawalProof)
 	require.NoError(t, err)
-	proveWithdrawReceipt, err := bind.WaitMined(ctx, d.L1, proveWithdrawTx)
+	_, err = wait.ForReceiptOK(ctx, d.L1, proveWithdrawTx.Hash())
 	require.NoError(t, err)
-	require.Equal(t, types.ReceiptStatusSuccessful, proveWithdrawReceipt.Status, "prove withdrawal failed")
 	t.Log("Withdrawal proven!")
 
 	// Step 6: Wait for proof maturity + game resolution
@@ -163,17 +154,15 @@ func TestWithdrawal(t *testing.T) {
 	maturityDelay, _ := portal2Caller.ProofMaturityDelaySeconds(&bind.CallOpts{})
 	time.Sleep(time.Duration(maturityDelay.Int64()+5) * time.Second)
 
-	disputeGame, _ := bindings.NewFaultDisputeGame(gameProxy, d.L1)
 	require.Eventually(t, func() bool {
 		status, _ := disputeGame.Status(&bind.CallOpts{})
 		if status != 0 {
 			t.Logf("Game resolved with status: %d", status)
 			return true
 		}
-		// Try manual resolution
+		// Try manual resolution (ignore errors, we'll retry)
 		resolveOpts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-		_, err := disputeGame.Resolve(resolveOpts)
-		require.NoError(t, err)
+		_, _ = disputeGame.Resolve(resolveOpts)
 		return false
 	}, 5*time.Minute, 5*time.Second, "game not resolved")
 
@@ -197,7 +186,7 @@ func TestWithdrawal(t *testing.T) {
 	fees := new(big.Int).Mul(new(big.Int).SetUint64(finalizeReceipt.GasUsed), finalizeReceipt.EffectiveGasPrice)
 	expectedChange := new(big.Int).Sub(withdrawalAmount, fees)
 	actualChange := new(big.Int).Sub(balanceAfter, balanceBefore)
-	require.Equal(t, 0, actualChange.Cmp(expectedChange), "balance mismatch")
+	require.Equal(t, actualChange, expectedChange, "balance mismatch")
 
 	t.Log("Withdrawal completed successfully!")
 }
