@@ -36,6 +36,7 @@ var (
 	OriginHeight                     = espressoFlags("origin-height")
 	NamespaceFlagName                = espressoFlags("namespace")
 	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
+	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -103,20 +104,27 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "ROLLUP_L1_URL"),
 			Category: category,
 		},
+		&cli.StringFlag{
+			Name:     AttestationServiceFlagName,
+			Usage:    "URL of the Espresso attestation service",
+			EnvVars:  espressoEnvs(envPrefix, "ATTESTATION_SERVICE_URL"),
+			Category: category,
+		},
 	}
 }
 
 type CLIConfig struct {
-	Enabled                  bool
-	PollInterval             time.Duration
-	UseFetchAPI              bool
-	QueryServiceURLs         []string
-	LightClientAddr          common.Address
-	L1URL                    string
-	RollupL1URL              string
-	TestingBatcherPrivateKey *ecdsa.PrivateKey
-	Namespace                uint64
-	OriginHeight             uint64
+	Enabled                    bool
+	PollInterval               time.Duration
+	UseFetchAPI                bool
+	QueryServiceURLs           []string
+	LightClientAddr            common.Address
+	L1URL                      string
+	RollupL1URL                string
+	TestingBatcherPrivateKey   *ecdsa.PrivateKey
+	Namespace                  uint64
+	OriginHeight               uint64
+	EspressoAttestationService string
 }
 
 func (c CLIConfig) Check() error {
@@ -137,19 +145,23 @@ func (c CLIConfig) Check() error {
 		if c.Namespace == 0 {
 			return fmt.Errorf("namespace is required when Espresso is enabled")
 		}
+		if c.EspressoAttestationService == "" {
+			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
+		}
 	}
 	return nil
 }
 
 func ReadCLIConfig(c *cli.Context) CLIConfig {
 	config := CLIConfig{
-		Enabled:      c.Bool(EnabledFlagName),
-		PollInterval: c.Duration(PollIntervalFlagName),
-		UseFetchAPI:  c.Bool(UseFetchApiFlagName),
-		L1URL:        c.String(L1UrlFlagName),
-		RollupL1URL:  c.String(RollupL1UrlFlagName),
-		Namespace:    c.Uint64(NamespaceFlagName),
-		OriginHeight: c.Uint64(OriginHeight),
+		Enabled:                    c.Bool(EnabledFlagName),
+		PollInterval:               c.Duration(PollIntervalFlagName),
+		UseFetchAPI:                c.Bool(UseFetchApiFlagName),
+		L1URL:                      c.String(L1UrlFlagName),
+		RollupL1URL:                c.String(RollupL1UrlFlagName),
+		Namespace:                  c.Uint64(NamespaceFlagName),
+		OriginHeight:               c.Uint64(OriginHeight),
+		EspressoAttestationService: c.String(AttestationServiceFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)

@@ -42,10 +42,11 @@ import (
 var ErrAlreadyStopped = errors.New("already stopped")
 
 type BatcherConfig struct {
-	NetworkTimeout         time.Duration
-	PollInterval           time.Duration
-	EspressoPollInterval   time.Duration
-	MaxPendingTransactions uint64
+	NetworkTimeout             time.Duration
+	PollInterval               time.Duration
+	EspressoPollInterval       time.Duration
+	EspressoAttestationService string
+	MaxPendingTransactions     uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
@@ -635,6 +636,7 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 
 	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
+	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 
 	urlZero := cfg.Espresso.QueryServiceURLs[0]
 	espressoClient := espressoClient.NewClient(urlZero)
@@ -677,11 +679,11 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	} else {
 		// output length of attestation
 		bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
-		result, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
+		_, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
 		if err != nil {
 			return fmt.Errorf("Couldn't verify attestation: %w", err)
 		}
-		bs.Attestation = result
+		bs.Attestation = attestationBytes
 	}
 
 	return nil

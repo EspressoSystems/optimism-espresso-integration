@@ -68,6 +68,18 @@ jobs:
             --port 22 \
             --cidr 0.0.0.0/0 || true
 
+      - name: Load environment variables
+        run: |
+          while IFS= read -r line; do
+            # Skip comments and empty lines
+            if [[ ! "$line" =~ ^#.* ]] && [[ -n "$line" ]]; then
+              # Remove quotes from values
+              line=$(echo "$line" | sed 's/"\(.*\)"/\1/')
+              echo "$line" >> $GITHUB_ENV
+            fi
+          done < ./espresso/.env
+        shell: bash
+
       - name: Launch EC2 Instance
         id: ec2
         run: |
@@ -108,6 +120,17 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -i key.pem ec2-user@$DNS << EOF
             export BRANCH_NAME=$BRANCH_NAME
+            export ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL="${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL}"
+            export ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY="${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY}"
+            export ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER="${ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER}"
+            export ESPRESSO_ATTESTATION_VERIFIER_RPC_URL="${ESPRESSO_ATTESTATION_VERIFIER_RPC_URL}"
+            export ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS="${ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS}"
+            export ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER="${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER}"
+            export ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK="${ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK}"
+            export ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG="${ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG}"
+            export ESPRESSO_ATTESTATION_VERIFIER_HOST="${ESPRESSO_ATTESTATION_VERIFIER_HOST}"
+            export ESPRESSO_ATTESTATION_VERIFIER_PORT="${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
+            export ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE="${ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE}"
             ./run-tests-github-actions.sh  ${{ secrets.CACHIX_AUTH_TOKEN }}
           EOF
 
