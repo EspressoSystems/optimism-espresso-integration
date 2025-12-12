@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-
-interface INitroValidator {
-    function decodeAttestationTbs(bytes memory attestation)
-        external
-        pure
-        returns (bytes memory attestationTbs, bytes memory signature);
-}
 
 contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Semantic version.
@@ -28,7 +21,6 @@ contract BatchAuthenticator is ISemver, Ownable {
     address public immutable nonTeeBatcher;
 
     IEspressoTEEVerifier public immutable espressoTEEVerifier;
-    INitroValidator public immutable nitroValidator;
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
@@ -48,14 +40,9 @@ contract BatchAuthenticator is ISemver, Ownable {
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
         nonTeeBatcher = _nonTeeBatcher;
-        nitroValidator = INitroValidator(address(espressoTEEVerifier.espressoNitroTEEVerifier()));
         // By default, start with the TEE batcher active.
         activeIsTee = true;
         _transferOwnership(_owner);
-    }
-
-    function decodeAttestationTbs(bytes memory attestation) external view returns (bytes memory, bytes memory) {
-        return nitroValidator.decodeAttestationTbs(attestation);
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
@@ -86,18 +73,5 @@ contract BatchAuthenticator is ISemver, Ownable {
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
         espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
-    }
-
-    function registerSignerWithoutAttestationVerification(
-        bytes32 pcr0Hash,
-        bytes calldata attestationTbs,
-        bytes calldata signature,
-        address enclaveAddress
-    )
-        external
-    {
-        espressoTEEVerifier.espressoNitroTEEVerifier().registerSignerWithoutAttestationVerification(
-            pcr0Hash, attestationTbs, signature, enclaveAddress
-        );
     }
 }

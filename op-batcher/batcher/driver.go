@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -109,7 +108,23 @@ type DriverSetup struct {
 	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
 	EspressoClient   espressoClient.EspressoClient
 	ChainSigner      opcrypto.ChainSigner
-	Attestation      *nitrite.Result
+	Attestation      []byte
+}
+
+type EspressoOnchainProof struct {
+	ZKType      string `json:"zktype"`
+	ZKVMVersion string `json:"zkvm_version"`
+	ProgramID   struct {
+		VerifierID      string `json:"verifier_id"`
+		VerifierProofID string `json:"verifier_proof_id"`
+		AggregatorID    string `json:"aggregator_id"`
+	} `json:"program_id"`
+	RawProof struct {
+		EncodedProof string `json:"encoded_proof"`
+		Journal      string `json:"journal"`
+	} `json:"raw_proof"`
+	OnchainProof string `json:"onchain_proof"`
+	ProofType    string `json:"proof_type"`
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx

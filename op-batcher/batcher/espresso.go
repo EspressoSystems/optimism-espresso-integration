@@ -1,8 +1,14 @@
 package batcher
 
 import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	"context"
@@ -12,8 +18,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -958,32 +962,38 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
-		return fmt.Errorf("Failed to check code at contrat address: %w", err)
+		return fmt.Errorf("failed to check code at contract address: %w", err)
 	}
 	if len(code) == 0 {
-		return fmt.Errorf("No contract deployed at this address %w", err)
+		return fmt.Errorf("no contract deployed at this address %w", err)
 	}
-
-	// Sishan TODO: I've skipped lots of verification for now as this will run out-of-gas, should replace it with zk tee nitro verifier later.
-	// Sishan TODO: this is also why `TestE2eDevnetWithInvalidAttestation` is failing now and we skipped it.
-	// Sishan TODO: relevant task and PR https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211868671079203?focus=true https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1212349352131215?focus=true https://github.com/EspressoSystems/optimism-espresso-integration/pull/288
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
 		return fmt.Errorf("failed to get Batch Authenticator ABI: %w", err)
 	}
 
-	// Extract PCR0 hash from attestation document
-	pcr0Hash := crypto.Keccak256Hash(l.Attestation.Document.PCRs[0])
-
-	// Extract enclave address from attestation document public key
-	// The publicKey's first byte 0x04 determines if the public key is compressed or not, so we ignore it
-	publicKeyHash := crypto.Keccak256Hash(l.Attestation.Document.PublicKey[1:])
-	enclaveAddress := common.BytesToAddress(publicKeyHash[12:])
-
-	txData, err := abi.Pack("registerSignerWithoutAttestationVerification", pcr0Hash, l.Attestation.COSESign1, l.Attestation.Signature, enclaveAddress)
+	onchainProof, err := l.GenerateZKProof(ctx, l.Attestation)
 	if err != nil {
-		return fmt.Errorf("failed to create RegisterSignerWithoutAttestationVerification transaction: %w", err)
+		l.Log.Error("failed to generate zk proof from nitro attestation", "err", err)
+		return fmt.Errorf("failed to generate zk proof from nitro attestation: %w", err)
+	}
+
+	journalBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.RawProof.Journal))
+	if err != nil {
+		l.Log.Error("failed to decode journal hex string", "err", err)
+		return fmt.Errorf("failed to decode journal hex string: %w", err)
+	}
+	onchainProofBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.OnchainProof))
+	if err != nil {
+		l.Log.Error("failed to decode onchain proof hex string", "err", err)
+		return fmt.Errorf("failed to decode onchain proof hex string: %w", err)
+	}
+	log.Info("successfully generated zk proof from nitro attestation")
+
+	txData, err := abi.Pack("registerSigner", journalBytes, onchainProofBytes)
+	if err != nil {
+		return fmt.Errorf("failed to create registerSigner transaction: %w", err)
 	}
 
 	candidate := txmgr.TxCandidate{
@@ -1000,6 +1010,42 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	l.Log.Info("Registered batcher with the batch inbox contract")
 
 	return nil
+}
+
+func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
+	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
+	url := attestationServiceURL + "/generate_proof"
+	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", "application/octet-stream")
+	client := http.Client{
+		Timeout: 2 * time.Minute,
+	}
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("received non-200 response: %d", res.StatusCode)
+	}
+
+	responseData, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var zkProof EspressoOnchainProof
+	err = json.Unmarshal(responseData, &zkProof)
+	if err != nil {
+		return nil, err
+	}
+
+	return &zkProof, nil
 }
 
 // sendTxWithEspresso uses the txmgr queue to send the given transaction candidate after setting
@@ -1082,4 +1128,11 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 
 	l.Log.Debug("Queueing transaction", "txRef", transactionReference)
 	queue.Send(transactionReference, *candidate, receiptsCh)
+}
+
+func stripHexPrefix(hexStr string) string {
+	if len(hexStr) >= 2 && hexStr[:2] == "0x" {
+		return hexStr[2:]
+	}
+	return hexStr
 }

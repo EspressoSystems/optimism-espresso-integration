@@ -10,6 +10,7 @@ set -e
 : ${ROLLUP_RPC_URL:?Error: ROLLUP_RPC_URL is required}
 : ${ESPRESSO_URL1:?Error: ESPRESSO_URL1 is required}
 : ${OPERATOR_PRIVATE_KEY:?Error: OPERATOR_PRIVATE_KEY is required}
+: ${ESPRESSO_ATTESTATION_SERVICE_URL:?Error: ESPRESSO_ATTESTATION_SERVICE_URL is required}
 
 # Optional configuration with defaults
 TAG="${TAG:-op-batcher-enclavetool}"
@@ -28,6 +29,7 @@ echo "L1 RPC URL: $L1_RPC_URL"
 echo "L2 RPC URL: $L2_RPC_URL"
 echo "Rollup RPC URL: $ROLLUP_RPC_URL"
 echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
+echo "Attestation service url: $ESPRESSO_ATTESTATION_SERVICE_URL"
 echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
@@ -48,6 +50,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=1"
 BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.fetch-api=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
 
 # Add debug arguments if enabled
 if [ "$ENCLAVE_DEBUG" = "true" ]; then

@@ -11,17 +11,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/hf/nitrite"
 )
 
 // TestE2eDevnetWithInvalidAttestation verifies that the batcher correctly fails to register
 // when provided with an invalid attestation. This test ensures that the batch inbox contract
 // properly validates attestations
 func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
-	// Sishan TODO: this test is skipped now as we skip the attestation verification, should be restored after https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211868671079203?focus=true
-	// Related task: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1212349352131215?focus=true
-	t.Skip("skipping E2E invalid attestation test for now as we skip the attestation verification, should be restored after zk verification added.")
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -45,11 +40,7 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 	}
 
 	batchDriver := system.BatchSubmitter.TestDriver()
-	batchDriver.Attestation = &nitrite.Result{
-		Document: &nitrite.Document{
-			CABundle: [][]byte{[]byte{1, 2, 3, 4}},
-		},
-	}
+	batchDriver.Attestation = []byte("this is an invalid attestation")
 	err = batchDriver.StartBatchSubmitting()
 
 	if err == nil {
@@ -72,9 +63,15 @@ func TestE2eDevnetWithUnattestedBatcherKey(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	privateKey, err := crypto.GenerateKey()
+	// This is a random private key belonging to address 0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C that will result in Mock Nitro verifier to return `false`
+	// because the given key is not registered as an attested batcher.
+	// Check the following code in Mock Espresso Nitro verifier:
+	//    if (signer == address(0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C)) {
+	//        return false;
+	//   }
+	privateKey, err := crypto.HexToECDSA("841c29acb9520a7ea8a48e7686cd825b93e8a3ecd966b62cb396ff8a2cd7e80e")
 	if err != nil {
-		t.Fatalf("failed to generate private key")
+		t.Fatalf("failed to parse private key: %v", err)
 	}
 
 	system, _, err :=
