@@ -50,6 +50,7 @@ remappings = [
   '@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts',
   '@espresso-tee-contracts/=lib/espresso-tee-contracts/src',
   '@nitro-validator/=lib/espresso-tee-contracts/lib/nitro-validator/src',
+  'aws-nitro-enclave-attestation/=lib/espresso-tee-contracts/lib/aws-nitro-enclave-attestation/contracts/src',
   'lib/espresso-tee-contracts/:@openzeppelin/contracts/=lib/espresso-tee-contracts/lib/openzeppelin-contracts/contracts',
   'lib/espresso-tee-contracts/:solady/=lib/solady/src',
   '@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts',
