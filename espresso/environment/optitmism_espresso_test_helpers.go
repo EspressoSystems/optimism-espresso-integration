@@ -884,102 +884,69 @@ func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *b
 
 	espressoAttestationVerifierNetworkRPCURL := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL")
 	if espressoAttestationVerifierNetworkRPCURL == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL: %s\n", espressoAttestationVerifierNetworkRPCURL)
-
 	espressoAttestationVerifierSp1Prover := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER")
 	if espressoAttestationVerifierSp1Prover == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER: %s\n", espressoAttestationVerifierSp1Prover)
-
 	espressoAttestationVerifierNitroVerifierAddress := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS")
 	if espressoAttestationVerifierNitroVerifierAddress == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS: %s\n", espressoAttestationVerifierNitroVerifierAddress)
-
 	espressoAttestationVerifierUseDocker := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER")
 	if espressoAttestationVerifierUseDocker == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER: %s\n", espressoAttestationVerifierUseDocker)
-
 	espressoAttestationVerifierSkipTimeValidityCheck := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK")
 	if espressoAttestationVerifierSkipTimeValidityCheck == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK: %s\n", espressoAttestationVerifierSkipTimeValidityCheck)
-
 	espressoAttestationVerifierRustLog := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG")
 	if espressoAttestationVerifierRustLog == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG: %s\n", espressoAttestationVerifierRustLog)
-
 	espressoAttestationVerifierNetworkPrivateKey := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY")
 	if espressoAttestationVerifierNetworkPrivateKey == "" {
-		fmt.Printf("networkPrivateKey environment variable is not set\n")
 		ct.Error = fmt.Errorf("networkPrivateKey environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY: %s\n", espressoAttestationVerifierNetworkPrivateKey)
-
 	espressoAttestationVerifierRPCUrl := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL")
 	if espressoAttestationVerifierRPCUrl == "" {
-		fmt.Printf("espressoAttestationVerifierRPCUrl environment variable is not set\n")
 		ct.Error = fmt.Errorf("RPC_URL environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_RPC_URL: %s\n", espressoAttestationVerifierRPCUrl)
-
 	espressoAttestationVerifierHost := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_HOST")
 	if espressoAttestationVerifierHost == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_HOST environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_HOST environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_HOST: %s\n", espressoAttestationVerifierHost)
-
 	espressoAttestationVerifierPort := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_PORT")
 	if espressoAttestationVerifierPort == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_PORT environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_PORT environment variable is not set")
 		return
 	}
 
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_PORT: %s\n", espressoAttestationVerifierPort)
-
 	espressoAttestationVerifierDockerImage := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE")
 	if espressoAttestationVerifierDockerImage == "" {
-		fmt.Printf("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE environment variable is not set\n")
 		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE environment variable is not set")
 		return
 	}
-
-	fmt.Printf("Using ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE: %s\n", espressoAttestationVerifierDockerImage)
 
 	dockerConfig := DockerContainerConfig{
 		Image:   espressoAttestationVerifierDockerImage,
@@ -1010,8 +977,6 @@ func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *b
 		return
 	}
 
-	fmt.Println("Attestation verifier zk server started.")
-
 	// Get the actual mapped port
 	ports := attestationVerifierInfo.PortMap[espressoAttestationVerifierPort]
 	if len(ports) == 0 {
@@ -1035,8 +1000,6 @@ func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *b
 
 	c.Espresso.EspressoAttestationService = attestationURL
 
-	fmt.Printf("c.Espresso.EspressoAttestationService set to %s\n", c.Espresso.EspressoAttestationService)
-
 	for {
 		select {
 		case <-healthCheckCtx.Done():
@@ -1054,8 +1017,6 @@ func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *b
 		}
 	}
 healthy:
-
-	fmt.Println("Attestation verifier zk server is healthy.")
 }
 
 // launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
