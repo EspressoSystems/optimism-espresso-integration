@@ -885,19 +885,12 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// The altDACLIConfig is shared by the batcher and rollup nodes.
 	var altDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
-		panic("****** DEBUG: forced panic in setup.go to verify test invocation path")
-		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
-		if err := fakeAltDAServer.Start(); err != nil {
-			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
-		}
-		sys.FakeAltDAServer = fakeAltDAServer
-
+		// Configured for EigenDA (Docker-based proxy)
 		altDACLIConfig = altda.CLIConfig{
-			Enabled: cfg.DeployConfig.UseAltDA,
-			//DAServerURL:         fakeAltDAServer.HttpEndpoint(),
-			DAServerURL:           "http://127.0.0.1:9999", // unreachable on purpose
+			Enabled:               true,
+			DAServerURL:           "http://127.0.0.1:3100",
 			VerifyOnRead:          true,
-			GenericDA:             true,
+			GenericDA:             true, // IMPORTANT: OP Stack expects GenericCommitment for EigenDA
 			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
 		}
 	}
