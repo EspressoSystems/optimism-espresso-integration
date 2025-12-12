@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

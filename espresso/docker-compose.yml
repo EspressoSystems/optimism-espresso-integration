@@ -359,6 +359,8 @@ services:
         condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
+      attestation-service-zk:
+        condition: service_healthy
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
@@ -374,6 +376,7 @@ services:
       - --espresso.enabled=true
       - --espresso.fetch-api=true
       - --espresso.poll-interval=1s
+      - --espresso.espresso-attestation-service=http://attestation-service-zk:${ESPRESSO_ATTESTATION_VERIFIER_PORT}
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
@@ -417,7 +420,11 @@ services:
         condition: service_started
       l2-genesis:
         condition: service_completed_successfully
+      attestation-service-zk:
+        condition: service_healthy
     network_mode: "host"
+    env_file:
+      - ./.env
     environment:
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
@@ -444,6 +451,7 @@ services:
         export L2_RPC_URL="http://127.0.0.1:${OP_HTTP_PORT}"
         export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
         export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
+        export ESPRESSO_ATTESTATION_SERVICE_URL="http://127.0.0.1:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   # Legacy op-proposer (for non-succinct mode)
@@ -626,6 +634,36 @@ services:
       retries: 5
       start_period: 240s
     restart: unless-stopped
+
+  attestation-service-zk:
+    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
+    platform: linux/amd64
+    ports:
+      - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 2 bash -c 'cat < /dev/null > /dev/tcp/localhost/${ESPRESSO_ATTESTATION_VERIFIER_PORT}' || exit 1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 150s
+    env_file:
+      - ./.env
+    environment:
+      # This is a demo private key for tests, it doesnt contain any funds
+      NETWORK_PRIVATE_KEY: "${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY}"
+      NETWORK_RPC_URL: "${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL}"
+      SP1_PROVER: "${ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER}"
+      RPC_URL: "${ESPRESSO_ATTESTATION_VERIFIER_RPC_URL}"
+      NITRO_VERIFIER_ADDRESS: "${ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS}"
+      USE_DOCKER: "${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER}"
+      SKIP_TIME_VALIDITY_CHECK: "${ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK}"
+      RUST_LOG: "${ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG}"
+      HOST: "${ESPRESSO_ATTESTATION_VERIFIER_HOST}"
+      PORT: "${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
 
   espresso-dev-node:
     image: ${ESPRESSO_DEV_NODE_IMAGE}
