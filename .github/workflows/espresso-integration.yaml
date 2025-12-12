@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-8core
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +36,18 @@ jobs:
 
       - name: Compile contracts
         run: just compile-contracts
+
+      - name: Load environment variables
+        run: |
+          while IFS= read -r line; do
+            # Skip comments and empty lines
+            if [[ ! "$line" =~ ^#.* ]] && [[ -n "$line" ]]; then
+              # Remove quotes from values
+              line=$(echo "$line" | sed 's/"\(.*\)"/\1/')
+              echo "$line" >> $GITHUB_ENV
+            fi
+          done < ./espresso/.env
+        shell: bash
 
       - name: Generate test slice
         id: test_split
