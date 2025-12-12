@@ -8,7 +8,8 @@ import (
 )
 
 type DeployAWSNitroVerifierInput struct {
-	EnclaveHash [32]byte
+	EnclaveHash          [32]byte
+	NitroEnclaveVerifier common.Address
 }
 
 type DeployAWSNitroVerifierOutput struct {
