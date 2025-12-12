@@ -68,6 +68,18 @@ jobs:
             --port 22 \
             --cidr 0.0.0.0/0 || true
 
+      - name: Load environment variables
+        run: |
+          while IFS= read -r line; do
+            # Skip comments and empty lines
+            if [[ ! "$line" =~ ^#.* ]] && [[ -n "$line" ]]; then
+              # Remove quotes from values
+              line=$(echo "$line" | sed 's/"\(.*\)"/\1/')
+              echo "$line" >> $GITHUB_ENV
+            fi
+          done < ./espresso/.env
+        shell: bash
+
       - name: Launch EC2 Instance
         id: ec2
         run: |
