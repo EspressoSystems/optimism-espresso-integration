@@ -15,10 +15,10 @@ jobs:
         group: [0, 1, 2, 3]
         include:
           - group: 0
-            tests: "|TestChallengeGame|TestChangeBatchInboxOwner"
+            tests: "TestChallengeGame|TestChangeBatchInboxOwner"
             tee: false
           - group: 1
-            tests: "|TestSmokeWithoutTEE|TestBatcherRestart"
+            tests: "TestSmokeWithoutTEE|TestBatcherRestart"
             tee: false
           - group: 2
             tests: "TestWithdrawal"
