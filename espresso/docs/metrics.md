@@ -21,8 +21,6 @@ Metrics that belong on the dashboard:
   `"Submitted transaction to Espresso"`
 - L1 batch submissions
   `"Transaction confirmed"`
-- Espresso batches fetched
-  `"Inserting accepted batch"`
 
 ### Recoverable Errors
 
@@ -58,8 +56,6 @@ Non-errors that can indicate preconditions for a problem to occur:
 
 ### Key Metrics
 
-- Espresso batches fetched
-  `"Inserting accepted batch"`
 - New L1 safe blocks
   `"New L1 safe block"`
 - New L2 unsafe blocks
