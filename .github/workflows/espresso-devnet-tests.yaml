@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  devnet-test:
     runs-on: ubuntu-24.04-8core
     strategy:
       fail-fast: false
