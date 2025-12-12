@@ -50,6 +50,7 @@ remappings = [
   '@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts',
   '@espresso-tee-contracts/=lib/espresso-tee-contracts/src',
   '@nitro-validator/=lib/espresso-tee-contracts/lib/nitro-validator/src',
+  'aws-nitro-enclave-attestation/=lib/espresso-tee-contracts/lib/aws-nitro-enclave-attestation/contracts/src',
   'lib/espresso-tee-contracts/:@openzeppelin/contracts/=lib/espresso-tee-contracts/lib/openzeppelin-contracts/contracts',
   'lib/espresso-tee-contracts/:solady/=lib/solady/src',
   '@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts',
@@ -180,8 +181,6 @@ compilation_restrictions = [
   { paths = "src/L1/ProtocolVersions.sol", optimizer_runs = 0 },
   { paths = "src/universal/StorageSetter.sol", optimizer_runs = 0 },
   { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
-  { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
-  { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
 ]
 
 
