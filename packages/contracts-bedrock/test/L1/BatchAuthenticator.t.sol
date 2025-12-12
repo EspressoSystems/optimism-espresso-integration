@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.0;
 
 // Testing
 import { Test } from "forge-std/Test.sol";
@@ -22,25 +22,6 @@ contract MockNitroTEEVerifier is IEspressoNitroTEEVerifier {
     }
 
     function registerSigner(bytes calldata, bytes calldata) external pure override { }
-
-    function registerSignerWithoutAttestationVerification(
-        bytes32,
-        bytes calldata,
-        bytes calldata,
-        address
-    )
-        external
-        pure
-        override
-    { }
-
-    function verifyCACert(bytes calldata, bytes32) external pure override { }
-
-    function verifyClientCert(bytes calldata, bytes32) external pure override { }
-
-    function certVerified(bytes32) external pure override returns (bool) {
-        return false;
-    }
 
     function setEnclaveHash(bytes32, bool) external pure override { }
 
