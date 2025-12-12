@@ -44,8 +44,10 @@ type DockerContainerConfig struct {
 
 	Ports []string
 
-	Network string
-	AutoRM  bool
+	Network  string
+	AutoRM   bool
+	Platform string
+	Name     string
 }
 
 // DockerBuildArg is a configuration struct that is used to pass
@@ -71,6 +73,13 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Remove existing container with the same name if it exists
+	if config.Name != "" {
+		// Try to remove the container, ignore errors if it doesn't exist
+		removeCmd := exec.CommandContext(ctx, "docker", "rm", "-f", config.Name)
+		_ = removeCmd.Run() // Ignore errors - container might not exist
+	}
+
 	outputBuffer := new(bytes.Buffer)
 	var args []string
 	// Let's build the arguments for the docker launch command
@@ -90,6 +99,14 @@ func (d *DockerCli) LaunchContainer(ctx context.Context, config DockerContainerC
 			for _, port := range config.Ports {
 				args = append(args, "-p", port)
 			}
+		}
+		// Add platform support
+		if config.Platform != "" {
+			args = append(args, "--platform", config.Platform)
+		}
+
+		if config.Name != "" {
+			args = append(args, "--name", config.Name)
 		}
 
 		for key, value := range config.Environment {
