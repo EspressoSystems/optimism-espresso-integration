@@ -1,275 +1,135 @@
-# Celo Migration Guide
+# Celo Testnet Migration
 
-## Summary
+## Overview
 
-This section outlines the proposed migration process and highlights key questions for the Celo team. The goal is to ensure both teams are aligned on requirements and responsibilities, so that the migration can be planned and executed smoothly.
+This document serves as the main collaboration tool between Celo Labs and Espresso Systems teams to agree on the migration process from Celo Testnet to its Espresso-integrated version.
 
-### Proposed Migration Steps
+Currently this document contains questions and will evolve into a detailed guide describing the concrete steps of the migration.
 
-#### Deploying New L1 Contracts
-
-Celo's team will deploy the two new contracts on the L1.
-
-1. Deploy your two contracts: Deploy BatchAuthenticator and BatchInbox, Espresso team will provide instructions and scripts
-2. Update the rollup config:
-
-```json
-{
-  "batch_inbox_address": "0x<your-new-BatchInbox-address>",
-  ...
-}
-```
-
-3. Restart op-node and op-batcher with the new config
-
-**Done!** No L1 contract upgrades needed.
-
-We should ask Celo if they plan to follow these steps for the migration or they have other guides. Espresso should provide a script containing the contract artifacts (Solidity code or compiled binaries and ABIs). Once deployed, contract address should be recorded and contract should be verified.
+**Key Integration Components:**
+- `BatchInbox` - Contract for receiving batches on L1
+- `BatchAuthenticator` - Contract for TEE-based batch authentication
+- `op-batcher` - Modified to run in TEE and post batches through Espresso
 
 ---
 
-#### New Config for `op-batcher` and `op-node`
+## Questions from Espresso to Celo
 
-Celo provides batcher key and contract address. Updates to the espresso-integrated release version for the component needs updates. And configure the activation timestamp.
+### Big Picture
 
-#### Restarting `op-node` and `op-batcher`
+#### Q1: What are Celo's goals that Espresso should be aware of?
 
-Migration will be activated at the configured timestamp, more details [here in our design book](https://github.com/EspressoSystems/book/pull/90), OP also has similar instructions (see step 2 [here](https://docs.optimism.io/notices/upgrade-17#for-node-operators)).
+In particular, which Celo Testnet should we target for migration?
 
-### Espresso Team's Plan
+*Awaiting response from Celo.*
 
-- **Sync with Celo Team regularly:** Sync with the Celo Team every week on the migration design / implementation progress. Ensure both teams are aware of the status and align on next steps.
-## Celo Deployment
+#### Q2: Are there migration-related resources you can share with us?
 
-### Prepare for the Deployment
-* Go to the scripts directory.
-```console
-cd espresso/scripts
-```
+For example: scripts, documentation, or runbooks from previous upgrades.
 
-### Prebuild Everything and Start All Services
-Note that `l2-genesis` is expected to take around 2 minutes.
-```console
-./startup.sh
-```
-Or build and start the devnet with AWS Nitro Enclave as the TEE:
-```console
-USE_TEE=true ./startup.sh
-```
+*Awaiting response from Celo.*
 
-### View Logs
-There are 17 services in total, as listed in `logs.sh`. Run the script with the service name to
-view its logs, e.g., `./logs.sh op-geth-sequencer`. Note that some service names can be replaced
-by more convenient alias, e.g., `sequencer` instead of `op-node-sequencer`, but it is also suported
-to use their full names.
+#### Q3: Can Celo share SLAs on all services provided to users?
 
-The following are common commands to view the logs of critical services. Add `-tee` to the batcher
-and the proposer services if running with the TEE.
-```console
-./logs.sh dev-node
-./logs.sh sequencer
-./logs.sh verifier
-./logs.sh caff-node
-./logs.sh batcher
-./logs.sh proposer
-```
+It would be helpful to highlight any SLAs that are directly related to, or impacted by, the batch poster (e.g., finality guarantees, uptime commitments).
 
-### Shut Down All Services
-```console
-./shutdown.sh
-```
-
-# Celo Migration Guide
-
-## Summary
-
-This section outlines the proposed migration process and highlights key questions for the Celo team. The goal is to ensure both teams are aligned on requirements and responsibilities, so that the migration can be planned and executed smoothly.
-
-### Proposed Migration Steps
-
-#### Deploying New L1 Contracts
-
-Celo's team will deploy the two new contracts on the L1.
-
-1. Deploy your two contracts: Deploy BatchAuthenticator and BatchInbox, Espresso team will provide instructions and scripts
-2. Update the rollup config:
-
-```json
-{
-  "batch_inbox_address": "0x<your-new-BatchInbox-address>",
-  ...
-}
-```
-
-3. Restart op-node and op-batcher with the new config
-
-**Done!** No L1 contract upgrades needed.
-
-We should ask Celo if they plan to follow these steps for the migration or they have other guides. Espresso should provide a script containing the contract artifacts (Solidity code or compiled binaries and ABIs). Once deployed, contract address should be recorded and contract should be verified.
+*Awaiting response from Celo.*
 
 ---
 
-#### New Config for `op-batcher` and `op-node`
+### Support Model
 
-Celo provides batcher key and contract address. Updates to the espresso-integrated release version for the component needs updates. And configure the activation timestamp.
+#### Q4: What are the deployment phases?
 
-#### Restarting `op-node` and `op-batcher`
+For example, we could have:
 
-Migration will be activated at the configured timestamp, more details [here in our design book](https://github.com/EspressoSystems/book/pull/90), OP also has similar instructions (see step 2 [here](https://docs.optimism.io/notices/upgrade-17#for-node-operators)).
+| Phase | Description | Duration |
+|-------|-------------|----------|
+| **Devnet** | Espresso & Celo testing only | Temporary |
+| **Testnet** | Espresso, Celo, and community testing | Persistent |
+| **Mainnet** | Production deployment | Permanent |
 
-### Espresso Team's Plan
+**Questions:**
+- After we deprecate the devnet, how long would Celo want to keep running the testnet after mainnet launch?
+- Does Celo have their own separate persistent testnet we can integrate with?
 
-- **Sync with Celo Team regularly:** Sync with the Celo Team every week on the migration design / implementation progress. Ensure both teams are aware of the status and align on next steps.
+*Awaiting response from Celo.*
 
-- **Devnet setup:** Leverage existing Espresso tooling for devnet deployment, see our [docker compose file](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/espresso/docker-compose.yml) to start it locally and [terraform deployment script (still private)](https://github.com/EspressoSystems/tee-op-deploy) to start it in AWS' remote services. Adapt tooling to Celo's targeted migration testnet (currently [Jello](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)) to create a devnet environment that closely mirrors the production setup.
+#### Q5: What reporting and logging does Celo have currently?
 
-- **Migration rehearsal:** Rehearse all migration codes, scripts, and operational steps:
-  - Validate contract deployment scripts, make sure deployed contracts are verified
-  - Test configuration updates for op-node and op-batcher
-  - Verify activation timestamp logic
-  - Test rollback procedures, ensure ability to revert
+- What alerts are automated?
+- What automations should Espresso replicate for the batcher?
 
-  Adjust them based on test results. Keep the issues/resolutions/scripts/steps updated in this readme.
+*Awaiting response from Celo.*
 
-- **Run migration on real testnet:** Apply migration to Celo's live testnet. Monitor and maintain the testnet for at least one week. Make sure all transactions are processing correctly through Espresso sequencer, batches are successfully posted on L1, collect feedback from Celo team and community.
+#### Q6: What incidents should one team vs both teams be responsible for?
 
-- **Run migration on mainnet:** Following the proven procedures from testnet, coordinate closely with Celo team on timing and execution, have rollback plan ready, provide ongoing support and monitoring.
+It would be helpful to identify:
+- What errors require both teams to be on-call?
+- When should Celo provide logs to Espresso?
 
-### Coordination with Celo Team (Key Questions to Ask)
+**Proposed Incident Matrix:**
 
-- **Identify Points of Contact:** Who will be the point of contact at Celo for migration test and deployment.
+| Incident Type | Primary | Support |
+|---------------|---------|---------|
+| Batcher not posting batches | Espresso | Celo (if network issue) |
+| op-node / op-geth issues | Celo | Espresso (if integration-related) |
+| L1 contract issues | Both | Both |
+| Chain liveness issues | Celo | Espresso |
 
-- **Testnet Environment:** How Celo runs their testnets and plans to test the Espresso-enabled chain. Do they use an OP Stack Kurtosis devnet, or will they deploy a [public test network](https://forum.celo.org/t/celo-as-an-ethereum-l2-a-frontier-chain-for-global-impact/11376) for this upgrade? (Celo has recently launched "Eclair" testnet with other upgrades.) Whether we should use an existing testnet (like Alfajores/Eclair) or spin up a dedicated devnet (like [Jello](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)) to rehearse the migration.
+*Awaiting response from Celo.*
 
-- **Division of Responsibilities:** Confirm what is expected from each team during the migration. For example, Celo's DevOps team would likely handle deploying the new L1 contracts (BatchInbox and BatchAuthentication) and executing any on-chain upgrade transactions (needs confirmation), while Espresso's team provides the contract code, modified node software, and guidance. As the new batcher needs to be run in TEE, Espresso will run it post-upgrade. In such case, Espresso will need access to the batcher's private key and more back-and-forth with Celo's team, and we need to determine who will fund the batcher. If Celo is going to run it in the future, we should plan on supporting batcher running in TDX.
+#### Q7: What are Celo's batch posting SLA expectations?
 
-- **Migration Steps:** Does Celo have an internal procedure or guide from those upgrades that we can piggyback on? I haven't found any relevant recent doc on this yet. Or will Celo perform upgrade following [OP's guide](https://docs.optimism.io/op-stack/protocol/network-upgrades) (example with more details: [this](https://docs.optimism.io/notices/upgrade-17) and [this](https://docs.optimism.io/notices/fusaka-notice))?
+For example:
+- Expected batch posting interval (e.g., every 30 minutes)?
+- Acceptable finality lag threshold?
+- Uptime requirements (e.g., 99.9%)?
 
+*Awaiting response from Celo.*
 
-- **Devnet setup:** Leverage existing Espresso tooling for devnet deployment, see our [docker compose file](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/espresso/docker-compose.yml) to start it locally and [terraform deployment script (still private)](https://github.com/EspressoSystems/tee-op-deploy) to start it in AWS' remote services. Adapt tooling to Celo's targeted migration testnet (currently [Jello](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)) to create a devnet environment that closely mirrors the production setup.
+#### Q8: What is Celo's disaster recovery approach?
 
-- **Migration rehearsal:** Rehearse all migration codes, scripts, and operational steps:
-  - Validate contract deployment scripts, make sure deployed contracts are verified
-  - Test configuration updates for op-node and op-batcher
-  - Verify activation timestamp logic
-  - Test rollback procedures, ensure ability to revert
+- If the state is corrupted, does Celo capture snapshots of the rollup state that Espresso could use for recovery?
+- If Celo loses a server, what happens? (This helps with our own testing.)
 
-  Adjust them based on test results. Keep the issues/resolutions/scripts/steps updated in this readme.
-
-- **Run migration on real testnet:** Apply migration to Celo's live testnet. Monitor and maintain the testnet for at least one week. Make sure all transactions are processing correctly through Espresso sequencer, batches are successfully posted on L1, collect feedback from Celo team and community.
-
-- **Run migration on mainnet:** Following the proven procedures from testnet, coordinate closely with Celo team on timing and execution, have rollback plan ready, provide ongoing support and monitoring.
-
-### Coordination with Celo Team (Key Questions to Ask)
-## Celo Deployment
-
-### Prepare for the Deployment
-* Go to the scripts directory.
-```console
-cd espresso/scripts
-```
-
-### Prebuild Everything and Start All Services
-Note that `l2-genesis` is expected to take around 2 minutes.
-```console
-./startup.sh
-```
-Or build and start the devnet with AWS Nitro Enclave as the TEE:
-```console
-USE_TEE=true ./startup.sh
-```
-
-### View Logs
-There are 17 services in total, as listed in `logs.sh`. Run the script with the service name to
-view its logs, e.g., `./logs.sh op-geth-sequencer`. Note that some service names can be replaced
-by more convenient alias, e.g., `sequencer` instead of `op-node-sequencer`, but it is also suported
-to use their full names.
-
-The following are common commands to view the logs of critical services. Add `-tee` to the batcher
-and the proposer services if running with the TEE.
-```console
-./logs.sh dev-node
-./logs.sh sequencer
-./logs.sh verifier
-./logs.sh caff-node
-./logs.sh batcher
-./logs.sh proposer
-```
-
-### Shut Down All Services
-```console
-./shutdown.sh
-```
-
-# Celo Migration Guide
-
-## Summary
-
-This section outlines the proposed migration process and highlights key questions for the Celo team. The goal is to ensure both teams are aligned on requirements and responsibilities, so that the migration can be planned and executed smoothly.
-
-### Proposed Migration Steps
-
-#### Deploying New L1 Contracts
-
-Celo's team will deploy the two new contracts on the L1.
-
-1. Deploy your two contracts: Deploy BatchAuthenticator and BatchInbox, Espresso team will provide instructions and scripts
-2. Update the rollup config:
-
-```json
-{
-  "batch_inbox_address": "0x<your-new-BatchInbox-address>",
-  ...
-}
-```
-
-3. Restart op-node and op-batcher with the new config
-
-**Done!** No L1 contract upgrades needed.
-
-We should ask Celo if they plan to follow these steps for the migration or they have other guides. Espresso should provide a script containing the contract artifacts (Solidity code or compiled binaries and ABIs). Once deployed, contract address should be recorded and contract should be verified.
+*Awaiting response from Celo.*
 
 ---
 
-#### New Config for `op-batcher` and `op-node`
+### Access Requirements
 
-Celo provides batcher key and contract address. Updates to the espresso-integrated release version for the component needs updates. And configure the activation timestamp.
+#### Q9: What access does Espresso need from Celo?
 
-#### Restarting `op-node` and `op-batcher`
+Espresso needs the following to operate the TEE batcher:
 
-Migration will be activated at the configured timestamp, more details [here in our design book](https://github.com/EspressoSystems/book/pull/90), OP also has similar instructions (see step 2 [here](https://docs.optimism.io/notices/upgrade-17#for-node-operators)).
+| Requirement | Description |
+|-------------|-------------|
+| Sequencer RPC URL | RPC access to the sequencer |
+| Chain configuration | Chain config files for the rollup |
+| Batcher configuration | Current `op-batcher` configuration |
+| State directory access | Access to `op-node` state (if migrating existing state) |
 
-### Espresso Team's Plan
+*Awaiting response from Celo.*
 
-- **Sync with Celo Team regularly:** Sync with the Celo Team every week on the migration design / implementation progress. Ensure both teams are aware of the status and align on next steps.
+---
 
-- **Devnet setup:** Leverage existing Espresso tooling for devnet deployment, see our [docker compose file](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/espresso/docker-compose.yml) to start it locally and [terraform deployment script (still private)](https://github.com/EspressoSystems/tee-op-deploy) to start it in AWS' remote services. Adapt tooling to Celo's targeted migration testnet (currently [Jello](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)) to create a devnet environment that closely mirrors the production setup.
+## Questions from Celo to Espresso
 
-- **Migration rehearsal:** Rehearse all migration codes, scripts, and operational steps:
-  - Validate contract deployment scripts, make sure deployed contracts are verified
-  - Test configuration updates for op-node and op-batcher
-  - Verify activation timestamp logic
-  - Test rollback procedures, ensure ability to revert
+*Please add questions here.*
 
-  Adjust them based on test results. Keep the issues/resolutions/scripts/steps updated in this readme.
+---
 
-- **Run migration on real testnet:** Apply migration to Celo's live testnet. Monitor and maintain the testnet for at least one week. Make sure all transactions are processing correctly through Espresso sequencer, batches are successfully posted on L1, collect feedback from Celo team and community.
+## Resources
 
-- **Run migration on mainnet:** Following the proven procedures from testnet, coordinate closely with Celo team on timing and execution, have rollback plan ready, provide ongoing support and monitoring.
+### Espresso Integration
+- [Source code (optimism-espresso-integration)](https://github.com/EspressoSystems/optimism-espresso-integration)
+- [Local devnet configuration guide](./README_ESPRESSO_DEPLOY_CONFIG.md)
 
-### Coordination with Celo Team (Key Questions to Ask)
+### OP Stack References
+- [OP Network Upgrades Guide](https://docs.optimism.io/op-stack/protocol/network-upgrades)
+- [OP Upgrade 17 Notice](https://docs.optimism.io/notices/upgrade-17)
 
-- **Identify Points of Contact:** Who will be the point of contact at Celo for migration test and deployment.
-
-- **Testnet Environment:** How Celo runs their testnets and plans to test the Espresso-enabled chain. Do they use an OP Stack Kurtosis devnet, or will they deploy a [public test network](https://forum.celo.org/t/celo-as-an-ethereum-l2-a-frontier-chain-for-global-impact/11376) for this upgrade? (Celo has recently launched "Eclair" testnet with other upgrades.) Whether we should use an existing testnet (like Alfajores/Eclair) or spin up a dedicated devnet (like [Jello](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)) to rehearse the migration.
-
-- **Division of Responsibilities:** Confirm what is expected from each team during the migration. For example, Celo's DevOps team would likely handle deploying the new L1 contracts (BatchInbox and BatchAuthentication) and executing any on-chain upgrade transactions (needs confirmation), while Espresso's team provides the contract code, modified node software, and guidance. As the new batcher needs to be run in TEE, Espresso will run it post-upgrade. In such case, Espresso will need access to the batcher's private key and more back-and-forth with Celo's team, and we need to determine who will fund the batcher. If Celo is going to run it in the future, we should plan on supporting batcher running in TDX.
-
-- **Migration Steps:** Does Celo have an internal procedure or guide from those upgrades that we can piggyback on? I haven't found any relevant recent doc on this yet. Or will Celo perform upgrade following [OP's guide](https://docs.optimism.io/op-stack/protocol/network-upgrades) (example with more details: [this](https://docs.optimism.io/notices/upgrade-17) and [this](https://docs.optimism.io/notices/fusaka-notice))?
-
-lfajores/Eclair) or spin up a dedicated devnet (like [Jello](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)) to rehearse the migration.
-
-- **Division of Responsibilities:** Confirm what is expected from each team during the migration. For example, Celo's DevOps team would likely handle deploying the new L1 contracts (BatchInbox and BatchAuthentication) and executing any on-chain upgrade transactions (needs confirmation), while Espresso's team provides the contract code, modified node software, and guidance. As the new batcher needs to be run in TEE, Espresso will run it post-upgrade. In such case, Espresso will need access to the batcher's private key and more back-and-forth with Celo's team, and we need to determine who will fund the batcher. If Celo is going to run it in the future, we should plan on supporting batcher running in TDX.
-
-- **Migration Steps:** Does Celo have an internal procedure or guide from those upgrades that we can piggyback on? I haven't found any relevant recent doc on this yet. Or will Celo perform upgrade following [OP's guide](https://docs.optimism.io/op-stack/protocol/network-upgrades) (example with more details: [this](https://docs.optimism.io/notices/upgrade-17) and [this](https://docs.optimism.io/notices/fusaka-notice))?
-
+### Celo References
+- [Celo L2 Forum Post](https://forum.celo.org/t/celo-as-an-ethereum-l2-a-frontier-chain-for-global-impact/11376)
+- [Jello Hardfork Announcement](https://forum.celo.org/t/introducing-the-jello-hardfork-op-succinct-lite-now-live-on-celo-sepolia/12603)
