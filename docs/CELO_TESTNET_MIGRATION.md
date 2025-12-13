@@ -6,11 +6,6 @@ This document serves as the main collaboration tool between Celo Labs and Espres
 
 Currently this document contains questions and will evolve into a detailed guide describing the concrete steps of the migration.
 
-**Key Integration Components:**
-- `BatchInbox` - Contract for receiving batches on L1
-- `BatchAuthenticator` - Contract for TEE-based batch authentication
-- `op-batcher` - Modified to run in TEE and post batches through Espresso
-
 ---
 
 ## Questions from Espresso to Celo
@@ -49,9 +44,6 @@ For example, we could have:
 | **Testnet** | Espresso, Celo, and community testing | Persistent |
 | **Mainnet** | Production deployment | Permanent |
 
-**Questions:**
-- After we deprecate the devnet, how long would Celo want to keep running the testnet after mainnet launch?
-- Does Celo have their own separate persistent testnet we can integrate with?
 
 *Awaiting response from Celo.*
 
@@ -75,7 +67,7 @@ It would be helpful to identify:
 | Batcher not posting batches | Espresso | Celo (if network issue) |
 | op-node / op-geth issues | Celo | Espresso (if integration-related) |
 | L1 contract issues | Both | Both |
-| Chain liveness issues | Celo | Espresso |
+| Chain liveness issues | Both | Both |
 
 *Awaiting response from Celo.*
 
