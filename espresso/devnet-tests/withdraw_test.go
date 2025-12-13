@@ -169,7 +169,7 @@ func TestWithdrawal(t *testing.T) {
 	}, 5*time.Minute, 5*time.Second, "game not resolved")
 
 	t.Log("Waiting for dispute game finality delay...")
-	time.Sleep(10 * time.Second) // DISPUTE_GAME_FINALITY_DELAY_SECONDS is 6
+	time.Sleep(10 * time.Second) // DISPUTE_GAME_FINALITY_DELAY_SECONDS is 6 + 4seconds to be safe
 
 	// Step 7: Finalize withdrawal
 	t.Log("Finalizing withdrawal...")
