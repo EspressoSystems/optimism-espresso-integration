@@ -357,6 +357,47 @@ In order to refresh this AMI one needs to:
 2. Copy the script `espresso/scrips/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
+
+## Celo Deployment
+
+### Prepare for the Deployment
+* Go to the scripts directory.
+```console
+cd espresso/scripts
+```
+
+### Prebuild Everything and Start All Services
+Note that `l2-genesis` is expected to take around 2 minutes.
+```console
+./startup.sh
+```
+Or build and start the devnet with AWS Nitro Enclave as the TEE:
+```console
+USE_TEE=true ./startup.sh
+```
+
+### View Logs
+There are 17 services in total, as listed in `logs.sh`. Run the script with the service name to
+view its logs, e.g., `./logs.sh op-geth-sequencer`. Note that some service names can be replaced
+by more convenient alias, e.g., `sequencer` instead of `op-node-sequencer`, but it is also suported
+to use their full names.
+
+The following are common commands to view the logs of critical services. Add `-tee` to the batcher
+and the proposer services if running with the TEE.
+```console
+./logs.sh dev-node
+./logs.sh sequencer
+./logs.sh verifier
+./logs.sh caff-node
+./logs.sh batcher
+./logs.sh proposer
+```
+
+### Shut Down All Services
+```console
+./shutdown.sh
+```
+
 # OP Succinct Lite dependencies
 
 ## Repositories
