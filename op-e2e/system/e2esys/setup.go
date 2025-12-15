@@ -88,9 +88,10 @@ import (
 )
 
 const (
-	RoleSeq   = "sequencer"
-	RoleVerif = "verifier"
-	RoleL1    = "l1"
+	RoleSeq                      = "sequencer"
+	RoleVerif                    = "verifier"
+	RoleL1                       = "l1"
+	EIGENDA_DOCKER_DA_SERVER_URL = "http://127.0.0.1:3100"
 )
 
 var (
@@ -894,17 +895,12 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// The altDACLIConfig is shared by the batcher and rollup nodes.
 	var altDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
-		fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
-		if err := fakeAltDAServer.Start(); err != nil {
-			return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
-		}
-		sys.FakeAltDAServer = fakeAltDAServer
-
+		// Configured for EigenDA (Docker-based proxy)
 		altDACLIConfig = altda.CLIConfig{
-			Enabled:               cfg.DeployConfig.UseAltDA,
-			DAServerURL:           fakeAltDAServer.HttpEndpoint(),
+			Enabled:               true,
+			DAServerURL:           EIGENDA_DOCKER_DA_SERVER_URL,
 			VerifyOnRead:          true,
-			GenericDA:             true,
+			GenericDA:             true, // IMPORTANT: OP Stack expects GenericCommitment for EigenDA
 			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
 		}
 	}
