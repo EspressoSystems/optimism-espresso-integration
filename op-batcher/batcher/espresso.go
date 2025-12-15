@@ -1013,6 +1013,10 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 }
 
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
+	// batcher calls this function only when its running in TEE mode so if the attestation service URL is not configured, return an error
+	if l.Config.EspressoAttestationService == "" {
+		return nil, errors.New("espresso attestation service URL is not configured")
+	}
 	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
 	url := attestationServiceURL + "/generate_proof"
 	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
