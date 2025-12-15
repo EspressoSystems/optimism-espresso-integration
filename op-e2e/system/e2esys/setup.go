@@ -85,9 +85,10 @@ import (
 )
 
 const (
-	RoleSeq   = "sequencer"
-	RoleVerif = "verifier"
-	RoleL1    = "l1"
+	RoleSeq                      = "sequencer"
+	RoleVerif                    = "verifier"
+	RoleL1                       = "l1"
+	EIGENDA_DOCKER_DA_SERVER_URL = "http://127.0.0.1:3100"
 )
 
 var (
@@ -888,7 +889,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		// Configured for EigenDA (Docker-based proxy)
 		altDACLIConfig = altda.CLIConfig{
 			Enabled:               true,
-			DAServerURL:           "http://127.0.0.1:3100",
+			DAServerURL:           EIGENDA_DOCKER_DA_SERVER_URL,
 			VerifyOnRead:          true,
 			GenericDA:             true, // IMPORTANT: OP Stack expects GenericCommitment for EigenDA
 			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,

@@ -74,6 +74,10 @@ const ESPRESSO_BUILDER_PORT = "31003"
 const ESPRESSO_SEQUENCER_API_PORT = "24000"
 const ESPRESSO_DEV_NODE_PORT = "24002"
 
+// EigenDA consstants
+const EIGENDA_DOCKER_PORT = "3100"
+const EIGENDA_DOCKER_IMAGE = "ghcr.io/layr-labs/eigenda-proxy:2.2.1"
+
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
 // allowance.
@@ -992,13 +996,13 @@ func StartEigenDA(ctx context.Context) (*DockerContainerInfo, error) {
 	cli := new(DockerCli)
 
 	cfg := DockerContainerConfig{
-		Image:   "ghcr.io/layr-labs/eigenda-proxy:2.2.1",
+		Image:   EIGENDA_DOCKER_IMAGE,
 		Network: determineDockerNetworkMode(),
 		Environment: map[string]string{
 			"EIGENDA_PROXY_MEMSTORE_ENABLED": "true",
-			"PORT":                           "3100",
+			"PORT":                           EIGENDA_DOCKER_PORT,
 		},
-		Ports: []string{"3100"},
+		Ports: []string{EIGENDA_DOCKER_PORT},
 	}
 
 	container, err := cli.LaunchContainer(ctx, cfg)
@@ -1015,7 +1019,7 @@ func StartEigenDA(ctx context.Context) (*DockerContainerInfo, error) {
 		case <-timeout.Done():
 			return nil, fmt.Errorf("EigenDA proxy did not become ready")
 		default:
-			conn, err := net.DialTimeout("tcp", "localhost:3100", time.Second)
+			conn, err := net.DialTimeout("tcp", "localhost:"+EIGENDA_DOCKER_PORT, time.Second)
 			if err == nil {
 				conn.Close()
 				return &container, nil
