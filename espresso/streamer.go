@@ -15,6 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+// batchWithTransactions is an interface for batches that have a Batch field with Transactions
+type batchWithTransactions interface {
+	Batch() interface{ Transactions() []interface{} }
+}
+
 // Espresso light client bindings don't have an explicit name for this struct,
 // so we define it here to avoid spelling it out every time
 type FinalizedState = struct {
@@ -476,7 +481,11 @@ func (s *BatchStreamer[B]) processRemainingBatches(ctx context.Context) {
 			continue
 		}
 
-		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
+		header := batch.Header()
+		s.Log.Trace("Remaining list", "Inserting batch into buffer",
+			"parentHash", header.ParentHash,
+			"epochNum", header.Number,
+			"timestamp", header.Time)
 		s.BatchBuffer.Insert(batch, pos)
 		keysToDelete = append(keysToDelete, k)
 	}
@@ -513,7 +522,11 @@ func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, trans
 		s.RemainingBatches[hash] = *batch
 
 	case BatchAccept:
-		s.Log.Info("Inserting batch into buffer", "batch", batch)
+		header := (*batch).Header()
+		s.Log.Info("Inserting batch into buffer",
+			"parentHash", header.ParentHash,
+			"epochNum", header.Number,
+			"timestamp", header.Time)
 		s.BatchBuffer.Insert(*batch, pos)
 
 	case BatchFuture:
