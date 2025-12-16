@@ -15,11 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// batchWithTransactions is an interface for batches that have a Batch field with Transactions
-type batchWithTransactions interface {
-	Batch() interface{ Transactions() []interface{} }
-}
-
 // Espresso light client bindings don't have an explicit name for this struct,
 // so we define it here to avoid spelling it out every time
 type FinalizedState = struct {
