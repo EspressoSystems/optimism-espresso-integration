@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dasel for JSON manipulation
-RUN curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_$(dpkg --print-architecture)" -o /usr/local/bin/dasel && \
+RUN curl -sSL "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_$(dpkg --print-architecture)" -o /usr/local/bin/dasel && \
     chmod +x /usr/local/bin/dasel
 
 # Install yq for YAML parsing

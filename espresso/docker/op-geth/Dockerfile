@@ -49,7 +49,7 @@ RUN case $(uname -m) in \
   "arm64"|"aarch64") ARCH="arm64" ;; \
   *) ARCH="amd64" ;; \
   esac && \
-  curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_$ARCH" -o /usr/local/bin/dasel && \
+  curl -sSL "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_$ARCH" -o /usr/local/bin/dasel && \
   chmod +x /usr/local/bin/dasel
 
 # Copy binary from builder stage.
