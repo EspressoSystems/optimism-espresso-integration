@@ -16,7 +16,10 @@ Currently this document contains questions and will evolve into a detailed guide
 
 In particular, which Celo Testnet should we target for migration?
 
-*Awaiting response from Celo.*
+**Response from Celo:**
+- Public testing will happen on **Celo Sepolia**
+- Testing progression: Local environment → Private testnet → Celo Sepolia (public)
+- This migration will be deployed as part of a broader testnet upgrade
 
 #### Q2: Are there migration-related resources you can share with us?
 
@@ -32,20 +35,52 @@ It would be helpful to highlight any SLAs that are directly related to, or impac
 
 ---
 
+### Migration Implementation
+
+#### Q3.1: Hardfork Considerations
+
+**Response from Celo:**
+
+The migration to Espresso will be implemented as a **hardfork** because:
+- Adding config options and derivation changes requires protocol-level modifications
+- All nodes must upgrade simultaneously to maintain consensus
+
+**Questions:**
+- What is the exact hardfork activation block/timestamp?
+- What are the backwards compatibility requirements?
+- What is the node upgrade coordination timeline?
+- What settings and versions will be used for the local environment testing?
+- What settings and versions will be used for the private testnet testing?
+
+#### Q3.2: Contract Deployment Strategy
+
+**Response from Celo:**
+
+For the new L1 contracts (BatchInbox and BatchAuthenticator), Celo needs to determine:
+
+**Questions:**
+- Can we deploy contracts before the hardfork activation?
+  - Preferred approach: Deploy contracts in advance, activate via hardfork
+  - Alternative: Deploy as part of hardfork logic (more complex)
+- Are there any contract initialization dependencies on the hardfork?
+- Do contracts need special permissions or ownership setup during deployment?
+
+---
+
 ### Support Model
 
 #### Q4: What are the deployment phases?
 
-For example, we could have:
+**Response from Celo:**
 
-| Phase | Description | Duration |
-|-------|-------------|----------|
-| **Devnet** | Espresso & Celo testing only | Temporary |
-| **Testnet** | Espresso, Celo, and community testing | Persistent |
-| **Mainnet** | Production deployment | Permanent |
+Testing and deployment will follow Celo's standard upgrade process:
 
-
-*Awaiting response from Celo.*
+| Phase | Description | Duration | Participants |
+|-------|-------------|----------|--------------|
+| **Local Environment** | Local devnet testing | Temporary | Espresso & Celo engineers |
+| **Private Testnet** | Private testnet run by Celo | Temporary | Espresso & Celo teams |
+| **Celo Sepolia (Public)** | Public testnet open to community | Persistent | Espresso, Celo, and community |
+| **Mainnet** | Production deployment | Permanent | Public |
 
 #### Q5: What reporting and logging does Celo have currently?
 
