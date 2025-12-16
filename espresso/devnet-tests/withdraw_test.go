@@ -64,20 +64,9 @@ func TestWithdrawal(t *testing.T) {
 	}, 3*time.Minute, 2*time.Second, "proposer didn't start")
 
 	// Step 2: Initiate withdrawal
+
 	t.Log("Initiating withdrawal on L2...")
 	withdrawalAmount := big.NewInt(1e18) // 1 ETH
-
-	l2MessagePasser, _ := bindings.NewL2ToL1MessagePasser(
-		common.HexToAddress("0x4200000000000000000000000000000000000016"), d.L2Seq)
-	l2ChainID, _ := d.L2Seq.ChainID(ctx)
-	l2Opts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l2ChainID)
-	l2Opts.Value = withdrawalAmount
-
-	withdrawTx, err := l2MessagePasser.InitiateWithdrawal(l2Opts, alice, big.NewInt(21000), nil)
-	require.NoError(t, err)
-	withdrawReceipt, err := wait.ForReceiptOK(ctx, d.L2Verif, withdrawTx.Hash())
-	require.NoError(t, err)
-	t.Logf("Withdrawal initiated at L2 block %d", withdrawReceipt.BlockNumber)
 
 	// Deposit ETH to L1 bridge to fund withdrawals
 	t.Log("Depositing ETH to L1 bridge...")
@@ -91,6 +80,18 @@ func TestWithdrawal(t *testing.T) {
 	_, err = wait.ForReceiptOK(ctx, d.L1, depositTx.Hash())
 	require.NoError(t, err)
 	t.Log("Deposit complete!")
+
+	l2MessagePasser, _ := bindings.NewL2ToL1MessagePasser(
+		common.HexToAddress("0x4200000000000000000000000000000000000016"), d.L2Seq)
+	l2ChainID, _ := d.L2Seq.ChainID(ctx)
+	l2Opts, _ := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l2ChainID)
+	l2Opts.Value = withdrawalAmount
+
+	withdrawTx, err := l2MessagePasser.InitiateWithdrawal(l2Opts, alice, big.NewInt(21000), nil)
+	require.NoError(t, err)
+	withdrawReceipt, err := wait.ForReceiptOK(ctx, d.L2Verif, withdrawTx.Hash())
+	require.NoError(t, err)
+	t.Logf("Withdrawal initiated at L2 block %d", withdrawReceipt.BlockNumber)
 
 	// Step 3: Wait for a dispute game covering the withdrawal block
 	t.Logf("Waiting for dispute game covering L2 block %d...", withdrawReceipt.BlockNumber)
