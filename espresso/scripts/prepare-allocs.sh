@@ -66,6 +66,8 @@ op-deployer bootstrap implementations \
                       --superchain-proxy-admin=`jq -r .proxyAdminAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
                       --upgrade-controller="${OPERATOR_ADDRESS}" \
                       --challenger="${OPERATOR_ADDRESS}" \
+                      --proof-maturity-delay-seconds=12 \
+                      --dispute-game-finality-delay-seconds=6 \
                       --outfile="${DEPLOYER_DIR}/bootstrap_implementations.json"
 
 op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
@@ -118,8 +120,8 @@ echo "Deploying op-succinct contracts..."
 
 # Configuration for op-succinct
 GAME_TYPE=42  # Succinct game type
-MAX_CHALLENGE_DURATION=300  # 5 minutes for devnet
-MAX_PROVE_DURATION=1800     # 30 minutes for devnet
+MAX_CHALLENGE_DURATION=10  # 10 seconds for devnet testing
+MAX_PROVE_DURATION=60     # 60 seconds for devnet testing
 FALLBACK_TIMEOUT_FP_SECS=3600  # 1 hour for devnet
 INITIAL_BOND_WEI=1000000000000000  # 0.001 ETH
 CHALLENGER_BOND_WEI=1000000000000000  # 0.001 ETH
