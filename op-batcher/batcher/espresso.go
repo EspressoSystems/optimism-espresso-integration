@@ -984,11 +984,17 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		l.Log.Error("failed to decode journal hex string", "err", err)
 		return fmt.Errorf("failed to decode journal hex string: %w", err)
 	}
+	// print onchainProof.RawProof.Journal
+	log.Info("onchain raw proof journal", "journal", onchainProof.RawProof.Journal)
+
 	onchainProofBytes, err := hex.DecodeString(stripHexPrefix(onchainProof.OnchainProof))
 	if err != nil {
 		l.Log.Error("failed to decode onchain proof hex string", "err", err)
 		return fmt.Errorf("failed to decode onchain proof hex string: %w", err)
 	}
+
+	log.Info("onchain proof", "onchainProof", onchainProof.OnchainProof)
+
 	log.Info("successfully generated zk proof from nitro attestation")
 
 	txData, err := abi.Pack("registerSigner", journalBytes, onchainProofBytes)
@@ -996,6 +1002,8 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return fmt.Errorf("failed to create registerSigner transaction: %w", err)
 	}
 
+	// print the txData
+	log.Info("registerSigner txData", "txData", hexutil.Encode(txData))
 	candidate := txmgr.TxCandidate{
 		TxData: txData,
 		To:     &l.RollupConfig.BatchAuthenticatorAddress,
