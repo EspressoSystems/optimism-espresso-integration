@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dasel
         run: |
-          curl -sSL "https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_amd64" -o /tmp/dasel
+          curl -sSL "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_amd64" -o /tmp/dasel
           sudo mv /tmp/dasel /usr/local/bin/dasel
           sudo chmod +x /usr/local/bin/dasel
           dasel --version
@@ -344,7 +344,6 @@ jobs:
       contents: read
       packages: write
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
