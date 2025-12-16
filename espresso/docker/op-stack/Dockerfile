@@ -23,7 +23,7 @@ RUN case "$TARGETARCH" in \
   esac && \
   wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$ARCH -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
-  wget https://github.com/TomWright/dasel/releases/latest/download/dasel_linux_$ARCH -O /usr/local/bin/dasel && \
+  wget https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_$ARCH -O /usr/local/bin/dasel && \
   chmod +x /usr/local/bin/dasel && \
   wget https://github.com/foundry-rs/foundry/releases/download/v1.4.4/foundry_v1.4.4_linux_$ARCH.tar.gz -O foundry.tgz && \
   tar -xzf foundry.tgz -C /usr/local/bin && \
