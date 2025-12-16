@@ -46,6 +46,7 @@ interface IBatchAuthenticator {
         address _espressoTEEVerifier,
         address _teeBatcher,
         address _nonTeeBatcher,
+        address _preRegisteredBatcher,
         address _owner
     ) external;
 }
