@@ -22,7 +22,7 @@ Note: For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
 ```
 
 
-## Local devnet
+### Configuring Docker
 
 In order to download the docker images required by this project you may need to authenticate using a PAT.
 
@@ -210,9 +210,11 @@ To register PCR0 of the batcher enclave image built by the previous command:
 ```
 You will need to provide the L1 URL, the contract address of BatchAuthenticator, private key of L1 account used to deploy BatchAuthenticator and PCR0 obtained when building the image.
 
-## Docker Compose
+# Local Devnet
 
-### Run Docker Compose
+This section describes how to run a local devnet.
+
+## Run Docker Compose
 
 * Ensure that your Docker Compose, Engine, and plugins are up-to-date. Particularly, if the Docker
 Compose version is `2.37.3` or the Docker Engine version is `27.4.0`, and the Docker build hangs,
@@ -264,7 +266,7 @@ COMPOSE_PROFILES=tee docker compose up --build -d
 docker compose logs -f
 ```
 
-### Investigate a Service
+## Investigate a Service
 
 * Shut down all containers.
 ```console
@@ -281,7 +283,7 @@ docker compose up <service-name>
 docker compose --env-file .env up <service-name>
 ```
 
-### Apply a Change
+## Apply a Change
 
 * In most cases, simply remove all containers and run commands as normal.
 ```console
@@ -313,10 +315,10 @@ restarting.
   the genesis allocations by running `prepare-allocs.sh`
 
 
-### Log monitoring
+## Log monitoring
 For a selection of important metrics to monitor for and corresponding log lines see `espresso/docs/metrics.md`
 
-### Blockscout
+## Blockscout
 
 Blockscout is a block explorer that reads from the sequencer node. It can be accessed at `http://localhost:3000`.
 
@@ -358,15 +360,15 @@ In order to refresh this AMI one needs to:
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
 
-## Celo Deployment
+# Celo Deployment
 
-### Prepare for the Deployment
+## Prepare for the Deployment
 * Go to the scripts directory.
 ```console
 cd espresso/scripts
 ```
 
-### Prebuild Everything and Start All Services
+## Prebuild Everything and Start All Services
 Note that `l2-genesis` is expected to take around 2 minutes.
 ```console
 ./startup.sh
@@ -376,7 +378,7 @@ Or build and start the devnet with AWS Nitro Enclave as the TEE:
 USE_TEE=true ./startup.sh
 ```
 
-### View Logs
+## View Logs
 There are 17 services in total, as listed in `logs.sh`. Run the script with the service name to
 view its logs, e.g., `./logs.sh op-geth-sequencer`. Note that some service names can be replaced
 by more convenient alias, e.g., `sequencer` instead of `op-node-sequencer`, but it is also suported
@@ -393,7 +395,7 @@ and the proposer services if running with the TEE.
 ./logs.sh proposer
 ```
 
-### Shut Down All Services
+## Shut Down All Services
 ```console
 ./shutdown.sh
 ```
@@ -445,3 +447,10 @@ In our setting changes to the derivation pipeline are made in the [kona](https:/
 Note that periodically we need to merge upstream changes in the `kona`, `celo-kona`, and `op-succinct` repositories to keep our integration branches up to date. This ensures that our custom modifications don't drift too far from the upstream codebase and that we can easily incorporate bug fixes and new features from the upstream projects.
 
 
+# Testnet Migration
+
+We are working on a set of scripts to handle the migration from a Celo Testnet to a version integrated with Espresso.
+
+Some relevant documents:
+* [Documentation of configuration parameters](docs/README_ESPRESSO_DEPLOY_CONFIG.md)
+* [Celo Testnet Migration Guide](docs/CELO_TESTNET_MIGRATION.md) (WIP)
