@@ -19,7 +19,7 @@
 
 ## Procedure: Sync with Celo
 
-- (When: every other Friday, before syncing with Kona repos following [Procedure: Sync with Succinct](https://www.notion.so/Procedure-Sync-with-Succinct-2cb2431b68e980dda3d4db7857787046?pvs=21).)
+- (When: every other Friday, before syncing with Kona repos following [Procedure: Sync with Succinct](#procedure-sync-with-succinct).)
 - Set a cutoff time and let the team know about this.
     - This is to prevent the case where a team member is working on something necessary to be merged to the default branch ASAP, but the code syncing process may block that.
 - Sync the Celo tip branch with the latest version at https://github.com/celo-org/optimism.
@@ -121,7 +121,7 @@
 
 ## Procedure: Sync with Succinct
 
-- (When: every other Friday, after syncing with Celo following [Procedure - Sync with Celo](https://www.notion.so/Procedure-Sync-with-Celo-1af2431b68e980f4a0bbec1d98c16a9f?pvs=21) .)
+- (When: every other Friday, after syncing with Celo following [Procedure: Sync with Celo](#procedure-sync-with-celo).)
 - Set a cutoff time and let the team know about this.
     - This is to prevent the case where a team member is working on something necessary to be merged to the default branch ASAP, but the code syncing process may block that.
 
