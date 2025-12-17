@@ -476,7 +476,11 @@ func (s *BatchStreamer[B]) processRemainingBatches(ctx context.Context) {
 			continue
 		}
 
-		s.Log.Trace("Remaining list", "Inserting batch into buffer", "batch", batch)
+		header := batch.Header()
+		s.Log.Trace("Remaining list", "Inserting batch into buffer",
+			"parentHash", header.ParentHash,
+			"epochNum", header.Number,
+			"timestamp", header.Time)
 		s.BatchBuffer.Insert(batch, pos)
 		keysToDelete = append(keysToDelete, k)
 	}
@@ -513,7 +517,11 @@ func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, trans
 		s.RemainingBatches[hash] = *batch
 
 	case BatchAccept:
-		s.Log.Info("Inserting batch into buffer", "batch", batch)
+		header := (*batch).Header()
+		s.Log.Info("Inserting batch into buffer",
+			"parentHash", header.ParentHash,
+			"epochNum", header.Number,
+			"timestamp", header.Time)
 		s.BatchBuffer.Insert(*batch, pos)
 
 	case BatchFuture:
