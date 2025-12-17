@@ -16,9 +16,10 @@ contract TestBatchAuthenticator is BatchAuthenticator {
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
         address _nonTeeBatcher,
+        address _preRegisteredBatcher,
         address _owner
     )
-        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
+        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _preRegisteredBatcher, _owner)
     { }
 
     // Test helper to bypass signature verification in authenticateBatchInfo.
@@ -38,7 +39,8 @@ contract BatchInbox_Test is Test {
 
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
-    address public deployer = address(0xABCD);
+    address public preRegisteredBatcher = address(0x9ABC);
+    address public deployer = address(0xDEF0);
     address public unauthorized = address(0xDEAD);
 
     function setUp() public virtual {
@@ -46,8 +48,9 @@ contract BatchInbox_Test is Test {
         teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
 
         vm.prank(deployer);
-        authenticator =
-            new TestBatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        authenticator = new TestBatchAuthenticator(
+            IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, preRegisteredBatcher, deployer
+        );
 
         inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
     }

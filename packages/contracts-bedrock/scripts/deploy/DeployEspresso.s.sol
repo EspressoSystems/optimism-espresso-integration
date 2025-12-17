@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {BaseDeployIO} from "scripts/deploy/BaseDeployIO.sol";
-import {IBatchInbox} from "interfaces/L1/IBatchInbox.sol";
-import {Script} from "forge-std/Script.sol";
-import {DeployUtils} from "scripts/libraries/DeployUtils.sol";
-import {Solarray} from "scripts/libraries/Solarray.sol";
-import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
-import {IEspressoNitroTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
-import {IEspressoSGXTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
-import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import {EspressoTEEVerifier} from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
-import {console2 as console} from "forge-std/console2.sol";
+import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
+import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";
+import { Script } from "forge-std/Script.sol";
+import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
+import { Solarray } from "scripts/libraries/Solarray.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
+import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
+import { console2 as console } from "forge-std/console2.sol";
 
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
@@ -66,10 +66,7 @@ contract DeployEspressoOutput is BaseDeployIO {
     address internal _batchAuthenticatorAddress;
 
     function set(bytes4 _sel, address _addr) public {
-        require(
-            _addr != address(0),
-            "DeployEspressoOutput: cannot set zero address"
-        );
+        require(_addr != address(0), "DeployEspressoOutput: cannot set zero address");
         if (_sel == this.batchInboxAddress.selector) {
             _batchInboxAddress = _addr;
         } else if (_sel == this.batchAuthenticatorAddress.selector) {
@@ -80,35 +77,20 @@ contract DeployEspressoOutput is BaseDeployIO {
     }
 
     function batchAuthenticatorAddress() public view returns (address) {
-        require(
-            _batchAuthenticatorAddress != address(0),
-            "DeployEspressoOutput: batch authenticator address not set"
-        );
+        require(_batchAuthenticatorAddress != address(0), "DeployEspressoOutput: batch authenticator address not set");
         return _batchAuthenticatorAddress;
     }
 
     function batchInboxAddress() public view returns (address) {
-        require(
-            _batchInboxAddress != address(0),
-            "DeployEspressoOutput: batcher inbox address not set"
-        );
+        require(_batchInboxAddress != address(0), "DeployEspressoOutput: batcher inbox address not set");
         return _batchInboxAddress;
     }
 }
 
 contract DeployEspresso is Script {
-    function run(
-        DeployEspressoInput input,
-        DeployEspressoOutput output,
-        address deployerAddress
-    ) public {
+    function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
-        IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(
-            input,
-            output,
-            teeVerifier,
-            deployerAddress
-        );
+        IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
         deployBatchInbox(input, output, batchAuthenticator, deployerAddress);
         checkOutput(output);
     }
@@ -118,13 +100,14 @@ contract DeployEspresso is Script {
         DeployEspressoOutput output,
         IEspressoTEEVerifier teeVerifier,
         address owner
-    ) public returns (IBatchAuthenticator) {
+    )
+        public
+        returns (IBatchAuthenticator)
+    {
         bytes32 salt = input.salt();
         vm.broadcast(msg.sender);
         if (input.preRegisteredBatcher() != address(0)) {
-            console.log(
-                "WARNING: preRegisteredBatcher is set. This should not happen in production deployments"
-            );
+            console.log("WARNING: preRegisteredBatcher is set. This should not happen in production deployments");
         }
         IBatchAuthenticator impl = IBatchAuthenticator(
             DeployUtils.create2({
@@ -150,12 +133,8 @@ contract DeployEspresso is Script {
         return impl;
     }
 
-    function deployTEEVerifier(
-        DeployEspressoInput input
-    ) public returns (IEspressoTEEVerifier) {
-        IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(
-            input.nitroTEEVerifier()
-        );
+    function deployTEEVerifier(DeployEspressoInput input) public returns (IEspressoTEEVerifier) {
+        IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
         vm.broadcast(msg.sender);
         IEspressoTEEVerifier impl = new EspressoTEEVerifier(
             // SGX TEE verifier is not yet implemented
@@ -171,7 +150,9 @@ contract DeployEspresso is Script {
         DeployEspressoOutput output,
         IBatchAuthenticator batchAuthenticator,
         address owner
-    ) public {
+    )
+        public
+    {
         bytes32 salt = input.salt();
         vm.broadcast(msg.sender);
         IBatchInbox impl = IBatchInbox(
@@ -179,10 +160,7 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(
-                        IBatchInbox.__constructor__,
-                        (address(batchAuthenticator), owner)
-                    )
+                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator), owner))
                 )
             })
         );
@@ -191,10 +169,8 @@ contract DeployEspresso is Script {
     }
 
     function checkOutput(DeployEspressoOutput output) public view {
-        address[] memory addresses = Solarray.addresses(
-            address(output.batchAuthenticatorAddress()),
-            address(output.batchInboxAddress())
-        );
+        address[] memory addresses =
+            Solarray.addresses(address(output.batchAuthenticatorAddress()), address(output.batchInboxAddress()));
         DeployUtils.assertValidContractAddresses(addresses);
     }
 }

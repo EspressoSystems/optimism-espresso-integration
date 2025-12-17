@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
 /// @title BatchInbox
 /// @notice Receives batches from either a TEE batcher or a non-TEE batcher and enforces
@@ -14,10 +14,7 @@ contract BatchInbox is Ownable {
 
     /// @notice Initializes the contract with the batch authenticator.
     /// @param _batchAuthenticator Address of the batch authenticator contract.
-    constructor(
-        IBatchAuthenticator _batchAuthenticator,
-        address _owner
-    ) Ownable() {
+    constructor(IBatchAuthenticator _batchAuthenticator, address _owner) Ownable() {
         batchAuthenticator = _batchAuthenticator;
         _transferOwnership(_owner);
     }
@@ -35,10 +32,7 @@ contract BatchInbox is Ownable {
                     string(
                         abi.encodePacked(
                             "BatchInbox: batcher not authorized to post in TEE mode. Expected: ",
-                            Strings.toHexString(
-                                uint160(batchAuthenticator.teeBatcher()),
-                                20
-                            ),
+                            Strings.toHexString(uint160(batchAuthenticator.teeBatcher()), 20),
                             ", Actual: ",
                             Strings.toHexString(uint160(msg.sender), 20)
                         )
@@ -50,10 +44,7 @@ contract BatchInbox is Ownable {
                 bytes memory concatenatedHashes = new bytes(0);
                 uint256 currentBlob = 0;
                 while (blobhash(currentBlob) != 0) {
-                    concatenatedHashes = bytes.concat(
-                        concatenatedHashes,
-                        blobhash(currentBlob)
-                    );
+                    concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(currentBlob));
                     currentBlob++;
                 }
                 bytes32 hash = keccak256(concatenatedHashes);
@@ -73,10 +64,7 @@ contract BatchInbox is Ownable {
                     string(
                         abi.encodePacked(
                             "BatchInbox: batcher not authorized to post in fallback mode. Expected: ",
-                            Strings.toHexString(
-                                uint160(batchAuthenticator.nonTeeBatcher()),
-                                20
-                            ),
+                            Strings.toHexString(uint160(batchAuthenticator.nonTeeBatcher()), 20),
                             ", Actual: ",
                             Strings.toHexString(uint160(msg.sender), 20)
                         )

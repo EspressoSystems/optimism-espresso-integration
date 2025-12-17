@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ISemver} from "interfaces/universal/ISemver.sol";
-import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ISemver } from "interfaces/universal/ISemver.sol";
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 
 contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Semantic version.
@@ -36,15 +36,11 @@ contract BatchAuthenticator is ISemver, Ownable {
         address _nonTeeBatcher,
         address _preRegisteredBatcher,
         address _owner
-    ) Ownable() {
-        require(
-            _teeBatcher != address(0),
-            "BatchAuthenticator: zero tee batcher"
-        );
-        require(
-            _nonTeeBatcher != address(0),
-            "BatchAuthenticator: zero non-tee batcher"
-        );
+    )
+        Ownable()
+    {
+        require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
+        require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
@@ -60,10 +56,7 @@ contract BatchAuthenticator is ISemver, Ownable {
         activeIsTee = !activeIsTee;
     }
 
-    function authenticateBatchInfo(
-        bytes32 commitment,
-        bytes calldata _signature
-    ) external {
+    function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
         uint8 v = uint8(signature[64]);
@@ -77,9 +70,7 @@ contract BatchAuthenticator is ISemver, Ownable {
 
         if (signer != preRegisteredBatcher) {
             require(
-                espressoTEEVerifier
-                    .espressoNitroTEEVerifier()
-                    .registeredSigners(signer),
+                espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer),
                 "BatchAuthenticator: invalid signer"
             );
         }
@@ -87,14 +78,7 @@ contract BatchAuthenticator is ISemver, Ownable {
         validBatchInfo[commitment] = true;
     }
 
-    function registerSigner(
-        bytes calldata attestationTbs,
-        bytes calldata signature
-    ) external {
-        espressoTEEVerifier.registerSigner(
-            attestationTbs,
-            signature,
-            IEspressoTEEVerifier.TeeType.NITRO
-        );
+    function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
+        espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
     }
 }
