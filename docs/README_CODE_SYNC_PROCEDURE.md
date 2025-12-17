@@ -15,7 +15,7 @@
 - *Celo-Kona fork repo*: `kona-celo-fork` repo, forked from the `celo-org/kona` repo, which is a fork of `op-rs/kona`.
 - *Succinct repo*: `op-succinct` repo, forked from the `celo-org/op-succinct` repo and imports the Kona fork and Celo Kona fork repos.
 
-(Refer to [op-succinct-repos.svg](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/docs/op-succinct-repos.svg) ****for the relationship among Espresso and Celo repos.)
+(Refer to [op-succinct-repos.svg](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/docs/op-succinct-repos.svg) for the relationship among Espresso and Celo repos.)
 
 ## Procedure: Sync with Celo
 
@@ -88,6 +88,7 @@
     git rebase --skip # skip this commit if you see a duplicate one
     git rebase --edit-todo # check the following commits and update to `drop` or `squash` or `pick` if needed
     cat .git/rebase-merge/done # check the commits you've already done
+
     # run the following cmd after each conflict resolve
     git add . # or stage specific file change
     git rebase --continue
