@@ -11,6 +11,12 @@ contract BatchAuthenticator is ISemver, Ownable {
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
 
+    /// @notice Emitted when a batch info is authenticated.
+    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
+
+    /// @notice Emitted when a signer registration is initiated through this contract.
+    event SignerRegistrationInitiated(address indexed caller);
+
     /// @notice Mapping of batches verified by this contract
     mapping(bytes32 => bool) public validBatchInfo;
 
@@ -53,6 +59,7 @@ contract BatchAuthenticator is ISemver, Ownable {
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
         // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
         bytes memory signature = _signature;
+        require(signature.length == 65, "Invalid signature length");
         uint8 v = uint8(signature[64]);
         if (v == 0 || v == 1) {
             v += 27;
@@ -69,9 +76,11 @@ contract BatchAuthenticator is ISemver, Ownable {
         }
 
         validBatchInfo[commitment] = true;
+        emit BatchInfoAuthenticated(commitment, signer);
     }
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
         espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
+        emit SignerRegistrationInitiated(msg.sender);
     }
 }
