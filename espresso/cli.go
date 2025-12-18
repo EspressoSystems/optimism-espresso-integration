@@ -107,7 +107,7 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 		&cli.StringFlag{
 			Name:     AttestationServiceFlagName,
 			Usage:    "URL of the Espresso attestation service",
-			EnvVars:  espressoEnvs(envPrefix, "ATTESTATION_SERVICE_URL"),
+			EnvVars:  espressoEnvs(envPrefix, "ESPRESSO_ATTESTATION_SERVICE"),
 			Category: category,
 		},
 	}
