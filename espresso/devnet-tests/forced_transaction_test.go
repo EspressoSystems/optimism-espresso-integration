@@ -20,7 +20,7 @@ const WAIT_FORCED_TXN_TIME = 25 * time.Second
 
 // ForcedTransaction attempts to verify that the forced transaction mechanism works for the
 // current Docker Compose devnet
-func ForcedTransaction(t *testing.T) {
+func TestForcedTransaction(t *testing.T) {
 	// Set up the test timeout condition.
 	// Extended timeout to accommodate slower processing in test environments
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -86,10 +86,4 @@ func ForcedTransaction(t *testing.T) {
 		initialBalance.Uint64()-withdrawalAmount.Uint64(),
 		"Balance not decreased",
 	)
-}
-
-// ForcedTransactionDockerComposeDevNet verifies that the withdrawal transaction is
-// enforced with the current Docker Compose DevNet configuration
-func ForcedTransactionDockerComposeDevNet(t *testing.T) {
-	ForcedTransaction(t)
 }
