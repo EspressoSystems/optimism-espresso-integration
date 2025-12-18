@@ -1,6 +1,8 @@
 # Optimism Espresso Integration
 
-Note: For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
+Notes:
+* For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
+* For code sync with upstreams, read `README_ESPRESSO_CODE_SYNC_PROCEDURE.md`.
 
 ## Development environment
 
