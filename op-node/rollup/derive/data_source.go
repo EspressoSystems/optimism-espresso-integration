@@ -97,7 +97,6 @@ type DataSourceConfig struct {
 //  3. the transaction has a To() address that matches the batch inbox address
 func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, _ types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		logger.Warn("tx in inbox with invalid status", "hash", tx.Hash(), "status", receipt.Status)
 		return false
 	}
 
