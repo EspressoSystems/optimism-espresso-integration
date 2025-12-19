@@ -193,7 +193,7 @@ func TestWithdrawal(t *testing.T) {
 	proveWithdrawOpts.GasLimit = 500000
 	proveWithdrawTx, err := portal2.ProveWithdrawalTransaction(proveWithdrawOpts, withdrawalTxStruct, gameIndex, outputProof, params.WithdrawalProof)
 	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, d.L1, proveWithdrawTx.Hash())
+	proveReceipt, err := wait.ForReceiptOK(ctx, d.L1, proveWithdrawTx.Hash())
 	require.NoError(t, err)
 	t.Log("Withdrawal proven!")
 
@@ -231,36 +231,23 @@ func TestWithdrawal(t *testing.T) {
 		return false // Recheck status on next iteration
 	}, 5*time.Minute, 5*time.Second, "game not resolved")
 
-	// Calculate total delay needed: proof maturity + dispute game finality + buffer
-	totalDelay := new(big.Int).Add(maturityDelay, disputeGameFinalityDelay)
-	totalDelay = new(big.Int).Add(totalDelay, big.NewInt(10)) // buffer for block time variance
-
-	// Get the L1 block time when the withdrawal was proven
-	proveReceipt, err := d.L1.TransactionReceipt(ctx, proveWithdrawTx.Hash())
-	require.NoError(t, err, "failed to get prove withdrawal receipt")
+	// Wait for proof maturity + finality delays by polling L1 block time
+	t.Log("Waiting for proof maturity and dispute game finality delays...")
 	proveBlock, err := d.L1.HeaderByNumber(ctx, proveReceipt.BlockNumber)
 	require.NoError(t, err, "failed to get prove block header")
-	proofTimestamp := proveBlock.Time
+	targetTime := proveBlock.Time + maturityDelay.Uint64() + disputeGameFinalityDelay.Uint64() + 10
 
-	// Wait for proof maturity delay + finality delay to pass by polling L1 block time
-	t.Log("Waiting for proof maturity and dispute game finality delays...")
 	require.Eventually(t, func() bool {
 		header, err := d.L1.HeaderByNumber(ctx, nil)
 		if err != nil {
-			t.Logf("Error getting L1 header: %v", err)
 			return false
 		}
-
-		currentTime := header.Time
-		targetTime := proofTimestamp + totalDelay.Uint64()
-
-		if currentTime >= targetTime {
-			t.Logf("Delays passed: current=%d, target=%d", currentTime, targetTime)
+		if header.Time >= targetTime {
 			return true
 		}
-		t.Logf("Waiting for delays: current=%d, target=%d (remaining: %ds)", currentTime, targetTime, targetTime-currentTime)
+		t.Logf("Waiting for delays: %ds remaining", targetTime-header.Time)
 		return false
-	}, 3*time.Minute, 2*time.Second, "timeout waiting for maturity and finality delays")
+	}, 3*time.Minute, 2*time.Second, "timeout waiting for delays")
 
 	// Step 7: Finalize withdrawal
 	t.Log("Finalizing withdrawal...")
