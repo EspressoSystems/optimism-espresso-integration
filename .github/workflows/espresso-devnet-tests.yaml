@@ -24,7 +24,7 @@ jobs:
             tests: "TestWithdrawal"
             tee: false
           - group: 3
-            tests: "TestSmokeWithTEE"
+            tests: "TestSmokeWithTEE|TestForcedTransaction"
             tee: true
     env:
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
