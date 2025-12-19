@@ -911,6 +911,14 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 		batcher: l,
 	}
 
+	// *
+	// * BEFORE we start:
+	// * - scan batchInbox from batchInbox.lastBackfilled
+	// * - enqueue all batches from batchInbox that are _by fallback batcher_ to Espresso
+	// * - wait for espresso queue to clear
+	// * - set lastBackfilled to block height of the last of such batches
+	// *
+
 	for {
 		select {
 		case <-ticker.C:

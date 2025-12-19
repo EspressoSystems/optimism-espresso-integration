@@ -285,10 +285,11 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
 
-	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
+	millionEthers := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
+
 	sysConfig.L1Allocs[ESPRESSO_CONTRACT_ACCOUNT] = types.Account{
-		Nonce:   100000,          // Set the nonce to avoid collisions with predeployed contracts
-		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
+		Nonce:   100000,        // Set the nonce to avoid collisions with predeployed contracts
+		Balance: millionEthers, // Pre-fund Espresso deployer acount with 1M Ether
 	}
 
 	//Set up the L1Allocs in the system config
@@ -958,8 +959,7 @@ func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *b
 		Ports: []string{
 			espressoAttestationVerifierPort,
 		},
-		Name:     "attestation-verifier-zk",
-		Platform: "linux/amd64",
+		Name: "attestation-verifier-zk",
 		Environment: map[string]string{
 			"NETWORK_RPC_URL":          espressoAttestationVerifierNetworkRPCURL,
 			"SP1_PROVER":               espressoAttestationVerifierSp1Prover,
