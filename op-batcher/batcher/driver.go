@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -1135,13 +1134,6 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 			},
 		)
 		return
-	}
-	floorDataGas, err := core.FloorDataGas(candidate.TxData)
-	if err != nil {
-		// We log instead of return an error here because the txmgr will do its own gas estimation.
-		l.Log.Warn("Failed to calculate floor data gas", "err", err)
-	} else {
-		candidate.GasLimit = floorDataGas
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)

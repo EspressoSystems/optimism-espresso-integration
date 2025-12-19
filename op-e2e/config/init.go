@@ -22,6 +22,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/state"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"golang.org/x/exp/maps"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
@@ -38,6 +40,9 @@ import (
 )
 
 const ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
+const ESPRESSO_TESTING_BATCHER_EPHEMERAL_KEY = "404520dcd0335deccd7d4a01f29136dfd651b89ec3969d53a06c3cc5aae5f515"
+
+var ESPRESSO_NON_TEE_BATCHER_ADDRESS = common.HexToAddress("0x78A424C38759DDA4A4F349e661Aa3523CFf3BacB")
 
 // legacy geth log levels - the geth command line --verbosity flag wasn't
 // migrated to use slog's numerical levels.
@@ -76,14 +81,18 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspresso, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave:
+	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave:
 		return true
 	default:
 		return false
 	}
 }
 
-var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame, AllocTypeEspresso, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave}
+func (a AllocType) IsEspresso() bool {
+	return a == AllocTypeEspressoWithEnclave || a == AllocTypeEspressoWithoutEnclave
+}
+
+var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame, AllocTypeEspresso, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave}
 
 var (
 	// All of the following variables are set in the init function
@@ -274,14 +283,34 @@ func initAllocType(root string, allocType AllocType) {
 			}
 
 			// Configure Espresso allocation types
-			if allocType == AllocTypeEspressoWithoutEnclave || allocType == AllocTypeEspressoWithEnclave {
-				batcherPk, err := crypto.HexToECDSA(ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
+			if allocType.IsEspresso() {
+				intent.Chains[0].EspressoEnabled = true
+				intent.Chains[0].TeeBatcher = intent.Chains[0].Roles.Batcher
+
+				nonTeeBatcherPk, err := crypto.HexToECDSA(ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
 				if err != nil {
 					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
 				}
-				intent.Chains[0].EspressoEnabled = true
-				intent.Chains[0].NonTeeBatcher = crypto.PubkeyToAddress(batcherPk.PublicKey)
-				intent.Chains[0].TeeBatcher = crypto.PubkeyToAddress(batcherPk.PublicKey)
+				nonTeeBatcherAddr := crypto.PubkeyToAddress(nonTeeBatcherPk.PublicKey)
+				intent.Chains[0].NonTeeBatcher = nonTeeBatcherAddr
+
+				// Fund the fallback batcher
+				if intent.L1DevGenesisParams == nil {
+					intent.L1DevGenesisParams = &state.L1DevGenesisParams{}
+				}
+				if intent.L1DevGenesisParams.Prefund == nil {
+					intent.L1DevGenesisParams.Prefund = make(map[common.Address]*hexutil.U256)
+				}
+				millionEth := (*hexutil.U256)(new(uint256.Int).Mul(uint256.NewInt(1_000_000), uint256.NewInt(params.Ether)))
+				intent.L1DevGenesisParams.Prefund[nonTeeBatcherAddr] = millionEth
+			}
+
+			if allocType == AllocTypeEspressoWithoutEnclave {
+				ephemeralPk, err := crypto.HexToECDSA(ESPRESSO_TESTING_BATCHER_EPHEMERAL_KEY)
+				if err != nil {
+					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
+				}
+				intent.Chains[0].PreRegisteredBatcher = crypto.PubkeyToAddress(ephemeralPk.PublicKey)
 			}
 
 			baseUpgradeSchedule := map[string]any{
