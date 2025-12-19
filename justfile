@@ -25,6 +25,10 @@ devnet-challenge-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./espresso/devnet-tests/...
 
 
+devnet-forced-transaction-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestForcedTransaction ./espresso/devnet-tests/...
+
+
 devnet-withdraw-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdrawal ./espresso/devnet-tests/...
 
