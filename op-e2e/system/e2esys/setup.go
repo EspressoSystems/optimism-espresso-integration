@@ -1086,7 +1086,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			return nil, fmt.Errorf("failed to setup fallback batch submitter: %w", err)
 		}
 		sys.FallbackBatchSubmitter = fallbackBatcher
-		if err := fallbackBatcher.Start(context.Background()); err != nil {
+		if err := sys.FallbackBatchSubmitter.Start(context.Background()); err != nil {
 			return nil, fmt.Errorf("failed to start fallback batch submitter: %w", err)
 		}
 	}

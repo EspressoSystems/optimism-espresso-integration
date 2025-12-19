@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 	"golang.org/x/exp/maps"
 
@@ -39,6 +40,8 @@ import (
 
 const ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY = "5fede428b9506dee864b0d85aefb2409f4728313eb41da4121409299c487f816"
 const ESPRESSO_TESTING_BATCHER_EPHEMERAL_KEY = "404520dcd0335deccd7d4a01f29136dfd651b89ec3969d53a06c3cc5aae5f515"
+
+var ESPRESSO_NON_TEE_BATCHER_ADDRESS = common.HexToAddress("0x78A424C38759DDA4A4F349e661Aa3523CFf3BacB")
 
 // legacy geth log levels - the geth command line --verbosity flag wasn't
 // migrated to use slog's numerical levels.
@@ -311,7 +314,8 @@ func initAllocType(root string, allocType AllocType) {
 				if intent.L1DevGenesisParams.Prefund == nil {
 					intent.L1DevGenesisParams.Prefund = make(map[common.Address]*hexutil.U256)
 				}
-				intent.L1DevGenesisParams.Prefund[nonTeeBatcherAddr] = (*hexutil.U256)(uint256.NewInt(1000000000000000000))
+				millionEth := (*hexutil.U256)(new(uint256.Int).Mul(uint256.NewInt(1_000_000), uint256.NewInt(params.Ether)))
+				intent.L1DevGenesisParams.Prefund[nonTeeBatcherAddr] = millionEth
 			}
 
 			if allocType == AllocTypeEspressoWithoutEnclave {
