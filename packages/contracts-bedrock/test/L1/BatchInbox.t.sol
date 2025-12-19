@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 // Testing
 import { Test } from "forge-std/Test.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
@@ -16,9 +17,10 @@ contract TestBatchAuthenticator is BatchAuthenticator {
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
         address _nonTeeBatcher,
+        address _preRegisteredBatcher,
         address _owner
     )
-        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
+        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _preRegisteredBatcher, _owner)
     { }
 
     // Test helper to bypass signature verification in authenticateBatchInfo.
@@ -38,7 +40,8 @@ contract BatchInbox_Test is Test {
 
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
-    address public deployer = address(0xABCD);
+    address public preRegisteredBatcher = address(0x9ABC);
+    address public deployer = address(0xDEF0);
     address public unauthorized = address(0xDEAD);
 
     function setUp() public virtual {
@@ -46,8 +49,9 @@ contract BatchInbox_Test is Test {
         teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
 
         vm.prank(deployer);
-        authenticator =
-            new TestBatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        authenticator = new TestBatchAuthenticator(
+            IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, preRegisteredBatcher, deployer
+        );
 
         inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
     }
@@ -103,10 +107,16 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         vm.prank(teeBatcher);
         (bool success, bytes memory returnData) = address(inbox).call("unauthorized");
         assertFalse(success, "Should revert");
-        // Check the revert reason
-        assertEq(
-            string(returnData), string(abi.encodeWithSignature("Error(string)", "BatchInbox: unauthorized batcher"))
+        // Check the revert reason - contract returns detailed error with addresses
+        string memory expectedError = string(
+            abi.encodePacked(
+                "BatchInbox: batcher not authorized to post in fallback mode. Expected: ",
+                Strings.toHexString(uint160(nonTeeBatcher), 20),
+                ", Actual: ",
+                Strings.toHexString(uint160(teeBatcher), 20)
+            )
         );
+        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", expectedError)));
     }
 
     /// @notice Test that TEE batcher requires authentication
@@ -167,20 +177,28 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         assertFalse(success, "Unauthorized should revert when non-TEE is active");
     }
 
-    /// @notice Test that non-TEE batcher is rejected while TEE batcher is active if batch is not authenticated
+    /// @notice Test that non-TEE batcher is rejected while TEE batcher is active
     function test_fallback_nonTeeBatcherRevertsWhenTeeActiveAndUnauthenticated() external {
         // By default, the TEE batcher is active (activeIsTee == true).
         bytes memory data = "nontee-unauth";
         bytes32 hash = keccak256(data);
 
-        // Ensure this batch is not marked as valid in the authenticator.
-        authenticator.setValidBatchInfo(hash, false);
+        // Even if the batch is authenticated, the non-TEE batcher should revert because it is not authorized to post
+        // when TEE is active.
+        authenticator.setValidBatchInfo(hash, true);
 
-        // Even though nonTeeBatcher is the configured non-TEE batcher, it must provide
-        // a previously authenticated batch when the TEE batcher is active.
         vm.prank(nonTeeBatcher);
         (bool success, bytes memory returnData) = address(inbox).call(data);
         assertFalse(success, "Should revert when TEE is active and batch is not authenticated");
-        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", "Invalid calldata batch")));
+        // Check the revert reason - contract checks sender first, so it returns TEE mode error
+        string memory expectedError = string(
+            abi.encodePacked(
+                "BatchInbox: batcher not authorized to post in TEE mode. Expected: ",
+                Strings.toHexString(uint160(teeBatcher), 20),
+                ", Actual: ",
+                Strings.toHexString(uint160(nonTeeBatcher), 20)
+            )
+        );
+        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", expectedError)));
     }
 }
