@@ -378,12 +378,13 @@ type System struct {
 	L2GenesisCfg *core.Genesis
 
 	// Connections to running nodes
-	EthInstances      map[string]services.EthInstance
-	RollupNodes       map[string]services.RollupNode
-	L2OutputSubmitter *l2os.ProposerService
-	BatchSubmitter    *bss.BatcherService
-	Mocknet           mocknet.Mocknet
-	FakeAltDAServer   *altda.FakeDAServer
+	EthInstances           map[string]services.EthInstance
+	RollupNodes            map[string]services.RollupNode
+	L2OutputSubmitter      *l2os.ProposerService
+	BatchSubmitter         *bss.BatcherService
+	FallbackBatchSubmitter *bss.BatcherService
+	Mocknet                mocknet.Mocknet
+	FakeAltDAServer        *altda.FakeDAServer
 
 	L1BeaconAPIAddr endpoint.RestHTTP
 
@@ -1011,12 +1012,12 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		batcherTargetNumFrames = 1
 	}
 
-	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
+	testingBatcherPk, err := crypto.HexToECDSA(config.ESPRESSO_TESTING_BATCHER_EPHEMERAL_KEY)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pre-approved batcher private key: %w", err)
 	}
 	espressoCfg := espresso.CLIConfig{
-		Enabled:                  (cfg.AllocType == config.AllocTypeEspresso) || (cfg.AllocType == config.AllocTypeEspressoWithEnclave) || (cfg.AllocType == config.AllocTypeEspressoWithoutEnclave),
+		Enabled:                  cfg.AllocType.IsEspresso(),
 		PollInterval:             250 * time.Millisecond,
 		L1URL:                    sys.EthInstances[RoleL1].UserRPC().RPC(),
 		RollupL1URL:              sys.EthInstances[RoleL1].UserRPC().RPC(),
@@ -1074,6 +1075,26 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	if err := batcher.Start(context.Background()); err != nil {
 		return nil, errors.Join(fmt.Errorf("failed to start batch submitter: %w", err), batcher.Stop(context.Background()))
 	}
+
+	if cfg.AllocType.IsEspresso() {
+		fallbackBatcherKey, err := crypto.HexToECDSA(config.ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse fallback batcher key: %w", err)
+		}
+		fallbackBatcherCliConfig := batcherCLIConfig
+		fallbackBatcherCliConfig.Stopped = true
+		fallbackBatcherCliConfig.Espresso.Enabled = false
+		fallbackBatcherCliConfig.TxMgrConfig = setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), fallbackBatcherKey)
+		fallbackBatcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", fallbackBatcherCliConfig, sys.Cfg.Loggers["batcher"])
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup fallback batch submitter: %w", err)
+		}
+		sys.FallbackBatchSubmitter = fallbackBatcher
+		if err := sys.FallbackBatchSubmitter.Start(context.Background()); err != nil {
+			return nil, fmt.Errorf("failed to start fallback batch submitter: %w", err)
+		}
+	}
+
 	return sys, nil
 }
 
