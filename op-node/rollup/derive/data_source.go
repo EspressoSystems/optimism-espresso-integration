@@ -96,11 +96,6 @@ type DataSourceConfig struct {
 //  2. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
 //  3. the transaction has a To() address that matches the batch inbox address
 func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, _ types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		logger.Warn("tx in inbox with invalid status", "hash", tx.Hash(), "status", receipt.Status)
-		return false
-	}
-
 	// For now, we want to disallow the SetCodeTx type or any future types.
 	if tx.Type() > types.BlobTxType && tx.Type() != types.DepositTxType {
 		return false
@@ -108,6 +103,11 @@ func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, _ types.Signe
 
 	to := tx.To()
 	if to == nil || *to != batchInboxAddr {
+		return false
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		logger.Warn("tx in inbox with invalid status", "hash", tx.Hash(), "status", receipt.Status)
 		return false
 	}
 
