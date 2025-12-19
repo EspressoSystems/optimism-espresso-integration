@@ -1077,11 +1077,11 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse fallback batcher key: %w", err)
 		}
-		fallbackBactcherCliConfig := batcherCLIConfig
-		fallbackBactcherCliConfig.Stopped = true
-		fallbackBactcherCliConfig.Espresso.Enabled = false
-		fallbackBactcherCliConfig.TxMgrConfig = setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), fallbackBatcherKey)
-		fallbackBatcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", fallbackBactcherCliConfig, sys.Cfg.Loggers["batcher"])
+		fallbackBatcherCliConfig := batcherCLIConfig
+		fallbackBatcherCliConfig.Stopped = true
+		fallbackBatcherCliConfig.Espresso.Enabled = false
+		fallbackBatcherCliConfig.TxMgrConfig = setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), fallbackBatcherKey)
+		fallbackBatcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", fallbackBatcherCliConfig, sys.Cfg.Loggers["batcher"])
 		if err != nil {
 			return nil, fmt.Errorf("failed to setup fallback batch submitter: %w", err)
 		}
