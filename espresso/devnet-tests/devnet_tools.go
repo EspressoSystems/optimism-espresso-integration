@@ -229,42 +229,34 @@ func (d *Devnet) ServiceRestart(service string) error {
 	return nil
 }
 
-// StartBatcherSubmitting starts batch submission on a running batcher service
-func (d *Devnet) StartBatcherSubmitting(service string) error {
-	log.Info("starting batch submission", "service", service)
+// callBatcherRPC calls a batcher RPC method on a running batcher service
+func (d *Devnet) callBatcherRPC(service, method string) error {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "exec", "-T", service,
 		"sh", "-c",
-		"wget -q -O- --header='Content-Type: application/json' --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"admin_startBatcher\",\"params\":[],\"id\":1}' http://localhost:8545",
+		fmt.Sprintf("wget -q -O- --header='Content-Type: application/json' --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":[],\"id\":1}' http://localhost:8545", method),
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to start batcher submission (%w): %s", err, buf.String())
+		return fmt.Errorf("failed to call %s (%w): %s", method, err, buf.String())
 	}
-	log.Info("started batch submission", "service", service, "response", buf.String())
+	log.Info("RPC call successful", "service", service, "method", method, "response", buf.String())
 	return nil
 }
 
+// StartBatcherSubmitting starts batch submission on a running batcher service
+func (d *Devnet) StartFallbackBatcherSubmitting(service string) error {
+	log.Info("starting batch submission", "service", service)
+	return d.callBatcherRPC(service, "admin_startBatcher")
+}
+
 // StopBatcherSubmitting stops batch submission on a running batcher service
-func (d *Devnet) StopBatcherSubmitting(service string) error {
+func (d *Devnet) StopFallbackBatcherSubmitting(service string) error {
 	log.Info("stopping batch submission", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "exec", "-T", service,
-		"sh", "-c",
-		"wget -q -O- --header='Content-Type: application/json' --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"admin_stopBatcher\",\"params\":[],\"id\":1}' http://localhost:8545",
-	)
-	buf := new(bytes.Buffer)
-	cmd.Stdout = buf
-	cmd.Stderr = buf
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to stop batcher submission (%w): %s", err, buf.String())
-	}
-	log.Info("stopped batch submission", "service", service, "response", buf.String())
-	return nil
+	return d.callBatcherRPC(service, "admin_stopBatcher")
 }
 
 func (d *Devnet) RollupConfig(ctx context.Context) (*rollup.Config, error) {
