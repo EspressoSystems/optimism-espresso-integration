@@ -228,7 +228,7 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 		t,
 		// We want a Max L1 Number of frames larger than 1 to ensure we can
 		// trigger the multi-frame channel scenario.
-		env.WithBatcherMaxL1NumFrames(3),
+		env.WithBatcherTargetNumFrames(3),
 
 		// We want a small Max L1 Tx Size to ensure that even a small L2
 		// transaction will result in multiple L1 Transactions.

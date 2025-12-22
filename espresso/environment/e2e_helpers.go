@@ -133,12 +133,12 @@ func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 	}
 }
 
-// WithBatcherMaxL1NumFrames is a E2eDevnetLauncherOption that configures the
-// batcher's  `MaxL1FrameSize` option to the provided value.
+// WithBatcherTargetNumFrames is a E2eDevnetLauncherOption that configures the
+// batcher's `TargetNumFrames` option to the provided value.
 //
 // This governs how many frames the batcher will attempt to utilize when
 // submitting a channel to the L1.
-func WithBatcherMaxL1NumFrames(size int) E2eDevnetLauncherOption {
+func WithBatcherTargetNumFrames(size int) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
