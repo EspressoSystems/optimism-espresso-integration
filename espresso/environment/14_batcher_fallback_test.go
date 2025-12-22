@@ -274,9 +274,10 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	// trigger the failure mode successfully, and that all n transactions
 	// have been attempted.
 
-	wait.For(ctx, 10*time.Second, func() (bool, error) {
+	err = wait.For(ctx, 10*time.Second, func() (bool, error) {
 		return interceptTxManager.failureCount >= 1, nil
 	})
+	require.NoError(t, err)
 
 	if have, want := interceptTxManager.failureCount, 1; have < want {
 		t.Fatalf("tx submission failure not triggered enough times:\nhave:\n\t%d\nwant at least:\n\t%d", have, want)
