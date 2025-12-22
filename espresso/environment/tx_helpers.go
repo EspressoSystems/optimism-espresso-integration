@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
 	"math/big"
@@ -128,4 +129,40 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 	require.Equal(t, new(big.Int).Sub(burnAddressBalance, initialBurnAddressBalance), amountToBurn, "burn address balance doesn't match the amount burned")
 
 	cancel()
+}
+
+// RunSimpleMultiTransactions sends numTransactions simple L2 transactions
+// from Bob's account with a bunch of random data applied to each transaction.
+func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) []*types.Receipt {
+	senderKey := system.Cfg.Secrets.Bob
+	senderAddress := system.Cfg.Secrets.Addresses().Bob
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	nonce, err := l2Seq.NonceAt(ctx, senderAddress, nil)
+	if err != nil {
+		require.NoError(t, err, "failed to get nonce for account %s", senderAddress)
+	}
+
+	ch := make(chan *types.Receipt, numTransactions)
+	for i := 0; i < numTransactions; i++ {
+		go (func(ch chan *types.Receipt, i int, nonce uint64) {
+			receipt := helpers.SendL2Tx(t, system.Cfg, l2Seq, senderKey, func(opts *helpers.TxOpts) {
+				opts.Nonce = nonce + uint64(i)
+				opts.Gas = 100_000
+
+				// opts.Data = make([]byte, 256)
+				// Fill with random data
+				// rand.Read(opts.Data)
+			})
+			ch <- receipt
+		})(ch, i, nonce)
+	}
+
+	var receipts []*types.Receipt
+	for i := 0; i < numTransactions; i++ {
+		receipt := <-ch
+		receipts = append(receipts, receipt)
+	}
+	close(ch)
+
+	return receipts
 }

@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"time"
 
+	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/common"
@@ -127,6 +128,92 @@ func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 		return E2eSystemOption{
 			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)
+			},
+		}
+	}
+}
+
+// WithBatcherMaxL1NumFrames is a E2eDevnetLauncherOption that configures the
+// batcher's  `MaxL1FrameSize` option to the provided value.
+//
+// This governs how many frames the batcher will attempt to utilize when
+// submitting a channel to the L1.
+func WithBatcherMaxL1NumFrames(size int) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxL1NumFrames",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.TargetNumFrames = size
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherMaxPendingTransactions is a E2eDevnetLauncherOption that
+// configures the batcher's `MaxPendingTransactions` option to the provided
+// value.
+//
+// This governs how many pending L1 transactions the batcher will allow
+// before pausing new submissions.
+func WithBatcherMaxPendingTransactions(pendingTransactions uint64) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxPendingTransactions",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.MaxPendingTransactions = pendingTransactions
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherMaxL1TxSize is a E2eDevnetLauncherOption that configures the
+// batcher's `MaxL1TxSize` option to the provided value.
+//
+// This governs the maximum L1 transaction size that the batcher will attempt
+// to submit when submitting a channel to L1.
+func WithBatcherMaxL1TxSize(maxL1TxSize uint64) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxL1TxSize",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.MaxL1TxSize = maxL1TxSize
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherMaxBlocksPerSpanBatch is a E2eDevnetLauncherOption that
+// configures the batcher's `MaxBlocksPerSpanBatch` option to the provided
+// value.
+//
+// This governs how many blocks the batcher will include in a single span
+// when creating batches to submit to L1.
+func WithBatcherMaxBlocksPerSpanBatch(maxBlocksPerSpanBatch int) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxBlocksPerSpanBatch",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.MaxBlocksPerSpanBatch = maxBlocksPerSpanBatch
+					},
+				},
 			},
 		}
 	}
