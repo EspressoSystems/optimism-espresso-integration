@@ -19,6 +19,10 @@ devnet-challenge-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./espresso/devnet-tests/...
 
 
+devnet-forced-transaction-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestForcedTransaction ./espresso/devnet-tests/...
+
+
 devnet-withdraw-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdrawal ./espresso/devnet-tests/...
 
@@ -61,6 +65,7 @@ gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
 gen-bindings:
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > ./{{bindings_dir}}/batch_inbox.go
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/OPSuccinctFaultDisputeGame.sol/OPSuccinctFaultDisputeGame.json > ./{{bindings_dir}}/opsuccinct_fault_dispute_game.go
 
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v

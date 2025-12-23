@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.0;
 
 // Testing
 import { Test } from "forge-std/Test.sol";
@@ -22,25 +22,6 @@ contract MockNitroTEEVerifier is IEspressoNitroTEEVerifier {
     }
 
     function registerSigner(bytes calldata, bytes calldata) external pure override { }
-
-    function registerSignerWithoutAttestationVerification(
-        bytes32,
-        bytes calldata,
-        bytes calldata,
-        address
-    )
-        external
-        pure
-        override
-    { }
-
-    function verifyCACert(bytes calldata, bytes32) external pure override { }
-
-    function verifyClientCert(bytes calldata, bytes32) external pure override { }
-
-    function certVerified(bytes32) external pure override returns (bool) {
-        return false;
-    }
 
     function setEnclaveHash(bytes32, bool) external pure override { }
 
@@ -100,6 +81,7 @@ contract BatchAuthenticator_SwitchBatcher_Test is Test {
 
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
+    address public preRegisteredBatcher = address(0x9ABC);
 
     MockNitroTEEVerifier public nitroVerifier;
     MockEspressoTEEVerifier public teeVerifier;
@@ -110,8 +92,9 @@ contract BatchAuthenticator_SwitchBatcher_Test is Test {
         teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
 
         vm.prank(deployer);
-        authenticator =
-            new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        authenticator = new BatchAuthenticator(
+            IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, preRegisteredBatcher, deployer
+        );
     }
 
     /// @notice Test that only the owner can switch the active batcher
@@ -134,6 +117,8 @@ contract BatchAuthenticator_SwitchBatcher_Test is Test {
 contract BatchAuthenticator_Constructor_Test is Test {
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
+    address public preRegisteredBatcher = address(0x9ABC);
+
     address public owner = address(0xBEEF);
 
     MockNitroTEEVerifier public nitroVerifier;
@@ -146,17 +131,22 @@ contract BatchAuthenticator_Constructor_Test is Test {
 
     function test_constructor_revertsWhenTeeBatcherIsZero() external {
         vm.expectRevert("BatchAuthenticator: zero tee batcher");
-        new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), address(0), nonTeeBatcher, owner);
+        new BatchAuthenticator(
+            IEspressoTEEVerifier(address(teeVerifier)), address(0), nonTeeBatcher, preRegisteredBatcher, owner
+        );
     }
 
     function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
         vm.expectRevert("BatchAuthenticator: zero non-tee batcher");
-        new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, address(0), owner);
+        new BatchAuthenticator(
+            IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, address(0), preRegisteredBatcher, owner
+        );
     }
 
     function test_constructor_succeedsWithValidAddresses() external {
-        BatchAuthenticator authenticator =
-            new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, owner);
+        BatchAuthenticator authenticator = new BatchAuthenticator(
+            IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, preRegisteredBatcher, owner
+        );
         assertEq(authenticator.teeBatcher(), teeBatcher);
         assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
     }

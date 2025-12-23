@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -73,6 +74,10 @@ var ESPRESSO_CONTRACT_ACCOUNT = common.HexToAddress("0x8943545177806ed17b9f23f0a
 const ESPRESSO_BUILDER_PORT = "31003"
 const ESPRESSO_SEQUENCER_API_PORT = "24000"
 const ESPRESSO_DEV_NODE_PORT = "24002"
+
+// EigenDA consstants
+const EIGENDA_DOCKER_PORT = "3100"
+const EIGENDA_DOCKER_IMAGE = "ghcr.io/layr-labs/eigenda-proxy:2.2.1"
 
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
@@ -280,10 +285,11 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
 
-	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
+	millionEthers := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
+
 	sysConfig.L1Allocs[ESPRESSO_CONTRACT_ACCOUNT] = types.Account{
-		Nonce:   100000,          // Set the nonce to avoid collisions with predeployed contracts
-		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
+		Nonce:   100000,        // Set the nonce to avoid collisions with predeployed contracts
+		Balance: millionEthers, // Pre-fund Espresso deployer acount with 1M Ether
 	}
 
 	//Set up the L1Allocs in the system config
@@ -345,7 +351,7 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetWithFaultDisputeSysConfig(ct
 func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...E2eDevnetLauncherOption) ([]e2esys.StartOption, *E2eDevnetLauncherContext) {
 	initialOptions := []E2eDevnetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
-		launchEspressoDevNodeDocker(),
+		launchEspressoDevNodeAndAttestationServiceDocker(),
 	}
 
 	if l.EnclaveBatcher {
@@ -801,10 +807,11 @@ func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerC
 	}
 }
 
-// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
+// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
+// Additionally, it launches the Attestation Verifier ZK server in a Docker container.
+func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
 	return e2esys.StartOption{
 		Role: "launch-espresso-dev-node",
 		BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
@@ -867,19 +874,163 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
 			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
+
+			// Now launch the attestation verifier zk server
+			launchEspressoAttestationVerifierService(ct, c)
 		},
 	}
-
 }
 
-// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches th
+// launchEspressoAttestationVerifierService launches the attestation verifier zk server
+// in a Docker container and configures the batcher CLIConfig to use it.
+func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *batcher.CLIConfig) {
+	// Now we need to launch the attestation verifier zk server
+	fmt.Println("Starting attestation verifier zk server...")
+
+	espressoAttestationVerifierNetworkRPCURL := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL")
+	if espressoAttestationVerifierNetworkRPCURL == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierSp1Prover := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER")
+	if espressoAttestationVerifierSp1Prover == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierNitroVerifierAddress := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS")
+	if espressoAttestationVerifierNitroVerifierAddress == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierUseDocker := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER")
+	if espressoAttestationVerifierUseDocker == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierSkipTimeValidityCheck := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK")
+	if espressoAttestationVerifierSkipTimeValidityCheck == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierRustLog := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG")
+	if espressoAttestationVerifierRustLog == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierNetworkPrivateKey := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY")
+	if espressoAttestationVerifierNetworkPrivateKey == "" {
+		ct.Error = fmt.Errorf("networkPrivateKey environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierRPCUrl := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL")
+	if espressoAttestationVerifierRPCUrl == "" {
+		ct.Error = fmt.Errorf("RPC_URL environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierHost := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_HOST")
+	if espressoAttestationVerifierHost == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_HOST environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierPort := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_PORT")
+	if espressoAttestationVerifierPort == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_PORT environment variable is not set")
+		return
+	}
+
+	espressoAttestationVerifierDockerImage := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE")
+	if espressoAttestationVerifierDockerImage == "" {
+		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE environment variable is not set")
+		return
+	}
+
+	dockerConfig := DockerContainerConfig{
+		Image:   espressoAttestationVerifierDockerImage,
+		Network: determineDockerNetworkMode(),
+		Ports: []string{
+			espressoAttestationVerifierPort,
+		},
+		Name: "attestation-verifier-zk",
+		Environment: map[string]string{
+			"NETWORK_RPC_URL":          espressoAttestationVerifierNetworkRPCURL,
+			"SP1_PROVER":               espressoAttestationVerifierSp1Prover,
+			"NITRO_VERIFIER_ADDRESS":   espressoAttestationVerifierNitroVerifierAddress,
+			"USE_DOCKER":               espressoAttestationVerifierUseDocker,
+			"SKIP_TIME_VALIDITY_CHECK": espressoAttestationVerifierSkipTimeValidityCheck,
+			"RUST_LOG":                 espressoAttestationVerifierRustLog,
+			"NETWORK_PRIVATE_KEY":      espressoAttestationVerifierNetworkPrivateKey,
+			"RPC_URL":                  espressoAttestationVerifierRPCUrl,
+			"HOST":                     espressoAttestationVerifierHost,
+			"PORT":                     espressoAttestationVerifierPort,
+		},
+	}
+	containerCli := new(DockerCli)
+
+	attestationVerifierInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
+	if err != nil {
+		ct.Error = FailedToLaunchDockerContainer{Cause: err}
+		return
+	}
+
+	// Get the actual mapped port
+	ports := attestationVerifierInfo.PortMap[espressoAttestationVerifierPort]
+	if len(ports) == 0 {
+		ct.Error = fmt.Errorf("no port mapping found for attestation verifier")
+		return
+	}
+
+	healthCheckCtx, cancel := context.WithTimeout(ct.Ctx, 60*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	attestationHostPort, err := getContainerRemappedHostPort(ports[0])
+	if err != nil {
+		ct.Error = err
+		return
+	}
+
+	// Use the actual host:port for health check
+	attestationURL := "http://" + attestationHostPort
+
+	c.Espresso.EspressoAttestationService = attestationURL
+
+	for {
+		select {
+		case <-healthCheckCtx.Done():
+			ct.Error = fmt.Errorf("attestation verifier did not become healthy: %w", healthCheckCtx.Err())
+			return
+		case <-ticker.C:
+			resp, err := http.Get(attestationURL + "/health")
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				goto healthy
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
+		}
+	}
+healthy:
+}
+
+// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeDocker() E2eDevnetLauncherOption {
+func launchEspressoDevNodeAndAttestationServiceDocker() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
-				launchEspressoDevNodeStartOption(ct),
+				launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct),
 			},
 		}
 	}
@@ -982,4 +1133,51 @@ func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64,
 			return nil
 		}
 	}
+}
+
+// --- EigenDA test helpers ---
+
+// StartEigenDA launches a temporary EigenDA proxy in Docker for use in tests.
+// It blocks until the proxy port is reachable or the context times out.
+func StartEigenDA(ctx context.Context) (*DockerContainerInfo, error) {
+	cli := new(DockerCli)
+
+	cfg := DockerContainerConfig{
+		Image:   EIGENDA_DOCKER_IMAGE,
+		Network: determineDockerNetworkMode(),
+		Environment: map[string]string{
+			"EIGENDA_PROXY_MEMSTORE_ENABLED": "true",
+			"PORT":                           EIGENDA_DOCKER_PORT,
+		},
+		Ports: []string{EIGENDA_DOCKER_PORT},
+	}
+
+	container, err := cli.LaunchContainer(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wait for port to be reachable
+	timeout, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	for {
+		select {
+		case <-timeout.Done():
+			return nil, fmt.Errorf("EigenDA proxy did not become ready")
+		default:
+			conn, err := net.DialTimeout("tcp", "localhost:"+EIGENDA_DOCKER_PORT, time.Second)
+			if err == nil {
+				conn.Close()
+				return &container, nil
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+}
+
+// StopDockerContainer stops a Docker container by ID.
+// Errors are ignored as this is best-effort test cleanup.
+func StopDockerContainer(id string) {
+	_ = new(DockerCli).StopContainer(context.Background(), id)
 }

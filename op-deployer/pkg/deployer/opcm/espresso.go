@@ -8,7 +8,8 @@ import (
 )
 
 type DeployAWSNitroVerifierInput struct {
-	EnclaveHash [32]byte
+	EnclaveHash          [32]byte
+	NitroEnclaveVerifier common.Address
 }
 
 type DeployAWSNitroVerifierOutput struct {
@@ -16,10 +17,11 @@ type DeployAWSNitroVerifierOutput struct {
 }
 
 type DeployEspressoInput struct {
-	Salt             common.Hash
-	NitroTEEVerifier common.Address
-	NonTeeBatcher    common.Address
-	TeeBatcher       common.Address
+	Salt                 common.Hash
+	NitroTEEVerifier     common.Address
+	NonTeeBatcher        common.Address
+	TeeBatcher           common.Address
+	PreRegisteredBatcher common.Address
 }
 
 type DeployEspressoOutput struct {

@@ -11,13 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hf/nitrite"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -109,7 +107,23 @@ type DriverSetup struct {
 	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
 	EspressoClient   espressoClient.EspressoClient
 	ChainSigner      opcrypto.ChainSigner
-	Attestation      *nitrite.Result
+	Attestation      []byte
+}
+
+type EspressoOnchainProof struct {
+	ZKType      string `json:"zktype"`
+	ZKVMVersion string `json:"zkvm_version"`
+	ProgramID   struct {
+		VerifierID      string `json:"verifier_id"`
+		VerifierProofID string `json:"verifier_proof_id"`
+		AggregatorID    string `json:"aggregator_id"`
+	} `json:"program_id"`
+	RawProof struct {
+		EncodedProof string `json:"encoded_proof"`
+		Journal      string `json:"journal"`
+	} `json:"raw_proof"`
+	OnchainProof string `json:"onchain_proof"`
+	ProofType    string `json:"proof_type"`
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -1028,13 +1042,6 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 			},
 		)
 		return
-	}
-	floorDataGas, err := core.FloorDataGas(candidate.TxData)
-	if err != nil {
-		// We log instead of return an error here because the txmgr will do its own gas estimation.
-		l.Log.Warn("Failed to calculate floor data gas", "err", err)
-	} else {
-		candidate.GasLimit = floorDataGas
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)
