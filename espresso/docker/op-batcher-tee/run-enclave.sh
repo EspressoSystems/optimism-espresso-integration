@@ -43,7 +43,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--rollup-rpc=$ROLLUP_RPC_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL2"
-BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
 
 # Use private key if provided, otherwise fall back to test mnemonic
 if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
