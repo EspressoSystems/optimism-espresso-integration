@@ -89,7 +89,6 @@ jobs:
           --count 1 \
           --instance-type m6a.2xlarge \
           --key-name github-key \
-          --security-group-ids ${{ steps.sg.outputs.id }} \
           --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
           --enclave-options 'Enabled=true' \
           --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=GitHubRunner}]' \
