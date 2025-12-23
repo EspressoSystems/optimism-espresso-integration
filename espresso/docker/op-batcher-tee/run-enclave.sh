@@ -10,6 +10,7 @@ set -e
 : ${ROLLUP_RPC_URL:?Error: ROLLUP_RPC_URL is required}
 : ${ESPRESSO_URL1:?Error: ESPRESSO_URL1 is required}
 : ${OPERATOR_PRIVATE_KEY:?Error: OPERATOR_PRIVATE_KEY is required}
+: ${ESPRESSO_ATTESTATION_SERVICE:?Error: ESPRESSO_ATTESTATION_SERVICE is required}
 
 # Optional configuration with defaults
 TAG="${TAG:-op-batcher-enclavetool}"
@@ -28,6 +29,7 @@ echo "L1 RPC URL: $L1_RPC_URL"
 echo "L2 RPC URL: $L2_RPC_URL"
 echo "Rollup RPC URL: $ROLLUP_RPC_URL"
 echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
+echo "Attestation service URL: $ESPRESSO_ATTESTATION_SERVICE"
 echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
@@ -41,6 +43,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--rollup-rpc=$ROLLUP_RPC_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL2"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE"
 
 # Use private key if provided, otherwise fall back to test mnemonic
 if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
