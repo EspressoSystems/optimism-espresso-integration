@@ -456,3 +456,4 @@ We are working on a set of scripts to handle the migration from a Celo Testnet t
 Some relevant documents:
 * [Documentation of configuration parameters](docs/README_ESPRESSO_DEPLOY_CONFIG.md)
 * [Celo Testnet Migration Guide](docs/CELO_TESTNET_MIGRATION.md) (WIP)
+
