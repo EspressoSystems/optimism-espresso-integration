@@ -43,8 +43,18 @@ BATCHER_ARGS="$BATCHER_ARGS,--rollup-rpc=$ROLLUP_RPC_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL2"
-BATCHER_ARGS="$BATCHER_ARGS,--mnemonic=test test test test test test test test test test test junk"
-BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/0"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
+
+# Use private key if provided, otherwise fall back to test mnemonic
+if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
+    echo "Using OP_BATCHER_PRIVATE_KEY for authentication"
+    BATCHER_ARGS="$BATCHER_ARGS,--private-key=$OP_BATCHER_PRIVATE_KEY"
+else
+    echo "Using test mnemonic for authentication (local development mode)"
+    BATCHER_ARGS="$BATCHER_ARGS,--mnemonic=test test test test test test test test test test test junk"
+    BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/0"
+fi
+
 BATCHER_ARGS="$BATCHER_ARGS,--throttle-threshold=0"
 BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=1"
 BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
