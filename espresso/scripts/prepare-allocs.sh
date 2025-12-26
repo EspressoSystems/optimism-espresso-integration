@@ -77,9 +77,12 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
 
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
 
-# Configure Espresso batchers for devnet. We reuse the operator address for both
-# the non-TEE and TEE batchers to ensure they are non-zero and consistent.
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].nonTeeBatcher -v "${OPERATOR_ADDRESS}"
+# Configure Espresso batchers for devnet. We reuse the operator address for the
+# TEE batcher, but use a separate address for the non-TEE fallback batcher.
+# We use Anvil test account #3 for the fallback batcher (already prefunded by Anvil):
+# Private key: 0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+# Address: 0x90F79bf6EB2c4f870365E785982E1f101E93b906
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].nonTeeBatcher -v "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].teeBatcher -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"

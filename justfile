@@ -35,6 +35,9 @@ devnet-forced-transaction-test: build-devnet
 devnet-withdraw-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdrawal ./espresso/devnet-tests/...
 
+devnet-batcher-switching-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestBatcherSwitching ./espresso/devnet-tests/...
+
 build-devnet: compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)
