@@ -21,7 +21,7 @@ jobs:
             tests: "TestSmokeWithoutTEE|TestBatcherRestart"
             tee: false
           - group: 2
-            tests: "TestWithdrawal"
+            tests: "TestWithdrawal|TestBatcherSwitching"
             tee: false
           - group: 3
             tests: "TestSmokeWithTEE|TestForcedTransaction"
