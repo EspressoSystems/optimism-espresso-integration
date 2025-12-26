@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"crypto/rand"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -133,7 +134,7 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 
 // RunSimpleMultiTransactions sends numTransactions simple L2 transactions
 // from Bob's account with a bunch of random data applied to each transaction.
-func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) []*types.Receipt {
+func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions, dataSize int) []*types.Receipt {
 	senderKey := system.Cfg.Secrets.Bob
 	senderAddress := system.Cfg.Secrets.Addresses().Bob
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -148,10 +149,9 @@ func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esy
 			receipt := helpers.SendL2Tx(t, system.Cfg, l2Seq, senderKey, func(opts *helpers.TxOpts) {
 				opts.Nonce = nonce + uint64(i)
 				opts.Gas = 100_000
-
-				// opts.Data = make([]byte, 256)
-				// Fill with random data
-				// rand.Read(opts.Data)
+				opts.Data = make([]byte, dataSize) // add some data to the tx
+				// Fill will random data
+				rand.Read(opts.Data)
 			})
 			ch <- receipt
 		})(ch, i, nonce)

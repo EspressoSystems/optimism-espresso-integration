@@ -5,6 +5,7 @@ import (
 	"time"
 
 	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/common"
@@ -190,6 +191,15 @@ func WithBatcherMaxL1TxSize(maxL1TxSize uint64) E2eDevnetLauncherOption {
 					Role: e2esys.RoleSeq,
 					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
 						batchConfig.MaxL1TxSize = maxL1TxSize
+
+						if batchConfig.DataAvailabilityType == flags.BlobsType {
+							// If we're setting the max data size for blobs,
+							// we need to also inform the batcher to use that
+							// setting when calculating blob sizes.
+							//
+							// Otherwise it will use the max blob size constant.
+							batchConfig.TestUseMaxTxSizeForBlobs = true
+						}
 					},
 				},
 			},
@@ -215,6 +225,65 @@ func WithBatcherMaxBlocksPerSpanBatch(maxBlocksPerSpanBatch int) E2eDevnetLaunch
 					},
 				},
 			},
+		}
+	}
+}
+
+// WithBatcherDataAvailabilityType is a E2eDevnetLauncherOption that configures
+// the batcher's `DataAvailabilityType` option to the provided value.
+//
+// This governs which data availability method the batcher will use when
+// submitting frames to L1.
+func WithBatcherDataAvailabilityType(daAvailabilityType flags.DataAvailabilityType) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "dataAvailabilityType",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.DataAvailabilityType = daAvailabilityType
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+func WithBatcherMaxChannelDuration(maxChannelDuration uint64) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "maxChannelDuration",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.MaxChannelDuration = maxChannelDuration
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+func WithBatcherMaxFrameSize(maxFrameSize uint64) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "maxFrameSize",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.MaxChannelDuration = maxFrameSize
+						},
+					},
+				},
+			}
 		}
 	}
 }

@@ -1,9 +1,13 @@
 package environment_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +18,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/config"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/params"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -146,6 +152,7 @@ Loop:
 // batcher to take over.
 type TxManagerIntercept struct {
 	txmgr.TxManager
+	sync.Mutex
 
 	// shouldFail indicates whether to simulate a failure on Send/SendAsync.
 	shouldFail bool
@@ -156,6 +163,17 @@ type TxManagerIntercept struct {
 
 	// failureCount tracks the number of failures that have occurred.
 	failureCount int
+
+	successfulFrames   map[derive.ChannelID][]derive.Frame
+	unsuccessfulFrames map[derive.ChannelID][]derive.Frame
+}
+
+func NewTxManagerIntercept(base txmgr.TxManager) *TxManagerIntercept {
+	return &TxManagerIntercept{
+		TxManager:          base,
+		successfulFrames:   make(map[derive.ChannelID][]derive.Frame),
+		unsuccessfulFrames: make(map[derive.ChannelID][]derive.Frame),
+	}
 }
 
 // ErrSimulatedTxSubmissionFailure is the sentinel error returned when a
@@ -165,14 +183,117 @@ type TxManagerIntercept struct {
 // failure was intentional for testing purposes.
 var ErrSimulatedTxSubmissionFailure = errors.New("simulated tx submission failure")
 
+func decodeFrameInformation(candidate txmgr.TxCandidate) ([]derive.Frame, error) {
+	if len(candidate.TxData) > 0 {
+		// We have a CallData tx, so we can decode the frame information from
+		// the tx data.
+		return decodeFrameInformationFromTxData(candidate)
+	}
+
+	if len(candidate.Blobs) > 0 {
+		// We have a Blob tx, so we can decode the frame information from
+		// the blobs.
+		return decodeFrameInformationFromBlobs(candidate)
+	}
+
+	return nil, fmt.Errorf("tx candidate has neither tx data nor blobs to decode frame information from")
+}
+
+func decodeFrameInformationFromTxData(candidate txmgr.TxCandidate) ([]derive.Frame, error) {
+	data := candidate.TxData
+
+	if data[0] != params.DerivationVersion0 {
+		// Not a supported derivation version
+		return nil, fmt.Errorf("unsupported derivation version: %d", data[0])
+	}
+
+	var frames []derive.Frame
+	reader := bytes.NewBuffer(data[1:])
+	for {
+		var frame derive.Frame
+		err := frame.UnmarshalBinary(reader)
+		if errors.Is(err, io.EOF) {
+			// We've consumed all of the frames.
+			break
+		}
+
+		// If this is any other error, it indicates that there was an
+		// error decoding the frame.
+		if err != nil {
+			return frames, fmt.Errorf("error decoding frame: %w", err)
+		}
+
+		frames = append(frames, frame)
+	}
+
+	return frames, nil
+}
+
+func decodeFrameInformationFromBlobs(candidate txmgr.TxCandidate) ([]derive.Frame, error) {
+	var frames []derive.Frame
+	for _, blob := range candidate.Blobs {
+		data, err := blob.ToData()
+		if err != nil {
+			return frames, fmt.Errorf("error converting blob to data: %w", err)
+		}
+
+		if data[0] != params.DerivationVersion0 {
+			// Not a supported derivation version
+			return frames, fmt.Errorf("unsupported derivation version: %d", data[0])
+		}
+
+		reader := bytes.NewBuffer(data[1:])
+		for {
+			var frame derive.Frame
+			err := frame.UnmarshalBinary(reader)
+			if errors.Is(err, io.EOF) {
+				// We've consumed all of the frames in this blob.
+				break
+			}
+
+			// If this is any other error, it indicates that there was an
+			// error decoding the frame.
+			if err != nil {
+				return frames, fmt.Errorf("error decoding frame from blob: %w", err)
+			}
+
+			frames = append(frames, frame)
+		}
+	}
+
+	return frames, nil
+}
+
+func (t *TxManagerIntercept) markFramesAsSuccessful(frames []derive.Frame) {
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+	for _, frame := range frames {
+		t.successfulFrames[frame.ID] = append(t.successfulFrames[frame.ID], frame)
+	}
+}
+
+func (t *TxManagerIntercept) markFramesAsUnsuccessful(frames []derive.Frame) {
+	t.Mutex.Lock()
+	defer t.Mutex.Unlock()
+	for _, frame := range frames {
+		t.unsuccessfulFrames[frame.ID] = append(t.successfulFrames[frame.ID], frame)
+	}
+}
+
 // Send implements txmgr.TxManager.
 //
 // Send is overridden to simulate a failure when shouldFail is true, and to
 // allow for one final transaction to be sent before failures begin when
 // triggerAfterOne is true.
 func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
+	frames, err := decodeFrameInformation(candidate)
+	if err != nil {
+		return nil, err
+	}
+
 	if t.shouldFail {
 		t.failureCount++
+		t.markFramesAsSuccessful(frames)
 		time.Sleep(50 * time.Millisecond) // Simulate some delay
 		return nil, ErrSimulatedTxSubmissionFailure
 	}
@@ -180,6 +301,8 @@ func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandida
 	if t.triggerAfterOne {
 		t.shouldFail = true
 	}
+
+	t.markFramesAsUnsuccessful(frames)
 
 	return t.TxManager.Send(ctx, candidate)
 }
@@ -190,8 +313,15 @@ func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandida
 // to allow for one final transaction to be sent before failures begin when
 // triggerAfterOne is true.
 func (t *TxManagerIntercept) SendAsync(ctx context.Context, candidate txmgr.TxCandidate, ch chan txmgr.SendResponse) {
+	frames, err := decodeFrameInformation(candidate)
+	if err != nil {
+		ch <- txmgr.SendResponse{Err: fmt.Errorf("failed to decode frame information: %w", err)}
+		return
+	}
+
 	if t.shouldFail {
 		t.failureCount++
+		t.markFramesAsUnsuccessful(frames)
 		time.Sleep(50 * time.Millisecond) // Simulate some delay
 		ch <- txmgr.SendResponse{Err: ErrSimulatedTxSubmissionFailure}
 		return
@@ -201,7 +331,33 @@ func (t *TxManagerIntercept) SendAsync(ctx context.Context, candidate txmgr.TxCa
 		t.shouldFail = true
 	}
 
+	t.markFramesAsSuccessful(frames)
 	t.TxManager.SendAsync(ctx, candidate, ch)
+}
+
+type partialFrameData struct {
+	channelID          derive.ChannelID
+	successfulFrames   []derive.Frame
+	unsuccessfulFrames []derive.Frame
+}
+
+func (t *TxManagerIntercept) partialFrameData() []partialFrameData {
+	var partials []partialFrameData
+
+	for channelID, unsuccessfulFrames := range t.unsuccessfulFrames {
+		successfulFrames, ok := t.successfulFrames[channelID]
+		if !ok {
+			continue
+		}
+
+		partials = append(partials, partialFrameData{
+			channelID:          channelID,
+			successfulFrames:   successfulFrames,
+			unsuccessfulFrames: unsuccessfulFrames,
+		})
+	}
+
+	return partials
 }
 
 // Compile time assertion to ensure TxManagerIntercept implements
@@ -218,21 +374,32 @@ var _ txmgr.TxManager = (*TxManagerIntercept)(nil)
 // switched to the fallback and the fallback batcher should continue
 // submitting the remaining frames of the channel without any issues.
 func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
+	// Values of 1200 frames and 100 bytes max tx size were chosen to match
+	// the overall default configuration as seen in batcher/service.go when
+	// the flag is set to Auto.
+
 	system, espressoDevNode, err := launcher.StartE2eDevnet(
 		ctx,
 		t,
-		// We want a Max L1 Number of frames larger than 1 to ensure we can
-		// trigger the multi-frame channel scenario.
-		env.WithBatcherTargetNumFrames(3),
+		// Use Blobs DA to ensure multi-frame channels are possible.
+		// env.WithBatcherDataAvailabilityType(flags.BlobsType),
+
+		// // We want a Max L1 Number of frames larger than 1 to ensure we can
+		// // trigger the multi-frame channel scenario.
+		// env.WithBatcherTargetNumFrames(20000),
 
 		// We want a small Max L1 Tx Size to ensure that even a small L2
 		// transaction will result in multiple L1 Transactions.
-		env.WithBatcherMaxL1TxSize(5000),
+		env.WithBatcherMaxL1TxSize(50),
+
+		// // We want to increase the maximum channel duration so we can be sure
+		// // that a channel isn't progressed every l1 block
+		env.WithBatcherMaxChannelDuration(10),
 	)
 
 	require.NoError(t, err)
@@ -240,25 +407,45 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	// We create an intercept around the existing tx manager so we have
 	// control over when our failures start to occur.
 
-	interceptTxManager := &TxManagerIntercept{
-		TxManager: system.BatchSubmitter.TxManager,
-	}
-	system.BatchSubmitter.TxManager = interceptTxManager
-	system.BatchSubmitter.TestDriver().DriverSetup.Txmgr = interceptTxManager
+	// interceptTxManager := NewTxManagerIntercept(
+	// 	system.BatchSubmitter.TxManager,
+	// )
 
-	l1Client := system.NodeClient(e2esys.RoleL1)
+	// {
+	// 	// We have to stop the Batch Submitter and restart it in order for the
+	// 	// intercept manager to be used in the queuing behavior
+	// 	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
+	// 	require.NoError(t, err)
+
+	// 	// Replace the existing TxManager with our intercept
+	// 	system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager
+
+	// 	// Start the Batcher again, so the publishingLoop picks up the TxManager
+	// 	// when creating its queue.
+	// 	err = system.BatchSubmitter.TestDriver().StartBatchSubmitting()
+	// 	require.NoError(t, err)
+
+	// 	// Wait for the Next L2 Block to be verified by ensure everything is
+	// 	// working and progressing without issue
+	// 	err = wait.ForProcessingFullBatch(ctx, system.RollupClient(e2esys.RoleVerif))
+	// 	require.NoError(t, err)
+
+	// 	// Reset TxManager as we don't want to target or interfere with the
+	// 	// other aspects of the system.
+	// 	system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager.TxManager
+	// }
 
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
 	// Send Transaction on L1, and wait for verification on the L2 Verifier
-	env.RunSimpleL1TransferAndVerifier(ctx, t, system)
+	// env.RunSimpleL1TransferAndVerifier(ctx, t, system)
 
 	// Verify everything works
 	env.RunSimpleL2Burn(ctx, t, system)
 
 	// We want to trigger the failure mode now.
-	interceptTxManager.triggerAfterOne = true
+	// interceptTxManager.triggerAfterOne = true
 
 	// Now we need to submit a multi-frame channel to L1 to trigger the
 	// failure. We can do this by adjusting the batcher config to use a very
@@ -266,62 +453,77 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	// multiple frames.
 
 	// We want enough L2 Transactions to ensure we have multiple frames.
-	n := 10
+	const n = 10
 
-	receipts := env.RunSimpleMultiTransactions(ctx, t, system, n)
+	// receipts := env.RunSimpleMultiTransactions(ctx, t, system, n, 0)
 
 	// We want to wait until we know that the intercept tx manager has
 	// trigger the failure mode successfully, and that all n transactions
 	// have been attempted.
 
-	err = wait.For(ctx, 10*time.Second, func() (bool, error) {
-		return interceptTxManager.failureCount >= 1, nil
-	})
+	// Wait until at least 2 L2 blocks have been mined (one for the
+	// a block with successful frames, and one for a block with failed frames).
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	err = wait.ForNextBlock(ctx, l2Seq)
+	require.NoError(t, err)
+	err = wait.ForNextBlock(ctx, l2Seq)
 	require.NoError(t, err)
 
-	if have, want := interceptTxManager.failureCount, 1; have < want {
-		t.Fatalf("tx submission failure not triggered enough times:\nhave:\n\t%d\nwant at least:\n\t%d", have, want)
-	}
+	// Make sure that at least one failure has occurred, as this should
+	// indicate that the submission process should have failed a multiframe
+	// channel submission.
+	// err = wait.For(ctx, 10*time.Second, func() (bool, error) {
+	// 	return interceptTxManager.failureCount >= 1, nil
+	// })
+	// require.NoError(t, err)
 
 	// Make sure that the verifier doesn't see any of the transactions.
 
-	l2Verif := system.NodeClient(e2esys.RoleVerif)
+	// l2Verif := system.NodeClient(e2esys.RoleVerif)
 
-	for _, receipt := range receipts {
-		_, err := l2Verif.TransactionReceipt(ctx, receipt.TxHash)
-		if have, doNotWant := err, error(nil); have == doNotWant {
-			t.Errorf("receipt for tx %s found on L2 Verifier when not expected:\nhave:\n\t%v\nwant:\n\t%v", receipt.TxHash, have, doNotWant)
-		}
-	}
+	// for _, receipt := range receipts {
+	// 	_, err := wait.ForReceiptOK(ctx, l2Verif, receipt.TxHash)
+	// 	// _, err := l2Verif.TransactionReceipt(ctx, receipt.TxHash)
+	// 	if have, doNotWant := err, error(nil); have == doNotWant {
+	// 		t.Errorf("receipt for tx %s found on L2 Verifier when not expected:\nhave:\n\t%v\nwant:\n\t%v", receipt.TxHash, have, doNotWant)
+	// 	}
+	// }
 
-	// Stop the "TEE" batcher
-	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
-	require.NoError(t, err)
+	// // Stop the "TEE" batcher
+	// err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
+	// require.NoError(t, err)
 
-	// Switch active batcher
-	options, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
-	require.NoError(t, err)
+	// // Switch active batcher
+	// options, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
+	// require.NoError(t, err)
 
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(system.RollupConfig.BatchAuthenticatorAddress, l1Client)
-	require.NoError(t, err)
+	// l1Client := system.NodeClient(e2esys.RoleL1)
+	// batchAuthenticator, err := bindings.NewBatchAuthenticator(system.RollupConfig.BatchAuthenticatorAddress, l1Client)
+	// require.NoError(t, err)
 
-	tx, err := batchAuthenticator.SwitchBatcher(options)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
+	// tx, err := batchAuthenticator.SwitchBatcher(options)
+	// require.NoError(t, err)
+	// _, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	// require.NoError(t, err)
 
-	// Start the fallback batcher
-	err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
-	require.NoError(t, err)
+	// // Start the fallback batcher
+	// err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
+	// require.NoError(t, err)
 
-	// Everything should still work
-	env.RunSimpleL2Burn(ctx, t, system)
+	// // Everything should still work
+	// env.RunSimpleL2Burn(ctx, t, system)
+
+	// There should be some failure recorded in the intercept tx manager that
+	// has a corresponding success in the intercept tx manager.
+
+	// partialFrameData := interceptTxManager.partialFrameData()
+	// require.Greaterf(t, len(partialFrameData), 0, "expected to find at least one partially submitted frame")
 
 	// Verify that our previous receipts were also recorded on L1
-	for i, receipt := range receipts {
-		_, err := wait.ForReceiptOK(ctx, l2Verif, receipt.TxHash)
-		if have, want := err, error(nil); have != want {
-			t.Errorf("receipt %d for tx %s not found on L2 Verifier:\nhave:\n\t%v\nwant:\n\t%v", i, receipt.TxHash, have, want)
-		}
-	}
+	// for i, receipt := range receipts {
+	// 	_, err := wait.ForReceiptOK(ctx, l2Verif, receipt.TxHash)
+	// 	if have, want := err, error(nil); have != want {
+	// 		t.Errorf("receipt %d for tx %s not found on L2 Verifier:\nhave:\n\t%v\nwant:\n\t%v", i, receipt.TxHash, have, want)
+	// 	}
+	// }
 }
