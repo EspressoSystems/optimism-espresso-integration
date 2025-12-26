@@ -391,6 +391,45 @@ services:
       - --altda.put-timeout=30s
       - --altda.get-timeout=30s
       - --data-availability-type=calldata
+      - --rpc.enable-admin
+
+  op-batcher-fallback:
+    profiles: ["default"]
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-batcher-target
+    image: op-batcher:espresso
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      op-geth-sequencer:
+        condition: service_started
+      op-node-sequencer:
+        condition: service_started
+      l2-genesis:
+        condition: service_completed_successfully
+    environment:
+      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_BATCHER_L1_ETH_RPC: http://l1-geth:${L1_HTTP_PORT}
+      OP_BATCHER_L2_ETH_RPC: http://op-geth-sequencer:${OP_HTTP_PORT}
+      OP_BATCHER_ROLLUP_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      OP_BATCHER_MAX_CHANNEL_DURATION: ${MAX_CHANNEL_DURATION:-32}
+      OP_BATCHER_MAX_PENDING_TX: ${MAX_PENDING_TX:-32}
+      OP_BATCHER_STOPPED: "true"
+    volumes:
+      - ../packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo:/config
+    command:
+      - op-batcher
+      - --espresso.enabled=false
+      - --private-key=7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
+      - --stopped=true
+      - --throttle-threshold=0
+      - --max-channel-duration=2
+      - --target-num-frames=1
+      - --max-pending-tx=32
+      - --data-availability-type=calldata
+      - --rpc.enable-admin
 
   op-batcher-tee:
     profiles: ["tee"]
