@@ -248,13 +248,13 @@ func (d *Devnet) callBatcherRPC(service, method string) error {
 }
 
 // StartBatcherSubmitting starts batch submission on a running batcher service
-func (d *Devnet) StartFallbackBatcherSubmitting(service string) error {
+func (d *Devnet) StartBatcherSubmitting(service string) error {
 	log.Info("starting batch submission", "service", service)
 	return d.callBatcherRPC(service, "admin_startBatcher")
 }
 
 // StopBatcherSubmitting stops batch submission on a running batcher service
-func (d *Devnet) StopFallbackBatcherSubmitting(service string) error {
+func (d *Devnet) StopBatcherSubmitting(service string) error {
 	log.Info("stopping batch submission", "service", service)
 	return d.callBatcherRPC(service, "admin_stopBatcher")
 }
