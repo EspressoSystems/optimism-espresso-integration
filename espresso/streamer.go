@@ -81,10 +81,10 @@ type BatchStreamer[B Batch] struct {
 
 	// Batch number we're to give out next
 	BatchPos uint64
-	// HotShot block that was visited last
-	hotShotPos uint64
 	// Position of the last safe batch, we can use it as the position to fallback when resetting
 	fallbackBatchPos uint64
+	// HotShot block that was visited last
+	hotShotPos uint64
 	// HotShot position that we can fallback to, guaranteeing not to skip any unsafe batches
 	fallbackHotShotPos uint64
 	// HotShot position we start reading from, exclusive
@@ -119,6 +119,7 @@ func NewEspressoStreamer[B Batch](
 	unmarshalBatch func([]byte) (*B, error),
 	pollingHotShotPollingInterval time.Duration,
 	originHotShotPos uint64,
+	originBatchPos uint64,
 ) *BatchStreamer[B] {
 	return &BatchStreamer[B]{
 		L1Client:                      l1Client,
@@ -127,7 +128,8 @@ func NewEspressoStreamer[B Batch](
 		EspressoLightClient:           lightClient,
 		Log:                           log,
 		Namespace:                     namespace,
-		BatchPos:                      1,
+		BatchPos:                      originBatchPos,
+		fallbackBatchPos:              originBatchPos,
 		BatchBuffer:                   NewBatchBuffer[B](),
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		RemainingBatches:              make(map[common.Hash]B),

@@ -3,8 +3,11 @@ package environment_test
 import (
 	"context"
 	"testing"
+	"time"
 
+	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
@@ -18,10 +21,21 @@ func TestBatcherSwitching(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
+	// We will need this config to start a new instance of "TEE" batcher
+	// with parameters tweaked.
+	batcherConfig := &batcher.CLIConfig{}
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithSequencerUseFinalized(true), env.GetBatcherConfig(batcherConfig))
 	require.NoError(t, err)
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
+	verifClient := system.NodeClient(e2esys.RoleVerif)
+	espClient := espressoClient.NewClient(espressoDevNode.EspressoUrls()[0])
+
+	deployerTransactor, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
+	require.NoError(t, err)
+
+	batchAuthenticator, err := bindings.NewBatchAuthenticator(system.RollupConfig.BatchAuthenticatorAddress, l1Client)
+	require.NoError(t, err)
 
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
@@ -37,19 +51,42 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Switch active batcher
-	options, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
-	require.NoError(t, err)
-
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(system.RollupConfig.BatchAuthenticatorAddress, l1Client)
-	require.NoError(t, err)
-
-	tx, err := batchAuthenticator.SwitchBatcher(options)
+	tx, err := batchAuthenticator.SwitchBatcher(deployerTransactor)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
 	// Start the fallback batcher
 	err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
+	require.NoError(t, err)
+
+	// Everything should still work
+	env.RunSimpleL2Burn(ctx, t, system)
+
+	// Stop the fallback batcher
+	err = system.FallbackBatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
+	require.NoError(t, err)
+
+	// Switch batcher back to the "TEE" batcher
+	tx, err = batchAuthenticator.SwitchBatcher(deployerTransactor)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+	require.NoError(t, err)
+
+	espHeight, err := espClient.FetchLatestBlockHeight(ctx)
+	require.NoError(t, err)
+	l2Height, err := verifClient.BlockNumber(ctx)
+	require.NoError(t, err)
+
+	// Give things time to settle
+	time.Sleep(time.Minute)
+
+	// Start a new "TEE" batcher
+	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
+	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
+	newBatcher, err := batcher.BatcherServiceFromCLIConfig(ctx, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
+	require.NoError(t, err)
+	err = newBatcher.Start(ctx)
 	require.NoError(t, err)
 
 	// Everything should still work

@@ -271,6 +271,7 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 			},
 			100*time.Millisecond,
 			0,
+			1,
 		)
 
 		l1Client, _ := client.NewRPC(streamBlocksCtx, l, system.NodeEndpoint(e2esys.RoleL1).RPC())
