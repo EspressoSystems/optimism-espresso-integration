@@ -72,16 +72,33 @@ func TestBatcherSwitching(t *testing.T) {
 	// Switch batcher back to the "TEE" batcher
 	tx, err = batchAuthenticator.SwitchBatcher(deployerTransactor)
 	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-	require.NoError(t, err)
-
-	espHeight, err := espClient.FetchLatestBlockHeight(ctx)
-	require.NoError(t, err)
-	l2Height, err := verifClient.BlockNumber(ctx)
+	switchReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
 	// Give things time to settle
-	time.Sleep(time.Minute)
+	var l2Height uint64
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+Loop:
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			panic("Timeout waiting for verifier derivation pipeline to advance past the fallback batcher switchoff point")
+		case <-ticker.C:
+			status, err := system.RollupClient(e2esys.RoleVerif).SyncStatus(ctx)
+			require.NoError(t, err)
+			if status.CurrentL1.Number > switchReceipt.BlockNumber.Uint64() {
+				l2Height = status.LocalSafeL2.Number
+				break Loop
+			}
+		}
+	}
+
+	espHeight, err := espClient.FetchLatestBlockHeight(ctx)
+	require.NoError(t, err)
 
 	// Start a new "TEE" batcher
 	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight

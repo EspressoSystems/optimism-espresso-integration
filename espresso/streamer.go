@@ -122,14 +122,15 @@ func NewEspressoStreamer[B Batch](
 	originBatchPos uint64,
 ) *BatchStreamer[B] {
 	return &BatchStreamer[B]{
-		L1Client:                      l1Client,
-		RollupL1Client:                rollupL1Client,
-		EspressoClient:                espressoClient,
-		EspressoLightClient:           lightClient,
-		Log:                           log,
-		Namespace:                     namespace,
-		BatchPos:                      originBatchPos,
-		fallbackBatchPos:              originBatchPos,
+		L1Client:            l1Client,
+		RollupL1Client:      rollupL1Client,
+		EspressoClient:      espressoClient,
+		EspressoLightClient: lightClient,
+		Log:                 log,
+		Namespace:           namespace,
+		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
+		BatchPos:                      originBatchPos + 1,
+		fallbackBatchPos:              originBatchPos + 1,
 		BatchBuffer:                   NewBatchBuffer[B](),
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
 		RemainingBatches:              make(map[common.Hash]B),

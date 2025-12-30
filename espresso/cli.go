@@ -226,7 +226,7 @@ func BatchStreamerFromCLIConfig[B Batch](
 		unmarshalBatch,
 		cfg.PollInterval,
 		cfg.CaffeinationHeightEspresso,
-		cfg.CaffeinationHeightL2+1, // Batch position is for *next* batch
+		cfg.CaffeinationHeightL2,
 	)
 	streamer.UseFetchApi = cfg.UseFetchAPI
 
