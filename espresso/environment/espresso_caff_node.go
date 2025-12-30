@@ -125,6 +125,10 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 		LightClientAddr:  common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS),
 	}
 
+	for _, opt := range opts {
+		opt(&caffNodeConfig)
+	}
+
 	// Configure
 	e2esys.ConfigureL1(&caffNodeConfig, system.EthInstances[e2esys.RoleL1], system.L1BeaconEndpoint())
 	e2esys.ConfigureL2(&caffNodeConfig, caffNodeGeth, system.Cfg.JWTSecret)

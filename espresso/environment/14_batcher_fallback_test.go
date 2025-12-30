@@ -2,6 +2,7 @@ package environment_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-node/config"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 )
@@ -91,4 +93,26 @@ func TestBatcherSwitching(t *testing.T) {
 
 	// Everything should still work
 	env.RunSimpleL2Burn(ctx, t, system)
+
+	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
+		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight
+		c.Rollup.CaffNodeConfig.CaffeinationHeightL2 = l2Height
+	})
+	require.NoError(t, err)
+	defer env.Stop(t, caffNode)
+
+	caffClient := system.NodeClient(env.RoleCaffNode)
+
+	verifHeight, err := verifClient.BlockNumber(ctx)
+	require.NoError(t, err)
+	verifBlock, err := verifClient.BlockByNumber(ctx, new(big.Int).SetUint64(verifHeight))
+	require.NoError(t, err)
+
+	err = wait.ForBlock(ctx, caffClient, verifHeight)
+	require.NoError(t, err)
+
+	caffBlock, err := caffClient.BlockByNumber(ctx, new(big.Int).SetUint64(verifHeight))
+	require.NoError(t, err)
+
+	require.Equal(t, verifBlock.Hash(), caffBlock.Hash())
 }
