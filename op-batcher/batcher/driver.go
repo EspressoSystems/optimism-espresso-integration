@@ -24,6 +24,7 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -811,6 +812,20 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
+		// Check if this batcher is active before publishing to L1/DA
+		if l.Config.UseEspresso {
+			isActive, err := l.isBatcherActive(ctx)
+			if err != nil {
+				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+				// Retry on next iteration
+				continue
+			}
+			if !isActive {
+				l.Log.Debug("Batcher is not active, skipping publish to L1/DA")
+				return
+			}
+		}
+
 		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
 		if err != nil {
 			if err != io.EOF {
@@ -1139,6 +1154,47 @@ func (l *BatchSubmitter) checkTxpool(queue *txmgr.Queue[txRef], receiptsCh chan 
 	r := l.txpoolState == TxpoolGood
 	l.txpoolMutex.Unlock()
 	return r
+}
+
+// isBatcherActive checks if the current batcher is active by querying the BatchAuthenticator contract.
+// Returns true if this batcher is the active one, false otherwise.
+func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
+	// Create BatchAuthenticator contract binding
+	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
+	if err != nil {
+		return false, fmt.Errorf("failed to create BatchAuthenticator binding: %w", err)
+	}
+
+	cCtx, cancel := context.WithTimeout(ctx, l.Config.NetworkTimeout)
+	defer cancel()
+
+	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{Context: cCtx})
+	if err != nil {
+		return false, fmt.Errorf("failed to check active batcher: %w", err)
+	}
+
+	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(&bind.CallOpts{Context: cCtx})
+	if err != nil {
+		return false, fmt.Errorf("failed to get TEE batcher address: %w", err)
+	}
+
+	nonTeeBatcherAddr, err := batchAuthenticator.NonTeeBatcher(&bind.CallOpts{Context: cCtx})
+	if err != nil {
+		return false, fmt.Errorf("failed to get non-TEE batcher address: %w", err)
+	}
+
+	batcherAddr := l.Txmgr.From()
+
+	// Determine if this batcher is TEE or non-TEE
+	isTeeBatcher := batcherAddr == teeBatcherAddr
+	isNonTeeBatcher := batcherAddr == nonTeeBatcherAddr
+
+	// This batcher is active if:
+	// - activeIsTee is true and this is the TEE batcher, OR
+	// - activeIsTee is false and this is the non-TEE batcher
+	isActive := (activeIsTee && isTeeBatcher) || (!activeIsTee && isNonTeeBatcher)
+
+	return isActive, nil
 }
 
 func logFields(xs ...any) (fs []any) {
