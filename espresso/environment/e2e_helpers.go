@@ -252,6 +252,9 @@ func WithBatcherDataAvailabilityType(daAvailabilityType flags.DataAvailabilityTy
 	}
 }
 
+// WithBatcherMaxChannelDuration is a configuration option that modifies the
+// MaxChannelDuration for the Batcher Config.  This value will then be
+// utilized by the Channels created by the batcher.
 func WithBatcherMaxChannelDuration(maxChannelDuration uint64) E2eDevnetLauncherOption {
 	{
 		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
@@ -270,6 +273,9 @@ func WithBatcherMaxChannelDuration(maxChannelDuration uint64) E2eDevnetLauncherO
 	}
 }
 
+// WithBatcherMaxFrameSize is a configuration option that modifies the
+// MaxChannelDuration for the Batcher Config.  This value will then be
+// utilized by the channels created by the batcher.
 func WithBatcherMaxFrameSize(maxFrameSize uint64) E2eDevnetLauncherOption {
 	{
 		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
@@ -280,6 +286,27 @@ func WithBatcherMaxFrameSize(maxFrameSize uint64) E2eDevnetLauncherOption {
 						Role: e2esys.RoleSeq,
 						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
 							batchConfig.MaxChannelDuration = maxFrameSize
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+// WithBatcherCompressor is a configuration option that modifies the Compressor
+// setting of the Batcher Config.  This value will be utilzied to determine
+// compression options for the channels created by the batcher.
+func WithBatcherCompressor(compressor string) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "compressor",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.Compressor = compressor
 						},
 					},
 				},
