@@ -2,17 +2,15 @@ package environment
 
 import (
 	"context"
-	"crypto/rand"
+	"math/big"
+	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	"math/big"
-	"testing"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
@@ -27,7 +25,8 @@ func RunSimpleL2Transfer(
 	system *e2esys.System,
 	nonce uint64,
 	amount big.Int,
-	l2Seq *ethclient.Client) common.Hash {
+	l2Seq *ethclient.Client,
+) common.Hash {
 	_, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
@@ -48,7 +47,6 @@ func RunSimpleL2Transfer(
 	txHash := receipt.TxHash
 
 	return txHash
-
 }
 
 // runSimpleL1TransferAndVerifier runs a simple L1 transfer and verifies it on
@@ -134,7 +132,7 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 
 // RunSimpleMultiTransactions sends numTransactions simple L2 transactions
 // from Bob's account with a bunch of random data applied to each transaction.
-func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions, dataSize int) []*types.Receipt {
+func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) []*types.Receipt {
 	senderKey := system.Cfg.Secrets.Bob
 	senderAddress := system.Cfg.Secrets.Addresses().Bob
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -144,21 +142,17 @@ func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esy
 	}
 
 	ch := make(chan *types.Receipt, numTransactions)
-	for i := 0; i < numTransactions; i++ {
+	for i := range numTransactions {
 		go (func(ch chan *types.Receipt, i int, nonce uint64) {
 			receipt := helpers.SendL2Tx(t, system.Cfg, l2Seq, senderKey, func(opts *helpers.TxOpts) {
 				opts.Nonce = nonce + uint64(i)
-				opts.Gas = 100_000
-				opts.Data = make([]byte, dataSize) // add some data to the tx
-				// Fill will random data
-				rand.Read(opts.Data)
 			})
 			ch <- receipt
 		})(ch, i, nonce)
 	}
 
 	var receipts []*types.Receipt
-	for i := 0; i < numTransactions; i++ {
+	for range numTransactions {
 		receipt := <-ch
 		receipts = append(receipts, receipt)
 	}

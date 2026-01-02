@@ -272,16 +272,16 @@ func decodeFrameInformationFromBlobs(candidate txmgr.TxCandidate) ([]derive.Fram
 }
 
 func (t *TxManagerIntercept) markFramesAsSuccessful(frames []derive.Frame) {
-	t.Mutex.Lock()
-	defer t.Mutex.Unlock()
+	t.Lock()
+	defer t.Unlock()
 	for _, frame := range frames {
 		t.successfulFrames[frame.ID] = append(t.successfulFrames[frame.ID], frame)
 	}
 }
 
 func (t *TxManagerIntercept) markFramesAsUnsuccessful(frames []derive.Frame) {
-	t.Mutex.Lock()
-	defer t.Mutex.Unlock()
+	t.Lock()
+	defer t.Unlock()
 	for _, frame := range frames {
 		t.unsuccessfulFrames[frame.ID] = append(t.successfulFrames[frame.ID], frame)
 	}
@@ -478,9 +478,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	// Send Transaction on L1, and wait for verification on the L2 Verifier
-	// env.RunSimpleL1TransferAndVerifier(ctx, t, system)
-
 	// Verify everything works
 	env.RunSimpleL2Burn(ctx, t, system)
 
@@ -495,7 +492,7 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	// We want enough L2 Transactions to ensure we have multiple frames.
 	const n = 10
 
-	receipts := env.RunSimpleMultiTransactions(ctx, t, system, n, 0)
+	receipts := env.RunSimpleMultiTransactions(ctx, t, system, n)
 
 	// We want to wait until we know that the intercept tx manager has
 	// trigger the failure mode successfully, and that all n transactions
@@ -536,7 +533,7 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	// // Start the fallback batcher
+	// Start the fallback batcher
 	err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
 	require.NoError(t, err)
 
