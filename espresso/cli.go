@@ -33,7 +33,8 @@ var (
 	LightClientAddrFlagName          = espressoFlags("light-client-addr")
 	L1UrlFlagName                    = espressoFlags("l1-url")
 	TestingBatcherPrivateKeyFlagName = espressoFlags("testing-batcher-private-key")
-	OriginHeight                     = espressoFlags("origin-height")
+	CaffeinationHeightEspresso       = espressoFlags("origin-height-espresso")
+	CaffeinationHeightL2             = espressoFlags("origin-height-l2")
 	NamespaceFlagName                = espressoFlags("namespace")
 	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
 	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
@@ -87,9 +88,16 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Category: category,
 		},
 		&cli.Uint64Flag{
-			Name:     OriginHeight,
+			Name:     CaffeinationHeightEspresso,
 			Usage:    "Espresso transactions below this height will not be considered",
-			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT"),
+			EnvVars:  espressoEnvs(envPrefix, "CAFFEINATION_HEIGHT_ESPRESSO"),
+			Category: category,
+		},
+		&cli.Uint64Flag{
+			Name:     CaffeinationHeightL2,
+			Usage:    "L2 height at which derivation pipeline of Caff node switches to Espresso",
+			Value:    0,
+			EnvVars:  espressoEnvs(envPrefix, "CAFFEINATION_HEIGHT_L2"),
 			Category: category,
 		},
 		&cli.Uint64Flag{
@@ -123,7 +131,8 @@ type CLIConfig struct {
 	RollupL1URL                string
 	TestingBatcherPrivateKey   *ecdsa.PrivateKey
 	Namespace                  uint64
-	OriginHeight               uint64
+	CaffeinationHeightEspresso uint64
+	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
 }
 
@@ -160,7 +169,8 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		L1URL:                      c.String(L1UrlFlagName),
 		RollupL1URL:                c.String(RollupL1UrlFlagName),
 		Namespace:                  c.Uint64(NamespaceFlagName),
-		OriginHeight:               c.Uint64(OriginHeight),
+		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
+		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
 		EspressoAttestationService: c.String(AttestationServiceFlagName),
 	}
 
@@ -215,7 +225,8 @@ func BatchStreamerFromCLIConfig[B Batch](
 		log,
 		unmarshalBatch,
 		cfg.PollInterval,
-		cfg.OriginHeight,
+		cfg.CaffeinationHeightEspresso,
+		cfg.CaffeinationHeightL2,
 	)
 	streamer.UseFetchApi = cfg.UseFetchAPI
 

@@ -98,8 +98,6 @@ type Config struct {
 	// When false (default), interop contracts deploy but cross-chain coordination is handled locally.
 	// When true, the node defers cross-unsafe/cross-safe/finality to the supervisor.
 	SupervisorEnabled bool
-	// Caff Node config
-	CaffNodeConfig CaffNodeConfig
 }
 
 // CaffNodeConfig is the config for the Caff Node
