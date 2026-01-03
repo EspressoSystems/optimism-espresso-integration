@@ -60,8 +60,9 @@ type AttributesQueue struct {
 	concluding  bool
 	lastAttribs *AttributesWithParent
 
-	isCaffNode       bool
-	espressoStreamer *espresso.BatchStreamer[EspressoBatch]
+	isCaffNode           bool
+	caffeinationHeightL2 uint64
+	espressoStreamer     *espresso.BatchStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {
@@ -96,12 +97,13 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.BatchStr
 
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
 	return &AttributesQueue{
-		log:              log,
-		config:           cfg,
-		builder:          builder,
-		prev:             prev,
-		isCaffNode:       cfg.CaffNodeConfig.Enabled,
-		espressoStreamer: initEspressoStreamer(log, cfg),
+		log:                  log,
+		config:               cfg,
+		builder:              builder,
+		prev:                 prev,
+		isCaffNode:           cfg.CaffNodeConfig.Enabled,
+		caffeinationHeightL2: cfg.CaffNodeConfig.CaffeinationHeightL2,
+		espressoStreamer:     initEspressoStreamer(log, cfg),
 	}
 }
 
@@ -175,7 +177,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var batch *SingularBatch
 		var concluding bool
 		var err error
-		if aq.isCaffNode {
+		if aq.isCaffNode && parent.Number >= aq.caffeinationHeightL2 {
 			if aq.espressoStreamer == nil {
 				aq.log.Error("Espresso streamer not initialized as expected when isCaffNode is ON")
 				return nil, ErrCritical

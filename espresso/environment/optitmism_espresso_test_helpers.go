@@ -568,6 +568,26 @@ func SetBatcherKey(privateKey ecdsa.PrivateKey) E2eDevnetLauncherOption {
 	}
 }
 
+// *c will be set to batcher config. Any devnet launcher options that modify the batcher config
+// should be called before this one.
+func GetBatcherConfig(c *batcher.CLIConfig) E2eDevnetLauncherOption {
+	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Role: "get-batcher-config",
+					BatcherMod: func(cfg *batcher.CLIConfig, sys *e2esys.System) {
+						cfg.TargetNumFrames = 10
+						cfg.MaxL1TxSize = 250
+						cfg.MaxChannelDuration = 1000
+						*c = *cfg
+					},
+				},
+			},
+		}
+	}
+}
+
 // SetEspressoUrls allows to set the list of urls for the Espresso client in such a way that N of them are "good" and M of them are "bad".
 // Good urls are the urls defined by this test framework repeated M times. The bad url is provided to the function
 // This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
