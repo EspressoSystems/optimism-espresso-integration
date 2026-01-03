@@ -93,8 +93,6 @@ type Config struct {
 
 	// Experimental. Enables new opstack RPC namespace. Used by op-test-sequencer.
 	ExperimentalOPStackAPI bool
-	// Caff Node config
-	CaffNodeConfig CaffNodeConfig
 }
 
 // CaffNodeConfig is the config for the Caff Node
