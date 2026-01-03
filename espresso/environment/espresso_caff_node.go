@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/opnode"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
+	"github.com/ethereum-optimism/optimism/op-node/config"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -73,6 +74,8 @@ type CaffNodeInstance struct {
 	Geth   *geth.GethInstance
 }
 
+type ConfigOption func(*config.Config)
+
 // Close closes the caff node geth instance and op node instance.
 func (c *CaffNodeInstance) Close(ctx context.Context) error {
 	return errors.Join(c.OpNode.Stop(ctx), c.Geth.Close())
@@ -80,7 +83,7 @@ func (c *CaffNodeInstance) Close(ctx context.Context) error {
 
 // LaunchCaffNode launches a caff node in the given system. It will
 // configure the caff node to connect to the given espresso dev node.
-func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode EspressoDevNode) (*CaffNodeInstance, error) {
+func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode EspressoDevNode, opts ...ConfigOption) (*CaffNodeInstance, error) {
 	sequencerHostAndPort := espressoDevNode.SequencerPort()
 	_, sequencerPort, err := net.SplitHostPort(sequencerHostAndPort)
 	if have, want := err, error(nil); have != want {
@@ -120,6 +123,10 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 		L1URL:            system.L1.UserRPC().RPC(),
 		RollupL1URL:      system.L1.UserRPC().RPC(),
 		LightClientAddr:  common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS),
+	}
+
+	for _, opt := range opts {
+		opt(&caffNodeConfig)
 	}
 
 	// Configure
