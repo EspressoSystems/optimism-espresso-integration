@@ -11,7 +11,10 @@ on:
         description: 'Force redeployment even if contracts already exist'
         required: false
         default: 'false'
-        type: boolean
+        type: choice
+        options:
+          - 'false'
+          - 'true'
   schedule:
     # Run daily to refresh contracts (will skip if already deployed)
     - cron: '0 0 * * *'
@@ -69,7 +72,7 @@ jobs:
           L1_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
           OPERATOR_PRIVATE_KEY: ${{ secrets.SEPOLIA_OPERATOR_PRIVATE_KEY }}
           L1_CHAIN_ID: ${{ env.SEPOLIA_CHAIN_ID }}
-          FORCE_DEPLOY: ${{ inputs.force_redeploy && '1' || '' }}
+          FORCE_DEPLOY: ${{ inputs.force_redeploy == 'true' && '1' || '' }}
           CONTRACTS_DIR: ${{ github.workspace }}/packages/contracts-bedrock
         run: |
           echo "Deploying op-succinct contracts to Sepolia..."
