@@ -1,0 +1,153 @@
+name: Deploy Op-Succinct Contracts to Sepolia
+
+on:
+  workflow_dispatch:
+    inputs:
+      state_json_artifact:
+        description: 'Artifact name containing state.json (from op-deployer deployment)'
+        required: false
+        default: 'deployment-artifacts'
+      force_redeploy:
+        description: 'Force redeployment even if contracts already exist'
+        required: false
+        default: 'false'
+        type: boolean
+  schedule:
+    # Run daily to refresh contracts (will skip if already deployed)
+    - cron: '0 0 * * *'
+
+env:
+  SEPOLIA_CHAIN_ID: 11155111
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9
+
+      - name: Install dasel
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+
+      - name: Download state.json from artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.state_json_artifact || 'deployment-artifacts' }}
+          path: deployer/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Try to download from current run or previous workflow_run
+          run-id: ${{ github.event.workflow_run.id || '' }}
+          if-no-files-found: ignore
+
+      - name: Check for state.json
+        id: check_state
+        run: |
+          if [ -f "deployer/state.json" ]; then
+            echo "state_found=true" >> $GITHUB_OUTPUT
+            echo "✓ Found state.json"
+            echo "DisputeGameFactory: $(jq -r '.opChainDeployments[0].DisputeGameFactoryProxy' deployer/state.json)"
+            echo "AnchorStateRegistry: $(jq -r '.opChainDeployments[0].AnchorStateRegistryProxy' deployer/state.json)"
+          else
+            echo "state_found=false" >> $GITHUB_OUTPUT
+            echo "⚠ state.json not found - will attempt to deploy with provided addresses"
+          fi
+
+      - name: Deploy op-succinct contracts
+        env:
+          L1_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          OPERATOR_PRIVATE_KEY: ${{ secrets.SEPOLIA_OPERATOR_PRIVATE_KEY }}
+          L1_CHAIN_ID: ${{ env.SEPOLIA_CHAIN_ID }}
+          FORCE_DEPLOY: ${{ inputs.force_redeploy && '1' || '' }}
+          CONTRACTS_DIR: ${{ github.workspace }}/packages/contracts-bedrock
+        run: |
+          echo "Deploying op-succinct contracts to Sepolia..."
+
+          # Check prerequisites
+          if [ -z "${L1_RPC_URL}" ]; then
+            echo "ERROR: SEPOLIA_RPC_URL secret not set"
+            exit 1
+          fi
+
+          if [ -z "${OPERATOR_PRIVATE_KEY}" ]; then
+            echo "ERROR: SEPOLIA_OPERATOR_PRIVATE_KEY secret not set"
+            exit 1
+          fi
+
+          # Check if state.json exists
+          if [ ! -f "deployer/state.json" ]; then
+            echo "ERROR: state.json not found in deployer/"
+            echo "Please provide state.json via artifact 'deployment-artifacts' or set DISPUTE_GAME_FACTORY/ANCHOR_STATE_REGISTRY manually"
+            exit 1
+          fi
+
+          # Run deployment script
+          ./espresso/scripts/deploy-op-succinct-sepolia.sh deployer/state.json
+
+      - name: Verify deployment output
+        id: verify
+        run: |
+          if [ -f "deployer/succinct-contracts.json" ]; then
+            echo "deployed=true" >> $GITHUB_OUTPUT
+            echo "✓ Deployment successful!"
+            echo ""
+            echo "Deployed contracts:"
+            jq -r '.contracts | to_entries[] | "  \(.key): \(.value)"' deployer/succinct-contracts.json
+            echo ""
+            echo "Full deployment info:"
+            cat deployer/succinct-contracts.json
+          else
+            echo "deployed=false" >> $GITHUB_OUTPUT
+            echo "⚠ Deployment output not found"
+          fi
+
+      - name: Upload deployment artifacts
+        if: steps.verify.outputs.deployed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: op-succinct-sepolia-contracts
+          path: deployer/succinct-contracts.json
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload as release artifact (optional)
+        if: steps.verify.outputs.deployed == 'true' && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: op-succinct-sepolia-contracts-${{ github.run_number }}
+          path: deployer/succinct-contracts.json
+          retention-days: 365
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Op-Succinct Contracts Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.verify.outputs.deployed }}" == "true" ]; then
+            echo "✅ **Deployment Successful**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Deployed contracts:" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat deployer/succinct-contracts.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Download the artifact:** \`op-succinct-sepolia-contracts\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Deployment Failed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the logs for details. Common issues:" >> $GITHUB_STEP_SUMMARY
+            echo "- Missing \`state.json\` (provide via artifact)" >> $GITHUB_STEP_SUMMARY
+            echo "- Missing secrets: \`SEPOLIA_RPC_URL\`, \`SEPOLIA_OPERATOR_PRIVATE_KEY\`" >> $GITHUB_STEP_SUMMARY
+          fi
+

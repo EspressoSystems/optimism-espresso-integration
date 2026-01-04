@@ -121,15 +121,6 @@ BATCH_AUTHENTICATOR_OWNER_ADDRESS="${BATCH_AUTHENTICATOR_OWNER_ADDRESS}" op-depl
 # =====================================================================
 echo "Deploying op-succinct contracts..."
 
-# Configuration for op-succinct
-GAME_TYPE=42  # Succinct game type
-MAX_CHALLENGE_DURATION=10  # 10 seconds for devnet testing
-MAX_PROVE_DURATION=60     # 60 seconds for devnet testing
-FALLBACK_TIMEOUT_FP_SECS=3600  # 1 hour for devnet
-INITIAL_BOND_WEI=1000000000000000  # 0.001 ETH
-CHALLENGER_BOND_WEI=1000000000000000  # 0.001 ETH
-DISPUTE_GAME_FINALITY_DELAY_SECONDS=6  # Fast for devnet
-
 # Read existing contract addresses from state.json
 DISPUTE_GAME_FACTORY=$(jq -r '.opChainDeployments[0].DisputeGameFactoryProxy' "${DEPLOYER_DIR}/state.json")
 OPTIMISM_PORTAL=$(jq -r '.opChainDeployments[0].OptimismPortalProxy' "${DEPLOYER_DIR}/state.json")
@@ -139,15 +130,6 @@ echo "Existing contract addresses:"
 echo "  DisputeGameFactory: ${DISPUTE_GAME_FACTORY}"
 echo "  OptimismPortal: ${OPTIMISM_PORTAL}"
 echo "  AnchorStateRegistry: ${ANCHOR_STATE_REGISTRY}"
-
-# Get the starting output root from the anchor state registry
-# The AnchorStateRegistry was initialized by op-deployer with a starting anchor root
-STARTING_ROOT=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | head -1)
-STARTING_L2_BLOCK=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | tail -1)
-
-echo "Starting anchor state:"
-echo "  Root: ${STARTING_ROOT}"
-echo "  L2 Block: ${STARTING_L2_BLOCK}"
 
 # Always create succinct.env with contract addresses (even if op-succinct repo not found)
 # Note: op-succinct uses FACTORY_ADDRESS not DISPUTE_GAME_FACTORY_ADDRESS
@@ -160,78 +142,70 @@ ANCHOR_STATE_REGISTRY_ADDRESS=${ANCHOR_STATE_REGISTRY}
 EOF
 echo "Created succinct env file at ${SUCCINCT_ENV_FILE}"
 
-# Deploy op-succinct contracts using local contracts-bedrock deployment script
+# Use the standalone deployment script for op-succinct contracts
+# For Anvil, use faster settings (10s challenge, 60s prove)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_SCRIPT="${SCRIPT_DIR}/deploy-op-succinct-sepolia.sh"
 
-echo "Deploying op-succinct contracts from local packages/contracts-bedrock..."
+# Temporarily override env vars for local Anvil with faster settings
+export L1_RPC_URL="${ANVIL_URL}"
+export OPERATOR_PRIVATE_KEY="${OPERATOR_PRIVATE_KEY}"
+export L1_CHAIN_ID="${L1_CHAIN_ID}"
+export MAX_CHALLENGE_DURATION=10
+export MAX_PROVE_DURATION=60
 
-# Export environment variables consumed by DeployOPSuccinctFDG.s.sol
-export FACTORY_ADDRESS="${DISPUTE_GAME_FACTORY}"
-export ANCHOR_STATE_REGISTRY_ADDRESS="${ANCHOR_STATE_REGISTRY}"
-export GAME_TYPE="${GAME_TYPE}"
-export INITIAL_BOND_WEI="${INITIAL_BOND_WEI}"
-export CHALLENGER_BOND_WEI="${CHALLENGER_BOND_WEI}"
-export MAX_CHALLENGE_DURATION="${MAX_CHALLENGE_DURATION}"
-export MAX_PROVE_DURATION="${MAX_PROVE_DURATION}"
-export USE_SP1_MOCK_VERIFIER="true"
-
-pushd "${OP_ROOT}/packages/contracts-bedrock"
-
-echo "Running local DeployOPSuccinctFDG.s.sol script..."
-forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
-	--broadcast \
-	--no-storage-caching \
-	--slow \
-	--rpc-url "${ANVIL_URL}" \
-	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: local op-succinct deployment failed, continuing..."
-
-popd
-
-# Wire OPSuccinctFaultDisputeGame implementation into DisputeGameFactory
-echo "Configuring DisputeGameFactory for game type ${GAME_TYPE}..."
-
-# Locate the deployed OPSuccinctFaultDisputeGame implementation address from the forge broadcast
-BROADCAST_DIR="${OP_ROOT}/packages/contracts-bedrock/broadcast/DeployOPSuccinctFDG.s.sol/${L1_CHAIN_ID}"
-BROADCAST_FILE="${BROADCAST_DIR}/run-latest.json"
-
-if [ -f "${BROADCAST_FILE}" ]; then
-	FDG_IMPL=$(jq -r '.transactions[] | select(.contractName=="OPSuccinctFaultDisputeGame") | .contractAddress' "${BROADCAST_FILE}")
-	if [ -z "${FDG_IMPL}" ] || [ "${FDG_IMPL}" = "null" ]; then
-		echo "Warning: could not find OPSuccinctFaultDisputeGame in ${BROADCAST_FILE}; skipping factory config"
-	else
-		echo "  OPSuccinctFaultDisputeGame implementation: ${FDG_IMPL}"
-		# Set implementation for GAME_TYPE on the factory
-		cast send "${DISPUTE_GAME_FACTORY}" \
-			"setImplementation(uint32,address)" "${GAME_TYPE}" "${FDG_IMPL}" \
-			--rpc-url "${ANVIL_URL}" \
-			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setImplementation failed, continuing..."
-
-		# Set init bond for GAME_TYPE to match challenger bond
-		cast send "${DISPUTE_GAME_FACTORY}" \
-			"setInitBond(uint32,uint256)" "${GAME_TYPE}" "${CHALLENGER_BOND_WEI}" \
-			--rpc-url "${ANVIL_URL}" \
-			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setInitBond failed, continuing..."
-	fi
+if [ -f "${DEPLOY_SCRIPT}" ]; then
+	echo "Using op-succinct deployment script..."
+	"${DEPLOY_SCRIPT}" "${DEPLOYER_DIR}/state.json"
 else
-	echo "Warning: broadcast file ${BROADCAST_FILE} not found; skipping factory config"
-fi
+	echo "WARNING: deploy-op-succinct-sepolia.sh not found at ${DEPLOY_SCRIPT}"
+	echo "Falling back to inline deployment (deprecated)..."
 
-# Manually activate game type on AnchorStateRegistry (op-succinct script targets OptimismPortal2)
-echo "Activating game type ${GAME_TYPE} on AnchorStateRegistry..."
-cast send "${ANCHOR_STATE_REGISTRY}" \
-	"setRespectedGameType(uint32)" "${GAME_TYPE}" \
-	--rpc-url "${ANVIL_URL}" \
-	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
+	# Fallback to old inline deployment for backward compatibility
+	GAME_TYPE=42
+	MAX_CHALLENGE_DURATION=10
+	MAX_PROVE_DURATION=60
+	CHALLENGER_BOND_WEI=1000000000000000
 
-# Verify the starting anchor root is set (should be set by op-deployer initialization)
-echo "Verifying starting anchor root..."
-ANCHOR_ROOT=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | head -1)
-ANCHOR_BLOCK=$(cast call "${ANCHOR_STATE_REGISTRY}" "getAnchorRoot()(bytes32,uint256)" --rpc-url "${ANVIL_URL}" | tail -1)
-echo "  Anchor root: ${ANCHOR_ROOT}"
-echo "  Anchor L2 block: ${ANCHOR_BLOCK}"
+	export FACTORY_ADDRESS="${DISPUTE_GAME_FACTORY}"
+	export ANCHOR_STATE_REGISTRY_ADDRESS="${ANCHOR_STATE_REGISTRY}"
+	export GAME_TYPE="${GAME_TYPE}"
+	export INITIAL_BOND_WEI="${CHALLENGER_BOND_WEI}"
+	export CHALLENGER_BOND_WEI="${CHALLENGER_BOND_WEI}"
+	export MAX_CHALLENGE_DURATION="${MAX_CHALLENGE_DURATION}"
+	export MAX_PROVE_DURATION="${MAX_PROVE_DURATION}"
+	export USE_SP1_MOCK_VERIFIER="true"
 
-if [ "${ANCHOR_ROOT}" = "0x0000000000000000000000000000000000000000000000000000000000000000" ]; then
-	echo "ERROR: Anchor root is zero! AnchorStateRegistry was not initialized correctly."
-	echo "This will cause 'AnchorRootNotFound' errors when creating games."
+	pushd "${OP_ROOT}/packages/contracts-bedrock"
+	forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
+		--broadcast \
+		--no-storage-caching \
+		--slow \
+		--rpc-url "${ANVIL_URL}" \
+		--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: local op-succinct deployment failed, continuing..."
+	popd
+
+	BROADCAST_DIR="${OP_ROOT}/packages/contracts-bedrock/broadcast/DeployOPSuccinctFDG.s.sol/${L1_CHAIN_ID}"
+	BROADCAST_FILE="${BROADCAST_DIR}/run-latest.json"
+
+	if [ -f "${BROADCAST_FILE}" ]; then
+		FDG_IMPL=$(jq -r '.transactions[] | select(.contractName=="OPSuccinctFaultDisputeGame") | .contractAddress' "${BROADCAST_FILE}")
+		if [ -n "${FDG_IMPL}" ] && [ "${FDG_IMPL}" != "null" ]; then
+			cast send "${DISPUTE_GAME_FACTORY}" \
+				"setImplementation(uint32,address)" "${GAME_TYPE}" "${FDG_IMPL}" \
+				--rpc-url "${ANVIL_URL}" \
+				--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setImplementation failed, continuing..."
+			cast send "${DISPUTE_GAME_FACTORY}" \
+				"setInitBond(uint32,uint256)" "${GAME_TYPE}" "${CHALLENGER_BOND_WEI}" \
+				--rpc-url "${ANVIL_URL}" \
+				--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setInitBond failed, continuing..."
+		fi
+	fi
+
+	cast send "${ANCHOR_STATE_REGISTRY}" \
+		"setRespectedGameType(uint32)" "${GAME_TYPE}" \
+		--rpc-url "${ANVIL_URL}" \
+		--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
 fi
 
 echo "Local op-succinct contracts deployment complete!"
