@@ -34,6 +34,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -45,28 +54,133 @@ jobs:
           sudo mv /tmp/dasel /usr/local/bin/dasel
           sudo chmod +x /usr/local/bin/dasel
 
-      - name: Download state.json from artifact
+      - name: Build op-deployer
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Compile contracts
+        run: cd packages/contracts-bedrock && just build
+
+      - name: Download state.json from artifact (optional)
+        id: download_state
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.state_json_artifact || 'deployment-artifacts' }}
           path: deployer/
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Try to download from current run or previous workflow_run
           run-id: ${{ github.event.workflow_run.id || github.run_id || '' }}
-          if-no-files-found: ignore
 
-      - name: Check for state.json
+      - name: Extract state.json from deployment artifacts
+        if: steps.download_state.outcome == 'success'
+        continue-on-error: true
+        run: |
+          # Check if state.json is in a subdirectory (from docker-images.yml structure)
+          if [ -f "deployer/espresso/deployment/deployer/state.json" ]; then
+            mkdir -p deployer
+            cp deployer/espresso/deployment/deployer/state.json deployer/state.json
+            echo "✓ Found state.json in deployment artifacts subdirectory"
+          fi
+
+      - name: Check for existing state.json
         id: check_state
         run: |
           if [ -f "deployer/state.json" ]; then
             echo "state_found=true" >> $GITHUB_OUTPUT
-            echo "✓ Found state.json"
+            echo "✓ Found existing state.json"
             echo "DisputeGameFactory: $(jq -r '.opChainDeployments[0].DisputeGameFactoryProxy' deployer/state.json)"
             echo "AnchorStateRegistry: $(jq -r '.opChainDeployments[0].AnchorStateRegistryProxy' deployer/state.json)"
           else
             echo "state_found=false" >> $GITHUB_OUTPUT
-            echo "⚠ state.json not found - will attempt to deploy with provided addresses"
+            echo "⚠ state.json not found - will deploy OP Stack contracts to Sepolia first"
           fi
+
+      - name: Deploy OP Stack contracts to Sepolia
+        if: steps.check_state.outputs.state_found != 'true'
+        env:
+          L1_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          OPERATOR_PRIVATE_KEY: ${{ secrets.SEPOLIA_OPERATOR_PRIVATE_KEY }}
+          L1_CHAIN_ID: ${{ env.SEPOLIA_CHAIN_ID }}
+          L2_CHAIN_ID: ${{ secrets.SEPOLIA_L2_CHAIN_ID || '11155420' }}
+          OPERATOR_ADDRESS: ${{ secrets.SEPOLIA_OPERATOR_ADDRESS }}
+          PROPOSER_ADDRESS: ${{ secrets.SEPOLIA_PROPOSER_ADDRESS }}
+          BATCH_AUTHENTICATOR_OWNER_ADDRESS: ${{ secrets.SEPOLIA_BATCH_AUTHENTICATOR_OWNER_ADDRESS || secrets.SEPOLIA_OPERATOR_ADDRESS }}
+        run: |
+          echo "Deploying OP Stack contracts to Sepolia..."
+
+          # Check prerequisites
+          if [ -z "${L1_RPC_URL}" ]; then
+            echo "ERROR: SEPOLIA_RPC_URL secret not set"
+            exit 1
+          fi
+
+          if [ -z "${OPERATOR_PRIVATE_KEY}" ]; then
+            echo "ERROR: SEPOLIA_OPERATOR_PRIVATE_KEY secret not set"
+            exit 1
+          fi
+
+          if [ -z "${OPERATOR_ADDRESS}" ]; then
+            echo "ERROR: SEPOLIA_OPERATOR_ADDRESS secret not set"
+            exit 1
+          fi
+
+          # Set up deployment directory
+          mkdir -p deployer
+          OP_ROOT=$(pwd)
+          DEPLOYER_DIR="${OP_ROOT}/deployer"
+          ARTIFACTS_DIR="file:///${OP_ROOT}/packages/contracts-bedrock/forge-artifacts"
+
+          # Bootstrap and deploy OP Stack contracts
+          echo "Bootstrap proxy..."
+          op-deployer bootstrap proxy \
+            --l1-rpc-url="${L1_RPC_URL}" \
+            --private-key="${OPERATOR_PRIVATE_KEY}" \
+            --artifacts-locator="${ARTIFACTS_DIR}" \
+            --proxy-owner="${OPERATOR_ADDRESS}"
+
+          echo "Bootstrap superchain..."
+          op-deployer bootstrap superchain \
+            --l1-rpc-url="${L1_RPC_URL}" \
+            --private-key="${OPERATOR_PRIVATE_KEY}" \
+            --artifacts-locator="${ARTIFACTS_DIR}" \
+            --outfile="${DEPLOYER_DIR}/bootstrap_superchain.json" \
+            --superchain-proxy-admin-owner="${OPERATOR_ADDRESS}" \
+            --protocol-versions-owner="${OPERATOR_ADDRESS}" \
+            --guardian="${OPERATOR_ADDRESS}"
+
+          echo "Bootstrap implementations..."
+          op-deployer bootstrap implementations \
+            --l1-rpc-url="${L1_RPC_URL}" \
+            --private-key="${OPERATOR_PRIVATE_KEY}" \
+            --artifacts-locator="${ARTIFACTS_DIR}" \
+            --protocol-versions-proxy=$(jq -r .protocolVersionsProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json) \
+            --superchain-config-proxy=$(jq -r .superchainConfigProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json) \
+            --superchain-proxy-admin=$(jq -r .proxyAdminAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json) \
+            --upgrade-controller="${OPERATOR_ADDRESS}" \
+            --challenger="${OPERATOR_ADDRESS}" \
+            --proof-maturity-delay-seconds=604800 \
+            --dispute-game-finality-delay-seconds=604800 \
+            --outfile="${DEPLOYER_DIR}/bootstrap_implementations.json"
+
+          echo "Initialize deployment..."
+          op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
+            --l2-chain-ids "${L2_CHAIN_ID}" \
+            --intent-type standard-overrides \
+            --outdir "${DEPLOYER_DIR}"
+
+          # Configure Espresso (if needed)
+          dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true || true
+
+          echo "Apply deployment..."
+          BATCH_AUTHENTICATOR_OWNER_ADDRESS="${BATCH_AUTHENTICATOR_OWNER_ADDRESS}" op-deployer apply \
+            --l1-rpc-url "${L1_RPC_URL}" \
+            --workdir "${DEPLOYER_DIR}" \
+            --private-key="${OPERATOR_PRIVATE_KEY}"
+
+          echo "✓ OP Stack deployment complete!"
+          echo "state.json location: ${DEPLOYER_DIR}/state.json"
 
       - name: Deploy op-succinct contracts
         env:
@@ -92,9 +206,19 @@ jobs:
           # Check if state.json exists
           if [ ! -f "deployer/state.json" ]; then
             echo "ERROR: state.json not found in deployer/"
-            echo "Please provide state.json via artifact 'deployment-artifacts' or set DISPUTE_GAME_FACTORY/ANCHOR_STATE_REGISTRY manually"
+            echo ""
+            echo "IMPORTANT: state.json MUST be from a Sepolia deployment (not Anvil)."
+            echo "The addresses in state.json must exist on Sepolia chain."
+            echo ""
+            echo "Options:"
+            echo "1. Provide state.json from a Sepolia op-deployer deployment via artifact"
+            echo "2. Set DISPUTE_GAME_FACTORY and ANCHOR_STATE_REGISTRY environment variables"
+            echo "   (these must be Sepolia contract addresses)"
             exit 1
           fi
+
+          # Warn if state.json might be from wrong chain (can't fully validate, but warn)
+          echo "Note: Ensure state.json contains Sepolia contract addresses, not Anvil addresses."
 
           # Run deployment script
           ./espresso/scripts/deploy-op-succinct-sepolia.sh deployer/state.json
