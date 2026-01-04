@@ -142,71 +142,70 @@ ANCHOR_STATE_REGISTRY_ADDRESS=${ANCHOR_STATE_REGISTRY}
 EOF
 echo "Created succinct env file at ${SUCCINCT_ENV_FILE}"
 
-# Use the standalone deployment script for op-succinct contracts
-# For Anvil, use faster settings (10s challenge, 60s prove)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPLOY_SCRIPT="${SCRIPT_DIR}/deploy-op-succinct-sepolia.sh"
+# Deploy op-succinct contracts using inline deployment for local Anvil
+# Configuration for op-succinct (devnet settings - fast for testing)
+GAME_TYPE=42
+MAX_CHALLENGE_DURATION=10  # 10 seconds for devnet testing
+MAX_PROVE_DURATION=60     # 60 seconds for devnet testing
+CHALLENGER_BOND_WEI=1000000000000000  # 0.001 ETH
 
-# Temporarily override env vars for local Anvil with faster settings
-export L1_RPC_URL="${ANVIL_URL}"
-export OPERATOR_PRIVATE_KEY="${OPERATOR_PRIVATE_KEY}"
-export L1_CHAIN_ID="${L1_CHAIN_ID}"
-export MAX_CHALLENGE_DURATION=10
-export MAX_PROVE_DURATION=60
+# Export environment variables consumed by DeployOPSuccinctFDG.s.sol
+export FACTORY_ADDRESS="${DISPUTE_GAME_FACTORY}"
+export ANCHOR_STATE_REGISTRY_ADDRESS="${ANCHOR_STATE_REGISTRY}"
+export GAME_TYPE="${GAME_TYPE}"
+export INITIAL_BOND_WEI="${CHALLENGER_BOND_WEI}"
+export CHALLENGER_BOND_WEI="${CHALLENGER_BOND_WEI}"
+export MAX_CHALLENGE_DURATION="${MAX_CHALLENGE_DURATION}"
+export MAX_PROVE_DURATION="${MAX_PROVE_DURATION}"
+export USE_SP1_MOCK_VERIFIER="true"
 
-if [ -f "${DEPLOY_SCRIPT}" ]; then
-	echo "Using op-succinct deployment script..."
-	"${DEPLOY_SCRIPT}" "${DEPLOYER_DIR}/state.json"
-else
-	echo "WARNING: deploy-op-succinct-sepolia.sh not found at ${DEPLOY_SCRIPT}"
-	echo "Falling back to inline deployment (deprecated)..."
+pushd "${OP_ROOT}/packages/contracts-bedrock"
 
-	# Fallback to old inline deployment for backward compatibility
-	GAME_TYPE=42
-	MAX_CHALLENGE_DURATION=10
-	MAX_PROVE_DURATION=60
-	CHALLENGER_BOND_WEI=1000000000000000
+echo "Running local DeployOPSuccinctFDG.s.sol script..."
+forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
+	--broadcast \
+	--no-storage-caching \
+	--slow \
+	--rpc-url "${ANVIL_URL}" \
+	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: local op-succinct deployment failed, continuing..."
 
-	export FACTORY_ADDRESS="${DISPUTE_GAME_FACTORY}"
-	export ANCHOR_STATE_REGISTRY_ADDRESS="${ANCHOR_STATE_REGISTRY}"
-	export GAME_TYPE="${GAME_TYPE}"
-	export INITIAL_BOND_WEI="${CHALLENGER_BOND_WEI}"
-	export CHALLENGER_BOND_WEI="${CHALLENGER_BOND_WEI}"
-	export MAX_CHALLENGE_DURATION="${MAX_CHALLENGE_DURATION}"
-	export MAX_PROVE_DURATION="${MAX_PROVE_DURATION}"
-	export USE_SP1_MOCK_VERIFIER="true"
+popd
 
-	pushd "${OP_ROOT}/packages/contracts-bedrock"
-	forge script scripts/deploy/DeployOPSuccinctFDG.s.sol \
-		--broadcast \
-		--no-storage-caching \
-		--slow \
-		--rpc-url "${ANVIL_URL}" \
-		--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: local op-succinct deployment failed, continuing..."
-	popd
+# Wire OPSuccinctFaultDisputeGame implementation into DisputeGameFactory
+echo "Configuring DisputeGameFactory for game type ${GAME_TYPE}..."
 
-	BROADCAST_DIR="${OP_ROOT}/packages/contracts-bedrock/broadcast/DeployOPSuccinctFDG.s.sol/${L1_CHAIN_ID}"
-	BROADCAST_FILE="${BROADCAST_DIR}/run-latest.json"
+# Locate the deployed OPSuccinctFaultDisputeGame implementation address from the forge broadcast
+BROADCAST_DIR="${OP_ROOT}/packages/contracts-bedrock/broadcast/DeployOPSuccinctFDG.s.sol/${L1_CHAIN_ID}"
+BROADCAST_FILE="${BROADCAST_DIR}/run-latest.json"
 
-	if [ -f "${BROADCAST_FILE}" ]; then
-		FDG_IMPL=$(jq -r '.transactions[] | select(.contractName=="OPSuccinctFaultDisputeGame") | .contractAddress' "${BROADCAST_FILE}")
-		if [ -n "${FDG_IMPL}" ] && [ "${FDG_IMPL}" != "null" ]; then
-			cast send "${DISPUTE_GAME_FACTORY}" \
-				"setImplementation(uint32,address)" "${GAME_TYPE}" "${FDG_IMPL}" \
-				--rpc-url "${ANVIL_URL}" \
-				--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setImplementation failed, continuing..."
-			cast send "${DISPUTE_GAME_FACTORY}" \
-				"setInitBond(uint32,uint256)" "${GAME_TYPE}" "${CHALLENGER_BOND_WEI}" \
-				--rpc-url "${ANVIL_URL}" \
-				--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setInitBond failed, continuing..."
-		fi
+if [ -f "${BROADCAST_FILE}" ]; then
+	FDG_IMPL=$(jq -r '.transactions[] | select(.contractName=="OPSuccinctFaultDisputeGame") | .contractAddress' "${BROADCAST_FILE}")
+	if [ -z "${FDG_IMPL}" ] || [ "${FDG_IMPL}" = "null" ]; then
+		echo "Warning: could not find OPSuccinctFaultDisputeGame in ${BROADCAST_FILE}; skipping factory config"
+	else
+		echo "  OPSuccinctFaultDisputeGame implementation: ${FDG_IMPL}"
+		# Set implementation for GAME_TYPE on the factory
+		cast send "${DISPUTE_GAME_FACTORY}" \
+			"setImplementation(uint32,address)" "${GAME_TYPE}" "${FDG_IMPL}" \
+			--rpc-url "${ANVIL_URL}" \
+			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setImplementation failed, continuing..."
+
+		# Set init bond for GAME_TYPE to match challenger bond
+		cast send "${DISPUTE_GAME_FACTORY}" \
+			"setInitBond(uint32,uint256)" "${GAME_TYPE}" "${CHALLENGER_BOND_WEI}" \
+			--rpc-url "${ANVIL_URL}" \
+			--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setInitBond failed, continuing..."
 	fi
-
-	cast send "${ANCHOR_STATE_REGISTRY}" \
-		"setRespectedGameType(uint32)" "${GAME_TYPE}" \
-		--rpc-url "${ANVIL_URL}" \
-		--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
+else
+	echo "Warning: broadcast file ${BROADCAST_FILE} not found; skipping factory config"
 fi
+
+# Manually activate game type on AnchorStateRegistry (op-succinct script targets OptimismPortal2)
+echo "Activating game type ${GAME_TYPE} on AnchorStateRegistry..."
+cast send "${ANCHOR_STATE_REGISTRY}" \
+	"setRespectedGameType(uint32)" "${GAME_TYPE}" \
+	--rpc-url "${ANVIL_URL}" \
+	--private-key "${OPERATOR_PRIVATE_KEY}" || echo "Warning: setRespectedGameType failed (may need Guardian role)"
 
 echo "Local op-succinct contracts deployment complete!"
 
