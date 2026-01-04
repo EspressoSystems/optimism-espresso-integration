@@ -15,9 +15,12 @@ on:
         options:
           - 'false'
           - 'true'
-  schedule:
-    # Run daily to refresh contracts (will skip if already deployed)
-    - cron: '0 0 * * *'
+  push:
+    branches:
+      - "celo-integration*"
+    paths:
+      - '.github/workflows/deploy-op-succinct-sepolia.yml'
+      - 'espresso/scripts/deploy-op-succinct-sepolia.sh'
 
 env:
   SEPOLIA_CHAIN_ID: 11155111
@@ -51,7 +54,7 @@ jobs:
           path: deployer/
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # Try to download from current run or previous workflow_run
-          run-id: ${{ github.event.workflow_run.id || '' }}
+          run-id: ${{ github.event.workflow_run.id || github.run_id || '' }}
           if-no-files-found: ignore
 
       - name: Check for state.json
@@ -125,7 +128,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload as release artifact (optional)
-        if: steps.verify.outputs.deployed == 'true' && github.event_name == 'workflow_dispatch'
+        if: steps.verify.outputs.deployed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: op-succinct-sepolia-contracts-${{ github.run_number }}
