@@ -16,8 +16,6 @@ on:
           - 'false'
           - 'true'
   push:
-    branches:
-      - "celo-integration*"
     paths:
       - '.github/workflows/deploy-op-succinct-sepolia.yml'
       - 'espresso/scripts/deploy-op-succinct-sepolia.sh'
