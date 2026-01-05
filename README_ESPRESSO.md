@@ -16,7 +16,7 @@ Notes:
 
 ### Nix shell
 
-* Install nix following the instructions at https://nixos.org/download/
+* Install nix following the instructions at <https://nixos.org/download/>
 
 * Enter the nix shell of this project
 
@@ -130,6 +130,7 @@ just golint
 ```
 
 Generate the bindings for the contracts:
+
 ```console
 just gen-bindings
 ```
@@ -142,7 +143,7 @@ If some containers are still running (due to failed tests) run this command to s
 
 This guide explains how to prepare an enclave-enabled parent EC2 instance.
 
-You can follow the official AWS Enclaves setup guide: https://docs.aws.amazon.com/enclaves/latest/user/getting-started.html.
+You can follow the official AWS Enclaves setup guide: <https://docs.aws.amazon.com/enclaves/latest/user/getting-started.html>.
 
 #### Step-by-Step Instructions
 
@@ -152,16 +153,15 @@ Use the AWS Management Console or AWS CLI to launch a new EC2 instance.
 
 Make sure to:
 
-- **Enable Enclaves**
-		- In the CLI: set the `--enclave-options` flag to `true`
-		- In the Console: select `Enabled` under the **Enclave** section
+* **Enable Enclaves**
+  * In the CLI: set the `--enclave-options` flag to `true`
+  * In the Console: select `Enabled` under the **Enclave** section
 
-- **Use the following configuration:**
-		- **Architecture:** x86_64
-		- **AMI:** Amazon Linux 2023
-		- **Instance Type:** `m6a.2xlarge`
-		- **Volume Size:** 100 GB
-
+* **Use the following configuration:**
+  * **Architecture:** x86_64
+  * **AMI:** Amazon Linux 2023
+  * **Instance Type:** `m6a.2xlarge`
+  * **Volume Size:** 100 GB
 
 ##### 2. Connect to the Instance
 
@@ -394,8 +394,8 @@ restarting.
 * If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
-
 ## Log monitoring
+
 For a selection of important metrics to monitor for and corresponding log lines see `espresso/docs/metrics.md`
 
 ## Blockscout
@@ -410,30 +410,31 @@ In order to run the tests for the enclave in EC2 via github actions one must cre
 
 ```json
 {
-	"Version": "2012-10-17",
-	"Statement": [
-		{
-			"Effect": "Allow",
-			"Action": [
-				"ec2:AuthorizeSecurityGroupIngress",
-				"ec2:RunInstances",
-				"ec2:DescribeInstances",
-				"ec2:TerminateInstances",
-				"ec2:DescribeImages",
-				"ec2:CreateTags",
-				"ec2:DescribeSecurityGroups",
-				"ec2:DescribeKeyPairs",
-				"ec2:ImportKeyPair",
-				"ec2:DescribeInstanceStatus"
-			],
-			"Resource": "*"
-		}
-	]
+ "Version": "2012-10-17",
+ "Statement": [
+  {
+   "Effect": "Allow",
+   "Action": [
+    "ec2:AuthorizeSecurityGroupIngress",
+    "ec2:RunInstances",
+    "ec2:DescribeInstances",
+    "ec2:TerminateInstances",
+    "ec2:DescribeImages",
+    "ec2:CreateTags",
+    "ec2:DescribeSecurityGroups",
+    "ec2:DescribeKeyPairs",
+    "ec2:ImportKeyPair",
+    "ec2:DescribeInstanceStatus"
+   ],
+   "Resource": "*"
+  }
+ ]
 }
 ```
 
 Currently, the github workflow in `.github/workflows/enclave.yaml` relies on AWS AMI with id `ami-0d259f3ae020af5f9` under `arn:aws:iam::324783324287`.
 In order to refresh this AMI one needs to:
+
 1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/enclave.yaml` *Launch EC2 Instance* job).
 2. Copy the script `espresso/scrips/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
@@ -523,8 +524,9 @@ In our setting changes to the derivation pipeline are made in the [kona](https:/
 1. Create a PR in [op-succinct](https://github.com/EspressoSystems/op-succinct) and merge it into the branch [espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration). This PR will edit the `Cargo.toml` file to reference the updated kona and celo-kona version, e.g: [41780a3](https://github.com/EspressoSystems/op-succinct/pull/3/commits/41780a339bb1e177281957fcfe0383dfa41eff15).
 
 1. After running CI, check for new images of the succinct proposer and challenger services at
-  * [containers/op-succinct-lite-proposer-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo)
-  * [containers/op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
+
+* [containers/op-succinct-lite-proposer-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo)
+* [containers/op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
 * These images should be updated in the [docker-compose.yml](https://github.com/EspressoSystems/optimism-espresso-integration/blob/b73ee83611418cd6ce3aa2d27e00881d9df7e012/espresso/docker-compose.yml) file when new versions are available. See for example [bd90858](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
 
 Note that periodically we need to merge upstream changes in the `kona`, `celo-kona`, and `op-succinct` repositories to keep our integration branches up to date. This ensures that our custom modifications don't drift too far from the upstream codebase and that we can easily incorporate bug fixes and new features from the upstream projects.
