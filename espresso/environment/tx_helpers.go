@@ -131,7 +131,14 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 }
 
 // RunSimpleMultiTransactions sends numTransactions simple L2 transactions
-// from Bob's account with a bunch of random data applied to each transaction.
+// from Bob's account and returns the receipts.
+//
+// This is all attempted in porallel, as it will spawn a separate goroutine
+// for each transaction submission.  Each transaction will be provided its
+// own nonce, based on the currently understood value of the nonce for
+// Bob.
+//
+// This will return once all receipts have been returned.
 func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) []*types.Receipt {
 	senderKey := system.Cfg.Secrets.Bob
 	senderAddress := system.Cfg.Secrets.Addresses().Bob

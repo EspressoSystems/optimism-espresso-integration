@@ -283,7 +283,7 @@ func (t *TxManagerIntercept) markFramesAsUnsuccessful(frames []derive.Frame) {
 	t.Lock()
 	defer t.Unlock()
 	for _, frame := range frames {
-		t.unsuccessfulFrames[frame.ID] = append(t.successfulFrames[frame.ID], frame)
+		t.unsuccessfulFrames[frame.ID] = append(t.unsuccessfulFrames[frame.ID], frame)
 	}
 }
 
