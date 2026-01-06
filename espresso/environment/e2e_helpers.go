@@ -295,7 +295,7 @@ func WithBatcherMaxFrameSize(maxFrameSize uint64) E2eDevnetLauncherOption {
 }
 
 // WithBatcherCompressor is a configuration option that modifies the Compressor
-// setting of the Batcher Config.  This value will be utilzied to determine
+// setting of the Batcher Config.  This value will be utilized to determine
 // compression options for the channels created by the batcher.
 func WithBatcherCompressor(compressor string) E2eDevnetLauncherOption {
 	{
