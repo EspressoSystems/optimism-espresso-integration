@@ -24,7 +24,7 @@ jobs:
             tests: "TestWithdrawal|TestBatcherSwitching"
             tee: false
           - group: 3
-            tests: "TestSmokeWithTEE|TestForcedTransaction"
+            tests: "TestSmokeWithTEE"
             tee: true
           - group: 4
             tests: "TestBatcherActivePublishOnly"

@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -36,11 +35,18 @@ import (
 )
 
 // The setting for `COMPOSE_PROFILES` when running the Docker Compose.
-type DevnetProfile uint
+/*type DevnetProfile uint
 
 const (
 	DevnetProfileTee    DevnetProfile = iota
 	DevnetProfileNonTee DevnetProfile = iota
+)*/
+
+type DevnetProfile string
+
+const (
+    DevnetProfileTee    DevnetProfile = "tee"
+    DevnetProfileNonTee DevnetProfile = "default"
 )
 
 type Devnet struct {
@@ -119,6 +125,10 @@ func (d *Devnet) profileName() string {
 }
 
 func (d *Devnet) isRunning() bool {
+	/*cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "ps", "-q",
+	)*/
 	cmd := d.compose("ps", "-q")
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
@@ -130,21 +140,17 @@ func (d *Devnet) isRunning() bool {
 	return len(out) > 0
 }
 
-func (d *Devnet) compose(arg ...string) *exec.Cmd {
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker",
-		append([]string{"compose"}, arg...)...,
-	)
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-		fmt.Sprintf("COMPOSE_PROFILES=%s", d.profileName()),
-	)
-	return cmd
-}
+// The setting for `COMPOES_PROFILES` when running the Docker Compose.
+/*type ComposeProfile string
+
+const (
+	TEE     ComposeProfile = "tee"
+	NON_TEE ComposeProfile = "default"
+)*/
 
 func (d *Devnet) Up(profile DevnetProfile) (err error) {
+	// Update profile
+	d.profile = profile
 	if d.isRunning() {
 		if err := d.Down(); err != nil {
 			return err
@@ -153,6 +159,18 @@ func (d *Devnet) Up(profile DevnetProfile) (err error) {
 		// up any existing state.
 		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
 	}
+
+	log.Info("flag: starting devnet", "profile", d.profile)
+
+	/*cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "up", "-d",
+	)
+	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+	cmd.Env = append(
+		os.Environ(),
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+	)*/
 	cmd := d.compose("up", "-d")
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
@@ -183,6 +201,7 @@ func (d *Devnet) Up(profile DevnetProfile) (err error) {
 		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
 		// the context is cancelled.
 		go func() {
+			//cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
 			cmd = d.compose("logs", "-f")
 			cmd.Stdout = os.Stdout
 			// We don't care about the error return of this command, since it's always going to be
@@ -216,31 +235,38 @@ func (d *Devnet) Up(profile DevnetProfile) (err error) {
 
 	return nil
 }
-
-func (d *Devnet) WaitForL2Operational(tee bool) error {
-
-	timeout := time.Minute * 5
-
-	// Batcher needs more time to startup in tee
-	if tee {
-		timeout = time.Minute * 10
-	}
-
-	_, err := geth.WaitForBlockToBeSafe(big.NewInt(1), d.L2Verif, timeout)
-	return err
-}
-
+/*
 func (d *Devnet) ServiceUp(service string) error {
 	log.Info("bringing up service", "service", service)
-	cmd := d.compose("up", "-d", service)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "up", "-d", service,
+	)
 	return cmd.Run()
 }
 
 func (d *Devnet) ServiceDown(service string) error {
 	log.Info("shutting down service", "service", service)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "down", service,
+	)
+	return cmd.Run()
+}
+*/
+
+func (d *Devnet) ServiceUp(service string) error {
+	log.Info("bringing up service", "service", service, "profile", d.profile)
+	cmd := d.compose("up", "-d", service)
+	return cmd.Run()
+}
+
+func (d *Devnet) ServiceDown(service string) error {
+	log.Info("shutting down service", "service", service, "profile", d.profile)
 	cmd := d.compose("down", service)
 	return cmd.Run()
 }
+
 
 func (d *Devnet) ServiceRestart(service string) error {
 	if err := d.ServiceDown(service); err != nil {
@@ -445,7 +471,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 20*time.Minute)
+	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
@@ -505,9 +531,39 @@ func (d *Devnet) Down() error {
 	}
 
 	// Use timeout flag for faster Docker shutdown
+	/*cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
+	)*/
 	cmd := d.compose("down", "-v", "--remove-orphans", "--timeout", "10")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to shut down docker: %w", err)
+	}
+
+	outBatcher, _ := exec.Command("docker", "ps", "-q", "--filter", "ancestor=op-batcher-tee:espresso").Output()
+	batcherContainers := strings.Fields(string(outBatcher))
+	if len(batcherContainers) > 0 {
+		cmd = exec.Command("docker", append([]string{"stop"}, batcherContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to stop the batcher container: %w", err)
+		}
+		cmd = exec.Command("docker", append([]string{"rm"}, batcherContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove the batcher container: %w", err)
+		}
+	}
+
+	outEnclave, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=batcher-enclaver-").Output()
+	enclaveContainers := strings.Fields(string(outEnclave))
+	if len(enclaveContainers) > 0 {
+		cmd = exec.Command("docker", append([]string{"stop"}, enclaveContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to stop the enclave container: %w", err)
+		}
+		cmd = exec.Command("docker", append([]string{"rm"}, enclaveContainers...)...)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove the enclave container: %w", err)
+		}
 	}
 
 	return nil
@@ -706,8 +762,10 @@ func (d *Devnet) OpChallengerOutput(opts ...string) (string, error) {
 }
 
 func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
-	opts = append([]string{"exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
-	cmd := d.compose(
+	opts = append([]string{"compose", "exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker",
 		opts...,
 	)
 	if testing.Verbose() {
@@ -722,8 +780,9 @@ func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
 func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
 	buf := new(bytes.Buffer)
 	errBuf := new(bytes.Buffer)
-	cmd := d.compose(
-		"port", service, fmt.Sprint(privatePort),
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "port", service, fmt.Sprint(privatePort),
 	)
 	cmd.Stdout = buf
 	cmd.Stderr = errBuf
@@ -770,3 +829,35 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 	client := sources.NewRollupClient(rpc)
 	return client, nil
 }
+
+/*
+func (d *Devnet) composeWithProfile(args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker",
+		append([]string{"compose"}, args...)...,
+	)
+	cmd.Env = append(
+		os.Environ(),
+		"COMPOSE_PROFILES="+string(d.profile),
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+		fmt.Sprintf("COMPOSE_PROFILES=%s", d.profileName()),
+	)
+	return cmd
+}
+*/
+
+func (d *Devnet) compose(arg ...string) *exec.Cmd {
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker",
+		append([]string{"compose"}, arg...)...,
+	)
+	cmd.Env = append(
+		os.Environ(),
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+		fmt.Sprintf("COMPOSE_PROFILES=%s", d.profileName()),
+	)
+	return cmd
+}
+

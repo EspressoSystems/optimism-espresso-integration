@@ -4,6 +4,15 @@
 
 set -e
 
+# If linuxkit is not installed then exit
+if ! command -v linuxkit >/dev/null 2>&1; then
+  echo "ERROR: linuxkit is not installed on this host."
+  echo "TEE / EIF build requires LinuxKit."
+  echo "This machine is not TEE-capable."
+  exit 1
+fi
+
+
 # Required environment variables - will fail if not set
 : ${L1_RPC_URL:?Error: L1_RPC_URL is required}
 : ${L2_RPC_URL:?Error: L2_RPC_URL is required}
@@ -83,6 +92,13 @@ if [ "$ENCLAVE_DEBUG" = "true" ]; then
     echo "Debug logging enabled"
 fi
 
+# Fail early if enclave prerequisites are missing
+if ! command -v linuxkit >/dev/null 2>&1; then
+    echo "ERROR: linuxkit is not installed."
+    echo "Enclave (EIF) build requires LinuxKit. This environment is not TEE-capable."
+    exit 1
+fi
+
 # Build the enclave image
 echo "Building enclave image with tag: $TAG"
 cd /source
@@ -94,7 +110,16 @@ if ! enclave-tools build --op-root /source --tag "$TAG" 2>&1 | tee /tmp/build_ou
     exit 1
 fi
 
-echo "Build completed successfully"
+# Verify enclave image exists
+echo "Verifying enclave image exists: $TAG"
+
+if ! docker image inspect "$TAG" >/dev/null 2>&1; then
+    echo "ERROR: Enclave image '$TAG' was not created."
+    echo "This usually means EIF build failed (e.g., missing LinuxKit / enclave prerequisites)."
+    exit 1
+fi
+
+echo "Build Enclave completed successfully"
 
 # Extract PCR0 from build output
 # Works whether the line is `... PCR0: 0xABCD ...` or `... PCR0=abcd123 ...`

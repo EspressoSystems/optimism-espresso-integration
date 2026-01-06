@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/stretchr/testify/require"
 )
@@ -31,6 +32,11 @@ func TestSmokeWithTEE(t *testing.T) {
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
+
+	// STOP HERE
+    fmt.Println("FLAG TestSmokeWithTEE: Sleep START 10 min")
+    time.Sleep(5 * time.Minute)
+    fmt.Println("FLAG TestSmokeWithTEE: Sleep FINISHED")
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())

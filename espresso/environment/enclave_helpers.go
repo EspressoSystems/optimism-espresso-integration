@@ -41,7 +41,7 @@ const (
 	ESPRESSO_ENABLE_ENCLAVE_TESTS  = "ESPRESSO_RUN_ENCLAVE_TESTS"
 )
 
-// Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
+// Skips the calling test if `ESPRESSO_RUN_ENCLAVE_TESTS` is not set.
 func RunOnlyWithEnclave(t *testing.T) {
 	_, doRun := os.LookupEnv(ESPRESSO_ENABLE_ENCLAVE_TESTS)
 	if !doRun {

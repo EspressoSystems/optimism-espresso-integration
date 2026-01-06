@@ -62,6 +62,7 @@ func WaitForL1OriginOnL2(rollupCfg *rollup.Config, l1BlockNum uint64, client *et
 }
 
 func WaitForTransaction(hash common.Hash, client *ethclient.Client, timeout time.Duration) (*types.Receipt, error) {
+	//panic("FLAG A: Panic at WaitForTransaction")
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

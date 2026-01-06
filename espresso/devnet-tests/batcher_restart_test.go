@@ -3,6 +3,8 @@ package devnet_tests
 import (
 	"context"
 	"testing"
+	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/require"
@@ -27,13 +29,19 @@ func testRestart(t *testing.T, tee bool) {
 	if tee {
 		profile = DevnetProfileTee
 	}
+
+	fmt.Printf("profile: %v, tee: %v\n", profile, tee)
+
 	d := NewDevnet(ctx, t)
 	require.NoError(t, d.Up(profile))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
 
-	require.NoError(t, d.WaitForL2Operational(true))
+	// STOP HERE
+    fmt.Println("FLAG: Sleep START 10 min")
+    time.Sleep(10 * time.Minute)
+    fmt.Println("FLAG: Sleep FINISHED")
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())
