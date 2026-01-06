@@ -11,6 +11,7 @@ set -e
 : ${ESPRESSO_URL1:?Error: ESPRESSO_URL1 is required}
 : ${OPERATOR_PRIVATE_KEY:?Error: OPERATOR_PRIVATE_KEY is required}
 : ${ESPRESSO_ATTESTATION_SERVICE_URL:?Error: ESPRESSO_ATTESTATION_SERVICE_URL is required}
+: ${EIGENDA_PROXY_URL:?Error: EIGENDA_PROXY_URL is required}
 
 # Optional configuration with defaults
 TAG="${TAG:-op-batcher-enclavetool}"
@@ -30,6 +31,7 @@ echo "L2 RPC URL: $L2_RPC_URL"
 echo "Rollup RPC URL: $ROLLUP_RPC_URL"
 echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
 echo "Attestation service url: $ESPRESSO_ATTESTATION_SERVICE_URL"
+echo "EigenDA Proxy URL: $EIGENDA_PROXY_URL"
 echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
@@ -56,11 +58,19 @@ else
 fi
 
 BATCHER_ARGS="$BATCHER_ARGS,--throttle-threshold=0"
-BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=1"
+BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=2"
 BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
+BATCHER_ARGS="$BATCHER_ARGS,--max-pending-tx=32"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.fetch-api=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.enabled=true"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.da-server=$EIGENDA_PROXY_URL"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.da-service=true"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=32"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.put-timeout=30s"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.get-timeout=30s"
+BATCHER_ARGS="$BATCHER_ARGS,--data-availability-type=calldata"
 
 # Add debug arguments if enabled
 if [ "$ENCLAVE_DEBUG" = "true" ]; then
