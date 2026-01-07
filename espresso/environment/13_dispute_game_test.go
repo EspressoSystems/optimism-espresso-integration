@@ -38,12 +38,12 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 	// Start a Fault Dispute System with Espresso Dev Node
 	sys, espressoDevNode, err := launcher.StartE2eDevnetWithFaultDisputeSystem(ctx, t, env.WithL1FinalizedDistance(0), env.WithSequencerUseFinalized(true))
 
-	l1Client := sys.NodeClient("l1")
-
 	// Signal the testnet to shut down
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
+
+	l1Client := sys.NodeClient("l1")
 
 	// Close the system and stop the Espresso Dev Node
 	defer sys.Close()
