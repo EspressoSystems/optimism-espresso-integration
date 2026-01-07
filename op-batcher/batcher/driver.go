@@ -1159,6 +1159,20 @@ func (l *BatchSubmitter) checkTxpool(queue *txmgr.Queue[txRef], receiptsCh chan 
 // isBatcherActive checks if the current batcher is active by querying the BatchAuthenticator contract.
 // Returns true if this batcher is the active one, false otherwise.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
+	// Check if BatchAuthenticator address is set
+	if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+		return false, fmt.Errorf("BatchAuthenticator address is not set in rollup config")
+	}
+
+	// Check if contract code exists at the address
+	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to check code at BatchAuthenticator address: %w", err)
+	}
+	if len(code) == 0 {
+		return false, fmt.Errorf("no contract code at given address: %s (contract may not be deployed yet)", l.RollupConfig.BatchAuthenticatorAddress.Hex())
+	}
+
 	// Create BatchAuthenticator contract binding
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
