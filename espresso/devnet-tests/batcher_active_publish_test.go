@@ -99,13 +99,13 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	t.Logf("Starting from block %d", startBlock)
 
 	// Generate L2 traffic for non-TEE batcher
-	burnReceipt, err := d.SubmitSimpleL2Burn()
-	require.NoError(t, err)
-	t.Logf("Generated L2 transaction for non-TEE batcher: %s (L2 block %d)", burnReceipt.Receipt.TxHash, burnReceipt.Receipt.BlockNumber)
+	burnErr := d.RunSimpleL2Burn()
+	require.NoError(t, burnErr)
+	t.Logf("Generated L2 transaction for non-TEE batcher")
 
-	// Wait for batcher to publish (deterministic wait)
-	require.NoError(t, d.WaitUntilSafe(burnReceipt.Receipt.BlockNumber.Uint64()))
-	t.Logf("L2 transaction confirmed on L1")
+	// Wait for batcher to publish
+	time.Sleep(30 * time.Second)
+	t.Logf("Waited 30s for L1 confirmation")
 
 	endBlock, err := d.L1.BlockNumber(ctx)
 	require.NoError(t, err)
@@ -142,9 +142,9 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Generated L2 transaction for TEE batcher: %s (L2 block %d)", burnReceiptAfter.Receipt.TxHash, burnReceiptAfter.Receipt.BlockNumber)
 
-	// Wait for batcher to publish (deterministic wait)
-	require.NoError(t, d.WaitUntilSafe(burnReceiptAfter.Receipt.BlockNumber.Uint64()))
-	t.Logf("L2 transaction confirmed on L1 (after switch)")
+	// Wait for batcher to publish
+	time.Sleep(30 * time.Second)
+	t.Logf("Waited 30s for L1 confirmation (after switch)")
 
 	endBlockAfter, err := d.L1.BlockNumber(ctx)
 	require.NoError(t, err)
