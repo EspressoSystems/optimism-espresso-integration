@@ -184,7 +184,12 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						for _, url := range c.Espresso.QueryServiceURLs {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}
-						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService.Value())
+						var espressoAttestationService string
+						if value := c.Espresso.EspressoAttestationService; value != nil {
+							espressoAttestationService = value.Value()
+						}
+						appendArg(&args, espresso.AttestationServiceFlagName, espressoAttestationService)
+
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {
 							panic(fmt.Sprintf("failed to setup enclaver: %v", err))

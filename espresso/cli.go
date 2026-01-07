@@ -182,7 +182,10 @@ func (c CLIConfig) Check() error {
 		if c.Namespace == 0 {
 			return fmt.Errorf("namespace is required when Espresso is enabled")
 		}
-		if c.EspressoAttestationService == nil || !c.EspressoAttestationService.AllowEmpty() && c.EspressoAttestationService.Value() == "" {
+		if c.EspressoAttestationService == nil {
+			return fmt.Errorf("attestation service URL is not set to any value")
+		}
+		if !c.EspressoAttestationService.AllowEmpty() && c.EspressoAttestationService.Value() == "" {
 			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
 		}
 	}
