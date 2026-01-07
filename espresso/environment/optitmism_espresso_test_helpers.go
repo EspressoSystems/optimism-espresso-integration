@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-
 	"strconv"
 	"testing"
 	"time"
@@ -71,13 +70,17 @@ const ESPRESSO_TESTING_BATCHER_KEY = "0xfad9c8855b740a0b7ed4c221dbad0f33a83a49ca
 // This is address that corresponds to the menmonic we pass to the espresso-dev-node
 var ESPRESSO_CONTRACT_ACCOUNT = common.HexToAddress("0x8943545177806ed17b9f23f0a21ee5948ecaa776")
 
-const ESPRESSO_BUILDER_PORT = "31003"
-const ESPRESSO_SEQUENCER_API_PORT = "24000"
-const ESPRESSO_DEV_NODE_PORT = "24002"
+const (
+	ESPRESSO_BUILDER_PORT       = "31003"
+	ESPRESSO_SEQUENCER_API_PORT = "24000"
+	ESPRESSO_DEV_NODE_PORT      = "24002"
+)
 
 // EigenDA consstants
-const EIGENDA_DOCKER_PORT = "3100"
-const EIGENDA_DOCKER_IMAGE = "ghcr.io/layr-labs/eigenda-proxy:2.2.1"
+const (
+	EIGENDA_DOCKER_PORT  = "3100"
+	EIGENDA_DOCKER_IMAGE = "ghcr.io/layr-labs/eigenda-proxy:2.2.1"
+)
 
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
@@ -255,7 +258,6 @@ var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to det
 
 // GetE2eDevnetSysConfig returns a configuration for an E2E devnet.
 func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
-
 	var allocOpt e2esys.SystemConfigOpt
 	if l.EnclaveBatcher {
 		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
@@ -292,7 +294,7 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 		Balance: millionEthers, // Pre-fund Espresso deployer acount with 1M Ether
 	}
 
-	//Set up the L1Allocs in the system config
+	// Set up the L1Allocs in the system config
 	for address, account := range ESPRESSO_ALLOCS {
 		sysConfig.L1Allocs[address] = account.State
 	}
@@ -339,7 +341,7 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetWithFaultDisputeSysConfig(ct
 		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
 	}
 
-	//Set up the L1Allocs in the system config
+	// Set up the L1Allocs in the system config
 	for address, account := range ESPRESSO_ALLOCS {
 		sysConfig.L1Allocs[address] = account.State
 	}
@@ -389,7 +391,6 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx con
 }
 
 func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-
 	sysConfig := l.GetE2eDevnetSysConfig(ctx, t, options...)
 
 	originalCtx := ctx
@@ -403,7 +404,6 @@ func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *t
 
 		startOptions...,
 	)
-
 	if err != nil {
 		if system != nil {
 			// We don't want the system running in a partial / incomplete
@@ -433,7 +433,6 @@ func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *t
 
 // StartE2eDevnetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
 func (l *EspressoDevNodeLauncherDocker) StartE2eDevnetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-
 	sysConfig := l.GetE2eDevnetWithFaultDisputeSysConfig(ctx, t, options...)
 
 	originalCtx := ctx
@@ -444,7 +443,6 @@ func (l *EspressoDevNodeLauncherDocker) StartE2eDevnetWithFaultDisputeSystem(ctx
 
 		startOptions...,
 	)
-
 	if err != nil {
 		if system != nil {
 			// We don't want the system running in a partial / incomplete
@@ -593,12 +591,10 @@ func GetBatcherConfig(c *batcher.CLIConfig) E2eDevnetLauncherOption {
 // This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
 func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
-
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				{
 					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
-
 						goodUrl := c.Espresso.QueryServiceURLs[0]
 						var urls []string
 
@@ -863,7 +859,6 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			containerCli := new(DockerCli)
 
 			espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
-
 			if err != nil {
 				ct.Error = FailedToLaunchDockerContainer{Cause: err}
 				return
@@ -983,7 +978,6 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 
 // Waits for an Espresso transaction to be confirmed using its hash.
 func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
-
 	const transactionFetchTimeout = 4 * time.Second
 	const transactionFetchInterval = 100 * time.Millisecond
 
