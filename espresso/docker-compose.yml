@@ -493,7 +493,7 @@ services:
         export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
         export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
         export ESPRESSO_ATTESTATION_SERVICE_URL="http://127.0.0.1:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
-        export EIGENDA_PROXY_URL="http://127.0.0.1:${EIGENDA_PROXY_PORT:-3100}"
+        export EIGENDA_PROXY_URL="http://127.0.0.1:${EIGENDA_PROXY_PORT}"
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   # Legacy op-proposer (for non-succinct mode)
