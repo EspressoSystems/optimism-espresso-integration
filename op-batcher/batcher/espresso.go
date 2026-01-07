@@ -967,6 +967,11 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
+	if l.Config.EspressoAttestationService == "" {
+		l.Log.Warn("EspressoAttestationServices is not set, skipping registration")
+		return nil
+	}
+
 	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {

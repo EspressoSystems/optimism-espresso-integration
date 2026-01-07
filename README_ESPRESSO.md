@@ -74,6 +74,51 @@ To run the devnet tests:
 > just devnet-tests
 ```
 
+#### Espresso Attestation Verifier
+The Espresso Attestation Verifier is utilized to register Attestations for the
+Builder. For the E2E Testnet (utilized in local testing) this is provided as
+an opt-in configuration.  The live Batcher is expected to run with this
+enabled and configured.  If it is not configured and we have an Attestation
+a warning log will be issued.
+
+In order to enable the Espresso Attestation Verifier in the local E2E tests
+you merely need to include the relevant option in the configuration as an
+option:
+
+```go
+
+	system, _, err := launcher.StartE2eDevnet(ctx, t,
+		env.WithEspressoAttestationVerifierService(),
+	)
+```
+
+|> NOTE: This configuration has default values configured for convenience
+  and to make the Attestation Verifier Service launch without any external
+  configuration being required.  However, the option itself can also take
+  options that allow the values to be overridden.
+  Additionally, to preserve the previous behavior of the Attestation Verifier
+  it also supports configuration via the same Environment Variables that
+  were previously required.
+
+These environment variables are set in the [espresso/.env](espresso/.env) file for reference.
+However for clarity they are listed here.  These values will only be used
+in the testing when they are populated to a non-empty value.
+
+```env
+ESPRESSO_ATTESTATION_VERIFIER_PORT=<The port to host the verifier service on>
+ESPRESSO_ATTESTATION_VERIFIER_RPC_URL=<The RPC URL to communicate with>
+ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER=<The SP1 Prover mode to operate in>
+ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS=<The nitro verfier address>
+ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK=<whether or not to enable the validity check>
+ESPRESSO_ATTESTATION_VERIFIER_HOST=<The host to listen for. Meant to be the bind address, best if "0.0.0.0 is used>
+ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY=<The hex encoded private key to utilize>
+ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL=<The Network RPC URL to utilize>
+ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER=<Whether or not to use docker for the attestation verifier. "1  or "0">
+ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG=<The RUST_LOG level to pass to the service>
+ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE=<The Docker Image to utilize for the attestation verifier service>
+```
+
+
 ### Misc commands
 
 In order to run the go linter do:
