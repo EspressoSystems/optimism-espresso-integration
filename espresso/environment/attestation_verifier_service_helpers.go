@@ -7,11 +7,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 )
 
-// ErrorAttestationConfigFieldNotSet
+// ErrorAttestationConfigFieldNotSet is an error that indicates that specific
+// configuration value for the AttestationVerifierServiceConfig struct
+// is not set.
 type ErrorAttestationConfigFieldNotSet struct {
 	FieldName string
 }
@@ -250,8 +253,8 @@ func WithAttestationConfigFromENV() AttestationVerifierServiceOption {
 		options = append(options, WithAttestationServiceVerifierNetworkPrivateKey(networkPrivateKey))
 	}
 
-	if rpcUrl := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL"); rpcUrl != "" {
-		options = append(options, WithAttestationServiceVerifierRPCURL(rpcUrl))
+	if rpcURL := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL"); rpcURL != "" {
+		options = append(options, WithAttestationServiceVerifierRPCURL(rpcURL))
 	}
 
 	if host := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_HOST"); host != "" {
@@ -267,6 +270,23 @@ func WithAttestationConfigFromENV() AttestationVerifierServiceOption {
 	}
 
 	return WithAttestationServiceVerifierOptions(options...)
+}
+
+// AllowEmptyConfigurationValue is a simple string wrapper that is meant
+// to adhere to the espresso.ConfigurationStringValue interface, that allows
+// for the value to be empty.
+type AllowEmptyConfigurationValue string
+
+var _ espresso.ConfigurationStringValue = AllowEmptyConfigurationValue("")
+
+// Value implements ConfigurationStringValue.
+func (a AllowEmptyConfigurationValue) Value() string {
+	return string(a)
+}
+
+// AllowEmpty implements ConfigurationStringValue.
+func (AllowEmptyConfigurationValue) AllowEmpty() bool {
+	return true
 }
 
 // launchEspressoAttestationVerifierServiceDockerContainer is a StartOption that
@@ -371,7 +391,7 @@ func launchEspressoAttestationVerifierServiceDockerContainer(ct *E2eDevnetLaunch
 				AttestationVerifierService: attestationVerifierInfo,
 			}
 
-			c.Espresso.EspressoAttestationService = attestationURL
+			c.Espresso.EspressoAttestationService = espresso.ConfigurationValue(attestationURL)
 			healthCheckURL := attestationURL + "/health"
 			for {
 				select {
@@ -381,7 +401,7 @@ func launchEspressoAttestationVerifierServiceDockerContainer(ct *E2eDevnetLaunch
 				case <-ticker.C:
 					resp, err := http.Get(healthCheckURL)
 					if resp != nil {
-						resp.Body.Close()
+						_ = resp.Body.Close()
 					}
 
 					if err == nil && resp.StatusCode == http.StatusOK {

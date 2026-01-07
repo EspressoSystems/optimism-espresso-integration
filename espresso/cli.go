@@ -121,6 +121,34 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 	}
 }
 
+// ConfigurationStringValue represents a configurable value for configuration.
+// The point is that the underlying value is representable as a `string`,
+// and is usually required. However, this allows for the potential of the
+// value to potentially be optional for testing purposes.
+// Value represents the underlying value of the option as a `string`.
+type ConfigurationStringValue interface {
+	Value() string
+
+	// AllowEmpty specifies whether this configuration is allowed to be
+	// empty or not.
+	AllowEmpty() bool
+}
+
+// ConfigurationValue is a simple `string` wrapper that implements
+// ConfigurationStringValue.  The default implementation of this value
+// does not allow for it to be empty.
+type ConfigurationValue string
+
+// Value implements ConfigurationStringValue.
+func (c ConfigurationValue) Value() string {
+	return string(c)
+}
+
+// AllowEmpty implements ConfigurationStringValue.
+func (ConfigurationValue) AllowEmpty() bool {
+	return false
+}
+
 type CLIConfig struct {
 	Enabled                    bool
 	PollInterval               time.Duration
@@ -133,7 +161,7 @@ type CLIConfig struct {
 	Namespace                  uint64
 	CaffeinationHeightEspresso uint64
 	CaffeinationHeightL2       uint64
-	EspressoAttestationService string
+	EspressoAttestationService ConfigurationStringValue
 }
 
 func (c CLIConfig) Check() error {
@@ -154,6 +182,9 @@ func (c CLIConfig) Check() error {
 		if c.Namespace == 0 {
 			return fmt.Errorf("namespace is required when Espresso is enabled")
 		}
+		if c.EspressoAttestationService == nil || !c.EspressoAttestationService.AllowEmpty() && c.EspressoAttestationService.Value() == "" {
+			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
+		}
 	}
 	return nil
 }
@@ -168,7 +199,7 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		Namespace:                  c.Uint64(NamespaceFlagName),
 		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
 		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
-		EspressoAttestationService: c.String(AttestationServiceFlagName),
+		EspressoAttestationService: ConfigurationValue(c.String(AttestationServiceFlagName)),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)

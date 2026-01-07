@@ -34,9 +34,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
-const ENCLAVE_IMAGE_TAG = "op-batcher-enclaver:tests"
-const ESPRESSO_ENABLE_ENCLAVE_TESTS = "ESPRESSO_RUN_ENCLAVE_TESTS"
+const (
+	ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
+	ENCLAVE_IMAGE_TAG              = "op-batcher-enclaver:tests"
+	ESPRESSO_ENABLE_ENCLAVE_TESTS  = "ESPRESSO_RUN_ENCLAVE_TESTS"
+)
 
 // Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
 func RunOnlyWithEnclave(t *testing.T) {
@@ -182,7 +184,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						for _, url := range c.Espresso.QueryServiceURLs {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}
-						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService)
+						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService.Value())
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {
 							panic(fmt.Sprintf("failed to setup enclaver: %v", err))
