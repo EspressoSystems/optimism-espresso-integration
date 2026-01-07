@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "celo-integration*"
-      - "jg/*"
   workflow_dispatch:
 
 jobs:
