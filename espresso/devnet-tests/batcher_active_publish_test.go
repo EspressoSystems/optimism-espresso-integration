@@ -2,13 +2,13 @@ package devnet_tests
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,48 +16,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// hasBatchTransactions checks if any transactions were sent to the BatchInbox from the given sender in the block range.
+// hasBatchTransactions checks if any transactions were sent to the BatchInbox from the given sender in the block range by inspecting transactions directly (since BatchInbox doesn't emit logs).
 func hasBatchTransactions(ctx context.Context, client *ethclient.Client, batchInboxAddr, senderAddr common.Address, startBlock, endBlock uint64) (bool, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	chainID, err := client.ChainID(timeoutCtx)
-	if err != nil {
-		return false, err
-	}
-	signer := types.NewCancunSigner(chainID)
-
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(startBlock)),
-		ToBlock:   big.NewInt(int64(endBlock)),
-		Addresses: []common.Address{batchInboxAddr},
-	}
-
-	logs, err := client.FilterLogs(timeoutCtx, query)
-	if err != nil {
-		return false, err
-	}
-
-	maxChecks := 50
-	checked := 0
-	for _, log := range logs {
-		if checked >= maxChecks {
-			break
-		}
-		checked++
-
-		tx, _, err := client.TransactionByHash(timeoutCtx, log.TxHash)
+	for i := startBlock; i <= endBlock; i++ {
+		timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		block, err := client.BlockByNumber(timeoutCtx, new(big.Int).SetUint64(i))
+		cancel()
 		if err != nil {
-			continue
+			return false, fmt.Errorf("failed to get block %d: %w", i, err)
 		}
 
-		txSender, err := types.Sender(signer, tx)
-		if err != nil {
-			continue
-		}
-
-		if txSender == senderAddr {
-			return true, nil
+		for _, tx := range block.Transactions() {
+			if tx.To() != nil && *tx.To() == batchInboxAddr {
+				signer := types.LatestSignerForChainID(tx.ChainId())
+				sender, err := types.Sender(signer, tx)
+				if err != nil {
+					continue
+				}
+				if sender == senderAddr {
+					return true, nil
+				}
+			}
 		}
 	}
 
@@ -66,18 +45,18 @@ func hasBatchTransactions(ctx context.Context, client *ethclient.Client, batchIn
 
 // TestBatcherActivePublishOnly tests that only the active batcher publishes to L1.
 func TestBatcherActivePublishOnly(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
+	// Initialize devnet with NON_TEE profile (starts both batchers)
 	d := NewDevnet(ctx, t)
 	require.NoError(t, d.Up(NON_TEE))
-	defer require.NoError(t, d.Down())
+	defer func() {
+		require.NoError(t, d.Down())
+	}()
 
-	// op-batcher-fallback starts stopped in NON_TEE profile, so start it first
-	require.NoError(t, d.ServiceUp("op-batcher-fallback"))
-	require.NoError(t, d.StartBatcherSubmitting("op-batcher-fallback"))
-	time.Sleep(5 * time.Second) // Let batchers initialize
-
+	// Send initial transaction to verify everything has started up ok
+	require.NoError(t, d.RunSimpleL2Burn())
 	config, err := d.RollupConfig(ctx)
 	require.NoError(t, err)
 
@@ -115,31 +94,19 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	// Wait a bit for services to stabilize after switch
 	time.Sleep(5 * time.Second)
 
-	// Ensure verifier services are running before using them
-	require.NoError(t, d.ServiceUp("op-geth-verifier"), "op-geth-verifier should be running")
-	require.NoError(t, d.ServiceUp("op-node-verifier"), "op-node-verifier should be running")
-
 	startBlock, err := d.L1.BlockNumber(ctx)
 	require.NoError(t, err)
 	t.Logf("Starting from block %d", startBlock)
 
-	// Retry RunSimpleL2Burn in case services need time to be ready
-	var burnErr error
-	for i := 0; i < 3; i++ {
-		burnErr = d.RunSimpleL2Burn()
-		if burnErr == nil {
-			break
-		}
-		if i < 2 {
-			t.Logf("RunSimpleL2Burn attempt %d failed, retrying: %v", i+1, burnErr)
-			time.Sleep(5 * time.Second)
-		}
-	}
-	require.NoError(t, burnErr)
-	t.Logf("Generated L2 transactions")
+	// Generate L2 traffic for non-TEE batcher
+	burnReceipt, err := d.SubmitSimpleL2Burn()
+	require.NoError(t, err)
+	t.Logf("Generated L2 transaction for non-TEE batcher: %s (L2 block %d)", burnReceipt.Receipt.TxHash, burnReceipt.Receipt.BlockNumber)
 
-	// Wait for batcher to publish
-	time.Sleep(30 * time.Second)
+	// Wait for batcher to publish (deterministic wait)
+	require.NoError(t, d.WaitUntilSafe(burnReceipt.Receipt.BlockNumber.Uint64()))
+	t.Logf("L2 transaction confirmed on L1")
+
 	endBlock, err := d.L1.BlockNumber(ctx)
 	require.NoError(t, err)
 	t.Logf("Checking blocks %d-%d", startBlock, endBlock)
@@ -163,10 +130,6 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 	t.Logf("Switched to TEE batcher")
 
-	// Ensure verifier services are still running after switch
-	require.NoError(t, d.ServiceUp("op-geth-verifier"), "op-geth-verifier should be running after switch")
-	require.NoError(t, d.ServiceUp("op-node-verifier"), "op-node-verifier should be running after switch")
-
 	// Wait for services to stabilize and process backlog
 	time.Sleep(10 * time.Second)
 
@@ -174,7 +137,15 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("After switch, starting from block %d", startBlockAfter)
 
-	time.Sleep(30 * time.Second)
+	// Generate L2 traffic for TEE batcher
+	burnReceiptAfter, err := d.SubmitSimpleL2Burn()
+	require.NoError(t, err)
+	t.Logf("Generated L2 transaction for TEE batcher: %s (L2 block %d)", burnReceiptAfter.Receipt.TxHash, burnReceiptAfter.Receipt.BlockNumber)
+
+	// Wait for batcher to publish (deterministic wait)
+	require.NoError(t, d.WaitUntilSafe(burnReceiptAfter.Receipt.BlockNumber.Uint64()))
+	t.Logf("L2 transaction confirmed on L1 (after switch)")
+
 	endBlockAfter, err := d.L1.BlockNumber(ctx)
 	require.NoError(t, err)
 	t.Logf("Checking blocks %d-%d after switch", startBlockAfter, endBlockAfter)
