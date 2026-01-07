@@ -35,8 +35,9 @@ import (
 )
 
 var (
-	ErrBatcherNotRunning = errors.New("batcher is not running")
-	emptyTxData          = txData{
+	ErrBatcherNotRunning             = errors.New("batcher is not running")
+	ErrBatchAuthenticatorNotDeployed = errors.New("batch authenticator contract not deployed")
+	emptyTxData                      = txData{
 		frames: []frameData{
 			{
 				data: []byte{},
@@ -822,10 +823,16 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 
 			isActive, err := l.isBatcherActive(ctx)
 			if err != nil {
-				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
-				return
-			}
-			if !isActive {
+				// Check if the error is because the contract is not deployed yet
+				if errors.Is(err, ErrBatchAuthenticatorNotDeployed) {
+					// Contract not deployed yet (fallback mode)
+					l.Log.Debug("BatchAuthenticator contract not deployed yet, proceeding with publish")
+				} else {
+					// Other error (network, etc.), skip publishing to be safe
+					l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+					return
+				}
+			} else if !isActive {
 				l.Log.Debug("Batcher is not active, skipping publish to L1/DA")
 				return
 			}
@@ -1163,16 +1170,14 @@ func (l *BatchSubmitter) checkTxpool(queue *txmgr.Queue[txRef], receiptsCh chan 
 
 // isBatcherActive checks if the current batcher is active by querying the BatchAuthenticator contract.
 // Returns true if this batcher is the active one, false otherwise.
-// Assumes BatchAuthenticatorAddress is already validated to be non-empty.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
-
 	// Check if contract code exists at the address
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to check code at BatchAuthenticator address: %w", err)
 	}
 	if len(code) == 0 {
-		return false, fmt.Errorf("no contract code at given address: %s (contract may not be deployed yet)", l.RollupConfig.BatchAuthenticatorAddress.Hex())
+		return false, fmt.Errorf("%w: %s", ErrBatchAuthenticatorNotDeployed, l.RollupConfig.BatchAuthenticatorAddress.Hex())
 	}
 
 	// Create BatchAuthenticator contract binding
