@@ -657,7 +657,7 @@ services:
     image: ghcr.io/layr-labs/eigenda-proxy:2.2.1
     platform: linux/amd64
     ports:
-      - "${EIGENDA_PROXY_PORT:-3100}:3100"
+      - "${EIGENDA_PROXY_PORT}:3100"
     environment:
       EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
       EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2

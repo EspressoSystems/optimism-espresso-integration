@@ -141,9 +141,11 @@ launch_socat() {
         return 1
     }
 
-    # Return socat-proxied URL
+    # Return socat-proxied URL (strip trailing slash to avoid double-slash in paths)
     local new_url
     new_url="$(trurl --url "$original_url" --set host="127.0.0.1" --set port="$socat_port")"
+    # Remove trailing slash if present
+    new_url="${new_url%/}"
     echo "$new_url"
 
     return 0
