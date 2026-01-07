@@ -144,7 +144,7 @@ func WithAttestationServiceVerifierNitroVerifierAddress(nitroVerifierAddress str
 }
 
 // WithAttestationServiceVerifierNetworkUseDocker configures the
-// Netowrk Use Docker configuration for the Attestation Verifier Service.
+// Network Use Docker configuration for the Attestation Verifier Service.
 func WithAttestationServiceVerifierNetworkUseDocker(networkUseDocker string) AttestationVerifierServiceOption {
 	return func(c *AttestationVerifierServiceConfig) {
 		c.networkUseDocker = networkUseDocker
