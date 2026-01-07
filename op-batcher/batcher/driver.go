@@ -214,7 +214,6 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
-
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
@@ -814,11 +813,17 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 
 		// Check if this batcher is active before publishing to L1/DA
 		if l.Config.UseEspresso {
+			if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+				// UseEspresso is enabled but BatchAuthenticatorAddress is not configured
+				// Cannot determine if batcher is active, so skip publishing
+				l.Log.Debug("UseEspresso enabled but BatchAuthenticatorAddress not set, skipping publish")
+				return
+			}
+
 			isActive, err := l.isBatcherActive(ctx)
 			if err != nil {
 				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
-				// Retry on next iteration
-				continue
+				return
 			}
 			if !isActive {
 				l.Log.Debug("Batcher is not active, skipping publish to L1/DA")
@@ -1158,11 +1163,8 @@ func (l *BatchSubmitter) checkTxpool(queue *txmgr.Queue[txRef], receiptsCh chan 
 
 // isBatcherActive checks if the current batcher is active by querying the BatchAuthenticator contract.
 // Returns true if this batcher is the active one, false otherwise.
+// Assumes BatchAuthenticatorAddress is already validated to be non-empty.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
-	// Check if BatchAuthenticator address is set
-	if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
-		return false, fmt.Errorf("BatchAuthenticator address is not set in rollup config")
-	}
 
 	// Check if contract code exists at the address
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
