@@ -31,6 +31,7 @@ func TestE2eDevnetWithEspressoAndEnclaveSimpleTransactions(t *testing.T) {
 		ctx,
 		t,
 		env.LaunchBatcherInEnclave(),
+		env.WithEspressoAttestationVerifierService(),
 	)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
