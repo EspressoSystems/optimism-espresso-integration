@@ -888,6 +888,7 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
 			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
+			c.Espresso.EspressoAttestationService = AllowEmptyConfigurationValue("")
 		},
 	}
 }
