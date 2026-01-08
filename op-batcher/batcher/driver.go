@@ -813,32 +813,19 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 		}
 
 		// Check if this batcher is active before publishing to L1/DA
-		if l.Config.UseEspresso {
-			if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
-				// UseEspresso is enabled but BatchAuthenticatorAddress is not configured
-				// Cannot determine if batcher is active, so skip publishing
-				l.Log.Debug("UseEspresso enabled but BatchAuthenticatorAddress not set, skipping publish")
-				return
-			}
-
-			isActive, err := l.isBatcherActive(ctx)
-			if err != nil {
-				// Check if the error is because the contract is not deployed yet
-				if errors.Is(err, ErrBatchAuthenticatorNotDeployed) {
-					// Contract not deployed yet (fallback mode)
-					l.Log.Debug("BatchAuthenticator contract not deployed yet, proceeding with publish")
-				} else {
-					// Other error (network, etc.), skip publishing to be safe
-					l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
-					return
-				}
-			} else if !isActive {
-				l.Log.Debug("Batcher is not active, skipping publish to L1/DA")
-				return
-			}
+		// This should apply to both Espresso (TEE) and fallback (non-TEE) batchers
+		isActive, err := l.isBatcherActive(ctx)
+		if err != nil {
+			l.Log.Error("Failed to check if batcher is active, skipping publish", "err", err)
+			return
 		}
 
-		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
+		if !isActive {
+			l.Log.Debug("Batcher is not active, skipping publish to L1/DA")
+			return
+		}
+
+		err = l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
 		if err != nil {
 			if err != io.EOF {
 				l.Log.Error("Error publishing tx to l1", "err", err)
