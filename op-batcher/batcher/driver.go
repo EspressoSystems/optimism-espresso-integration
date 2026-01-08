@@ -816,12 +816,18 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 		// This should apply to both Espresso (TEE) and fallback (non-TEE) batchers
 		isActive, err := l.isBatcherActive(ctx)
 		if err != nil {
-			l.Log.Error("Failed to check if batcher is active, skipping publish", "err", err)
-			return
-		}
-
-		if !isActive {
-			l.Log.Debug("Batcher is not active, skipping publish to L1/DA")
+			// If the BatchAuthenticator address is not configured (zero address),
+			// we assume this is a standard OP chain (or legacy config) and proceed with publishing.
+			// Otherwise, if the address IS configured but we got an error (e.g. not deployed yet, network error),
+			// we must NOT publish to avoid unauthorized attempts (which waste gas and fail tests).
+			if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+				l.Log.Info("BatchAuthenticator address not configured (zero), proceeding with publish")
+			} else {
+				l.Log.Warn("Failed to check if batcher is active and authenticator is configured, skipping publish", "err", err)
+				return
+			}
+		} else if !isActive {
+			l.Log.Info("Batcher is not active, skipping publish to L1/DA")
 			return
 		}
 
@@ -1158,6 +1164,9 @@ func (l *BatchSubmitter) checkTxpool(queue *txmgr.Queue[txRef], receiptsCh chan 
 // isBatcherActive checks if the current batcher is active by querying the BatchAuthenticator contract.
 // Returns true if this batcher is the active one, false otherwise.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
+	// Log the address we are checking against
+	l.Log.Info("Checking BatchAuthenticator address", "addr", l.RollupConfig.BatchAuthenticatorAddress)
+
 	// Check if contract code exists at the address
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
 	if err != nil {
@@ -1193,15 +1202,16 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 
 	batcherAddr := l.Txmgr.From()
 
-	// Determine if this batcher is TEE or non-TEE
-	isTeeBatcher := batcherAddr == teeBatcherAddr
-	isNonTeeBatcher := batcherAddr == nonTeeBatcherAddr
+	// Check if this batcher matches the active one
+	var activeAddr common.Address
+	if activeIsTee {
+		activeAddr = teeBatcherAddr
+	} else {
+		activeAddr = nonTeeBatcherAddr
+	}
 
-	// This batcher is active if:
-	// - activeIsTee is true and this is the TEE batcher, OR
-	// - activeIsTee is false and this is the non-TEE batcher
-	isActive := (activeIsTee && isTeeBatcher) || (!activeIsTee && isNonTeeBatcher)
-
+	isActive := activeAddr == batcherAddr
+	l.Log.Info("Batcher active check result", "self", batcherAddr, "active", activeAddr, "activeIsTee", activeIsTee, "result", isActive)
 	return isActive, nil
 }
 

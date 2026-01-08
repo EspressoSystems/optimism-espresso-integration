@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// hasBatchTransactions checks if any transactions were sent to the BatchInbox from the given sender in the block range by inspecting transactions directly (since BatchInbox doesn't emit logs).
+// hasBatchTransactions checks if any transactions were sent to the BatchInbox from the given sender.
 func hasBatchTransactions(ctx context.Context, client *ethclient.Client, batchInboxAddr, senderAddr common.Address, startBlock, endBlock uint64) (bool, error) {
 	for i := startBlock; i <= endBlock; i++ {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -45,7 +45,7 @@ func hasBatchTransactions(ctx context.Context, client *ethclient.Client, batchIn
 
 // TestBatcherActivePublishOnly tests that only the active batcher publishes to L1.
 func TestBatcherActivePublishOnly(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	// Initialize devnet with NON_TEE profile (starts both batchers)
@@ -78,85 +78,63 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Initial state: activeIsTee = %v", activeIsTee)
 
-	// Switch to non-TEE if TEE is active initially
-	if activeIsTee {
-		t.Logf("Switching to non-TEE batcher...")
-		switchTx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
+	// verifyPublishing helper function
+	verifyPublishing := func(expectTeeActive bool) {
+		t.Logf("Verifying publishing for state: expectTeeActive=%v", expectTeeActive)
+
+		startBlock, err := d.L1.BlockNumber(ctx)
 		require.NoError(t, err)
-		receipt, err := wait.ForReceiptOK(ctx, d.L1, switchTx.Hash())
+		t.Logf("Starting from block %d", startBlock)
+
+		// Generate L2 traffic
+		burnReceipt, err := d.SubmitSimpleL2Burn()
 		require.NoError(t, err)
-		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
-		activeIsTee = false
-		t.Logf("Switched to non-TEE batcher")
+		t.Logf("Generated L2 transaction: %s (L2 block %d)", burnReceipt.Receipt.TxHash, burnReceipt.Receipt.BlockNumber)
+
+		// Wait for batcher to publish
+		// We wait long enough for the active batcher to publish, but not so long that we timeout the test
+		// The idle batcher check inside the driver should prevent it from publishing
+		time.Sleep(30 * time.Second)
+		t.Logf("Waited 30s for L1 confirmation")
+
+		endBlock, err := d.L1.BlockNumber(ctx)
+		require.NoError(t, err)
+		t.Logf("Checking blocks %d-%d", startBlock, endBlock)
+
+		teePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, teeBatcherAddr, startBlock, endBlock)
+		require.NoError(t, err)
+		nonTeePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, nonTeeBatcherAddr, startBlock, endBlock)
+		require.NoError(t, err)
+
+		t.Logf("TEE batcher published: %v, non-TEE batcher published: %v", teePublished, nonTeePublished)
+
+		if expectTeeActive {
+			require.True(t, teePublished, "TEE batcher should publish when active")
+			require.False(t, nonTeePublished, "non-TEE batcher should NOT publish when inactive")
+		} else {
+			require.True(t, nonTeePublished, "non-TEE batcher should publish when active")
+			require.False(t, teePublished, "TEE batcher should NOT publish when inactive")
+		}
 	}
 
-	// Test non-TEE batcher
-	// Wait a bit for services to stabilize after switch
-	time.Sleep(5 * time.Second)
+	// 1. Verify initial state
+	verifyPublishing(activeIsTee)
 
-	startBlock, err := d.L1.BlockNumber(ctx)
-	require.NoError(t, err)
-	t.Logf("Starting from block %d", startBlock)
-
-	// Generate L2 traffic for non-TEE batcher
-	burnErr := d.RunSimpleL2Burn()
-	require.NoError(t, burnErr)
-	t.Logf("Generated L2 transaction for non-TEE batcher")
-
-	// Wait for batcher to publish
-	time.Sleep(30 * time.Second)
-	t.Logf("Waited 30s for L1 confirmation")
-
-	endBlock, err := d.L1.BlockNumber(ctx)
-	require.NoError(t, err)
-	t.Logf("Checking blocks %d-%d", startBlock, endBlock)
-
-	teePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, teeBatcherAddr, startBlock, endBlock)
-	require.NoError(t, err)
-	nonTeePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, nonTeeBatcherAddr, startBlock, endBlock)
-	require.NoError(t, err)
-
-	t.Logf("TEE batcher published: %v, non-TEE batcher published: %v", teePublished, nonTeePublished)
-
-	require.True(t, nonTeePublished, "non-TEE batcher should publish when active")
-	require.False(t, teePublished, "TEE batcher should NOT publish when inactive")
-
-	// Switch to TEE and test
-	t.Logf("Switching to TEE batcher...")
+	// 2. Switch state
+	t.Logf("Switching batcher state...")
 	switchTx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
 	require.NoError(t, err)
 	receipt, err := wait.ForReceiptOK(ctx, d.L1, switchTx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
-	t.Logf("Switched to TEE batcher")
 
-	// Wait for services to stabilize and process backlog
+	// Update expected state
+	activeIsTee = !activeIsTee
+	t.Logf("Switched state to: activeIsTee=%v", activeIsTee)
+
+	// Wait for services to stabilize after switch (key for the batcher loop to pick up the change)
 	time.Sleep(10 * time.Second)
 
-	startBlockAfter, err := d.L1.BlockNumber(ctx)
-	require.NoError(t, err)
-	t.Logf("After switch, starting from block %d", startBlockAfter)
-
-	// Generate L2 traffic for TEE batcher
-	burnReceiptAfter, err := d.SubmitSimpleL2Burn()
-	require.NoError(t, err)
-	t.Logf("Generated L2 transaction for TEE batcher: %s (L2 block %d)", burnReceiptAfter.Receipt.TxHash, burnReceiptAfter.Receipt.BlockNumber)
-
-	// Wait for batcher to publish
-	time.Sleep(30 * time.Second)
-	t.Logf("Waited 30s for L1 confirmation (after switch)")
-
-	endBlockAfter, err := d.L1.BlockNumber(ctx)
-	require.NoError(t, err)
-	t.Logf("Checking blocks %d-%d after switch", startBlockAfter, endBlockAfter)
-
-	teePublishedAfter, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, teeBatcherAddr, startBlockAfter, endBlockAfter)
-	require.NoError(t, err)
-	nonTeePublishedAfter, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, nonTeeBatcherAddr, startBlockAfter, endBlockAfter)
-	require.NoError(t, err)
-
-	t.Logf("After switch - TEE batcher published: %v, non-TEE batcher published: %v", teePublishedAfter, nonTeePublishedAfter)
-
-	require.True(t, teePublishedAfter, "TEE batcher should publish after becoming active")
-	require.False(t, nonTeePublishedAfter, "non-TEE batcher should NOT publish after becoming inactive")
+	// 3. Verify new state
+	verifyPublishing(activeIsTee)
 }

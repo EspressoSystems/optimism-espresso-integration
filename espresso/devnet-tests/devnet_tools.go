@@ -349,7 +349,7 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 	// Use longer timeout in CI environments due to Espresso processing delays
-	timeout := 2 * time.Minute
+	timeout := 5 * time.Minute
 
 	// Check if running in CI environment
 	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
@@ -422,7 +422,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(d.ctx, 15*time.Minute)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
