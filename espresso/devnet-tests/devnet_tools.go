@@ -422,7 +422,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 15*time.Minute)
+	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
