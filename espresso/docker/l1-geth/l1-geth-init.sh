@@ -95,6 +95,7 @@ elif [[ "$MODE" == "geth" ]]; then
     --http.port=${L1_HTTP_PORT} \
     --http.vhosts=* \
     --http.corsdomain=* \
+    --rpc.gascap=50000000 \
     --authrpc.addr=0.0.0.0 \
     --authrpc.port=${L1_ENGINE_PORT} \
     --authrpc.vhosts=* \
