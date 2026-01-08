@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -1042,6 +1043,19 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 			},
 		)
 		return
+	}
+
+	// Set gas limit explicitly using FloorDataGas to avoid gas estimation failures.
+	// This calculates the minimum gas needed based on EIP-7623 data gas rules.
+	// Only apply to calldata transactions (blob transactions have their own gas calculation).
+	if txdata.daType != DaTypeBlob && len(candidate.TxData) > 0 {
+		floorDataGas, err := core.FloorDataGas(candidate.TxData)
+		if err != nil {
+			// We log instead of return an error here because the txmgr will do its own gas estimation as fallback.
+			l.Log.Warn("Failed to calculate floor data gas, txmgr will estimate", "err", err)
+		} else {
+			candidate.GasLimit = floorDataGas
+		}
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)
