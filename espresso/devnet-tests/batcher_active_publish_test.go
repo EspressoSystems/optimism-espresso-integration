@@ -94,8 +94,8 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 		// Wait for batcher to publish
 		// We wait long enough for the active batcher to publish, but not so long that we timeout the test
 		// The idle batcher check inside the driver should prevent it from publishing
-		time.Sleep(30 * time.Second)
-		t.Logf("Waited 30s for L1 confirmation")
+		time.Sleep(60 * time.Second)
+		t.Logf("Waited 60s for L1 confirmation")
 
 		endBlock, err := d.L1.BlockNumber(ctx)
 		require.NoError(t, err)

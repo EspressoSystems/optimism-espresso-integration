@@ -814,24 +814,21 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 
 		// Check if this batcher is active before publishing to L1/DA
 		// This should apply to both Espresso (TEE) and fallback (non-TEE) batchers
-		isActive, err := l.isBatcherActive(ctx)
-		if err != nil {
-			// If the BatchAuthenticator address is not configured (zero address),
-			// we assume this is a standard OP chain (or legacy config) and proceed with publishing.
-			// Otherwise, if the address IS configured but we got an error (e.g. not deployed yet, network error),
-			// we must NOT publish to avoid unauthorized attempts (which waste gas and fail tests).
-			if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
-				l.Log.Info("BatchAuthenticator address not configured (zero), proceeding with publish")
-			} else {
-				l.Log.Warn("Failed to check if batcher is active and authenticator is configured, skipping publish", "err", err)
+		if l.RollupConfig.BatchAuthenticatorAddress != (common.Address{}) {
+			isActive, err := l.isBatcherActive(ctx)
+			if err != nil {
+				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
 				return
 			}
-		} else if !isActive {
-			l.Log.Info("Batcher is not active, skipping publish to L1/DA")
-			return
+			if !isActive {
+				l.Log.Info("Batcher is not active, skipping publish to L1/DA")
+				return
+			}
+		} else {
+			l.Log.Info("BatchAuthenticator address not configured (zero), proceeding with publish")
 		}
 
-		err = l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
+		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
 		if err != nil {
 			if err != io.EOF {
 				l.Log.Error("Error publishing tx to l1", "err", err)
