@@ -29,6 +29,9 @@ devnet-withdraw-test: build-devnet
 devnet-batcher-switching-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestBatcherSwitching ./espresso/devnet-tests/...
 
+devnet-batcher-active-publish-only-test: build-devnet
+  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestBatcherActivePublishOnly ./espresso/devnet-tests/...
+
 build-devnet: stop-containers compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)
