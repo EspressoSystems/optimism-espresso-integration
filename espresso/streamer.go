@@ -163,7 +163,18 @@ func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) {
 func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
 	s.FinalizedL1 = finalizedL1
 
+	s.Log.Info("[DEBUG] Refresh called",
+		"safeBatchNumber", safeBatchNumber,
+		"currentFallbackBatchPos", s.fallbackBatchPos,
+		"currentHotShotPos", s.hotShotPos,
+		"safeL1Origin", safeL1Origin.Number)
+
 	s.RefreshSafeL1Origin(safeL1Origin)
+
+	s.Log.Info("[DEBUG] After RefreshSafeL1Origin",
+		"fallbackHotShotPos", s.fallbackHotShotPos,
+		"hotShotPos", s.hotShotPos,
+		"BatchPos", s.BatchPos)
 
 	// NOTE: be sure to update s.finalizedL1 before checking this condition and returning
 	if s.fallbackBatchPos == safeBatchNumber {
@@ -186,15 +197,26 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 // CheckBatch checks the validity of the given batch against the finalized L1
 // block and the safe L1 origin.
 func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
+	s.Log.Info("[DEBUG] CheckBatch called",
+		"batchNumber", batch.Number(),
+		"currentBatchPos", s.BatchPos,
+		"FinalizedL1", s.FinalizedL1.Number)
+
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
-		s.Log.Error("Finalized L1 block not initialized")
+		s.Log.Error("[DEBUG] CheckBatch: Finalized L1 block not initialized")
 		return BatchUndecided, 0
 	}
 	origin := (batch).L1Origin()
+
+	s.Log.Info("[DEBUG] CheckBatch L1 origin check",
+		"batchL1OriginNumber", origin.Number,
+		"batchL1OriginHash", origin.Hash,
+		"finalizedL1Number", s.FinalizedL1.Number)
+
 	if origin.Number > s.FinalizedL1.Number {
 		// Signal to resync to wait for the L1 finality.
-		s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.FinalizedL1.Number, "origin number", origin.Number)
+		s.Log.Warn("[DEBUG] CheckBatch: L1 origin not finalized, pending resync", "finalized L1 block number", s.FinalizedL1.Number, "origin number", origin.Number)
 		return BatchUndecided, 0
 	}
 
@@ -251,6 +273,13 @@ func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight u
 	}
 	finish = min(start+limit, currentBlockHeight)
 
+	s.Log.Info("[DEBUG] computeEspressoBlockHeightsRange",
+		"hotShotPos", s.hotShotPos,
+		"start", start,
+		"finish", finish,
+		"currentBlockHeight", currentBlockHeight,
+		"limit", limit)
+
 	return start, finish
 }
 
@@ -276,6 +305,12 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch latest block height: %w", err)
 	}
+
+	s.Log.Info("[DEBUG] Update called",
+		"currentEspressoBlockHeight", currentBlockHeight,
+		"hotShotPos", s.hotShotPos,
+		"BatchPos", s.BatchPos,
+		"useFetchApi", s.UseFetchApi)
 
 	// Streaming API implementation
 	if !s.UseFetchApi {
@@ -577,6 +612,12 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 		return false
 	}
 
+	s.Log.Info("[DEBUG] Light client finalized state",
+		"hotshotBlockHeight", hotshotState.BlockHeight,
+		"l1BlockNumber", safeL1Origin.Number,
+		"currentFallbackHotShotPos", s.fallbackHotShotPos,
+		"originHotShotPos", s.originHotShotPos)
+
 	// If hotshot block height at L1 origin is lower than our
 	// hotshot origin, we never want to update our fallback
 	// position to this height, or we risk dipping below
@@ -592,6 +633,10 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 	shouldReset = hotshotState.BlockHeight < s.fallbackHotShotPos
 
 	s.fallbackHotShotPos = hotshotState.BlockHeight
+
+	s.Log.Info("[DEBUG] Updated fallback hotshot position",
+		"newFallbackHotShotPos", s.fallbackHotShotPos,
+		"shouldReset", shouldReset)
 
 	return shouldReset
 }
