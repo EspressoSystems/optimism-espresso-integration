@@ -121,6 +121,10 @@ func NewEspressoStreamer[B Batch](
 	originHotShotPos uint64,
 	originBatchPos uint64,
 ) *BatchStreamer[B] {
+	// DEBUG: Log the initialization values
+	log.Info("[DEBUG] NewEspressoStreamer", "originHotShotPos", originHotShotPos,
+		"originBatchPos", originBatchPos, "namespace", namespace)
+
 	return &BatchStreamer[B]{
 		L1Client:            l1Client,
 		RollupL1Client:      rollupL1Client,

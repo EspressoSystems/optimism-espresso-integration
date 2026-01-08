@@ -176,6 +176,10 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
 
+	// DEBUG: Log the caffeination height that was read from CLI
+	log.Info("[DEBUG] ReadCLIConfig", "CaffeinationHeightEspresso", config.CaffeinationHeightEspresso,
+		"CaffeinationHeightL2", config.CaffeinationHeightL2)
+
 	addrStr := c.String(LightClientAddrFlagName)
 	config.LightClientAddr = common.HexToAddress(addrStr)
 
@@ -215,6 +219,10 @@ func BatchStreamerFromCLIConfig[B Batch](
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Espresso light client")
 	}
+
+	// DEBUG: Log the caffeination heights being passed to NewEspressoStreamer
+	log.Info("[DEBUG] BatchStreamerFromCLIConfig", "CaffeinationHeightEspresso", cfg.CaffeinationHeightEspresso,
+		"CaffeinationHeightL2", cfg.CaffeinationHeightL2)
 
 	streamer := NewEspressoStreamer(
 		cfg.Namespace,

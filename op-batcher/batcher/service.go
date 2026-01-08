@@ -567,6 +567,11 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 
+	// DEBUG: Log the Espresso config values
+	bs.Log.Info("[DEBUG] initEspresso", "CaffeinationHeightEspresso", cfg.Espresso.CaffeinationHeightEspresso,
+		"CaffeinationHeightL2", cfg.Espresso.CaffeinationHeightL2,
+		"Namespace", cfg.Espresso.Namespace)
+
 	urlZero := cfg.Espresso.QueryServiceURLs[0]
 	espressoClient := espressoClient.NewClient(urlZero)
 
