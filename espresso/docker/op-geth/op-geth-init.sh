@@ -143,15 +143,6 @@ elif [ "$MODE" = "rollup" ]; then
     dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
   fi
 
-  # Add BatchAuthenticatorAddress from deployer state if available
-  if [ -f "/deployer/state.json" ]; then
-    BATCH_AUTH_ADDR=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress // empty' /deployer/state.json 2>/dev/null || echo "")
-    if [ -n "$BATCH_AUTH_ADDR" ] && [ "$BATCH_AUTH_ADDR" != "null" ] && [ "$BATCH_AUTH_ADDR" != "0x0000000000000000000000000000000000000000" ]; then
-      echo "Adding batch authenticator address to rollup config: $BATCH_AUTH_ADDR"
-      dasel put -f /config/rollup.json -s .batch_authenticator_address -t string -v "$BATCH_AUTH_ADDR"
-    fi
-  fi
-
   echo "L2 rollup config complete"
   exit 0
 
