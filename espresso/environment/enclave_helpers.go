@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-service/endpoint"
@@ -75,12 +76,16 @@ func appendArg(args *[]string, flagName string, value any) {
 	}
 }
 
+// LaunchBatcherInEnclave is an E2eDevnetLauncherOption that configures the
+// batcher to not launch in the standard e2e devnet, and to launch the batcher
+// externally in an Enclave.
 func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
 			},
+			SystemConfigOpt: e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave),
 			StartOptions: []e2esys.StartOption{
 				{
 					Role: "launch-batcher-in-enclave",

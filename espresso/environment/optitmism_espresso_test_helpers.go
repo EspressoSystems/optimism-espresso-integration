@@ -146,12 +146,7 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 
 // EspressoDevNodeLauncherDocker is an implementation of EspressoDevNodeLauncher
 // that uses Docker to launch the Espresso Dev Node
-type EspressoDevNodeLauncherDocker struct {
-	// Whether to run batcher in enclave.
-	EnclaveBatcher bool
-	// Whether to enable AltDa
-	AltDa bool
-}
+type EspressoDevNodeLauncherDocker struct{}
 
 var _ EspressoE2eDevnetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
 
@@ -256,28 +251,30 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
+// defaultSystemConfigBuilder is the default SystemConfigBuilder utilized by
+// the GetE2eDevnetSysConfig method.
+func defaultSystemConfigBuilder(t *testing.T, options ...e2esys.SystemConfigOpt) e2esys.SystemConfig {
+	return e2esys.DefaultSystemConfig(t, options...)
+}
+
 // GetE2eDevnetSysConfig returns a configuration for an E2E devnet.
-func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
-	var allocOpt e2esys.SystemConfigOpt
-	if l.EnclaveBatcher {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
-	} else {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Context, t *testing.T, options ...E2eSystemOption) e2esys.SystemConfig {
+	systemConfigsOpts := []e2esys.SystemConfigOpt{
+		e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave),
 	}
 
-	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
+	sysConfigBuilder := defaultSystemConfigBuilder
+	for _, opt := range options {
+		if sysConfigOption := opt.SystemConfigOpt; sysConfigOption != nil {
+			systemConfigsOpts = append(systemConfigsOpts, sysConfigOption)
+		}
 
-	if l.AltDa {
-		sysConfig.DeployConfig.UseAltDA = true
-		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
-		sysConfig.DeployConfig.DAChallengeWindow = 16
-		sysConfig.DeployConfig.DAResolveWindow = 16
-		sysConfig.DeployConfig.DABondSize = 1000000
-		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
-		sysConfig.BatcherMaxPendingTransactions = 0
-		sysConfig.BatcherBatchType = 0
-		sysConfig.DataAvailabilityType = flags.CalldataType
+		if builder := opt.SysConfigBuilder; builder != nil {
+			sysConfigBuilder = builder
+		}
 	}
+
+	sysConfig := sysConfigBuilder(t, systemConfigsOpts...)
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2
@@ -299,70 +296,56 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 		sysConfig.L1Allocs[address] = account.State
 	}
 
+	for _, opt := range options {
+		if sysConfigOption := opt.SystemConfigOption; sysConfigOption != nil {
+			sysConfigOption(&sysConfig)
+		}
+	}
+
 	return sysConfig
 }
 
-// GetE2eDevnetWithFaultDisputeSysConfig returns a configuration for an E2E devnet with a Fault
-// Dispute System.
-func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetWithFaultDisputeSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
-	var allocOpt e2esys.SystemConfigOpt
-	if l.EnclaveBatcher {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
-	} else {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
+// faultDisputeSystemConfigBuilder id a SystemConfigBuilder that configures
+// the system for use with the Fault Dispute System.
+func faultDisputeSystemConfigBuilder(t *testing.T, options ...e2esys.SystemConfigOpt) e2esys.SystemConfig {
+	return faultproofs.GetFaultDisputeSystemConfigForEspresso(t, options)
+}
+
+// WithFaultDisputeSystem will modify the default SysConfigBuilder utilized
+// to be one that configures the FaultDisputeSsytem for Espresso.
+func WithFaultDisputeSystem() E2eDevnetLauncherOption {
+	return func(launcherCtx *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SysConfigBuilder: faultDisputeSystemConfigBuilder,
+		}
 	}
+}
 
-	// Get a Fault Dispute System configuration with Espresso Dev Node allocation
-	sysConfig := faultproofs.GetFaultDisputeSystemConfigForEspresso(t, []e2esys.SystemConfigOpt{allocOpt})
-
-	if l.AltDa {
-		sysConfig.DeployConfig.UseAltDA = true
-		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
-		sysConfig.DeployConfig.DAChallengeWindow = 16
-		sysConfig.DeployConfig.DAResolveWindow = 16
-		sysConfig.DeployConfig.DABondSize = 1000000
-		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
-		sysConfig.BatcherMaxPendingTransactions = 0
-		sysConfig.BatcherBatchType = 0
-		sysConfig.DataAvailabilityType = flags.CalldataType
+// WithAltDa is an E2eDevnetLauncherOption that adjusts the SystemConfig
+// to be configured for use as a Alt Da.
+func WithAltDa() E2eDevnetLauncherOption {
+	return func(_ *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SystemConfigOption: func(sysConfig *e2esys.SystemConfig) {
+				sysConfig.DeployConfig.UseAltDA = true
+				sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
+				sysConfig.DeployConfig.DAChallengeWindow = 16
+				sysConfig.DeployConfig.DAResolveWindow = 16
+				sysConfig.DeployConfig.DABondSize = 1000000
+				sysConfig.DeployConfig.DAResolverRefundPercentage = 0
+				sysConfig.BatcherMaxPendingTransactions = 0
+				sysConfig.BatcherBatchType = 0
+				sysConfig.DataAvailabilityType = flags.CalldataType
+			},
+		}
 	}
-
-	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
-	sysConfig.DeployConfig.L1BlockTime = 2
-
-	sysConfig.DeployConfig.DeployCeloContracts = true
-
-	// Ensure that we fund the dev accounts
-	sysConfig.DeployConfig.FundDevAccounts = true
-
-	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
-	sysConfig.L1Allocs[ESPRESSO_CONTRACT_ACCOUNT] = types.Account{
-		Nonce:   100000,          // Set the nonce to avoid collisions with predeployed contracts
-		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
-	}
-
-	// Set up the L1Allocs in the system config
-	for address, account := range ESPRESSO_ALLOCS {
-		sysConfig.L1Allocs[address] = account.State
-	}
-
-	return sysConfig
 }
 
 // GetE2eDevnetStartOptions returns the start options for the E2E devnet.
-func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...E2eDevnetLauncherOption) ([]e2esys.StartOption, *E2eDevnetLauncherContext) {
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, launchContext *E2eDevnetLauncherContext, options ...E2eDevnetLauncherOption) []e2esys.StartOption {
 	initialOptions := []E2eDevnetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
 		launchEspressoDevNodeDocker(),
-	}
-
-	if l.EnclaveBatcher {
-		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
-	}
-
-	launchContext := E2eDevnetLauncherContext{
-		Ctx:       originalCtx,
-		SystemCfg: sysConfig,
 	}
 
 	allOptions := append(initialOptions, options...)
@@ -370,73 +353,47 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx con
 	startOptions := []e2esys.StartOption{}
 
 	for _, opt := range allOptions {
-		options := opt(&launchContext)
+		options := opt(launchContext)
 
 		if gethOption := options.GethOptions; gethOption != nil {
 			for k, v := range gethOption {
-				sysConfig.GethOptions[k] = append(sysConfig.GethOptions[k], v...)
+				launchContext.SystemCfg.GethOptions[k] = append(launchContext.SystemCfg.GethOptions[k], v...)
 			}
 		}
 
 		if startOption := options.StartOptions; startOption != nil {
 			startOptions = append(startOptions, startOption...)
 		}
-
-		if sysConfigOption := options.SysConfigOption; sysConfigOption != nil {
-			sysConfigOption(sysConfig)
-		}
 	}
 
-	return startOptions, &launchContext
+	return startOptions
+}
+
+func expandLauncherOptionsToSystemOptions(launchContext *E2eDevnetLauncherContext, options []E2eDevnetLauncherOption) []E2eSystemOption {
+	e2eSystemOption := make([]E2eSystemOption, 0, len(options))
+	for _, opt := range options {
+		e2eSystemOption = append(e2eSystemOption, opt(launchContext))
+	}
+
+	return e2eSystemOption
 }
 
 func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-	sysConfig := l.GetE2eDevnetSysConfig(ctx, t, options...)
+	launchContext := E2eDevnetLauncherContext{
+		Ctx:       ctx,
+		SystemCfg: nil,
+	}
 
+	e2eSystemOption := expandLauncherOptionsToSystemOptions(&launchContext, options)
+
+	sysConfig := l.GetE2eDevnetSysConfig(ctx, t, e2eSystemOption...)
 	originalCtx := ctx
-	startOptions, launchContext := l.GetE2eDevnetStartOptions(originalCtx, t, &sysConfig, options...)
+	launchContext.SystemCfg = &sysConfig
+
+	startOptions := l.GetE2eDevnetStartOptions(originalCtx, t, &launchContext, options...)
 
 	// We want to run the espresso-dev-node.  But we need it to be able to
 	// access the L1 node.
-
-	system, err := sysConfig.Start(
-		t,
-
-		startOptions...,
-	)
-	if err != nil {
-		if system != nil {
-			// We don't want the system running in a partial / incomplete
-			// state. So we'll tell it to stop here, just in case.
-			system.Close()
-		}
-
-		return system, nil, err
-	}
-
-	// Auto System Cleanup tied to the passed in context.
-	{
-		// We want to ensure that the lifecycle of the system node is tied to
-		// the context we were given, just like the espresso-dev-node.  So if
-		// the context is canceled, or otherwise closed, it will automatically
-		// clean up the system.
-		go (func(ctx context.Context) {
-			<-ctx.Done()
-
-			// The system is guaranteed to not be null here.
-			system.Close()
-		})(originalCtx)
-	}
-
-	return system, launchContext.EspressoDevNode, launchContext.Error
-}
-
-// StartE2eDevnetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
-func (l *EspressoDevNodeLauncherDocker) StartE2eDevnetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-	sysConfig := l.GetE2eDevnetWithFaultDisputeSysConfig(ctx, t, options...)
-
-	originalCtx := ctx
-	startOptions, launchContext := l.GetE2eDevnetStartOptions(originalCtx, t, &sysConfig, options...)
 
 	system, err := sysConfig.Start(
 		t,
@@ -616,7 +573,7 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLaun
 func Config(fn func(*e2esys.SystemConfig)) E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: fn,
+			SystemConfigOption: fn,
 		}
 	}
 }
