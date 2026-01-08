@@ -79,6 +79,12 @@ func appendArg(args *[]string, flagName string, value any) {
 // LaunchBatcherInEnclave is an E2eDevnetLauncherOption that configures the
 // batcher to not launch in the standard e2e devnet, and to launch the batcher
 // externally in an Enclave.
+//
+// Adding this option automatically configures the Espresso Attestation
+// Service Service with its default configuration. This is required to run in
+// an Enclave, as such, it is better to pre-configure the option instead of
+// allowing for the potential of an error to occur due to not including the
+// other Option.
 func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
@@ -87,6 +93,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 			},
 			SystemConfigOpt: e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave),
 			StartOptions: []e2esys.StartOption{
+				launchEspressoAttestationVerifierServiceDockerContainer(ct),
 				{
 					Role: "launch-batcher-in-enclave",
 
