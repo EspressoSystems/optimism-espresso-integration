@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 )
@@ -272,23 +271,6 @@ func WithAttestationConfigFromENV() AttestationVerifierServiceOption {
 	return WithAttestationServiceVerifierOptions(options...)
 }
 
-// AllowEmptyConfigurationValue is a simple string wrapper that is meant
-// to adhere to the espresso.ConfigurationStringValue interface, that allows
-// for the value to be empty.
-type AllowEmptyConfigurationValue string
-
-var _ espresso.ConfigurationStringValue = AllowEmptyConfigurationValue("")
-
-// Value implements ConfigurationStringValue.
-func (a AllowEmptyConfigurationValue) Value() string {
-	return string(a)
-}
-
-// AllowEmpty implements ConfigurationStringValue.
-func (AllowEmptyConfigurationValue) AllowEmpty() bool {
-	return true
-}
-
 // launchEspressoAttestationVerifierServiceDockerContainer is a StartOption that
 // ensures that the Espresso Attestation Verifier Service is launched in its
 // own docker container.
@@ -391,7 +373,7 @@ func launchEspressoAttestationVerifierServiceDockerContainer(ct *E2eDevnetLaunch
 				AttestationVerifierService: attestationVerifierInfo,
 			}
 
-			c.Espresso.EspressoAttestationService = espresso.ConfigurationValue(attestationURL)
+			c.Espresso.EspressoAttestationService = attestationURL
 			healthCheckURL := attestationURL + "/health"
 			for {
 				select {

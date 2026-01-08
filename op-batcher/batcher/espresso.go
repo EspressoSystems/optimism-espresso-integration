@@ -964,7 +964,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	if l.Config.EspressoAttestationService == nil || l.Config.EspressoAttestationService.AllowEmpty() && l.Config.EspressoAttestationService.Value() == "" {
+	if l.Config.EspressoAttestationService == "" {
 		l.Log.Warn("EspressoAttestationServices is not set, skipping registration")
 		return nil
 	}
@@ -1023,7 +1023,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 }
 
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
-	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService.Value(), "/")
+	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
 	url := attestationServiceURL + "/generate_proof"
 	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
 	if err != nil {

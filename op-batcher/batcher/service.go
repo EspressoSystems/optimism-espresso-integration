@@ -42,7 +42,7 @@ type BatcherConfig struct {
 	NetworkTimeout             time.Duration
 	PollInterval               time.Duration
 	EspressoPollInterval       time.Duration
-	EspressoAttestationService espresso.ConfigurationStringValue
+	EspressoAttestationService string
 	MaxPendingTransactions     uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
