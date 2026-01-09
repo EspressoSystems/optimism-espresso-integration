@@ -446,6 +446,8 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	)
 
 	require.NoError(t, err)
+	defer env.Stop(t, system)
+	defer env.Stop(t, espressoDevNode)
 
 	// We create an intercept around the existing tx manager so we have
 	// control over when our failures start to occur.
@@ -473,8 +475,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 		system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager.TxManager
 	}
 
-	defer env.Stop(t, system)
-	defer env.Stop(t, espressoDevNode)
 
 	// Verify everything works
 	env.RunSimpleL2Burn(ctx, t, system)
