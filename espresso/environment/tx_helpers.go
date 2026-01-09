@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -139,7 +140,10 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 // Bob.
 //
 // This will return once all receipts have been returned.
-func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) []*types.Receipt {
+func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) ([]*types.Receipt, error) {
+	ctx, cancel := context.WithTimeoutCause(ctx, 2*time.Minute, fmt.Errorf("failed to submit all transactions within time frame: %w", context.DeadlineExceeded))
+	defer cancel()
+
 	senderKey := system.Cfg.Secrets.Bob
 	senderAddress := system.Cfg.Secrets.Addresses().Bob
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -149,10 +153,15 @@ func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esy
 	}
 
 	ch := make(chan *types.Receipt, numTransactions)
+	defer close(ch)
 	for i := range numTransactions {
 		go (func(ch chan *types.Receipt, i int, nonce uint64) {
 			receipt := helpers.SendL2Tx(t, system.Cfg, l2Seq, senderKey, func(opts *helpers.TxOpts) {
 				opts.Nonce = nonce + uint64(i)
+				// We need to explicitly increase the gas beyond some threshold
+				// for an unknown reason.  We'll set it high enough so that
+				// it hopefully won't cause a problem
+				opts.Gas = 100_000
 			})
 			ch <- receipt
 		})(ch, i, nonce)
@@ -160,10 +169,12 @@ func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esy
 
 	var receipts []*types.Receipt
 	for range numTransactions {
-		receipt := <-ch
-		receipts = append(receipts, receipt)
+		select {
+		case <-ctx.Done():
+			return receipts, ctx.Err()
+		case receipt := <-ch:
+			receipts = append(receipts, receipt)
+		}
 	}
-	close(ch)
-
-	return receipts
+	return receipts, nil
 }

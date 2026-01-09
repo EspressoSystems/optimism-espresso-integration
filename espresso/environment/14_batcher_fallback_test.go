@@ -517,7 +517,8 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	// We want enough L2 Transactions to ensure we have multiple frames.
 	const n = 10
 
-	receipts := env.RunSimpleMultiTransactions(ctx, t, system, n)
+	receipts, err := env.RunSimpleMultiTransactions(ctx, t, system, n)
+	require.NoError(t, err)
 
 	// We want to wait until we know that the intercept tx manager has
 	// trigger the failure mode successfully, and that all n transactions
