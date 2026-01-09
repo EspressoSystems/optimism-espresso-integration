@@ -107,7 +107,6 @@ func TestE2eDevnetWithEspressoSimpleTransactions(t *testing.T) {
 
 	// Submit a Transaction on the L2 Sequencer node, to a Burn Address
 	env.RunSimpleL2Burn(ctx, t, system)
-
 }
 
 // TestE2eDevnetWithEspressoAndAltDaSimpleTransactions launches the e2e Dev Net with the Espresso
@@ -117,7 +116,6 @@ func TestE2eDevnetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
-	launcher.AltDa = true
 
 	// Start a temporary EigenDA Docker instance for this test
 	eigenda, err := env.StartEigenDA(ctx)
@@ -127,7 +125,7 @@ func TestE2eDevnetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 	// Stopped when the test exits
 	defer env.StopDockerContainer(eigenda.ContainerID)
 
-	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t)
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithAltDa())
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
@@ -140,7 +138,6 @@ func TestE2eDevnetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 
 	// Submit a Transaction on the L2 Sequencer node, to a Burn Address
 	env.RunSimpleL2Burn(ctx, t, system)
-
 }
 
 // TestE2eDevnetWithoutEspressoSimpleTransactions launches the e2e Dev Net
