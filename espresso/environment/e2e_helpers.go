@@ -58,7 +58,7 @@ func L2TxWithOptions(options ...helpers.TxOptsFn) helpers.TxOptsFn {
 func WithSequencerUseFinalized(useFinalized bool) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				seqConfig := cfg.Nodes[e2esys.RoleSeq]
 				seqConfig.Driver.SequencerUseFinalized = useFinalized
 			},
@@ -71,7 +71,7 @@ func WithSequencerUseFinalized(useFinalized bool) E2eDevnetLauncherOption {
 func WithNonFinalizedProposals(useNonFinalized bool) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.NonFinalizedProposals = useNonFinalized
 			},
 		}
@@ -83,7 +83,7 @@ func WithNonFinalizedProposals(useNonFinalized bool) E2eDevnetLauncherOption {
 func WithL1FinalizedDistance(distance uint64) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.L1FinalizedDistance = distance
 			},
 		}
@@ -95,7 +95,7 @@ func WithL1FinalizedDistance(distance uint64) E2eDevnetLauncherOption {
 func WithSequencerWindowSize(size uint64) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.SequencerWindowSize = size
 			},
 		}
@@ -110,7 +110,7 @@ func WithSequencerWindowSize(size uint64) E2eDevnetLauncherOption {
 func WithL1BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L1BlockTime = uint64(blockTime / time.Second)
 			},
 		}
@@ -125,7 +125,7 @@ func WithL1BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)
 			},
 		}

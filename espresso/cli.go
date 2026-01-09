@@ -134,6 +134,17 @@ type CLIConfig struct {
 	CaffeinationHeightEspresso uint64
 	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
+
+	// Non directly configurable option
+	allowEmptyAttestationService bool `json:"-"`
+}
+
+// AllowEmptyAttestationService allows the attestation service URL to be
+// empty. This is set explicitly from a public method, and isn't derivable
+// from serialization or any other form other than this method.  This allows
+// this setting to be configured via the code, but not externally.
+func (c *CLIConfig) AllowEmptyAttestationService() {
+	c.allowEmptyAttestationService = true
 }
 
 func (c CLIConfig) Check() error {
@@ -154,7 +165,7 @@ func (c CLIConfig) Check() error {
 		if c.Namespace == 0 {
 			return fmt.Errorf("namespace is required when Espresso is enabled")
 		}
-		if c.EspressoAttestationService == "" {
+		if !c.allowEmptyAttestationService && c.EspressoAttestationService == "" {
 			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
 		}
 	}
