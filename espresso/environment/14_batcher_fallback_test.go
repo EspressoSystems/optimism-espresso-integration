@@ -420,7 +420,7 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	system, espressoDevNode, err := launcher.StartE2eDevnet(
 		ctx,
 		t,
-		// Make Sure that ther Batcher does not start Running
+		// Make Sure that the Batcher does not start Running
 		env.WithBatcherStoppedInitially(),
 
 		// Explicitly disable using any sort of compression.  This is

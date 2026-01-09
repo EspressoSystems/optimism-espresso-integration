@@ -100,7 +100,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 			//   connection, rather than the local testing one.  As a result
 			//   The local Batcher should not be accessed / inspecting /
 			//   interacted with for the purposes of any tests that are
-			//   utilizing this Laucnher Option.
+			//   utilizing this Launcher Option.
 			SystemConfigOption: SystemConfigOptionDisableBatcher,
 			SystemConfigOpt:    e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave),
 			StartOptions: []e2esys.StartOption{
