@@ -2,18 +2,17 @@ package batcher
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"strings"
-	"time"
-
-	"context"
-	"math/big"
 	"sync"
+	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
@@ -184,7 +183,6 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 		verifyReceiptWorkerQueue: make(chan chan espressoVerifyReceiptJobAttempt),
 		espresso:                 config.EspressoClient,
 	}
-
 }
 
 // SubmitTransaction will submit a transaction to the Job queue.
@@ -907,7 +905,7 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 	defer ticker.Stop()
 	defer wg.Done()
 
-	var loader = BlockLoader{
+	loader := BlockLoader{
 		batcher: l,
 	}
 
@@ -923,7 +921,6 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 		select {
 		case <-ticker.C:
 			newSyncStatus, err := l.getSyncStatus(ctx)
-
 			if err != nil {
 				l.Log.Error("Couldn't get sync status", "error", err)
 				continue
@@ -964,6 +961,11 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
+		return nil
+	}
+
+	if l.Config.EspressoAttestationService == "" {
+		l.Log.Warn("EspressoAttestationServices is not set, skipping registration")
 		return nil
 	}
 
@@ -1036,7 +1038,9 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer (func() {
+		_ = res.Body.Close()
+	})()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("received non-200 response: %d", res.StatusCode)
