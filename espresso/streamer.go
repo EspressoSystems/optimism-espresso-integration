@@ -186,12 +186,14 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 // CheckBatch checks the validity of the given batch against the finalized L1
 // block and the safe L1 origin.
 func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
+
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
 		s.Log.Error("Finalized L1 block not initialized")
 		return BatchUndecided, 0
 	}
 	origin := (batch).L1Origin()
+
 	if origin.Number > s.FinalizedL1.Number {
 		// Signal to resync to wait for the L1 finality.
 		s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.FinalizedL1.Number, "origin number", origin.Number)
