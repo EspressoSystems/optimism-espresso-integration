@@ -215,6 +215,11 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
+		// Validate that BatchAuthenticatorAddress is configured in Espresso mode
+		if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+			return errors.New("batcher is running in Espresso mode but BatchAuthenticatorAddress is not configured")
+		}
+
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
@@ -812,9 +817,9 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
-		// Check if this batcher is active before publishing to L1/DA
-		// This should apply to both Espresso (TEE) and fallback (non-TEE) batchers
-		if l.RollupConfig.BatchAuthenticatorAddress != (common.Address{}) {
+		if l.Config.UseEspresso {
+
+			// In Espresso mode the batch authenticator address is configured.
 			isActive, err := l.isBatcherActive(ctx)
 			if err != nil {
 				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
@@ -824,8 +829,6 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 				l.Log.Info("Batcher is not active, skipping publish to L1/DA")
 				return
 			}
-		} else {
-			l.Log.Info("BatchAuthenticator address not configured (zero), proceeding with publish")
 		}
 
 		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
