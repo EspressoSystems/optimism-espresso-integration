@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
+	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-service/endpoint"
@@ -34,9 +35,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
-const ENCLAVE_IMAGE_TAG = "op-batcher-enclaver:tests"
-const ESPRESSO_ENABLE_ENCLAVE_TESTS = "ESPRESSO_RUN_ENCLAVE_TESTS"
+const (
+	ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
+	ENCLAVE_IMAGE_TAG              = "op-batcher-enclaver:tests"
+	ESPRESSO_ENABLE_ENCLAVE_TESTS  = "ESPRESSO_RUN_ENCLAVE_TESTS"
+)
 
 // Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
 func RunOnlyWithEnclave(t *testing.T) {
@@ -73,13 +76,24 @@ func appendArg(args *[]string, flagName string, value any) {
 	}
 }
 
+// LaunchBatcherInEnclave is an E2eDevnetLauncherOption that configures the
+// batcher to not launch in the standard e2e devnet, and to launch the batcher
+// externally in an Enclave.
+//
+// Adding this option automatically configures the Espresso Attestation
+// Service Service with its default configuration. This is required to run in
+// an Enclave, as such, it is better to pre-configure the option instead of
+// allowing for the potential of an error to occur due to not including the
+// other Option.
 func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: func(cfg *e2esys.SystemConfig) {
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DisableBatcher = true
 			},
+			SystemConfigOpt: e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave),
 			StartOptions: []e2esys.StartOption{
+				launchEspressoAttestationVerifierServiceDockerContainer(ct),
 				{
 					Role: "launch-batcher-in-enclave",
 
@@ -183,6 +197,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}
 						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService)
+
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {
 							panic(fmt.Sprintf("failed to setup enclaver: %v", err))

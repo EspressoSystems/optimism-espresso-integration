@@ -27,13 +27,13 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 		t.Fatalf("failed to generate private key")
 	}
 
-	system, _, err :=
-		launcher.StartE2eDevnet(ctx, t,
-			env.SetBatcherKey(*privateKey),
-			env.Config(func(cfg *e2esys.SystemConfig) {
-				cfg.DisableBatcher = true
-			}),
-		)
+	system, _, err := launcher.StartE2eDevnet(ctx, t,
+		env.SetBatcherKey(*privateKey),
+		env.Config(func(cfg *e2esys.SystemConfig) {
+			cfg.DisableBatcher = true
+		}),
+		env.WithEspressoAttestationVerifierService(),
+	)
 
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
@@ -74,10 +74,10 @@ func TestE2eDevnetWithUnattestedBatcherKey(t *testing.T) {
 		t.Fatalf("failed to parse private key: %v", err)
 	}
 
-	system, _, err :=
-		launcher.StartE2eDevnet(ctx, t,
-			env.SetBatcherKey(*privateKey),
-		)
+	system, _, err := launcher.StartE2eDevnet(ctx, t,
+		env.SetBatcherKey(*privateKey),
+		env.WithEspressoAttestationVerifierService(),
+	)
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}

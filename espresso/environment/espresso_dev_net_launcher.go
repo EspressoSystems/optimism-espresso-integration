@@ -11,7 +11,6 @@ import (
 // EspressoE2eDevnetLauncher is an interface for launching an E2E devnet with Espresso, and
 // configuring it to run in a desired manner.
 type EspressoE2eDevnetLauncher interface {
-
 	// StartE2eDevnet will launch the devnet with the provided options. The returned system will be
 	// a fully configured e2e system with the configured options.
 	StartE2eDevnet(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error)
@@ -42,17 +41,40 @@ type E2eDevnetLauncherOption func(
 	ctx *E2eDevnetLauncherContext,
 ) E2eSystemOption
 
+// SysConfigBuilder is a function that is used to construct the Initial System
+// Config Options
+type SysConfigBuilder func(*testing.T, ...e2esys.SystemConfigOpt) e2esys.SystemConfig
+
 // E2eSystemOption is a struct that contains the options for the
 // e2e system that is being launched. It contains the GethOptions and
 // any relevant StartOptions that may be needed for the system.
 type E2eSystemOption struct {
-	SysConfigOption func(*e2esys.SystemConfig)
+	// SystemConfigOption is a function that modifies the SystemConfig.
+	// This occurs specifically after initialization, but before startup.
+	//
+	// This is separate from the SystemConfigOpt, which only happens
+	// at intiial creation time.
+	SystemConfigOption func(*e2esys.SystemConfig)
+
+	// SystemConfigOpt is a Configuration Options for the creation of
+	// the intiial SystemConfig.
+	//
+	// This is necessary, as the initialization has some additional triggered
+	// side-effects that will not occur if not encountered otherwise.
+	SystemConfigOpt e2esys.SystemConfigOpt
 
 	// The GethOptions to pass to the Geth Node.
 	GethOptions map[string][]geth.GethOption
 
 	// Any relevant StartOptions to pass to the e2e system.
 	StartOptions []e2esys.StartOption
+
+	// SysConfigBuilder allows for the overidding of the initially constructed
+	// System Configuration Behavior.
+	//
+	// This is only necessary if some other systems are launched as a
+	// consequence, suche as those with the Dispute Game setup.
+	SysConfigBuilder
 }
 
 // EspressoDevNode is an interface that wraps the Espresso Dev Node
