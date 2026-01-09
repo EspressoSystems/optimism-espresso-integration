@@ -11,10 +11,13 @@ set -e
 : ${ESPRESSO_URL1:?Error: ESPRESSO_URL1 is required}
 : ${OPERATOR_PRIVATE_KEY:?Error: OPERATOR_PRIVATE_KEY is required}
 : ${ESPRESSO_ATTESTATION_SERVICE_URL:?Error: ESPRESSO_ATTESTATION_SERVICE_URL is required}
+: ${EIGENDA_PROXY_URL:?Error: EIGENDA_PROXY_URL is required}
 
 # Optional configuration with defaults
 TAG="${TAG:-op-batcher-enclavetool}"
 ESPRESSO_URL2="${ESPRESSO_URL2:-$ESPRESSO_URL1}"  # Default to same as URL1 if not set
+ESPRESSO_ORIGIN_HEIGHT_ESPRESSO="${ESPRESSO_ORIGIN_HEIGHT_ESPRESSO:-0}"
+ESPRESSO_ORIGIN_HEIGHT_L2="${ESPRESSO_ORIGIN_HEIGHT_L2:-0}"
 ENCLAVE_DEBUG="${ENCLAVE_DEBUG:-false}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MEMORY_MB="${ENCLAVE_MEMORY_MB:-4096}"
@@ -30,6 +33,9 @@ echo "L2 RPC URL: $L2_RPC_URL"
 echo "Rollup RPC URL: $ROLLUP_RPC_URL"
 echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
 echo "Attestation service url: $ESPRESSO_ATTESTATION_SERVICE_URL"
+echo "EigenDA Proxy URL: $EIGENDA_PROXY_URL"
+echo "Espresso Origin Height: $ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
+echo "L2 Origin Height: $ESPRESSO_ORIGIN_HEIGHT_L2"
 echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
@@ -44,6 +50,8 @@ BATCHER_ARGS="$BATCHER_ARGS,--espresso.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL2"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.origin-height-espresso=$ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.origin-height-l2=$ESPRESSO_ORIGIN_HEIGHT_L2"
 
 # Use private key if provided, otherwise fall back to test mnemonic
 if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
@@ -56,11 +64,19 @@ else
 fi
 
 BATCHER_ARGS="$BATCHER_ARGS,--throttle-threshold=0"
-BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=1"
+BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=2"
 BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
+BATCHER_ARGS="$BATCHER_ARGS,--max-pending-tx=32"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.fetch-api=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.enabled=true"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.da-server=$EIGENDA_PROXY_URL"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.da-service=true"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=32"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.put-timeout=30s"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.get-timeout=30s"
+BATCHER_ARGS="$BATCHER_ARGS,--data-availability-type=calldata"
 
 # Add debug arguments if enabled
 if [ "$ENCLAVE_DEBUG" = "true" ]; then

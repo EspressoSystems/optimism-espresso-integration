@@ -457,6 +457,8 @@ services:
         condition: service_started
       espresso-dev-node:
         condition: service_started
+      eigenda-proxy:
+        condition: service_healthy
       l2-genesis:
         condition: service_completed_successfully
       attestation-service-zk:
@@ -491,6 +493,7 @@ services:
         export ROLLUP_RPC_URL="http://127.0.0.1:${ROLLUP_PORT}"
         export ESPRESSO_URL1="http://127.0.0.1:${ESPRESSO_SEQUENCER_API_PORT}"
         export ESPRESSO_ATTESTATION_SERVICE_URL="http://127.0.0.1:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
+        export EIGENDA_PROXY_URL="http://127.0.0.1:${EIGENDA_PROXY_PORT}"
         /source/espresso/docker/op-batcher-tee/run-enclave.sh
 
   # Legacy op-proposer (for non-succinct mode)
@@ -654,7 +657,7 @@ services:
     image: ghcr.io/layr-labs/eigenda-proxy:2.2.1
     platform: linux/amd64
     ports:
-      - "${EIGENDA_PROXY_PORT:-3100}:3100"
+      - "${EIGENDA_PROXY_PORT}:3100"
     environment:
       EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
       EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2
