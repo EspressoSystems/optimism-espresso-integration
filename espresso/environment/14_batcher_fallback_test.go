@@ -372,6 +372,20 @@ func (t *TxManagerIntercept) partialFrameData() []partialFrameData {
 // txmgr.TxManager.
 var _ txmgr.TxManager = (*TxManagerIntercept)(nil)
 
+// retryWaitNTimes retries the given function up to n times until it
+// succeeds.
+func retryWaitNTimes(fn func() error, n int) error {
+	var lastErr error
+	for range n {
+		lastErr = fn()
+		if lastErr == nil {
+			break
+		}
+	}
+
+	return lastErr
+}
+
 // TestFallbackMechanismIntegrationTestChannelNotClosed is a test case that is
 // meant to verify the correct expected behavior in the event that the Espresso
 // Batcher encounters an error mid L1 Batch submission that prevents the full
@@ -475,6 +489,19 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 		system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager.TxManager
 	}
 
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	l1Client := system.NodeClient(e2esys.RoleL1)
+	l2Verif := system.NodeClient(e2esys.RoleVerif)
+
+	// Let's make sure that the system is progressing initially for both
+	// the Sequencer, the Verifier, and the L1Node
+	// err = wait.ForNextBlock(ctx, l2Seq)
+	err = wait.ForBlock(ctx, l2Seq, 3)
+	require.NoError(t, err)
+	err = retryWaitNTimes(func() error {
+		return wait.ForNextBlock(ctx, l2Verif)
+	}, 3)
+	require.NoError(t, err)
 
 	// Verify everything works
 	env.RunSimpleL2Burn(ctx, t, system)
@@ -498,7 +525,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 
 	// Wait until at least 2 L2 blocks have been mined (one for the
 	// a block with successful frames, and one for a block with failed frames).
-	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	err = wait.ForNextBlock(ctx, l2Seq)
 	require.NoError(t, err)
 	err = wait.ForNextBlock(ctx, l2Seq)
@@ -512,8 +538,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	l2Verif := system.NodeClient(e2esys.RoleVerif)
-
 	// Stop the "TEE" batcher
 	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
 	require.NoError(t, err)
@@ -522,7 +546,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	options, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
 	require.NoError(t, err)
 
-	l1Client := system.NodeClient(e2esys.RoleL1)
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(system.RollupConfig.BatchAuthenticatorAddress, l1Client)
 	require.NoError(t, err)
 
