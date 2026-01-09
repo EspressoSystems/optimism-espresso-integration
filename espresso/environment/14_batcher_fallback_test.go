@@ -301,7 +301,7 @@ func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandida
 
 	if t.shouldFail {
 		t.failureCount++
-		t.markFramesAsSuccessful(frames)
+		t.markFramesAsUnsuccessful(frames)
 		time.Sleep(50 * time.Millisecond) // Simulate some delay
 		return nil, ErrSimulatedTxSubmissionFailure
 	}
@@ -310,7 +310,7 @@ func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandida
 		t.shouldFail = true
 	}
 
-	t.markFramesAsUnsuccessful(frames)
+	t.markFramesAsSuccessful(frames)
 
 	return t.TxManager.Send(ctx, candidate)
 }
