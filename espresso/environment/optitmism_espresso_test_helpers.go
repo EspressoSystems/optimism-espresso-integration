@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -71,13 +70,17 @@ const ESPRESSO_TESTING_BATCHER_KEY = "0xfad9c8855b740a0b7ed4c221dbad0f33a83a49ca
 // This is address that corresponds to the menmonic we pass to the espresso-dev-node
 var ESPRESSO_CONTRACT_ACCOUNT = common.HexToAddress("0x8943545177806ed17b9f23f0a21ee5948ecaa776")
 
-const ESPRESSO_BUILDER_PORT = "31003"
-const ESPRESSO_SEQUENCER_API_PORT = "24000"
-const ESPRESSO_DEV_NODE_PORT = "24002"
+const (
+	ESPRESSO_BUILDER_PORT       = "31003"
+	ESPRESSO_SEQUENCER_API_PORT = "24000"
+	ESPRESSO_DEV_NODE_PORT      = "24002"
+)
 
 // EigenDA consstants
-const EIGENDA_DOCKER_PORT = "3100"
-const EIGENDA_DOCKER_IMAGE = "ghcr.io/layr-labs/eigenda-proxy:2.2.1"
+const (
+	EIGENDA_DOCKER_PORT  = "3100"
+	EIGENDA_DOCKER_IMAGE = "ghcr.io/layr-labs/eigenda-proxy:2.2.1"
+)
 
 // ErrEspressoBlockHeightDidNotIncrease is a sentinel error that occurs when
 // the Espresso Block Height does not increase within the alloted context
@@ -143,12 +146,7 @@ func WaitForEspressoBlockHeightToBePositive(ctx context.Context, url string) err
 
 // EspressoDevNodeLauncherDocker is an implementation of EspressoDevNodeLauncher
 // that uses Docker to launch the Espresso Dev Node
-type EspressoDevNodeLauncherDocker struct {
-	// Whether to run batcher in enclave.
-	EnclaveBatcher bool
-	// Whether to enable AltDa
-	AltDa bool
-}
+type EspressoDevNodeLauncherDocker struct{}
 
 var _ EspressoE2eDevnetLauncher = (*EspressoDevNodeLauncherDocker)(nil)
 
@@ -253,29 +251,30 @@ func (e EspressoDevNodeContainerInfo) Stop() error {
 // is meant to be.
 var ErrUnableToDetermineEspressoDevNodeSequencerHost = errors.New("unable to determine the host for the espresso-dev-node sequencer api")
 
+// defaultSystemConfigBuilder is the default SystemConfigBuilder utilized by
+// the GetE2eDevnetSysConfig method.
+func defaultSystemConfigBuilder(t *testing.T, options ...e2esys.SystemConfigOpt) e2esys.SystemConfig {
+	return e2esys.DefaultSystemConfig(t, options...)
+}
+
 // GetE2eDevnetSysConfig returns a configuration for an E2E devnet.
-func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
-
-	var allocOpt e2esys.SystemConfigOpt
-	if l.EnclaveBatcher {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
-	} else {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Context, t *testing.T, options ...E2eSystemOption) e2esys.SystemConfig {
+	systemConfigsOpts := []e2esys.SystemConfigOpt{
+		e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave),
 	}
 
-	sysConfig := e2esys.DefaultSystemConfig(t, allocOpt)
+	sysConfigBuilder := defaultSystemConfigBuilder
+	for _, opt := range options {
+		if sysConfigOption := opt.SystemConfigOpt; sysConfigOption != nil {
+			systemConfigsOpts = append(systemConfigsOpts, sysConfigOption)
+		}
 
-	if l.AltDa {
-		sysConfig.DeployConfig.UseAltDA = true
-		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
-		sysConfig.DeployConfig.DAChallengeWindow = 16
-		sysConfig.DeployConfig.DAResolveWindow = 16
-		sysConfig.DeployConfig.DABondSize = 1000000
-		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
-		sysConfig.BatcherMaxPendingTransactions = 0
-		sysConfig.BatcherBatchType = 0
-		sysConfig.DataAvailabilityType = flags.CalldataType
+		if builder := opt.SysConfigBuilder; builder != nil {
+			sysConfigBuilder = builder
+		}
 	}
+
+	sysConfig := sysConfigBuilder(t, systemConfigsOpts...)
 
 	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
 	sysConfig.DeployConfig.L1BlockTime = 2
@@ -292,75 +291,61 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 		Balance: millionEthers, // Pre-fund Espresso deployer acount with 1M Ether
 	}
 
-	//Set up the L1Allocs in the system config
+	// Set up the L1Allocs in the system config
 	for address, account := range ESPRESSO_ALLOCS {
 		sysConfig.L1Allocs[address] = account.State
+	}
+
+	for _, opt := range options {
+		if sysConfigOption := opt.SystemConfigOption; sysConfigOption != nil {
+			sysConfigOption(&sysConfig)
+		}
 	}
 
 	return sysConfig
 }
 
-// GetE2eDevnetWithFaultDisputeSysConfig returns a configuration for an E2E devnet with a Fault
-// Dispute System.
-func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetWithFaultDisputeSysConfig(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) e2esys.SystemConfig {
-	var allocOpt e2esys.SystemConfigOpt
-	if l.EnclaveBatcher {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave)
-	} else {
-		allocOpt = e2esys.WithAllocType(config.AllocTypeEspressoWithoutEnclave)
+// faultDisputeSystemConfigBuilder id a SystemConfigBuilder that configures
+// the system for use with the Fault Dispute System.
+func faultDisputeSystemConfigBuilder(t *testing.T, options ...e2esys.SystemConfigOpt) e2esys.SystemConfig {
+	return faultproofs.GetFaultDisputeSystemConfigForEspresso(t, options)
+}
+
+// WithFaultDisputeSystem will modify the default SysConfigBuilder utilized
+// to be one that configures the FaultDisputeSsytem for Espresso.
+func WithFaultDisputeSystem() E2eDevnetLauncherOption {
+	return func(launcherCtx *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SysConfigBuilder: faultDisputeSystemConfigBuilder,
+		}
 	}
+}
 
-	// Get a Fault Dispute System configuration with Espresso Dev Node allocation
-	sysConfig := faultproofs.GetFaultDisputeSystemConfigForEspresso(t, []e2esys.SystemConfigOpt{allocOpt})
-
-	if l.AltDa {
-		sysConfig.DeployConfig.UseAltDA = true
-		sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
-		sysConfig.DeployConfig.DAChallengeWindow = 16
-		sysConfig.DeployConfig.DAResolveWindow = 16
-		sysConfig.DeployConfig.DABondSize = 1000000
-		sysConfig.DeployConfig.DAResolverRefundPercentage = 0
-		sysConfig.BatcherMaxPendingTransactions = 0
-		sysConfig.BatcherBatchType = 0
-		sysConfig.DataAvailabilityType = flags.CalldataType
+// WithAltDa is an E2eDevnetLauncherOption that adjusts the SystemConfig
+// to be configured for use as a Alt Da.
+func WithAltDa() E2eDevnetLauncherOption {
+	return func(_ *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SystemConfigOption: func(sysConfig *e2esys.SystemConfig) {
+				sysConfig.DeployConfig.UseAltDA = true
+				sysConfig.DeployConfig.DACommitmentType = "KeccakCommitment"
+				sysConfig.DeployConfig.DAChallengeWindow = 16
+				sysConfig.DeployConfig.DAResolveWindow = 16
+				sysConfig.DeployConfig.DABondSize = 1000000
+				sysConfig.DeployConfig.DAResolverRefundPercentage = 0
+				sysConfig.BatcherMaxPendingTransactions = 0
+				sysConfig.BatcherBatchType = 0
+				sysConfig.DataAvailabilityType = flags.CalldataType
+			},
+		}
 	}
-
-	// Set a short L1 block time and finalized distance to make tests faster and reach finality sooner
-	sysConfig.DeployConfig.L1BlockTime = 2
-
-	sysConfig.DeployConfig.DeployCeloContracts = true
-
-	// Ensure that we fund the dev accounts
-	sysConfig.DeployConfig.FundDevAccounts = true
-
-	espressoPremine := new(big.Int).Mul(new(big.Int).SetUint64(1_000_000), new(big.Int).SetUint64(params.Ether))
-	sysConfig.L1Allocs[ESPRESSO_CONTRACT_ACCOUNT] = types.Account{
-		Nonce:   100000,          // Set the nonce to avoid collisions with predeployed contracts
-		Balance: espressoPremine, // Pre-fund Espresso deployer acount with 1M Ether
-	}
-
-	//Set up the L1Allocs in the system config
-	for address, account := range ESPRESSO_ALLOCS {
-		sysConfig.L1Allocs[address] = account.State
-	}
-
-	return sysConfig
 }
 
 // GetE2eDevnetStartOptions returns the start options for the E2E devnet.
-func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, sysConfig *e2esys.SystemConfig, options ...E2eDevnetLauncherOption) ([]e2esys.StartOption, *E2eDevnetLauncherContext) {
+func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx context.Context, t *testing.T, launchContext *E2eDevnetLauncherContext, options ...E2eDevnetLauncherOption) []e2esys.StartOption {
 	initialOptions := []E2eDevnetLauncherOption{
 		allowHostDockerInternalVirtualHost(),
-		launchEspressoDevNodeAndAttestationServiceDocker(),
-	}
-
-	if l.EnclaveBatcher {
-		initialOptions = append(initialOptions, LaunchBatcherInEnclave())
-	}
-
-	launchContext := E2eDevnetLauncherContext{
-		Ctx:       originalCtx,
-		SystemCfg: sysConfig,
+		launchEspressoDevNodeDocker(),
 	}
 
 	allOptions := append(initialOptions, options...)
@@ -368,32 +353,44 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetStartOptions(originalCtx con
 	startOptions := []e2esys.StartOption{}
 
 	for _, opt := range allOptions {
-		options := opt(&launchContext)
+		options := opt(launchContext)
 
 		if gethOption := options.GethOptions; gethOption != nil {
 			for k, v := range gethOption {
-				sysConfig.GethOptions[k] = append(sysConfig.GethOptions[k], v...)
+				launchContext.SystemCfg.GethOptions[k] = append(launchContext.SystemCfg.GethOptions[k], v...)
 			}
 		}
 
 		if startOption := options.StartOptions; startOption != nil {
 			startOptions = append(startOptions, startOption...)
 		}
-
-		if sysConfigOption := options.SysConfigOption; sysConfigOption != nil {
-			sysConfigOption(sysConfig)
-		}
 	}
 
-	return startOptions, &launchContext
+	return startOptions
+}
+
+func expandLauncherOptionsToSystemOptions(launchContext *E2eDevnetLauncherContext, options []E2eDevnetLauncherOption) []E2eSystemOption {
+	e2eSystemOption := make([]E2eSystemOption, 0, len(options))
+	for _, opt := range options {
+		e2eSystemOption = append(e2eSystemOption, opt(launchContext))
+	}
+
+	return e2eSystemOption
 }
 
 func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
+	launchContext := E2eDevnetLauncherContext{
+		Ctx:       ctx,
+		SystemCfg: nil,
+	}
 
-	sysConfig := l.GetE2eDevnetSysConfig(ctx, t, options...)
+	e2eSystemOption := expandLauncherOptionsToSystemOptions(&launchContext, options)
 
+	sysConfig := l.GetE2eDevnetSysConfig(ctx, t, e2eSystemOption...)
 	originalCtx := ctx
-	startOptions, launchContext := l.GetE2eDevnetStartOptions(originalCtx, t, &sysConfig, options...)
+	launchContext.SystemCfg = &sysConfig
+
+	startOptions := l.GetE2eDevnetStartOptions(originalCtx, t, &launchContext, options...)
 
 	// We want to run the espresso-dev-node.  But we need it to be able to
 	// access the L1 node.
@@ -403,48 +400,6 @@ func (l *EspressoDevNodeLauncherDocker) StartE2eDevnet(ctx context.Context, t *t
 
 		startOptions...,
 	)
-
-	if err != nil {
-		if system != nil {
-			// We don't want the system running in a partial / incomplete
-			// state. So we'll tell it to stop here, just in case.
-			system.Close()
-		}
-
-		return system, nil, err
-	}
-
-	// Auto System Cleanup tied to the passed in context.
-	{
-		// We want to ensure that the lifecycle of the system node is tied to
-		// the context we were given, just like the espresso-dev-node.  So if
-		// the context is canceled, or otherwise closed, it will automatically
-		// clean up the system.
-		go (func(ctx context.Context) {
-			<-ctx.Done()
-
-			// The system is guaranteed to not be null here.
-			system.Close()
-		})(originalCtx)
-	}
-
-	return system, launchContext.EspressoDevNode, launchContext.Error
-}
-
-// StartE2eDevnetWithFaultDisputeSystem starts a Fault Dispute System with an Espresso Dev Node
-func (l *EspressoDevNodeLauncherDocker) StartE2eDevnetWithFaultDisputeSystem(ctx context.Context, t *testing.T, options ...E2eDevnetLauncherOption) (*e2esys.System, EspressoDevNode, error) {
-
-	sysConfig := l.GetE2eDevnetWithFaultDisputeSysConfig(ctx, t, options...)
-
-	originalCtx := ctx
-	startOptions, launchContext := l.GetE2eDevnetStartOptions(originalCtx, t, &sysConfig, options...)
-
-	system, err := sysConfig.Start(
-		t,
-
-		startOptions...,
-	)
-
 	if err != nil {
 		if system != nil {
 			// We don't want the system running in a partial / incomplete
@@ -593,12 +548,10 @@ func GetBatcherConfig(c *batcher.CLIConfig) E2eDevnetLauncherOption {
 // This function is introduced for testing purposes. It allows to check the enforcement of the majority rule (Test 12)
 func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
-
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
 				{
 					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
-
 						goodUrl := c.Espresso.QueryServiceURLs[0]
 						var urls []string
 
@@ -620,7 +573,7 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLaun
 func Config(fn func(*e2esys.SystemConfig)) E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SysConfigOption: fn,
+			SystemConfigOption: fn,
 		}
 	}
 }
@@ -827,11 +780,10 @@ func ensureHardCodedPortsAreMappedFromTheirOriginalValues(containerInfo *DockerC
 	}
 }
 
-// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
+// launchEspressoDevNodeStartOption is E2eDevnetLauncherOption that launches the
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-// Additionally, it launches the Attestation Verifier ZK server in a Docker container.
-func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
+func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.StartOption {
 	return e2esys.StartOption{
 		Role: "launch-espresso-dev-node",
 		BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
@@ -864,7 +816,6 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 			containerCli := new(DockerCli)
 
 			espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
-
 			if err != nil {
 				ct.Error = FailedToLaunchDockerContainer{Cause: err}
 				return
@@ -894,163 +845,19 @@ func launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct *E2eDevnetLaunc
 			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
 			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
-
-			// Now launch the attestation verifier zk server
-			launchEspressoAttestationVerifierService(ct, c)
+			c.Espresso.AllowEmptyAttestationService()
 		},
 	}
 }
 
-// launchEspressoAttestationVerifierService launches the attestation verifier zk server
-// in a Docker container and configures the batcher CLIConfig to use it.
-func launchEspressoAttestationVerifierService(ct *E2eDevnetLauncherContext, c *batcher.CLIConfig) {
-	// Now we need to launch the attestation verifier zk server
-	fmt.Println("Starting attestation verifier zk server...")
-
-	espressoAttestationVerifierNetworkRPCURL := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL")
-	if espressoAttestationVerifierNetworkRPCURL == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierSp1Prover := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER")
-	if espressoAttestationVerifierSp1Prover == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SP1_PROVER environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierNitroVerifierAddress := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS")
-	if espressoAttestationVerifierNitroVerifierAddress == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierUseDocker := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER")
-	if espressoAttestationVerifierUseDocker == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierSkipTimeValidityCheck := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK")
-	if espressoAttestationVerifierSkipTimeValidityCheck == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierRustLog := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG")
-	if espressoAttestationVerifierRustLog == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierNetworkPrivateKey := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_PRIVATE_KEY")
-	if espressoAttestationVerifierNetworkPrivateKey == "" {
-		ct.Error = fmt.Errorf("networkPrivateKey environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierRPCUrl := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL")
-	if espressoAttestationVerifierRPCUrl == "" {
-		ct.Error = fmt.Errorf("RPC_URL environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierHost := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_HOST")
-	if espressoAttestationVerifierHost == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_HOST environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierPort := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_PORT")
-	if espressoAttestationVerifierPort == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_PORT environment variable is not set")
-		return
-	}
-
-	espressoAttestationVerifierDockerImage := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE")
-	if espressoAttestationVerifierDockerImage == "" {
-		ct.Error = fmt.Errorf("ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE environment variable is not set")
-		return
-	}
-
-	dockerConfig := DockerContainerConfig{
-		Image:   espressoAttestationVerifierDockerImage,
-		Network: determineDockerNetworkMode(),
-		Ports: []string{
-			espressoAttestationVerifierPort,
-		},
-		Name: "attestation-verifier-zk",
-		Environment: map[string]string{
-			"NETWORK_RPC_URL":          espressoAttestationVerifierNetworkRPCURL,
-			"SP1_PROVER":               espressoAttestationVerifierSp1Prover,
-			"NITRO_VERIFIER_ADDRESS":   espressoAttestationVerifierNitroVerifierAddress,
-			"USE_DOCKER":               espressoAttestationVerifierUseDocker,
-			"SKIP_TIME_VALIDITY_CHECK": espressoAttestationVerifierSkipTimeValidityCheck,
-			"RUST_LOG":                 espressoAttestationVerifierRustLog,
-			"NETWORK_PRIVATE_KEY":      espressoAttestationVerifierNetworkPrivateKey,
-			"RPC_URL":                  espressoAttestationVerifierRPCUrl,
-			"HOST":                     espressoAttestationVerifierHost,
-			"PORT":                     espressoAttestationVerifierPort,
-		},
-	}
-	containerCli := new(DockerCli)
-
-	attestationVerifierInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
-	if err != nil {
-		ct.Error = FailedToLaunchDockerContainer{Cause: err}
-		return
-	}
-
-	// Get the actual mapped port
-	ports := attestationVerifierInfo.PortMap[espressoAttestationVerifierPort]
-	if len(ports) == 0 {
-		ct.Error = fmt.Errorf("no port mapping found for attestation verifier")
-		return
-	}
-
-	healthCheckCtx, cancel := context.WithTimeout(ct.Ctx, 60*time.Second)
-	defer cancel()
-
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-	attestationHostPort, err := getContainerRemappedHostPort(ports[0])
-	if err != nil {
-		ct.Error = err
-		return
-	}
-
-	// Use the actual host:port for health check
-	attestationURL := "http://" + attestationHostPort
-
-	c.Espresso.EspressoAttestationService = attestationURL
-
-	for {
-		select {
-		case <-healthCheckCtx.Done():
-			ct.Error = fmt.Errorf("attestation verifier did not become healthy: %w", healthCheckCtx.Err())
-			return
-		case <-ticker.C:
-			resp, err := http.Get(attestationURL + "/health")
-			if err == nil && resp.StatusCode == http.StatusOK {
-				resp.Body.Close()
-				goto healthy
-			}
-			if resp != nil {
-				resp.Body.Close()
-			}
-		}
-	}
-healthy:
-}
-
-// launchEspressoDevNodeAndAttestationVerifierZKStartOption is E2eDevnetLauncherOption that launches the
+// launchEspressoDevNodeDocker is E2eDevnetLauncherOption that launches the
 // Espresso Dev Node within a Docker container.  It also ensures that the
 // Espresso Dev Node is actively producing blocks before returning.
-func launchEspressoDevNodeAndAttestationServiceDocker() E2eDevnetLauncherOption {
+func launchEspressoDevNodeDocker() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			StartOptions: []e2esys.StartOption{
-				launchEspressoDevNodeAndAttestationVerifierZKStartOption(ct),
+				launchEspressoDevNodeStartOption(ct),
 			},
 		}
 	}
@@ -1129,7 +936,6 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 
 // Waits for an Espresso transaction to be confirmed using its hash.
 func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
-
 	const transactionFetchTimeout = 4 * time.Second
 	const transactionFetchInterval = 100 * time.Millisecond
 
