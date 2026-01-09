@@ -21,11 +21,38 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/params"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
+
+// waitForRollupToMovePastL1Block waits until the targeted rollup cli moves
+// past the reference l1BlockNumber.  This indicates that the rollupCli is
+// still receiveing information that indicates that the L1 has progressed
+// past the desired height.
+//
+// For convenience, this also returns the Local Safe L2 Height of the last
+// call to the Sync Status on the Rollup Client.  If this wait passes, it
+// will be the LocalSafeL2 height of the SyncStatus that exceeded the
+// referenced l1BlockNumber.
+func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.RollupClient, l1BlockNumber uint64) (uint64, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	var localSafeL2Height uint64
+	defer cancel()
+	err := wait.For(timeoutCtx, 100*time.Millisecond, func() (bool, error) {
+		status, err := rollupCli.SyncStatus(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		localSafeL2Height = status.LocalSafeL2.Number
+		return status.CurrentL1.Number > l1BlockNumber, nil
+	})
+
+	return localSafeL2Height, err
+}
 
 func TestBatcherSwitching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -86,26 +113,8 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Give things time to settle
-	var l2Height uint64
-
-	ticker := time.NewTicker(100 * time.Millisecond)
-	timeoutCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-
-Loop:
-	for {
-		select {
-		case <-timeoutCtx.Done():
-			panic("Timeout waiting for verifier derivation pipeline to advance past the fallback batcher switchoff point")
-		case <-ticker.C:
-			status, err := system.RollupClient(e2esys.RoleVerif).SyncStatus(ctx)
-			require.NoError(t, err)
-			if status.CurrentL1.Number > switchReceipt.BlockNumber.Uint64() {
-				l2Height = status.LocalSafeL2.Number
-				break Loop
-			}
-		}
-	}
+	l2Height, err := waitForRollupToMovePastL1Block(ctx, system.RollupClient(e2esys.RoleVerif), switchReceipt.BlockNumber.Uint64())
+	require.NoError(t, err)
 
 	espHeight, err := espClient.FetchLatestBlockHeight(ctx)
 	require.NoError(t, err)
