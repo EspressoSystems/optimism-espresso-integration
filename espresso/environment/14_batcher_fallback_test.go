@@ -405,6 +405,8 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	system, espressoDevNode, err := launcher.StartE2eDevnet(
 		ctx,
 		t,
+		// Make Sure that ther Batcher does not start Running
+		env.WithBatcherStoppedInitially(),
 
 		// Explicitly disable using any sort of compression.  This is
 		// necessary as we will be specifying that we will be targeting
@@ -452,11 +454,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	)
 
 	{
-		// We have to stop the Batch Submitter and restart it in order for the
-		// intercept manager to be used in the queuing behavior
-		err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
-		require.NoError(t, err)
-
 		// Replace the existing TxManager with our intercept
 		system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager
 
