@@ -193,6 +193,8 @@ func NewTxManagerIntercept(base txmgr.TxManager) *TxManagerIntercept {
 // failure was intentional for testing purposes.
 var ErrSimulatedTxSubmissionFailure = errors.New("simulated tx submission failure")
 
+// decodeFrameInformation takes a txmgr.TxCandidate and attempts to decode
+// frames contained within either the Blob fields, or the TxData field.
 func decodeFrameInformation(candidate txmgr.TxCandidate) ([]derive.Frame, error) {
 	if len(candidate.TxData) > 0 {
 		// We have a CallData tx, so we can decode the frame information from
@@ -209,12 +211,10 @@ func decodeFrameInformation(candidate txmgr.TxCandidate) ([]derive.Frame, error)
 	return nil, fmt.Errorf("tx candidate has neither tx data nor blobs to decode frame information from")
 }
 
-// decodeFrameInformationFromTxData takes a txmgr.TxCandidate and will assume
-// that the frame data is encoded within the TxData. This data will be taken
-// and decoded into frames and returned.
-func decodeFrameInformationFromTxData(candidate txmgr.TxCandidate) ([]derive.Frame, error) {
-	data := candidate.TxData
-
+// decodeFrameInformationFromData takes a byte slice and decodes each frame
+// until it can no longer decode any frames. It returns a slice of all
+// decoded frames, and any error encountered.
+func decodeFrameInformationFromData(data []byte) ([]derive.Frame, error) {
 	if data[0] != params.DerivationVersion0 {
 		// Not a supported derivation version
 		return nil, fmt.Errorf("unsupported derivation version: %d", data[0])
@@ -242,6 +242,15 @@ func decodeFrameInformationFromTxData(candidate txmgr.TxCandidate) ([]derive.Fra
 	return frames, nil
 }
 
+// decodeFrameInformationFromTxData takes a txmgr.TxCandidate and will assume
+// that the frame data is encoded within the TxData. This data will be taken
+// and decoded into frames and returned.
+func decodeFrameInformationFromTxData(candidate txmgr.TxCandidate) ([]derive.Frame, error) {
+	data := candidate.TxData
+
+	return decodeFrameInformationFromData(data)
+}
+
 // decodeFrameInformationFromBlobs() takes a txmgr.TxCandidate and will assume
 // that the frame data is encoded within the Blobs.  The blobs will be
 // converted back to txData, and the data will be decoded into frames.
@@ -253,28 +262,11 @@ func decodeFrameInformationFromBlobs(candidate txmgr.TxCandidate) ([]derive.Fram
 			return frames, fmt.Errorf("error converting blob to data: %w", err)
 		}
 
-		if data[0] != params.DerivationVersion0 {
-			// Not a supported derivation version
-			return frames, fmt.Errorf("unsupported derivation version: %d", data[0])
+		newFrames, err := decodeFrameInformationFromData(data)
+		if err != nil {
+			return frames, err
 		}
-
-		reader := bytes.NewBuffer(data[1:])
-		for {
-			var frame derive.Frame
-			err := frame.UnmarshalBinary(reader)
-			if errors.Is(err, io.EOF) {
-				// We've consumed all of the frames in this blob.
-				break
-			}
-
-			// If this is any other error, it indicates that there was an
-			// error decoding the frame.
-			if err != nil {
-				return frames, fmt.Errorf("error decoding frame from blob: %w", err)
-			}
-
-			frames = append(frames, frame)
-		}
+		frames = append(frames, newFrames...)
 	}
 
 	return frames, nil
