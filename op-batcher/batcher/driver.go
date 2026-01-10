@@ -24,7 +24,6 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -35,9 +34,8 @@ import (
 )
 
 var (
-	ErrBatcherNotRunning             = errors.New("batcher is not running")
-	ErrBatchAuthenticatorNotDeployed = errors.New("batch authenticator contract not deployed")
-	emptyTxData                      = txData{
+	ErrBatcherNotRunning = errors.New("batcher is not running")
+	emptyTxData          = txData{
 		frames: []frameData{
 			{
 				data: []byte{},
@@ -215,10 +213,6 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.UseEspresso {
-		// Validate that BatchAuthenticatorAddress is configured in Espresso mode
-		if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
-			return errors.New("batcher is running in Espresso mode but BatchAuthenticatorAddress is not configured")
-		}
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
@@ -817,20 +811,6 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
-		if l.Config.UseEspresso {
-
-			// In Espresso mode the batch authenticator address is configured.
-			isActive, err := l.isBatcherActive(ctx)
-			if err != nil {
-				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
-				return
-			}
-			if !isActive {
-				l.Log.Info("Batcher is not active, skipping publish to L1/DA")
-				return
-			}
-		}
-
 		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
 		if err != nil {
 			if err != io.EOF {
@@ -1159,60 +1139,6 @@ func (l *BatchSubmitter) checkTxpool(queue *txmgr.Queue[txRef], receiptsCh chan 
 	r := l.txpoolState == TxpoolGood
 	l.txpoolMutex.Unlock()
 	return r
-}
-
-// isBatcherActive checks if the current batcher is active by querying the BatchAuthenticator contract.
-// Returns true if this batcher is the active one, false otherwise.
-func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
-	// Log the address we are checking against
-	l.Log.Info("Checking BatchAuthenticator address", "addr", l.RollupConfig.BatchAuthenticatorAddress)
-
-	// Check if contract code exists at the address
-	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
-	if err != nil {
-		return false, fmt.Errorf("failed to check code at BatchAuthenticator address: %w", err)
-	}
-	if len(code) == 0 {
-		return false, fmt.Errorf("%w: %s", ErrBatchAuthenticatorNotDeployed, l.RollupConfig.BatchAuthenticatorAddress.Hex())
-	}
-
-	// Create BatchAuthenticator contract binding
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
-	if err != nil {
-		return false, fmt.Errorf("failed to create BatchAuthenticator binding: %w", err)
-	}
-
-	cCtx, cancel := context.WithTimeout(ctx, l.Config.NetworkTimeout)
-	defer cancel()
-
-	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{Context: cCtx})
-	if err != nil {
-		return false, fmt.Errorf("failed to check active batcher: %w", err)
-	}
-
-	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(&bind.CallOpts{Context: cCtx})
-	if err != nil {
-		return false, fmt.Errorf("failed to get TEE batcher address: %w", err)
-	}
-
-	nonTeeBatcherAddr, err := batchAuthenticator.NonTeeBatcher(&bind.CallOpts{Context: cCtx})
-	if err != nil {
-		return false, fmt.Errorf("failed to get non-TEE batcher address: %w", err)
-	}
-
-	batcherAddr := l.Txmgr.From()
-
-	// Check if this batcher matches the active one
-	var activeAddr common.Address
-	if activeIsTee {
-		activeAddr = teeBatcherAddr
-	} else {
-		activeAddr = nonTeeBatcherAddr
-	}
-
-	isActive := activeAddr == batcherAddr
-	l.Log.Info("Batcher active check result", "self", batcherAddr, "active", activeAddr, "activeIsTee", activeIsTee, "result", isActive)
-	return isActive, nil
 }
 
 func logFields(xs ...any) (fs []any) {
