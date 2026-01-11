@@ -299,7 +299,9 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 
 // VERIFY_RECEIPT_TIMEOUT is the amount of time we will wait for a receipt to
 // be verified before we requeue the job for another attempt.
-const VERIFY_RECEIPT_TIMEOUT = 4 * time.Second
+// Using 60 seconds to allow sufficient time for Espresso confirmation
+// and avoid unnecessary resubmissions that cause duplicates.
+const VERIFY_RECEIPT_TIMEOUT = 60 * time.Second
 
 // VERIFY_RECEIPT_RETRY_DELAY is the amount of time we will wait before
 // retrying a job that failed to verify the receipt.
