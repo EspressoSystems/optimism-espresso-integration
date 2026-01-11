@@ -570,12 +570,37 @@ func SetEspressoUrls(numGood int, numBad int, badServerUrl string) E2eDevnetLaun
 	}
 }
 
+// SystemConfigOptionDisableBatcher is a SystemConfigOption that disables
+// the Batcher.
+//
+// | NOTE: This doesn't actually stop the Batcher from being created entirely.
+//
+//	Instead, it prevents the Batcher from "Starting".  The Batcher still
+//	exists in the local context, it just won't be running initially. But
+//	it can still be started programatically via its API.  This is most
+//	easily done by calling `StartBatchSubmitting` on the `TestDriver` of
+//	the system.
+func SystemConfigOptionDisableBatcher(cfg *e2esys.SystemConfig) {
+	cfg.DisableBatcher = true
+}
+
+// Config is a convenience function that allows for the initial modification
+// of the SystemConfig only.
 func Config(fn func(*e2esys.SystemConfig)) E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
 			SystemConfigOption: fn,
 		}
 	}
+}
+
+// WithBatcherStoppedInitially is an E2eDevNetLauncherOption that ensures that
+// the locally created Batcher is not running initially.
+//
+// The Batcher can still be started locally with a call to the TestDriver's
+// method: `StartBatchSubmitting`.
+func WithBatcherStoppedInitially() E2eDevnetLauncherOption {
+	return Config(SystemConfigOptionDisableBatcher)
 }
 
 // getContainerRemappedHostPort is a helper function that takes the

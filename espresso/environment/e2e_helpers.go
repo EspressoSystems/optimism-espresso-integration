@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
+	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/common"
@@ -128,6 +130,187 @@ func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)
 			},
+		}
+	}
+}
+
+// WithBatcherTargetNumFrames is a E2eDevnetLauncherOption that configures the
+// batcher's `TargetNumFrames` option to the provided value.
+//
+// This governs how many frames the batcher will attempt to utilize when
+// submitting a channel to the L1.
+func WithBatcherTargetNumFrames(size int) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxL1NumFrames",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.TargetNumFrames = size
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherMaxPendingTransactions is a E2eDevnetLauncherOption that
+// configures the batcher's `MaxPendingTransactions` option to the provided
+// value.
+//
+// This governs how many pending L1 transactions the batcher will allow
+// before pausing new submissions.
+func WithBatcherMaxPendingTransactions(pendingTransactions uint64) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxPendingTransactions",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.MaxPendingTransactions = pendingTransactions
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherMaxL1TxSize is a E2eDevnetLauncherOption that configures the
+// batcher's `MaxL1TxSize` option to the provided value.
+//
+// This governs the maximum L1 transaction size that the batcher will attempt
+// to submit when submitting a channel to L1.
+func WithBatcherMaxL1TxSize(maxL1TxSize uint64) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxL1TxSize",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.MaxL1TxSize = maxL1TxSize
+
+						if batchConfig.DataAvailabilityType == flags.BlobsType {
+							// If we're setting the max data size for blobs,
+							// we need to also inform the batcher to use that
+							// setting when calculating blob sizes.
+							//
+							// Otherwise it will use the max blob size constant.
+							batchConfig.TestUseMaxTxSizeForBlobs = true
+						}
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherMaxBlocksPerSpanBatch is a E2eDevnetLauncherOption that
+// configures the batcher's `MaxBlocksPerSpanBatch` option to the provided
+// value.
+//
+// This governs how many blocks the batcher will include in a single span
+// when creating batches to submit to L1.
+func WithBatcherMaxBlocksPerSpanBatch(maxBlocksPerSpanBatch int) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "maxBlocksPerSpanBatch",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.MaxBlocksPerSpanBatch = maxBlocksPerSpanBatch
+					},
+				},
+			},
+		}
+	}
+}
+
+// WithBatcherDataAvailabilityType is a E2eDevnetLauncherOption that configures
+// the batcher's `DataAvailabilityType` option to the provided value.
+//
+// This governs which data availability method the batcher will use when
+// submitting frames to L1.
+func WithBatcherDataAvailabilityType(daAvailabilityType flags.DataAvailabilityType) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "dataAvailabilityType",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.DataAvailabilityType = daAvailabilityType
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+// WithBatcherMaxChannelDuration is a configuration option that modifies the
+// MaxChannelDuration for the Batcher Config.  This value will then be
+// utilized by the Channels created by the batcher.
+func WithBatcherMaxChannelDuration(maxChannelDuration uint64) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "maxChannelDuration",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.MaxChannelDuration = maxChannelDuration
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+// WithBatcherMaxFrameSize is a configuration option that modifies the
+// MaxChannelDuration for the Batcher Config.  This value will then be
+// utilized by the channels created by the batcher.
+func WithBatcherMaxFrameSize(maxFrameSize uint64) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "maxFrameSize",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.MaxChannelDuration = maxFrameSize
+						},
+					},
+				},
+			}
+		}
+	}
+}
+
+// WithBatcherCompressor is a configuration option that modifies the Compressor
+// setting of the Batcher Config.  This value will be utilized to determine
+// compression options for the channels created by the batcher.
+func WithBatcherCompressor(compressor string) E2eDevnetLauncherOption {
+	{
+		return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+			return E2eSystemOption{
+				StartOptions: []e2esys.StartOption{
+					{
+						Key:  "compressor",
+						Role: e2esys.RoleSeq,
+						BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+							batchConfig.Compressor = compressor
+						},
+					},
+				},
+			}
 		}
 	}
 }
