@@ -43,12 +43,9 @@ func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
 
-	system, _, err :=
-		launcher.StartE2eDevnet(ctx, t,
-			env.Config(func(cfg *e2esys.SystemConfig) {
-				cfg.DisableBatcher = true
-			}),
-		)
+	system, _, err := launcher.StartE2eDevnet(ctx, t,
+		env.WithBatcherStoppedInitially(),
+	)
 
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
