@@ -2,15 +2,16 @@ package environment
 
 import (
 	"context"
+	"fmt"
+	"math/big"
+	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	"math/big"
-	"testing"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
@@ -25,7 +26,8 @@ func RunSimpleL2Transfer(
 	system *e2esys.System,
 	nonce uint64,
 	amount big.Int,
-	l2Seq *ethclient.Client) common.Hash {
+	l2Seq *ethclient.Client,
+) common.Hash {
 	_, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
@@ -46,7 +48,6 @@ func RunSimpleL2Transfer(
 	txHash := receipt.TxHash
 
 	return txHash
-
 }
 
 // runSimpleL1TransferAndVerifier runs a simple L1 transfer and verifies it on
@@ -128,4 +129,52 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 	require.Equal(t, new(big.Int).Sub(burnAddressBalance, initialBurnAddressBalance), amountToBurn, "burn address balance doesn't match the amount burned")
 
 	cancel()
+}
+
+// RunSimpleMultiTransactions sends numTransactions simple L2 transactions
+// from Bob's account and returns the receipts.
+//
+// This is all attempted in parallel, as it will spawn a separate goroutine
+// for each transaction submission.  Each transaction will be provided its
+// own nonce, based on the currently understood value of the nonce for
+// Bob.
+//
+// This will return once all receipts have been returned.
+func RunSimpleMultiTransactions(ctx context.Context, t *testing.T, system *e2esys.System, numTransactions int) ([]*types.Receipt, error) {
+	ctx, cancel := context.WithTimeoutCause(ctx, 2*time.Minute, fmt.Errorf("failed to submit all transactions within time frame: %w", context.DeadlineExceeded))
+	defer cancel()
+
+	senderKey := system.Cfg.Secrets.Bob
+	senderAddress := system.Cfg.Secrets.Addresses().Bob
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	nonce, err := l2Seq.NonceAt(ctx, senderAddress, nil)
+	if err != nil {
+		require.NoError(t, err, "failed to get nonce for account %s", senderAddress)
+	}
+
+	ch := make(chan *types.Receipt, numTransactions)
+	defer close(ch)
+	for i := range numTransactions {
+		go (func(ch chan *types.Receipt, i int, nonce uint64) {
+			receipt := helpers.SendL2Tx(t, system.Cfg, l2Seq, senderKey, func(opts *helpers.TxOpts) {
+				opts.Nonce = nonce + uint64(i)
+				// We need to explicitly increase the gas beyond some threshold
+				// for an unknown reason.  We'll set it high enough so that
+				// it hopefully won't cause a problem
+				opts.Gas = 100_000
+			})
+			ch <- receipt
+		})(ch, i, nonce)
+	}
+
+	var receipts []*types.Receipt
+	for range numTransactions {
+		select {
+		case <-ctx.Done():
+			return receipts, ctx.Err()
+		case receipt := <-ch:
+			receipts = append(receipts, receipt)
+		}
+	}
+	return receipts, nil
 }
