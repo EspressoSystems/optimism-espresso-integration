@@ -495,7 +495,6 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 
 	// Let's make sure that the system is progressing initially for both
 	// the Sequencer, the Verifier, and the L1Node
-	// err = wait.ForNextBlock(ctx, l2Seq)
 	err = wait.ForBlock(ctx, l2Seq, 3)
 	require.NoError(t, err)
 	err = retryWaitNTimes(func() error {
