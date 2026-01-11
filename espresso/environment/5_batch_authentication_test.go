@@ -9,7 +9,6 @@ import (
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -29,9 +28,7 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 
 	system, _, err := launcher.StartE2eDevnet(ctx, t,
 		env.SetBatcherKey(*privateKey),
-		env.Config(func(cfg *e2esys.SystemConfig) {
-			cfg.DisableBatcher = true
-		}),
+		env.WithBatcherStoppedInitially(),
 		env.WithEspressoAttestationVerifierService(),
 	)
 

@@ -85,13 +85,24 @@ func appendArg(args *[]string, flagName string, value any) {
 // an Enclave, as such, it is better to pre-configure the option instead of
 // allowing for the potential of an error to occur due to not including the
 // other Option.
+//
+// This LauncherOption explicitly creates a Batcher to run in the Enclave based
+// on the configuration of the batcher that would be created and started
+// locally. The locally created Batcher in the E2e System is never meant to
+// actually run with this option, and instead the External Batcher is meant
+// to be run instead.
 func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 	return func(ct *E2eDevnetLauncherContext) E2eSystemOption {
 		return E2eSystemOption{
-			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
-				cfg.DisableBatcher = true
-			},
-			SystemConfigOpt: e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave),
+			// | NOTE:  while this option initially disables the batcher for
+			//   the purposes of being started later, it is the intention of
+			//   this Launchger Option to tie the Batcher as an external
+			//   connection, rather than the local testing one.  As a result
+			//   The local Batcher should not be accessed / inspecting /
+			//   interacted with for the purposes of any tests that are
+			//   utilizing this Launcher Option.
+			SystemConfigOption: SystemConfigOptionDisableBatcher,
+			SystemConfigOpt:    e2esys.WithAllocType(config.AllocTypeEspressoWithEnclave),
 			StartOptions: []e2esys.StartOption{
 				launchEspressoAttestationVerifierServiceDockerContainer(ct),
 				{
