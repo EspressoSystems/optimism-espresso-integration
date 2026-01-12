@@ -127,45 +127,45 @@ else
     echo "  OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY:+[set]}"
 fi
 
-# Setup tracking files for local deployment
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    PID_FILE="/tmp/enclave-tools.pid"
-    CONTAINER_TRACKER_FILE="/tmp/enclave-containers.txt"
-    STATUS_FILE="/tmp/enclave-status.json"
+# Setup tracking files
+PID_FILE="/tmp/enclave-tools.pid"
+CONTAINER_TRACKER_FILE="/tmp/enclave-containers.txt"
+STATUS_FILE="/tmp/enclave-status.json"
 
-    # Cleanup function for local deployment
-    cleanup() {
-        echo "Cleaning up enclave resources..."
-        if [ -f "$PID_FILE" ]; then
-            STORED_PID=$(cat "$PID_FILE")
-            if kill -0 "$STORED_PID" 2>/dev/null; then
-                echo "Terminating enclave-tools process (PID: $STORED_PID)"
-                kill -TERM "$STORED_PID" 2>/dev/null || true
-                sleep 5
-                kill -KILL "$STORED_PID" 2>/dev/null || true
+# Cleanup function
+cleanup() {
+    echo "Cleaning up enclave resources..."
+    if [ -f "$PID_FILE" ]; then
+        STORED_PID=$(cat "$PID_FILE")
+        if kill -0 "$STORED_PID" 2>/dev/null; then
+            echo "Terminating enclave-tools process (PID: $STORED_PID)"
+            kill -TERM "$STORED_PID" 2>/dev/null || true
+            sleep 5
+            kill -KILL "$STORED_PID" 2>/dev/null || true
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    # Clean up any remaining enclave containers
+    if [ -f "$CONTAINER_TRACKER_FILE" ]; then
+        while IFS= read -r container_id; do
+            if [ -n "$container_id" ] && docker ps -q --filter id="$container_id" | grep -q "$container_id"; then
+                echo "Stopping tracked enclave container: $container_id"
+                docker stop "$container_id" 2>/dev/null || true
+                docker rm "$container_id" 2>/dev/null || true
             fi
-            rm -f "$PID_FILE"
-        fi
+        done < "$CONTAINER_TRACKER_FILE"
+        rm -f "$CONTAINER_TRACKER_FILE"
+    fi
 
-        # Clean up any remaining enclave containers
-        if [ -f "$CONTAINER_TRACKER_FILE" ]; then
-            while IFS= read -r container_id; do
-                if [ -n "$container_id" ] && docker ps -q --filter id="$container_id" | grep -q "$container_id"; then
-                    echo "Stopping tracked enclave container: $container_id"
-                    docker stop "$container_id" 2>/dev/null || true
-                    docker rm "$container_id" 2>/dev/null || true
-                fi
-            done < "$CONTAINER_TRACKER_FILE"
-            rm -f "$CONTAINER_TRACKER_FILE"
-        fi
+    rm -f "$STATUS_FILE"
+    exit 0
+}
 
-        rm -f "$STATUS_FILE"
-        exit 0
-    }
+# Setup signal handlers
+trap cleanup SIGTERM SIGINT EXIT
 
-    # Setup signal handlers for local deployment
-    trap cleanup SIGTERM SIGINT EXIT
-
+if [ "$DEPLOYMENT_MODE" = "local" ]; then
     # Get Docker network for local deployment
     DOCKER_NETWORK=$(docker network ls --filter name=espresso --format "{{.Name}}" | head -1)
     if [ -z "$DOCKER_NETWORK" ]; then
@@ -183,22 +183,14 @@ echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!
 
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    echo "$ENCLAVE_TOOLS_PID" > "$PID_FILE"
-    echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID (stored in $PID_FILE)"
-else
-    echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID"
-fi
+echo "$ENCLAVE_TOOLS_PID" > "$PID_FILE"
+echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID (stored in $PID_FILE)"
 
 # Wait for enclave-tools to finish starting the enclave container
 echo "Waiting for enclave-tools to complete startup..."
 wait $ENCLAVE_TOOLS_PID
 ENCLAVE_TOOLS_EXIT_CODE=$?
 echo "Enclave-tools process completed with exit code: $ENCLAVE_TOOLS_EXIT_CODE"
-
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    rm -f "$PID_FILE"
-fi
 
 # Check if enclave-tools failed
 if [ $ENCLAVE_TOOLS_EXIT_CODE -ne 0 ]; then
@@ -232,10 +224,10 @@ echo "  ID: $CONTAINER_ID"
 echo "  Image: $CONTAINER_IMAGE"
 echo "  Started: $STARTED_AT"
 
-# Setup status tracking for local deployment
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    echo "$CONTAINER_NAME" >> "$CONTAINER_TRACKER_FILE"
+# Setup status tracking
+echo "$CONTAINER_NAME" >> "$CONTAINER_TRACKER_FILE"
 
+if [ "$DEPLOYMENT_MODE" = "local" ]; then
     # Create initial status file
     cat > "$STATUS_FILE" <<EOF
 {
