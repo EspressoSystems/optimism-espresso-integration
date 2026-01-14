@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -590,6 +591,16 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
 	if err != nil {
 		bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
+
+		// Check if enclave tests are enabled - if so, fail immediately
+		if os.Getenv("ESPRESSO_RUN_ENCLAVE_TESTS") != "" {
+			return fmt.Errorf("ESPRESSO_RUN_ENCLAVE_TESTS is set but batcher is not running in enclave: %w", err)
+		}
+
+		// Check if enclave is required - if so, fail immediately
+		if cfg.Espresso.RequireEnclave {
+			return fmt.Errorf("batcher is configured to require enclave (--espresso.require-enclave=true) but is not running in enclave: %w", err)
+		}
 
 		// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
 		privateKey := cfg.Espresso.TestingBatcherPrivateKey

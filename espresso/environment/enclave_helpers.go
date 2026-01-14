@@ -350,7 +350,7 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 		},
 		Defaults: &EnclaverManifestDefaults{
 			CpuCount: 2,
-			MemoryMb: 4096,
+			MemoryMb: 8192,
 		},
 		Egress: &EnclaverManifestEgress{
 			ProxyPort: 10000,
