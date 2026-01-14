@@ -42,7 +42,6 @@ type LightClientCallerInterface interface {
 type EspressoClient interface {
 	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
 	StreamTransactionsInNamespace(ctx context.Context, height uint64, namespace uint64) (espressoClient.Stream[espressoCommon.TransactionQueryData], error)
-	FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error)
 	FetchNamespaceTransactionsInRange(ctx context.Context, fromHeight uint64, toHeight uint64, namespace uint64) ([]types.NamespaceTransactionsRangeData, error)
 }
 
