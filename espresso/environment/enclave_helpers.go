@@ -208,6 +208,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}
 						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService)
+						appendArg(&args, espresso.RequireEnclaveFlagName, true)
 
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {
@@ -350,7 +351,7 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 		},
 		Defaults: &EnclaverManifestDefaults{
 			CpuCount: 2,
-			MemoryMb: 8192,
+			MemoryMb: 4096,
 		},
 		Egress: &EnclaverManifestEgress{
 			ProxyPort: 10000,
