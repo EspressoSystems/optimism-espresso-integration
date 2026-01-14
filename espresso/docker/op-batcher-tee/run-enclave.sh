@@ -166,33 +166,34 @@ trap cleanup SIGTERM SIGINT EXIT
 echo "Starting enclave with command:"
 echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\" --detach false"
 
-enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
+enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" --detach false &
 ENCLAVE_TOOLS_PID=$!
 
 echo "$ENCLAVE_TOOLS_PID" > "$PID_FILE"
 echo "Enclave-tools started with PID: $ENCLAVE_TOOLS_PID (stored in $PID_FILE)"
 
-# Wait for enclave-tools to finish starting the enclave container
-echo "Waiting for enclave-tools to complete startup..."
-wait $ENCLAVE_TOOLS_PID
-ENCLAVE_TOOLS_EXIT_CODE=$?
-echo "Enclave-tools process completed with exit code: $ENCLAVE_TOOLS_EXIT_CODE"
-
-# Check if enclave-tools failed
-if [ $ENCLAVE_TOOLS_EXIT_CODE -ne 0 ]; then
-    echo "ERROR: enclave-tools failed with exit code $ENCLAVE_TOOLS_EXIT_CODE"
-    exit $ENCLAVE_TOOLS_EXIT_CODE
-fi
-
-# Wait for container to fully initialize
-sleep 5
-
-# Find the enclave container that was started
+# Find the enclave container that was started (retry for up to 10 minutes)
 echo "Looking for running enclave container..."
-CONTAINER_NAME=$(docker ps --format "table {{.Names}}" | grep "batcher-enclaver-" | head -1)
+TIMEOUT=600  # 10 minutes in seconds
+INTERVAL=5   # Check every 5 seconds
+ELAPSED=0
+CONTAINER_NAME=""
+
+while [ $ELAPSED -lt $TIMEOUT ]; do
+    CONTAINER_NAME=$(docker ps --format "table {{.Names}}" | grep "batcher-enclaver-" | head -1)
+
+    if [ -n "$CONTAINER_NAME" ]; then
+        echo "Found enclave container: $CONTAINER_NAME"
+        break
+    fi
+
+    echo "Container not found yet, retrying in ${INTERVAL}s... (${ELAPSED}s elapsed)"
+    sleep $INTERVAL
+    ELAPSED=$((ELAPSED + INTERVAL))
+done
 
 if [ -z "$CONTAINER_NAME" ]; then
-    echo "ERROR: No enclave container found after waiting."
+    echo "ERROR: No enclave container found after waiting ${TIMEOUT}s."
     echo "Checking all Docker containers:"
     docker ps -a
     exit 1
