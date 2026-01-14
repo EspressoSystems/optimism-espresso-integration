@@ -135,6 +135,13 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, detach bool, ar
 		ctx,
 		"docker",
 		"run",
+	)
+
+	if detach {
+		cmd.Args = append(cmd.Args, "-d")
+	}
+
+	cmd.Args = append(cmd.Args,
 		"--rm",
 		"--privileged",
 		"--net=host",
@@ -142,9 +149,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, detach bool, ar
 		"--device=/dev/nitro_enclaves",
 		name,
 	)
-	if detach {
-		cmd.Args = append(cmd.Args, "-d")
-	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
