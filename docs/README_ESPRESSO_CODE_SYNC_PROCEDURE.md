@@ -15,7 +15,7 @@
 - *Celo-Kona fork repo*: `kona-celo-fork` repo, forked from the `celo-org/kona` repo, which is a fork of `op-rs/kona`.
 - *Succinct repo*: `op-succinct` repo, forked from the `celo-org/op-succinct` repo and imports the Kona fork and Celo Kona fork repos.
 
-(Refer to [op-succinct-repos.svg](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/docs/op-succinct-repos.svg) for the relationship among Espresso and Celo repos.)
+(Refer to [op-succinct-repos.png](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/docs/op-succinct-repos.png) for the relationship among Espresso and Celo repos.)
 
 ## Procedure: Sync with Celo
 
