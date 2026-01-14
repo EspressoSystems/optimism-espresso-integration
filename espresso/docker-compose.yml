@@ -527,7 +527,7 @@ services:
   # Succinct proposer for ZK fault proofs
   succinct-proposer:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-b0b76cc
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-78ef8f5
     depends_on:
       l1-data-init:
         condition: service_completed_successfully
@@ -620,7 +620,7 @@ services:
   # Succinct challenger for ZK fault proofs
   succinct-challenger:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-b0b76cc
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-78ef8f5
     depends_on:
       l1-geth:
         condition: service_started
