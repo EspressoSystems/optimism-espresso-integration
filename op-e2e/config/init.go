@@ -305,14 +305,6 @@ func initAllocType(root string, allocType AllocType) {
 				intent.L1DevGenesisParams.Prefund[nonTeeBatcherAddr] = millionEth
 			}
 
-			if allocType == AllocTypeEspressoWithoutEnclave {
-				ephemeralPk, err := crypto.HexToECDSA(ESPRESSO_TESTING_BATCHER_EPHEMERAL_KEY)
-				if err != nil {
-					panic(fmt.Errorf("failed to parse batcher private key: %w", err))
-				}
-				intent.Chains[0].PreRegisteredBatcher = crypto.PubkeyToAddress(ephemeralPk.PublicKey)
-			}
-
 			baseUpgradeSchedule := map[string]any{
 				"l2GenesisRegolithTimeOffset": nil,
 				"l2GenesisCanyonTimeOffset":   nil,
