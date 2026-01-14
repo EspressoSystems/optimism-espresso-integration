@@ -37,8 +37,8 @@ trap cleanup EXIT
 # Give anvil a moment to start up
 sleep 1
 
-cast rpc anvil_setBalance "${OPERATOR_ADDRESS}" 0x100000000000000000000000000000000000
-cast rpc anvil_setBalance "${PROPOSER_ADDRESS}" 0x100000000000000000000000000000000000
+cast rpc anvil_setBalance "${OPERATOR_ADDRESS}" 0x100000000000000000000000000000000000 --rpc-url "${ANVIL_URL}"
+cast rpc anvil_setBalance "${PROPOSER_ADDRESS}" 0x100000000000000000000000000000000000 --rpc-url "${ANVIL_URL}"
 
 op-deployer bootstrap proxy \
                       --l1-rpc-url="${ANVIL_URL}" \
