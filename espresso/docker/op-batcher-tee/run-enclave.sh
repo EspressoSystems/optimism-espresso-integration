@@ -23,11 +23,7 @@ MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MEMORY_MB="${ENCLAVE_MEMORY_MB:-4096}"
 CPU_COUNT="${ENCLAVE_CPU_COUNT:-2}"
 
-# Deployment mode detection
-DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-aws}"  # 'local' or 'aws'
-
 echo "=== Enclave Batcher Configuration ==="
-echo "Deployment Mode: $DEPLOYMENT_MODE"
 echo "L1 RPC URL: $L1_RPC_URL"
 echo "L2 RPC URL: $L2_RPC_URL"
 echo "Rollup RPC URL: $ROLLUP_RPC_URL"
@@ -135,6 +131,7 @@ STATUS_FILE="/tmp/enclave-status.json"
 # Cleanup function
 cleanup() {
     echo "Cleaning up enclave resources..."
+
     if [ -f "$PID_FILE" ]; then
         STORED_PID=$(cat "$PID_FILE")
         if kill -0 "$STORED_PID" 2>/dev/null; then
@@ -165,20 +162,9 @@ cleanup() {
 # Setup signal handlers
 trap cleanup SIGTERM SIGINT EXIT
 
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    # Get Docker network for local deployment
-    DOCKER_NETWORK=$(docker network ls --filter name=espresso --format "{{.Name}}" | head -1)
-    if [ -z "$DOCKER_NETWORK" ]; then
-        DOCKER_NETWORK="espresso_default"
-    fi
-    echo "Using Docker network: $DOCKER_NETWORK"
-    export DOCKER_DEFAULT_NETWORK="$DOCKER_NETWORK"
-    export ENCLAVE_DOCKER_NETWORK="$DOCKER_NETWORK"
-fi
-
 # Run the enclave
 echo "Starting enclave with command:"
-echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
+echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\" --detach false"
 
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!
@@ -227,9 +213,8 @@ echo "  Started: $STARTED_AT"
 # Setup status tracking
 echo "$CONTAINER_NAME" >> "$CONTAINER_TRACKER_FILE"
 
-if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    # Create initial status file
-    cat > "$STATUS_FILE" <<EOF
+# Create initial status file
+cat > "$STATUS_FILE" <<EOF
 {
   "container_id": "$CONTAINER_ID",
   "container_name": "$CONTAINER_NAME",
@@ -240,7 +225,6 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
   "enclave_tools_exit_code": $ENCLAVE_TOOLS_EXIT_CODE
 }
 EOF
-fi
 
 # Start capturing container logs in background
 echo "Starting log capture for container $CONTAINER_NAME"
@@ -267,8 +251,8 @@ while true; do
         EXIT_CODE=$(docker inspect "$CONTAINER_NAME" 2>/dev/null | jq -r '.[0].State.ExitCode' 2>/dev/null || echo "unknown")
         echo "Container exit code: $EXIT_CODE"
 
-        # Update status file for local deployment
-        if [ "$DEPLOYMENT_MODE" = "local" ] && [ -n "$STATUS_FILE" ]; then
+        # Update status file
+        if [ -n "$STATUS_FILE" ]; then
             cat > "$STATUS_FILE" <<EOF
 {
   "container_id": "$CONTAINER_ID",
@@ -292,8 +276,8 @@ EOF
         # Show container resource usage
         docker stats --no-stream "$CONTAINER_NAME" 2>/dev/null || echo "Could not get container stats"
 
-        # Update status file for local deployment
-        if [ "$DEPLOYMENT_MODE" = "local" ] && [ -n "$STATUS_FILE" ]; then
+        # Update status file
+        if [ -n "$STATUS_FILE" ]; then
             cat > "$STATUS_FILE" <<EOF
 {
   "container_id": "$CONTAINER_ID",

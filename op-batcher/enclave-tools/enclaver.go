@@ -124,7 +124,7 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 }
 
 // RunEnclave runs an enclaver EIF image `name` with the provided arguments. Stdout and stderr are redirected to the parent process.
-func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
+func (*EnclaverCli) RunEnclave(ctx context.Context, name string, detach bool, args []string) error {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
 
@@ -136,13 +136,15 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"docker",
 		"run",
 		"--rm",
-		"-d",
 		"--privileged",
 		"--net=host",
 		"--name=batcher-enclaver-"+nameSuffix,
 		"--device=/dev/nitro_enclaves",
 		name,
 	)
+	if detach {
+		cmd.Args = append(cmd.Args, "-d")
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -152,14 +154,22 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		return fmt.Errorf("failed to start enclave container: %w", err)
 	}
 
-	// Wait for container to start
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("enclave exited with an error: %w", err)
+	if detach {
+		// Wait for container to start
+		if err := cmd.Wait(); err != nil {
+			return fmt.Errorf("enclave exited with an error: %w", err)
+		}
 	}
 
 	// Send arguments to enclave via nc listener
 	if err := sendArgsToEnclave(ctx, args); err != nil {
 		return fmt.Errorf("failed to send arguments to enclave: %w", err)
+	}
+
+	if !detach {
+		if err := cmd.Wait(); err != nil {
+			return fmt.Errorf("enclave exited with an error: %w", err)
+		}
 	}
 
 	return nil

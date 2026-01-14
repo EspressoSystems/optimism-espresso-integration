@@ -108,6 +108,11 @@ AWS Nitro Enclaves configuration.`,
 				Name:  "args",
 				Usage: "Command-line arguments to dynamically send to enclave (comma-separated)",
 			},
+			&cli.BoolFlag{
+				Name:  "detach",
+				Usage: "Whether to detach from the container when started",
+				Value: true,
+			},
 		},
 		Action: runAction,
 	}
@@ -177,6 +182,7 @@ func registerAction(c *cli.Context) error {
 func runAction(c *cli.Context) error {
 	imageName := c.String("image")
 	argsStr := c.String("args")
+	detach := c.Bool("detach")
 
 	// Parse arguments
 	args, err := ParseBatcherArgs(argsStr)
@@ -188,7 +194,7 @@ func runAction(c *cli.Context) error {
 	enclaverCli := &enclave_tools.EnclaverCli{}
 
 	slog.Info("Starting enclave", "image", imageName)
-	err = enclaverCli.RunEnclave(ctx, imageName, args)
+	err = enclaverCli.RunEnclave(ctx, imageName, detach, args)
 	if err != nil {
 		return err
 	}
