@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -41,7 +40,6 @@ type LightClientCallerInterface interface {
 // for modification / wrapping.
 type EspressoClient interface {
 	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
-	StreamTransactionsInNamespace(ctx context.Context, height uint64, namespace uint64) (espressoClient.Stream[espressoCommon.TransactionQueryData], error)
 	FetchNamespaceTransactionsInRange(ctx context.Context, fromHeight uint64, toHeight uint64, namespace uint64) ([]types.NamespaceTransactionsRangeData, error)
 }
 
@@ -337,16 +335,15 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 // and therefore processed from Hotshot.
 func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish uint64) error {
 	// Process the new batches fetched from Espresso
-	s.Log.Trace("Fetching HotShot block", "start", start, "finish", finish)
+	s.Log.Trace("Fetching HotShot block range", "start", start, "finish", finish)
 
+	// FetchNamespaceTransactionsInRange fetches transactions in [start, finish)
 	namespaceRangeTransactions, err := s.EspressoClient.FetchNamespaceTransactionsInRange(ctx, start, finish, s.Namespace)
 	if err != nil {
-		// TODO (QuentinI): workaround for lagging query service payload availability
-		// SDK needs an update to allow us to distinguish 404s from other errors
-		return nil
+		return err
 	}
 
-	s.Log.Trace("Fetched HotShot block", "start", start, "finish", finish, "numNamespaceTransactions", len(namespaceRangeTransactions))
+	s.Log.Trace("Fetched HotShot block range", "start", start, "finish", finish, "numNamespaceTransactions", len(namespaceRangeTransactions))
 
 	// We want to keep track of the latest block we have processed.
 	// This is essential for ensuring we don't unnecessarily keep
@@ -355,7 +352,7 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 	// from the Espresso Blocks without missing any blocks.
 	s.hotShotPos = finish - 1
 	if len(namespaceRangeTransactions) == 0 {
-		s.Log.Trace("No transactions in hotshot block", "start", start, "finish", finish)
+		s.Log.Trace("No transactions in hotshot block range", "start", start, "finish", finish)
 	}
 
 	for _, namespaceTransaction := range namespaceRangeTransactions {
