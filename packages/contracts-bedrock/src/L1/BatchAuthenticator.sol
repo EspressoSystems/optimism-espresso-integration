@@ -26,10 +26,6 @@ contract BatchAuthenticator is ISemver, Ownable {
     /// @notice Address of the non-TEE (fallback) batcher that can post when TEE is inactive.
     address public immutable nonTeeBatcher;
 
-    /// @notice Key of pre-registered TEE batcher that can authenticate batches without
-    /// calling registerSigner first. For testing only.
-    address public immutable preRegisteredBatcher;
-
     IEspressoTEEVerifier public immutable espressoTEEVerifier;
 
     /// @notice Flag indicating which batcher is currently active.
@@ -40,7 +36,6 @@ contract BatchAuthenticator is ISemver, Ownable {
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
         address _nonTeeBatcher,
-        address _preRegisteredBatcher,
         address _owner
     )
         Ownable()
@@ -53,7 +48,6 @@ contract BatchAuthenticator is ISemver, Ownable {
         nonTeeBatcher = _nonTeeBatcher;
         // By default, start with the TEE batcher active.
         activeIsTee = true;
-        preRegisteredBatcher = _preRegisteredBatcher;
         _transferOwnership(_owner);
     }
 
@@ -75,12 +69,10 @@ contract BatchAuthenticator is ISemver, Ownable {
 
         require(signer != address(0), "BatchAuthenticator: invalid signature");
 
-        if (signer != preRegisteredBatcher) {
-            require(
-                espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer),
-                "BatchAuthenticator: invalid signer"
-            );
-        }
+        require(
+            espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer),
+            "BatchAuthenticator: invalid signer"
+        );
 
         validBatchInfo[commitment] = true;
         emit BatchInfoAuthenticated(commitment, signer);
