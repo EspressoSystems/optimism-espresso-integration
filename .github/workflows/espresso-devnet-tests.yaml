@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [0, 1, 2, 3]
+        group: [0, 1, 2, 3, 4]
         include:
           - group: 0
             tests: "TestChallengeGame|TestChangeBatchInboxOwner"
@@ -26,6 +26,9 @@ jobs:
           - group: 3
             tests: "TestSmokeWithTEE|TestForcedTransaction"
             tee: true
+          - group: 4
+            tests: "TestBatcherActivePublishOnly"
+            tee: false
     env:
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
