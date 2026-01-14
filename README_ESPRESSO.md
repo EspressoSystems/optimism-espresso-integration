@@ -462,7 +462,7 @@ Note importantly that OP Succinct (both in the case of Celo and Espresso) import
 The OP Succinct repository for Espresso generates using Github actions the docker images for the challenger and proposer services.
 
 
-![image](docs/op-succinct-repos.svg)
+![image](docs/op-succinct-repos.png)
 
 The table below is more specific regarding which branches of these repositories are used.
 
