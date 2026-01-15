@@ -250,7 +250,8 @@ func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight u
 		// reprocessing the same block, we want to start from the next block.
 		start++
 	}
-	finish = min(start+limit, currentBlockHeight)
+	// `FetchNamespaceTransactionsInRange` is exclusive to finish, so we add 1 to currentBlockHeight
+	finish = min(start+limit, currentBlockHeight+1)
 
 	return start, finish
 }
