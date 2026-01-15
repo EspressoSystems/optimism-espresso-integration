@@ -89,9 +89,7 @@ type MockStreamerSource struct {
 // FetchNamespaceTransactionsInRange implements espresso.EspressoClient.
 func (m *MockStreamerSource) FetchNamespaceTransactionsInRange(ctx context.Context, fromHeight uint64, toHeight uint64, namespace uint64) ([]espressoCommon.NamespaceTransactionsRangeData, error) {
 	var result []espressoCommon.NamespaceTransactionsRangeData
-	if toHeight > m.LatestEspHeight {
-		toHeight = m.LatestEspHeight
-	}
+
 	if fromHeight > toHeight {
 		return nil, ErrNotFound
 	}
