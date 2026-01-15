@@ -502,3 +502,19 @@ Some relevant documents:
 * [Documentation of configuration parameters](docs/README_ESPRESSO_DEPLOY_CONFIG.md)
 * [Celo Testnet Migration Guide](docs/CELO_TESTNET_MIGRATION.md) (WIP)
 
+
+## Generating alloc.json file
+First go to `espresso-network` repo and from inside `espresso-dev-node` folder run:
+```
+cargo run --bin espresso-dev-node  -- --sequencer-api-port 24000 --l1-deployment dump --path .
+```
+This will print out the `allocs.json` file to STDOUT
+
+Then to copy it to `optimisim-espresso-integration` repo run the following from inside the `espresso` folder:
+```
+./scripts/reshape-allocs.jq /path/to/devnode/generated/allocs.json > environment/allocs.json
+```
+To update the env variables in ./espresso/.env run:
+```
+./scripts/espresso-allocs-to-env.jq ./environment/allocs.json
+```
