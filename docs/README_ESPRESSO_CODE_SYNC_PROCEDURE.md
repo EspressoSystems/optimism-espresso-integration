@@ -11,15 +11,15 @@
 
 - *Celo tip branch*, or *tip branch*: `celo-tip-rebase-x` branch, where `x` corresponds to the index Celo uses in their `celo-rebase-x` branch name. The Celo tip branch is directly synced from Celo.
 - *Celo integration branch*: `celo-integration-rebase-x.y` branch, where `x` corresponds to the index in the tip branch, and `y` corresponds to the index of our biweekly sync. The Celo integration branch contains our changes and Celo’s.
-- *Kona fork repo*: `kona` repo, forked from the `op-rs/kona` repo and contains our derivation changes.
-- *Celo-Kona fork repo*: `kona-celo-fork` repo, forked from the `celo-org/kona` repo, which is a fork of `op-rs/kona`.
-- *Succinct repo*: `op-succinct` repo, forked from the `celo-org/op-succinct` repo and imports the Kona fork and Celo Kona fork repos.
+- *Kona fork repo*: [kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration) repo, forked from the `celo-org/kona` repo which is a fork of `op-rs/kona`, and contains our derivation changes.
+- *Celo-Kona fork repo*: [celo-kona](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) repo, forked from the `celo-org/celo-kona` repo.
+- *Succinct repo*: [op-succinct](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration) repo, forked from the `celo-org/op-succinct` repo and dependent on the Kona fork and Celo Kona fork repos.
 
 (Refer to [op-succinct-repos.png](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/docs/op-succinct-repos.png) for the relationship among Espresso and Celo repos.)
 
 ## Procedure: Sync with Celo
 
-- (When: every other Friday, before syncing with Kona repos following [Procedure: Sync with Succinct](#procedure-sync-with-succinct).)
+- (When: typically every other Friday, after syncing with Kona repos following [Procedure: Sync with Succinct](#procedure-sync-with-succinct).)
 - Set a cutoff time and let the team know about this.
     - This is to prevent the case where a team member is working on something necessary to be merged to the default branch ASAP, but the code syncing process may block that.
 - Sync the Celo tip branch with the latest version at https://github.com/celo-org/optimism.
@@ -31,7 +31,7 @@
     git fetch celo-upstream
     ```
 
-    - If Celo’s [default branch](https://github.com/celo-org/optimism) has no updates since our last code sync, proceed to [Procedure: Sync with Succinct](#procedure-sync-with-succinct).
+    - If Celo’s [default branch](https://github.com/celo-org/optimism) has no updates since our last code sync, proceed to [Procedure: Summary and Notification](#procedure-summary-and-notification).
     - Otherwise, if Celo’s branch is on `x` and our tip branch is on `x.y`, create a new tip branch `celo-rebase-x.y'` where `y' = y + 1`.
 
     ```
@@ -122,7 +122,7 @@
 
 ## Procedure: Sync with Succinct
 
-- (When: every other Friday, after syncing with Celo following [Procedure: Sync with Celo](#procedure-sync-with-celo).)
+- (When: typically every other Friday, before syncing with Celo following [Procedure: Sync with Celo](#procedure-sync-with-celo).)
 - Set a cutoff time and let the team know about this.
     - This is to prevent the case where a team member is working on something necessary to be merged to the default branch ASAP, but the code syncing process may block that.
 
@@ -139,18 +139,25 @@ git fetch kona-upstream
     - Note: The default branch is `replace-max-sequencer-drift-v1.1.7` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1765799738195899?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Kona branch.
 
-```
-git checkout -b espresso-integration-x kona-upstream/main
-```
-
-- Rebase the original Kona fork branch `espresso-integration-x` onto Celo’s Succinct branch.
-
-```jsx
-git rebase espresso-integration-x
+```bash
+git checkout -b espresso-integration-x kona-upstream/replace-max-sequencer-drift-v1.1.7
 ```
 
-- Resolve conflicts, if any.
+- Cherry-pick commits from the original Kona branch `espresso-integration-x` onto Celo’s Kona branch.
+
+```bash
+git cherry-pick espresso-integration-x ^kona-upstream/replace-max-sequencer-drift-v1.1.7
+```
+
+- Follow the prompt to fix any cherry-pick issues.
+
 - Push the new branch *directly*.
+
+```bash
+git push -u origin espresso-integration-y --force
+```
+
+- Double-check the commit history.
 
 ### 2. Sync Celo-Kona Fork Repo
 
@@ -161,22 +168,29 @@ git remote add celo-kona-upstream https://github.com/celo-org/celo-kona
 git fetch celo-kona-upstream
 ```
 
-- If Celo’s [default Celo-Kona branch](https://github.com/celo-org/celo-kona) has no updates since our last code sync, proceed to [3. Sync Succinct Repo](#3-sync-succinct-repo).
+- If Celo’s [default Celo-Kona branch](https://github.com/celo-org/celo-kona/tree/release/v1.0.0-rc.4) has no updates since our last code sync, proceed to [3. Sync Succinct Repo](#3-sync-succinct-repo).
+  - Note: The default branch is `release/v1.0.0-rc.4` as of January, 2026.
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Celo-Kona branch.
 
-```
-git checkout -b espresso-integration-x celo-kona-upstream/main
-```
-
-- Rebase the original Celo-Kona fork branch `espresso-integration-x` onto Celo’s Celo-Kona branch.
-
-```jsx
-git rebase espresso-integration-x
+```bash
+git checkout -b espresso-integration-x celo-kona-upstream/release/v1.0.0-rc.4
 ```
 
-- Resolve conflicts, if any.
-- Make sure the CI passes.
+- Cherry-pick commits from the original Celo-Kona fork branch `espresso-integration-x` onto Celo’s Celo-Kona branch.
+
+```bash
+git cherry-pick espresso-integration-x ^celo-kona-upstream/release/v1.0.0-rc.4
+```
+
+- Follow the prompt to fix any cherry-pick issues.
+
 - Push the new branch *directly*.
+
+```bash
+git push -u origin espresso-integration-y --force
+```
+
+- Double-check the commit history.
 
 ### 3. Sync Succinct Repo
 
@@ -187,24 +201,41 @@ git remote add succinct-upstream https://github.com/celo-org/op-succinct.git
 git fetch succinct-upstream
 ```
 
-- If Celo’s [default OP Succinct branch](https://github.com/celo-org/op-succinct) has no updates since our last code sync, skip this week and let the team know.
+- If Celo’s [default OP Succinct branch](https://github.com/celo-org/op-succinct) has no updates since our last code sync, proceed to [Procedure: Sync with Celo](#procedure-sync-with-celo).
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Succinct branch.
 
-```
+```bash
 git checkout -b espresso-integration-x succinct-upstream/develop
 ```
 
-- Rebase the original Succinct branch `espresso-integration-x` onto Celo’s Succinct branch.
+- Cherry-pick commits from the original Succinct branch `espresso-integration-x` onto Celo’s Succinct branch.
 
-```jsx
-git rebase espresso-integration-x
+```bash
+git cherry-pick espresso-integration-x ^succinct-upstream/develop
 ```
 
-- Resolve conflicts, if any.
+- Follow the prompt to fix any cherry-pick issues.
+
 - Push the new branch *directly*.
-- Make sure the CI passes.
-- Let the team know the Celo and Succinct sync is complete and update the default branches.
+
+```bash
+git push -u origin espresso-integration-y --force
+```
+
+- Double-check the commit history.
+
+- Start the [Build OP Succinct Lite Docker Images](https://github.com/EspressoSystems/op-succinct/actions/workflows/docker-build-lite.yaml) CI workflow.
+
+- After the CI completes, get the latest SHA of the [op-succinct-lite-proposer-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo) and [op-succinct-lite-challenger-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo) and proceed to [Procedure: Sync with Celo](#procedure-sync-with-celo).
+
+## Procedure: Summary and Notification
+
+- Document the new branches in [Code Sync Version](https://www.notion.so/espressosys/Code-Sync-Version-2e92431b68e98028901dc48c71aa8c3a).
+
+- Let the team know that the Celo and Succinct sync is complete and they should be prepared to use the new default branches.
     - It is expected to be done by EOD next Monday, but we do not usually have a hard deadline for this, so just make sure to communicate with the team about the progress.
+
+- Set the new default branches.
 
 # Procedure: Cherry-Pick to Celo’s Upstreams
 
