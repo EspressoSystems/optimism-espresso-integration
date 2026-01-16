@@ -20,6 +20,7 @@ import (
 
 // TestE2eDevnetWithEspressoAndEnclaveSimpleTransactions launches the e2e Dev Net with the Espresso
 // Dev Node in Enclave and runs a couple of simple transactions to it.
+// The test will return error if not running on a machine with AWS Nitro Enclave.
 func TestE2eDevnetWithEspressoAndEnclaveSimpleTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
