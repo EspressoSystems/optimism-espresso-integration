@@ -543,13 +543,14 @@ Some relevant documents:
 
 
 ## Generating alloc.json file
-First go to `espresso-network` repo and from inside `espresso-dev-node` folder run:
+
+To generate the `allocs.json` file run:
 ```
-cargo run --bin espresso-dev-node  -- --sequencer-api-port 24000 --l1-deployment dump --path .
+docker run -it --rm ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:tag /bin/espresso-dev-node --sequencer-api-port 24000 --l1-deployment dump --path .
 ```
 This will print out the `allocs.json` file to STDOUT
 
-Then to copy it to `optimisim-espresso-integration` repo run the following from inside the `espresso` folder:
+To copy it to `environment/allocs.json` run the following:
 ```
 ./scripts/reshape-allocs.jq /path/to/devnode/generated/allocs.json > environment/allocs.json
 ```
