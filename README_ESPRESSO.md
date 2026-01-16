@@ -2,8 +2,8 @@
 
 Notes:
 
-- For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
-- For code sync with upstreams, read `README_ESPRESSO_CODE_SYNC_PROCEDURE.md`.
+* For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
+* For code sync with upstreams, read `README_ESPRESSO_CODE_SYNC_PROCEDURE.md`.
 
 ## Development environment
 
@@ -16,9 +16,9 @@ Notes:
 
 ### Nix shell
 
-- Install nix following the instructions at <https://nixos.org/download/>
+* Install nix following the instructions at <https://nixos.org/download/>
 
-- Enter the nix shell of this project
+* Enter the nix shell of this project
 
 ```console
 > nix develop .
@@ -77,11 +77,10 @@ To run the devnet tests:
 ```
 
 #### Espresso Attestation Verifier
-
 The Espresso Attestation Verifier is utilized to register Attestations for the
 Builder. For the E2E Testnet (utilized in local testing) this is provided as
-an opt-in configuration. The live Batcher is expected to run with this
-enabled and configured. If it is not configured and we have an Attestation
+an opt-in configuration.  The live Batcher is expected to run with this
+enabled and configured.  If it is not configured and we have an Attestation
 a warning log will be issued.
 
 In order to enable the Espresso Attestation Verifier in the local E2E tests
@@ -96,15 +95,15 @@ option:
 ```
 
 |> NOTE: This configuration has default values configured for convenience
-and to make the Attestation Verifier Service launch without any external
-configuration being required. However, the option itself can also take
-options that allow the values to be overridden.
-Additionally, to preserve the previous behavior of the Attestation Verifier
-it also supports configuration via the same Environment Variables that
-were previously required.
+  and to make the Attestation Verifier Service launch without any external
+  configuration being required.  However, the option itself can also take
+  options that allow the values to be overridden.
+  Additionally, to preserve the previous behavior of the Attestation Verifier
+  it also supports configuration via the same Environment Variables that
+  were previously required.
 
 These environment variables are set in the [espresso/.env](espresso/.env) file for reference.
-However for clarity they are listed here. These values will only be used
+However for clarity they are listed here.  These values will only be used
 in the testing when they are populated to a non-empty value.
 
 ```env
@@ -120,6 +119,7 @@ ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER=<Whether or not to use docker f
 ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG=<The RUST_LOG level to pass to the service>
 ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE=<The Docker Image to utilize for the attestation verifier service>
 ```
+
 
 ### Misc commands
 
@@ -153,15 +153,15 @@ Use the AWS Management Console or AWS CLI to launch a new EC2 instance.
 
 Make sure to:
 
-- **Enable Enclaves**
-  - In the CLI: set the `--enclave-options` flag to `true`
-  - In the Console: select `Enabled` under the **Enclave** section
+* **Enable Enclaves**
+  * In the CLI: set the `--enclave-options` flag to `true`
+  * In the Console: select `Enabled` under the **Enclave** section
 
-- **Use the following configuration:**
-  - **Architecture:** x86_64
-  - **AMI:** Amazon Linux 2023
-  - **Instance Type:** `m6a.2xlarge`
-  - **Volume Size:** 100 GB
+* **Use the following configuration:**
+  * **Architecture:** x86_64
+  * **AMI:** Amazon Linux 2023
+  * **Instance Type:** `m6a.2xlarge`
+  * **Volume Size:** 100 GB
 
 ##### 2. Connect to the Instance
 
@@ -177,14 +177,14 @@ Note that the command above can be found in the AWS Console by selecting the ins
 
 ##### 3. Install dependencies
 
-- Nix
+* Nix
 
 ```console
 sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
 source ~/.bashrc
 ```
 
-- Git, Docker
+* Git, Docker
 
 ```console
 sudo yum update
@@ -195,7 +195,7 @@ sudo service docker start
 sudo chown ec2-user /var/run/docker.sock
 ```
 
-- Nitro
+* Nitro
 
 These commands install the dependencies for, start the service related to and configures the enclave.
 
@@ -206,7 +206,7 @@ echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/all
 sudo systemctl start nitro-enclaves-allocator.service
 ```
 
-- Clone repository and update submodules
+* Clone repository and update submodules
 
 ```console
 git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
@@ -214,7 +214,7 @@ cd optimism-espresso-integration
 git submodule update --init --recursive
 ```
 
-- Enter the nix shell and run the enclave tests
+* Enter the nix shell and run the enclave tests
 
 ```console
 nix --extra-experimental-features "nix-command flakes" develop
@@ -277,17 +277,17 @@ This section describes how to run a local devnet.
 
 ## Run Docker Compose
 
-- Ensure that your Docker Compose, Engine, and plugins are up-to-date. Particularly, if the Docker
-  Compose version is `2.37.3` or the Docker Engine version is `27.4.0`, and the Docker build hangs,
-  you may need to upgrade the version.
+* Ensure that your Docker Compose, Engine, and plugins are up-to-date. Particularly, if the Docker
+Compose version is `2.37.3` or the Docker Engine version is `27.4.0`, and the Docker build hangs,
+you may need to upgrade the version.
 
-- Enter the Nix shell in the repo root.
+* Enter the Nix shell in the repo root.
 
 ```console
 nix develop
 ```
 
-- Build the op-deployer. This step needs to be re-run if the op-deployer is modified.
+* Build the op-deployer. This step needs to be re-run if the op-deployer is modified.
 
 ```console
 cd op-deployer
@@ -295,31 +295,31 @@ just
 cd ../
 ```
 
-- Build the contracts. This step needs to be re-run if the contracts are modified.
+* Build the contracts. This step needs to be re-run if the contracts are modified.
 
 ```console
 just compile-contracts
 ```
 
-- Go to the `espresso` directory.
+* Go to the `espresso` directory.
 
 ```console
 cd espresso
 ```
 
-- Shut down all containers.
+* Shut down all containers.
 
 ```console
 docker compose down -v --remove-orphans
 ```
 
-- Prepare OP contract allocations. Nix shell provides dependencies for the script. This step needs to be re-run only when the OP contracts are modified.
+* Prepare OP contract allocations. Nix shell provides dependencies for the script. This step needs to be re-run only when the OP contracts are modified.
 
 ```console
 ./scripts/prepare-allocs.sh
 ```
 
-- Build and start all services in the background.
+* Build and start all services in the background.
 
 ```console
 docker compose up --build -d
@@ -331,7 +331,7 @@ If you're on a machine with [AWS Nitro Enclaves enabled](#guide-setting-up-an-en
 COMPOSE_PROFILES=tee docker compose up --build -d
 ```
 
-- Run the services and check the log.
+* Run the services and check the log.
 
 ```console
 docker compose logs -f
@@ -339,19 +339,19 @@ docker compose logs -f
 
 ## Investigate a Service
 
-- Shut down all containers.
+* Shut down all containers.
 
 ```console
 docker compose down
 ```
 
-- Build and start the specific service and check the log.
+* Build and start the specific service and check the log.
 
 ```console
 docker compose up <service-name>
 ```
 
-- If the environment variable setting is not picked up, pass it explicitly.
+* If the environment variable setting is not picked up, pass it explicitly.
 
 ```console
 docker compose --env-file .env up <service-name>
@@ -359,39 +359,39 @@ docker compose --env-file .env up <service-name>
 
 ## Apply a Change
 
-- In most cases, simply remove all containers and run commands as normal.
+* In most cases, simply remove all containers and run commands as normal.
 
 ```console
 docker compose down
 ```
 
-- To start the project fresh, remove containers, volumes, and network, from this project.
+* To start the project fresh, remove containers, volumes, and network, from this project.
 
 ```console
 docker compose down -v
 ```
 
-- To start the system fresh, remove all volumes.
+* To start the system fresh, remove all volumes.
 
 ```console
 docker volume prune -a
 ```
 
-- If encountering an issue related to outdated deployment files, remove those files before
-  restarting.
-  - Go to the scripts directory.
+* If encountering an issue related to outdated deployment files, remove those files before
+restarting.
+  * Go to the scripts directory.
 
   ```console
   cd espresso/scripts
   ```
 
-  - Run the script.
+  * Run the script.
 
   ```console
   ./cleanup.sh
   ```
 
-- If you have changed OP contracts, you will have to start the devnet fresh and re-generate
+* If you have changed OP contracts, you will have to start the devnet fresh and re-generate
   the genesis allocations by running `prepare-allocs.sh`
 
 ## Log monitoring
@@ -410,32 +410,32 @@ In order to run the tests for the enclave in EC2 via github actions one must cre
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:RunInstances",
-        "ec2:DescribeInstances",
-        "ec2:TerminateInstances",
-        "ec2:DescribeImages",
-        "ec2:CreateTags",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeKeyPairs",
-        "ec2:ImportKeyPair",
-        "ec2:DescribeInstanceStatus"
-      ],
-      "Resource": "*"
-    }
-  ]
+ "Version": "2012-10-17",
+ "Statement": [
+  {
+   "Effect": "Allow",
+   "Action": [
+    "ec2:AuthorizeSecurityGroupIngress",
+    "ec2:RunInstances",
+    "ec2:DescribeInstances",
+    "ec2:TerminateInstances",
+    "ec2:DescribeImages",
+    "ec2:CreateTags",
+    "ec2:DescribeSecurityGroups",
+    "ec2:DescribeKeyPairs",
+    "ec2:ImportKeyPair",
+    "ec2:DescribeInstanceStatus"
+   ],
+   "Resource": "*"
+  }
+ ]
 }
 ```
 
 Currently, the github workflow in `.github/workflows/enclave.yaml` relies on AWS AMI with id `ami-0d259f3ae020af5f9` under `arn:aws:iam::324783324287`.
 In order to refresh this AMI one needs to:
 
-1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/enclave.yaml` _Launch EC2 Instance_ job).
+1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/enclave.yaml` *Launch EC2 Instance* job).
 2. Copy the script `espresso/scrips/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
@@ -443,7 +443,7 @@ In order to refresh this AMI one needs to:
 
 ## Prepare for the Deployment
 
-- Go to the scripts directory.
+* Go to the scripts directory.
 
 ```console
 cd espresso/scripts
@@ -503,15 +503,16 @@ Note importantly that OP Succinct (both in the case of Celo and Espresso) import
 
 The OP Succinct repository for Espresso generates using Github actions the docker images for the challenger and proposer services.
 
+
 ![image](docs/op-succinct-repos.png)
 
 The table below is more specific regarding which branches of these repositories are used.
 
-|                          External                          |                                                           Celo (rep/branch)                                                            |                                                                              Espresso (rep/branch)                                                                               |
-| :--------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|           [kona](https://github.com/op-rs/kona)            | [Celo/kona](https://github.com/celo-org/kona)/[palango/kona-1.1.7-celo](https://github.com/celo-org/kona/tree/palango/kona-1.1.7-celo) | [Espresso/kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork)/[espresso-integration](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration) |
-|                                                            |            [Celo/celo-kona](https://github.com/celo-org/celo-kona)/[main](https://github.com/celo-org/celo-kona/tree/main)             |        [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona)/[espresso-integration](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration)         |
-| [op-succinct](https://github.com/succinctlabs/op-succinct) |      [Celo/op-succinct](https://github.com/celo-org/op-succinct)/[develop](https://github.com/celo-org/op-succinct/tree/develop)       |     [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)/[espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration)      |
+| External                                    |  Celo (rep/branch)                                                                                                                     | Espresso  (rep/branch)|
+| :-------:                                   | :----:      | :------:|
+| [kona](https://github.com/op-rs/kona)       | [Celo/kona](https://github.com/celo-org/kona)/[palango/kona-1.1.7-celo](https://github.com/celo-org/kona/tree/palango/kona-1.1.7-celo) | [Espresso/kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork)/[espresso-integration](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration) |
+|                                             | [Celo/celo-kona](https://github.com/celo-org/celo-kona)/[main](https://github.com/celo-org/celo-kona/tree/main)  | [Espresso/celo-kona](https://github.com/EspressoSystems/celo-kona)/[espresso-integration](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) |
+| [op-succinct](https://github.com/succinctlabs/op-succinct) | [Celo/op-succinct](https://github.com/celo-org/op-succinct)/[develop](https://github.com/celo-org/op-succinct/tree/develop) | [Espresso/op-succinct](https://github.com/EspressoSystems/op-succinct)/[espresso-integration](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration)|
 
 ## Making a change to the derivation pipeline and propagating it to the relevant repositories
 
@@ -525,9 +526,9 @@ In our setting changes to the derivation pipeline are made in the [kona](https:/
 
 1. After running CI, check for new images of the succinct proposer and challenger services at
 
-- [containers/op-succinct-lite-proposer-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo)
-- [containers/op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
-- These images should be updated in the [docker-compose.yml](https://github.com/EspressoSystems/optimism-espresso-integration/blob/b73ee83611418cd6ce3aa2d27e00881d9df7e012/espresso/docker-compose.yml) file when new versions are available. See for example [bd90858](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
+* [containers/op-succinct-lite-proposer-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo)
+* [containers/op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
+* These images should be updated in the [docker-compose.yml](https://github.com/EspressoSystems/optimism-espresso-integration/blob/b73ee83611418cd6ce3aa2d27e00881d9df7e012/espresso/docker-compose.yml) file when new versions are available. See for example [bd90858](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
 
 Note that periodically we need to merge upstream changes in the `kona`, `celo-kona`, and `op-succinct` repositories to keep our integration branches up to date. This ensures that our custom modifications don't drift too far from the upstream codebase and that we can easily incorporate bug fixes and new features from the upstream projects.
 
@@ -537,8 +538,8 @@ We are working on a set of scripts to handle the migration from a Celo Testnet t
 
 Some relevant documents:
 
-- [Documentation of configuration parameters](docs/README_ESPRESSO_DEPLOY_CONFIG.md)
-- [Celo Testnet Migration Guide](docs/CELO_TESTNET_MIGRATION.md) (WIP)
+* [Documentation of configuration parameters](docs/README_ESPRESSO_DEPLOY_CONFIG.md)
+* [Celo Testnet Migration Guide](docs/CELO_TESTNET_MIGRATION.md) (WIP)
 
 ## Generating alloc.json file
 
@@ -554,4 +555,3 @@ To copy it to `environment/allocs.json` run the following:
 To update the env variables in ./espresso/.env run:
 ```
 ./scripts/espresso-allocs-to-env.jq ./environment/allocs.json
-```
