@@ -28,7 +28,6 @@ func espressoEnvs(envprefix, v string) []string {
 var (
 	EnabledFlagName                  = espressoFlags("enabled")
 	PollIntervalFlagName             = espressoFlags("poll-interval")
-	UseFetchApiFlagName              = espressoFlags("fetch-api")
 	QueryServiceUrlsFlagName         = espressoFlags("urls")
 	LightClientAddrFlagName          = espressoFlags("light-client-addr")
 	L1UrlFlagName                    = espressoFlags("l1-url")
@@ -54,13 +53,6 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Usage:    "Polling interval for Espresso queries",
 			Value:    250 * time.Millisecond,
 			EnvVars:  espressoEnvs(envPrefix, "POLL_INTERVAL"),
-			Category: category,
-		},
-		&cli.BoolFlag{
-			Name:     UseFetchApiFlagName,
-			Usage:    "Use fetch API for Espresso queries",
-			Value:    false,
-			EnvVars:  espressoEnvs(envPrefix, "FETCH_API"),
 			Category: category,
 		},
 		&cli.StringSliceFlag{
@@ -124,7 +116,6 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 type CLIConfig struct {
 	Enabled                    bool
 	PollInterval               time.Duration
-	UseFetchAPI                bool
 	QueryServiceURLs           []string
 	LightClientAddr            common.Address
 	L1URL                      string
@@ -176,7 +167,6 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 	config := CLIConfig{
 		Enabled:                    c.Bool(EnabledFlagName),
 		PollInterval:               c.Duration(PollIntervalFlagName),
-		UseFetchAPI:                c.Bool(UseFetchApiFlagName),
 		L1URL:                      c.String(L1UrlFlagName),
 		RollupL1URL:                c.String(RollupL1UrlFlagName),
 		Namespace:                  c.Uint64(NamespaceFlagName),
@@ -239,7 +229,6 @@ func BatchStreamerFromCLIConfig[B Batch](
 		cfg.CaffeinationHeightEspresso,
 		cfg.CaffeinationHeightL2,
 	)
-	streamer.UseFetchApi = cfg.UseFetchAPI
 
 	return streamer, nil
 }
