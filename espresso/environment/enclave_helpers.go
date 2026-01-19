@@ -203,7 +203,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						appendArg(&args, espresso.PollIntervalFlagName, c.Espresso.PollInterval)
 						appendArg(&args, espresso.LightClientAddrFlagName, c.Espresso.LightClientAddr)
 						appendArg(&args, espresso.TestingBatcherPrivateKeyFlagName, hexutil.Encode(crypto.FromECDSA(c.Espresso.TestingBatcherPrivateKey)))
-						appendArg(&args, espresso.UseFetchApiFlagName, c.Espresso.UseFetchAPI)
 						for _, url := range c.Espresso.QueryServiceURLs {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}

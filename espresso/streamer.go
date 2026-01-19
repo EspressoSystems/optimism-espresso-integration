@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
@@ -40,8 +40,7 @@ type LightClientCallerInterface interface {
 // for modification / wrapping.
 type EspressoClient interface {
 	FetchLatestBlockHeight(ctx context.Context) (uint64, error)
-	StreamTransactionsInNamespace(ctx context.Context, height uint64, namespace uint64) (espressoClient.Stream[espressoCommon.TransactionQueryData], error)
-	FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error)
+	FetchNamespaceTransactionsInRange(ctx context.Context, fromHeight uint64, toHeight uint64, namespace uint64) ([]types.NamespaceTransactionsRangeData, error)
 }
 
 // L1Client is an interface that documents the methods we utilize for
@@ -100,9 +99,6 @@ type BatchStreamer[B Batch] struct {
 	RemainingBatches map[common.Hash]B
 
 	unmarshalBatch func([]byte) (*B, error)
-
-	// Use the polling API to fetch transactions
-	UseFetchApi bool
 }
 
 // Compile time assertion to ensure EspressoStreamer implements
@@ -251,7 +247,8 @@ func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight u
 		// reprocessing the same block, we want to start from the next block.
 		start++
 	}
-	finish = min(start+limit, currentBlockHeight)
+	// `FetchNamespaceTransactionsInRange` is exclusive to finish, so we add 1 to currentBlockHeight
+	finish = min(start+limit, currentBlockHeight+1)
 
 	return start, finish
 }
@@ -279,37 +276,19 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch latest block height: %w", err)
 	}
 
-	// Streaming API implementation
-	if !s.UseFetchApi {
-		// Process the remaining batches
-		s.processRemainingBatches(ctx)
-
-		// We limit the number of blocks to process in a single Update call
-		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight, HOTSHOT_BLOCK_STREAM_LIMIT)
-
-		s.Log.Info("Streaming hotshot blocks", "from", start, "upTo", finish)
-
-		// Process the new batches fetched from Espresso
-		if err := s.streamHotShotRange(ctx, start, finish); err != nil {
-			return fmt.Errorf("failed to process hotshot range: %w", err)
-		}
-
-		return nil
-	}
-
 	// Fetch API implementation
 	for i := 0; ; i++ {
 		// Fetch more batches from HotShot if available.
 		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight, HOTSHOT_BLOCK_FETCH_LIMIT)
 
-		if start > finish || (start == finish && i > 0) {
-			// If start is equal to our finish, then that means we have
+		if start >= finish || (start+1 == finish && i > 0) {
+			// If start is one less than our finish, then that means we
 			// already processed all of the blocks available to us.  We
 			// should break out of the loop.  Sadly, this means that we
 			// likely do not have any batches to process.
 			//
 			// NOTE: this also likely means that the following is true:
-			// start == finish + 1 == currentBlockHeight + 1
+			// start + 1 == finish  == currentBlockHeight + 1
 			//
 			// NOTE: there is an edge case here if the only block available is
 			// the initial block of Espresso, then we get stuck in a loop
@@ -354,95 +333,31 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 // and therefore processed from Hotshot.
 func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish uint64) error {
 	// Process the new batches fetched from Espresso
-	for height := start; height <= finish; height++ {
-		s.Log.Trace("Fetching HotShot block", "block", height)
+	s.Log.Trace("Fetching HotShot block range", "start", start, "finish", finish)
 
-		txns, err := s.EspressoClient.FetchTransactionsInBlock(ctx, height, s.Namespace)
-		if err != nil {
-			// TODO (QuentinI): workaround for lagging query service payload availability
-			// SDK needs an update to allow us to distinguish 404s from other errors
-			return nil
-		}
-
-		s.Log.Trace("Fetched HotShot block", "block", height, "txns", len(txns.Transactions))
-
-		// We want to keep track of the latest block we have processed.
-		// This is essential for ensuring we don't unnecessarily keep
-		// refetching the same blocks that we have already processed.
-		// This should ensure that we keep moving forward and consuming
-		// from the Espresso Blocks without missing any blocks.
-		s.hotShotPos = height
-		if len(txns.Transactions) == 0 {
-			s.Log.Trace("No transactions in hotshot block", "block", height)
-			continue
-		}
-
-		for _, txn := range txns.Transactions {
-			s.processEspressoTransaction(ctx, txn)
-		}
-	}
-
-	return nil
-}
-
-// streamHotShotRange is a helper method that will load all transactions from
-// Hotshot from start to finish, inclusive. It will process each transaction and
-// update the batch buffer with any valid batches.
-// It will also update the hotShotPos to the last block processed, in order
-// to effectively keep track of the last block we have successfully fetched,
-// and therefore processed from Hotshot.
-func (s *BatchStreamer[B]) streamHotShotRange(ctx context.Context, start, finish uint64) error {
-	stream, err := s.EspressoClient.StreamTransactionsInNamespace(ctx, start, s.Namespace)
+	// FetchNamespaceTransactionsInRange fetches transactions in [start, finish)
+	namespaceRangeTransactions, err := s.EspressoClient.FetchNamespaceTransactionsInRange(ctx, start, finish, s.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to stream transactions: %w", err)
+		return err
 	}
 
-	defer func() {
-		go func() {
-			err := stream.Close()
-			if err != nil {
-				s.Log.Error("Failed to close stream", "err", err)
-			}
-		}()
-	}()
+	s.Log.Info("Fetched HotShot block range", "start", start, "finish", finish, "numNamespaceTransactions", len(namespaceRangeTransactions))
 
-	// We give query service a bigger timeout on stream initialisation, as it may take awhile
-	timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
-
-	// Process the new batches fetched from Espresso
-	for {
-		txn, err := stream.Next(timeoutCtx)
-		cancel()
-
-		if err != nil {
-			// Don't error out on timeout, most likely it just indicates that
-			// next transaction isn't available yet
-			if timeoutCtx.Err() != nil {
-				s.Log.Info("Stream timed out")
-				return nil
-			}
-			return fmt.Errorf("failed to fetch next transaction: %w", err)
-		}
-
-		s.Log.Warn("Fetched Transaction", "block", txn.BlockHeight, "hash", txn.Hash)
-
-		if txn.BlockHeight > finish {
-			break
-		}
-
-		// We want to keep track of the latest block we have fully processed.
-		// This is essential for ensuring we don't unnecessarily keep
-		// refetching the same blocks that we have already processed.
-		// This should ensure that we keep moving forward and consuming
-		// from the Espresso Blocks without missing any blocks.
-		s.hotShotPos = txn.BlockHeight - 1
-
-		s.processEspressoTransaction(ctx, txn.Transaction.Payload)
-
-		// Set up smaller timeout for subsequent iterations
-		timeoutCtx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
+	// We want to keep track of the latest block we have processed.
+	// This is essential for ensuring we don't unnecessarily keep
+	// refetching the same blocks that we have already processed.
+	// This should ensure that we keep moving forward and consuming
+	// from the Espresso Blocks without missing any blocks.
+	s.hotShotPos = finish - 1
+	if len(namespaceRangeTransactions) == 0 {
+		s.Log.Trace("No transactions in hotshot block range", "start", start, "finish", finish)
 	}
-	cancel()
+
+	for _, namespaceTransaction := range namespaceRangeTransactions {
+		for _, txn := range namespaceTransaction.Transactions {
+			s.processEspressoTransaction(ctx, txn.Payload)
+		}
+	}
 
 	return nil
 }
