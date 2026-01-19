@@ -99,9 +99,6 @@ type BatchStreamer[B Batch] struct {
 	RemainingBatches map[common.Hash]B
 
 	unmarshalBatch func([]byte) (*B, error)
-
-	// Use the polling API to fetch transactions
-	UseFetchApi bool
 }
 
 // Compile time assertion to ensure EspressoStreamer implements
@@ -285,7 +282,7 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 		start, finish := s.computeEspressoBlockHeightsRange(currentBlockHeight, HOTSHOT_BLOCK_FETCH_LIMIT)
 
 		if start >= finish || (start+1 == finish && i > 0) {
-			// If start is equal to our finish, then that means we have
+			// If start is one less than our finish, then that means we
 			// already processed all of the blocks available to us.  We
 			// should break out of the loop.  Sadly, this means that we
 			// likely do not have any batches to process.
@@ -344,7 +341,7 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 		return err
 	}
 
-	s.Log.Trace("Fetched HotShot block range", "start", start, "finish", finish, "numNamespaceTransactions", len(namespaceRangeTransactions))
+	s.Log.Info("Fetched HotShot block range", "start", start, "finish", finish, "numNamespaceTransactions", len(namespaceRangeTransactions))
 
 	// We want to keep track of the latest block we have processed.
 	// This is essential for ensuring we don't unnecessarily keep
