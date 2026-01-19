@@ -88,16 +88,7 @@ RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' m
 # Go sources
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
-# Fetch rust libs for dynamic linking
-ARG ESPRESSO_SDK_VER=0.3.2
-ARG ESPRESSO_SDK_HELPER_HASH_AARCH64=ec6ce7b37edd173206ad338c84a6a771a0e9dc8b184081af7440ebfc0c531a71
-ARG ESPRESSO_SDK_HELPER_HASH_X86_64=49c50949ec1acf52107cb190c90911e05cc9c4e9d72dd7455496163443760b92
-ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_AARCH64} \
-  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-aarch64-unknown-linux-gnu.so \
-  /lib/
-ADD --checksum=sha256:${ESPRESSO_SDK_HELPER_HASH_X86_64} \
-  https://github.com/EspressoSystems/espresso-network/releases/download/sdks/go/v${ESPRESSO_SDK_VER}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so \
-  /lib/
+
 # Warm-up the cache
 WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
