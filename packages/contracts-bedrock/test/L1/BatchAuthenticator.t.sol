@@ -22,9 +22,6 @@ import { Chains } from "scripts/libraries/Chains.sol";
 ///      enclave hashes, so registeredEnclaveHash() always returns false in this mock.
 contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerifier {
     mapping(address => bool) private _registeredSigners;
-    // Note: Enclave hash checks are not used by BatchAuthenticator, so we don't
-    // maintain a mapping for them in this mock. If needed for future tests,
-    // we could add: mapping(bytes32 => bool) private _registeredEnclaveHashes;
 
     function espressoNitroTEEVerifier() external view override returns (IEspressoNitroTEEVerifier) {
         return this;
@@ -54,9 +51,7 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         return false;
     }
 
-    /// @notice Always returns false - BatchAuthenticator doesn't use enclave hash checks.
     function registeredEnclaveHashes(bytes32, TeeType) external pure override returns (bool) {
-        // BatchAuthenticator only checks registeredSigners, not enclave hashes
         return false;
     }
 
@@ -72,25 +67,17 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         return _registeredSigners[signer];
     }
 
-    /// @notice Always returns false - BatchAuthenticator doesn't use enclave hash checks.
     function registeredEnclaveHash(bytes32) external pure override returns (bool) {
-        // BatchAuthenticator only checks registeredSigners, not enclave hashes
         return false;
     }
 
-    function registerSigner(bytes calldata, bytes calldata) external pure override {
-        // No-op for testing.
-    }
+    function registerSigner(bytes calldata, bytes calldata) external pure override { }
 
-    function setEnclaveHash(bytes32, bool) external pure override {
-        // No-op for testing.
-    }
+    function setEnclaveHash(bytes32, bool) external pure override { }
 
-    function deleteRegisteredSigners(address[] memory) external pure override {
-        // No-op for testing.
-    }
+    function deleteRegisteredSigners(address[] memory) external pure override { }
 
-    /// @notice Test helper to set registered signers in the mock.
+    /// @notice Test helper.
     function setRegisteredSigner(address signer, bool value) external {
         _registeredSigners[signer] = value;
     }
@@ -135,7 +122,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that the initialization can only be called once.
-    function test_initialize_revertsWhenAlreadyInitialized() external {
+    function test_constructor_revertsWhenAlreadyInitialized() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
@@ -155,7 +142,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize reverts when teeBatcher is zero.
-    function test_initialize_revertsWhenTeeBatcherIsZero() external {
+    function test_constructor_revertsWhenTeeBatcherIsZero() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
@@ -170,7 +157,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize reverts when nonTeeBatcher is zero.
-    function test_initialize_revertsWhenNonTeeBatcherIsZero() external {
+    function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
@@ -185,7 +172,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize reverts when verifier is zero.
-    function test_initialize_revertsWhenVerifierIsZero() external {
+    function test_constructor_revertsWhenVerifierIsZero() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
@@ -199,7 +186,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize succeeds with valid addresses.
-    function test_initialize_succeedsWithValidAddresses() external {
+    function test_constructor_succeedsWithValidAddresses() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
