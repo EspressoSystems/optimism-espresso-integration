@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/latencytracker"
 )
 
 // The attributes queue sits after the batch queue.
@@ -120,26 +121,40 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 // - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
 func CaffNextBatch(s *espresso.BatchStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
+	totalStart := time.Now()
+	defer func() {
+		latencytracker.CaffNextBatchTotalLatency.RecordSince(totalStart)
+	}()
+
 	// Get the L1 finalized block
+	l1FetchStart := time.Now()
 	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
+	latencytracker.CaffL1FinalizedFetchLatency.RecordSince(l1FetchStart)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get the L1 finalized block: %w", err)
 	}
+
 	// Refresh the sync status
+	refreshStart := time.Now()
 	if err := s.Refresh(ctx, finalizedL1Block, parent.Number, parent.L1Origin); err != nil {
 		return nil, false, fmt.Errorf("failed to refresh Espresso streamer: %w", err)
 	}
+	latencytracker.CaffStreamerRefreshLatency.RecordSince(refreshStart)
 
 	// Update the streamer if needed
 	if !s.HasNext(ctx) {
+		updateStart := time.Now()
 		err := s.Update(ctx)
+		latencytracker.CaffStreamerUpdateLatency.RecordSince(updateStart)
 		if err != nil {
 			s.Log.Error("failed to update Espresso streamer", "err", err)
 		}
 	}
 
 	// Get the next batch
+	nextStart := time.Now()
 	var espressoBatch = s.Next(ctx)
+	latencytracker.CaffStreamerNextLatency.RecordSince(nextStart)
 
 	if espressoBatch == nil {
 		return nil, true, NotEnoughData
@@ -151,21 +166,26 @@ func CaffNextBatch(s *espresso.BatchStreamer[EspressoBatch], ctx context.Context
 	// These batch checks are retained because they add minimal latency (O(1) per batch).
 	// They're primarily a safeguard for cases where the streamer fails to emit batches correctly,
 	// which should only happen if there's a bug.
+	validationStart := time.Now()
 	{
 		// check the batch is valid regarding given parent
 		nextTimestamp := parent.Time + blockTime
 
 		if batch.Timestamp != nextTimestamp {
 			s.Log.Error("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+			latencytracker.CaffBatchValidationLatency.RecordSince(validationStart)
 			return nil, false, ErrTemporary
 		}
 
 		// dependent on above timestamp check. If the timestamp is correct, then it must build on top of the safe head.
 		if batch.ParentHash != parent.Hash {
 			s.Log.Error("ignoring batch with mismatching parent hash", "current_safe_head", parent.Hash)
+			latencytracker.CaffBatchValidationLatency.RecordSince(validationStart)
 			return nil, false, ErrTemporary
 		}
 	}
+	latencytracker.CaffBatchValidationLatency.RecordSince(validationStart)
+
 	// For caff node, when we get a batch, we assign concluding to true to drive progress
 	concluding := true
 	return batch, concluding, nil

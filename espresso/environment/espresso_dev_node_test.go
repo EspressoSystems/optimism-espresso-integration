@@ -107,6 +107,8 @@ func TestE2eDevnetWithEspressoSimpleTransactions(t *testing.T) {
 
 	// Submit a Transaction on the L2 Sequencer node, to a Burn Address
 	env.RunSimpleL2Burn(ctx, t, system)
+
+	time.Sleep(time.Minute * 5)
 }
 
 // TestE2eDevnetWithEspressoAndAltDaSimpleTransactions launches the e2e Dev Net with the Espresso
