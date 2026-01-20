@@ -275,16 +275,29 @@ contract BatchAuthenticator_Test is Test {
         authenticator.registerSigner(attestationTbs, signature);
     }
 
-    /// @notice Test upgrade to new implementation.
-    function test_upgrade_succeeds() external {
+    /// @notice Test upgrade to new implementation with comprehensive state preservation.
+    function test_upgrade_preservesState() external {
         // Create and initialize a proxy.
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
         Proxy proxy = Proxy(payable(address(authenticator)));
 
-        // Deploy new implementation.
-        BatchAuthenticator newImpl = new BatchAuthenticator();
+        // Set up initial state.
+        bytes32 commitment = keccak256("test commitment");
+        uint256 privateKey = 1;
+        address signer = vm.addr(privateKey);
+        teeVerifier.setRegisteredSigner(signer, true);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        bytes memory signature = abi.encodePacked(r, s, v);
+        authenticator.authenticateBatchInfo(commitment, signature);
+        assertTrue(authenticator.validBatchInfo(commitment));
 
-        // Upgrade.
+        // Switch batcher to test boolean flag preservation.
+        vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
+        assertFalse(authenticator.activeIsTee());
+
+        // Deploy new implementation and upgrade.
+        BatchAuthenticator newImpl = new BatchAuthenticator();
         vm.prank(proxyAdminOwner);
         proxyAdmin.upgrade(payable(address(proxy)), address(newImpl));
 
@@ -292,10 +305,12 @@ contract BatchAuthenticator_Test is Test {
         address newImplementation = EIP1967Helper.getImplementation(address(proxy));
         assertEq(newImplementation, address(newImpl));
 
-        // Verify state is preserved
+        // Verify state is preserved.
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
         assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
+        assertTrue(authenticator.validBatchInfo(commitment));
+        assertFalse(authenticator.activeIsTee());
     }
 
     // Event declarations for expectEmit.
@@ -316,8 +331,8 @@ contract BatchAuthenticator_Fork_Test is Test {
     BatchAuthenticator public authenticator;
 
     function setUp() public {
-        // Create a fork of Sepolia using public Infura endpoint.
-        string memory forkUrl = "https://sepolia.infura.io/v3/b9794ad1ddf84dfb8c34d6bb5dca2001";
+        // Create a fork of Sepolia using the execution layer RPC endpoint.
+        string memory forkUrl = "https://theserversroom.com/sepolia/54cmzzhcj1o/";
         vm.createSelectFork(forkUrl);
 
         // Verify we're on Sepolia.
@@ -376,20 +391,21 @@ contract BatchAuthenticator_Fork_Test is Test {
 
     /// @notice Test authenticateBatchInfo on Sepolia fork.
     function testFork_authenticateBatchInfo_succeeds() external {
-        address signer = address(0x9999);
         bytes32 commitment = keccak256("test commitment on sepolia");
+
+        // Create a signature.
+        uint256 privateKey = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+        address signer = vm.addr(privateKey);
 
         // Register the signer.
         teeVerifier.setRegisteredSigner(signer, true);
 
-        // Create a signature.
-        uint256 privateKey = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
         vm.expectEmit(true, true, false, false);
-        emit BatchInfoAuthenticated(commitment, vm.addr(privateKey));
+        emit BatchInfoAuthenticated(commitment, signer);
         authenticator.authenticateBatchInfo(commitment, signature);
 
         assertTrue(authenticator.validBatchInfo(commitment));
@@ -399,9 +415,12 @@ contract BatchAuthenticator_Fork_Test is Test {
     function testFork_upgrade_preservesState() external {
         // Initialize the authenticator.
         bytes32 commitment = keccak256("test commitment");
-        address signer = address(0x9999);
-        teeVerifier.setRegisteredSigner(signer, true);
         uint256 privateKey = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+        address signer = vm.addr(privateKey);
+
+        // Register the signer.
+        teeVerifier.setRegisteredSigner(signer, true);
+
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
