@@ -8,33 +8,20 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import { MockNitroTEEVerifier, MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
-
-contract TestBatchAuthenticator is BatchAuthenticator {
-    constructor(
-        IEspressoTEEVerifier _espressoTEEVerifier,
-        address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
-    )
-        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
-    { }
-
-    // Test helper to bypass signature verification in authenticateBatchInfo.
-    function setValidBatchInfo(bytes32 hash, bool valid) external {
-        validBatchInfo[hash] = valid;
-    }
-}
+import { MockEspressoTEEVerifier } from "./BatchAuthenticatorUpgradeable.t.sol";
 
 /// @title BatchInbox_Test
 /// @notice Base test contract with common setup
 contract BatchInbox_Test is Test {
     BatchInbox public inbox;
-    TestBatchAuthenticator public authenticator;
+    BatchAuthenticator public authenticator;
+    Proxy public proxy;
+    ProxyAdmin public proxyAdmin;
 
-    MockNitroTEEVerifier public nitroVerifier;
     MockEspressoTEEVerifier public teeVerifier;
 
     address public teeBatcher = address(0x1234);
@@ -43,14 +30,30 @@ contract BatchInbox_Test is Test {
     address public unauthorized = address(0xDEAD);
 
     function setUp() public virtual {
-        nitroVerifier = new MockNitroTEEVerifier();
-        teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
+        teeVerifier = new MockEspressoTEEVerifier();
 
+        // Deploy BatchAuthenticator via proxy.
+        BatchAuthenticator impl = new BatchAuthenticator();
         vm.prank(deployer);
-        authenticator =
-            new TestBatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        proxyAdmin = new ProxyAdmin(deployer);
+        proxy = new Proxy(address(proxyAdmin));
+        vm.prank(deployer);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        bytes memory initData = abi.encodeCall(
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
+        );
+        vm.prank(deployer);
+        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
+        authenticator = BatchAuthenticator(address(proxy));
 
         inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
+    }
+
+    /// @notice Calculate storage slot for mapping(bytes32 => bool) validBatchInfo and set the value.
+    function setValidBatchInfo(bytes32 hash, bool valid) internal {
+        bytes32 slot = keccak256(abi.encode(hash, uint256(0)));
+        vm.store(address(authenticator), slot, bytes32(uint256(valid ? 1 : 0)));
     }
 }
 
@@ -123,7 +126,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         bytes32 hash = keccak256(data);
 
         // Don't set the hash as valid in authenticator
-        authenticator.setValidBatchInfo(hash, false);
+        setValidBatchInfo(hash, false);
 
         // TEE batcher should revert due to invalid authentication
         vm.prank(teeBatcher);
@@ -140,7 +143,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         bytes32 hash = keccak256(data);
 
         // Set the hash as valid in authenticator
-        authenticator.setValidBatchInfo(hash, true);
+        setValidBatchInfo(hash, true);
 
         // TEE batcher should succeed
         vm.prank(teeBatcher);
@@ -156,7 +159,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
 
         bytes memory data = "no-auth-needed";
         bytes32 hash = keccak256(data);
-        authenticator.setValidBatchInfo(hash, false);
+        setValidBatchInfo(hash, false);
 
         // Non-TEE batcher should succeed without authentication
         vm.prank(nonTeeBatcher);
@@ -182,7 +185,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
 
         // Even if the batch is authenticated, the non-TEE batcher should revert because it is not authorized to post
         // when TEE is active.
-        authenticator.setValidBatchInfo(hash, true);
+        setValidBatchInfo(hash, true);
 
         vm.prank(nonTeeBatcher);
         (bool success, bytes memory returnData) = address(inbox).call(data);

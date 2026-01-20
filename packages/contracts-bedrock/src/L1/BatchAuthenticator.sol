@@ -2,14 +2,20 @@
 pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
+import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
-contract BatchAuthenticator is ISemver, Ownable {
+
+/// @notice Upgradeable contract that authenticates batch information using the Transparent Proxy
+///         pattern.
+///         Supports switching between TEE and non-TEE batchers.
+contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, ReinitializableBase {
     /// @notice Semantic version.
-    /// @custom:semver 1.0.0
-    string public constant version = "1.0.0";
+    /// @custom:semver 2.0.0
+    string public constant version = "2.0.0";
 
     /// @notice Emitted when a batch info is authenticated.
     event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
@@ -21,38 +27,48 @@ contract BatchAuthenticator is ISemver, Ownable {
     mapping(bytes32 => bool) public validBatchInfo;
 
     /// @notice Address of the TEE batcher whose signatures may authenticate batches.
-    address public immutable teeBatcher;
+    address public teeBatcher;
 
     /// @notice Address of the non-TEE (fallback) batcher that can post when TEE is inactive.
-    address public immutable nonTeeBatcher;
+    address public nonTeeBatcher;
 
-    IEspressoTEEVerifier public immutable espressoTEEVerifier;
+    /// @notice Address of the Espresso TEE Verifier contract.
+    IEspressoTEEVerifier public espressoTEEVerifier;
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
     bool public activeIsTee;
 
-    constructor(
+    /// @notice Constructor disables initializers on implementation
+    constructor() ReinitializableBase(1) {
+        _disableInitializers();
+    }
+
+    function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
+        address _nonTeeBatcher
     )
-        Ownable()
+        external
+        reinitializer(initVersion())
     {
+        // Initialization transactions must come from the ProxyAdmin or its owner.
+        _assertOnlyProxyAdminOrProxyAdminOwner();
+
         require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
         require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
+        require(address(_espressoTEEVerifier) != address(0), "BatchAuthenticator: zero verifier");
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
         nonTeeBatcher = _nonTeeBatcher;
         // By default, start with the TEE batcher active.
         activeIsTee = true;
-        _transferOwnership(_owner);
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
-    function switchBatcher() external onlyOwner {
+    function switchBatcher() external {
+        _assertOnlyProxyAdminOrProxyAdminOwner();
         activeIsTee = !activeIsTee;
     }
 
