@@ -97,7 +97,7 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
 }
 
 /// @notice Tests for the upgradeable BatchAuthenticator contract using the Transparent Proxy pattern.
-contract BatchAuthenticatorUpgradeable_Test is Test {
+contract BatchAuthenticator_Test is Test {
     address public deployer = address(0xABCD);
     address public proxyAdminOwner = address(0xBEEF);
     address public unauthorized = address(0xDEAD);
@@ -304,7 +304,7 @@ contract BatchAuthenticatorUpgradeable_Test is Test {
 }
 
 /// @notice Fork tests for BatchAuthenticator on Sepolia.
-contract BatchAuthenticatorUpgradeable_Fork_Test is Test {
+contract BatchAuthenticator_Fork_Test is Test {
     address public proxyAdminOwner = address(0xBEEF);
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);

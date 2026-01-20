@@ -12,7 +12,7 @@ import { Proxy } from "src/universal/Proxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import { MockEspressoTEEVerifier } from "./BatchAuthenticatorUpgradeable.t.sol";
+import { MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
 
 /// @title BatchInbox_Test
 /// @notice Base test contract with common setup
