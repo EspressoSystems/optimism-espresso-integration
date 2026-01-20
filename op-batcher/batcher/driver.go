@@ -224,7 +224,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 			WithWaitGroup(l.wg),
 			WithEspressoClient(l.EspressoClient),
 		)
-		l.espressoSubmitter.SpawnWorkers(32, 32)
+		l.espressoSubmitter.SpawnWorkers(128, 128)
 		l.espressoSubmitter.Start()
 
 		// Limit teeAuthGroup to at most 128 concurrent goroutines as an arbitrary
