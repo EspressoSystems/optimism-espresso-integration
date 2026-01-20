@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/latencytracker"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
@@ -35,6 +36,7 @@ import (
 type espressoSubmitTransactionJob struct {
 	attempts    int
 	transaction *espressoCommon.Transaction
+	createdAt   time.Time // For latency tracking
 }
 
 // espressoSubmitTransactionJobResponse is a struct that holds the
@@ -194,6 +196,7 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 func (s *espressoTransactionSubmitter) SubmitTransaction(job *espressoCommon.Transaction) {
 	s.submitJobQueue <- espressoSubmitTransactionJob{
 		transaction: job,
+		createdAt:   time.Now(),
 	}
 }
 
@@ -385,6 +388,12 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 		// confirmed that the transaction was submitted to Espresso
 		commitment := jobResp.job.transaction.transaction.Commit()
 		hash, _ := tagged_base64.New("TX", commitment[:])
+
+		// Track total confirmation latency (from job creation to confirmation)
+		if !jobResp.job.transaction.createdAt.IsZero() {
+			latencytracker.BatcherTotalConfirmLatency.RecordSince(jobResp.job.transaction.createdAt)
+		}
+
 		log.Info("Transaction confirmed on Espresso", "hash", hash.String())
 	}
 }
@@ -524,8 +533,15 @@ func espressoSubmitTransactionWorker(
 			}
 		}
 
+		// Track queue-to-submit latency (time waiting in queue)
+		if !jobAttempt.job.createdAt.IsZero() {
+			latencytracker.BatcherQueueToSubmitLatency.RecordSince(jobAttempt.job.createdAt)
+		}
+
 		// Submit the transaction to Espresso
+		submitStart := time.Now()
 		hash, err := cli.SubmitTransaction(ctx, *jobAttempt.job.transaction)
+		latencytracker.BatcherSubmitTxLatency.RecordSince(submitStart)
 		if err == nil {
 			log.Info("submitted transaction to Espresso", "hash", hash)
 		}
@@ -594,7 +610,9 @@ func espressoVerifyTransactionWorker(
 			time.Sleep(VERIFY_RECEIPT_RETRY_DELAY)
 		}
 
+		verifyStart := time.Now()
 		_, err := cli.FetchTransactionByHash(ctx, jobAttempt.job.hash)
+		latencytracker.BatcherVerifyReceiptLatency.RecordSince(verifyStart)
 
 		jobAttempt.job.attempts++
 		resp := espressoVerifyReceiptJobResponse{
@@ -651,6 +669,7 @@ func (bs *BatcherService) initKeyPair() error {
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
+	conversionStart := time.Now()
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
 		l.Log.Warn("Failed to derive batch from block", "err", err)
@@ -658,6 +677,7 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	}
 
 	transaction, err := espressoBatch.ToEspressoTransaction(ctx, l.RollupConfig.L2ChainID.Uint64(), l.ChainSigner)
+	latencytracker.BatcherBlockToEspressoBatchLatency.RecordSince(conversionStart)
 	if err != nil {
 		l.Log.Warn("Failed to create Espresso transaction from a batch", "err", err)
 		return fmt.Errorf("failed to create Espresso transaction from a batch: %w", err)

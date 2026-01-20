@@ -12,6 +12,7 @@ import (
 	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/latencytracker"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -157,6 +158,11 @@ func (s *BatchStreamer[B]) RefreshSafeL1Origin(safeL1Origin eth.BlockID) {
 
 // Update streamer state based on L1 and L2 sync status
 func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockRef, safeBatchNumber uint64, safeL1Origin eth.BlockID) error {
+	refreshStart := time.Now()
+	defer func() {
+		latencytracker.StreamerRefreshLatency.RecordSince(refreshStart)
+	}()
+
 	s.FinalizedL1 = finalizedL1
 
 	s.RefreshSafeL1Origin(safeL1Origin)
@@ -182,6 +188,10 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 // CheckBatch checks the validity of the given batch against the finalized L1
 // block and the safe L1 origin.
 func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
+	checkBatchStart := time.Now()
+	defer func() {
+		latencytracker.StreamerCheckBatchLatency.RecordSince(checkBatchStart)
+	}()
 
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
@@ -196,7 +206,9 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidi
 		return BatchUndecided, 0
 	}
 
+	l1HeaderStart := time.Now()
 	l1headerHash, err := s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+	latencytracker.StreamerL1HeaderLookupLatency.RecordSince(l1HeaderStart)
 	if err != nil {
 		// Signal to resync to be able to fetch the L1 header.
 		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
@@ -253,7 +265,7 @@ func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight u
 	return start, finish
 }
 
-// Update will update the `EspressoStreamer“ by attempting to ensure that the
+// Update will update the `EspressoStreamer" by attempting to ensure that the
 // next call to the `Next` method will return a `Batch`.
 //
 // It attempts to ensure the existence of a next batch, provided no errors
@@ -268,10 +280,17 @@ func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight u
 //	there are no more HotShot blocks to process currently, or if an error
 //	occurs when communicating with HotShot.
 func (s *BatchStreamer[B]) Update(ctx context.Context) error {
+	updateStart := time.Now()
+	defer func() {
+		latencytracker.StreamerUpdateTotalLatency.RecordSince(updateStart)
+	}()
+
 	// Retrieve the current block height from Espresso.  We grab this reference
 	// so we don't have to keep fetching it in a loop, and it informs us of
 	// the current block height available to process.
+	fetchHeightStart := time.Now()
 	currentBlockHeight, err := s.EspressoClient.FetchLatestBlockHeight(ctx)
+	latencytracker.StreamerFetchLatestHeightLatency.RecordSince(fetchHeightStart)
 	if err != nil {
 		return fmt.Errorf("failed to fetch latest block height: %w", err)
 	}
@@ -336,7 +355,9 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 	s.Log.Trace("Fetching HotShot block range", "start", start, "finish", finish)
 
 	// FetchNamespaceTransactionsInRange fetches transactions in [start, finish)
+	fetchRangeStart := time.Now()
 	namespaceRangeTransactions, err := s.EspressoClient.FetchNamespaceTransactionsInRange(ctx, start, finish, s.Namespace)
+	latencytracker.StreamerFetchBlockLatency.RecordSince(fetchRangeStart)
 	if err != nil {
 		return err
 	}
@@ -355,7 +376,9 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 
 	for _, namespaceTransaction := range namespaceRangeTransactions {
 		for _, txn := range namespaceTransaction.Transactions {
+			processTxStart := time.Now()
 			s.processEspressoTransaction(ctx, txn.Payload)
+			latencytracker.StreamerProcessTxLatency.RecordSince(processTxStart)
 		}
 	}
 
@@ -482,6 +505,11 @@ func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
 // We do not propagate the error if Light Client is unreachable - this is not an essential
 // operation and streamer can continue operation
 func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) (shouldReset bool) {
+	confirmHeightStart := time.Now()
+	defer func() {
+		latencytracker.StreamerConfirmHeightLatency.RecordSince(confirmHeightStart)
+	}()
+
 	shouldReset = false
 
 	hotshotState, err := s.EspressoLightClient.
