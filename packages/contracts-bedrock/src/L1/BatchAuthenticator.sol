@@ -8,7 +8,6 @@ import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspress
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
-
 /// @notice Upgradeable contract that authenticates batch information using the Transparent Proxy
 ///         pattern.
 ///         Supports switching between TEE and non-TEE batchers.

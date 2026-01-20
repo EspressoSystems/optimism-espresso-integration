@@ -40,8 +40,7 @@ contract BatchInbox_Test is Test {
         vm.prank(deployer);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
+            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
         );
         vm.prank(deployer);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
