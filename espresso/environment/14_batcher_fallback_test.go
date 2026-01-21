@@ -64,7 +64,7 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 // fallback batcher, verifies transactions continue to work. Next, it switches
 // back to the TEE batcher by restarting it with proper caffeination heights
 // (both Espresso and L2 heights set to ensure correct sync points). Finally, it
-// launches a caff-node with the same caffeination heights and verifies it
+// launches a Caff node with the same caffeination heights and verifies it
 // derives the same chain state as the verifier by comparing block hashes at the
 // same height.
 func TestBatcherSwitching(t *testing.T) {
