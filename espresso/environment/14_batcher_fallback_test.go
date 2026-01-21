@@ -58,7 +58,7 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 // expected behavior when switching between an Espresso batcher and a
 // fallback batcher, ensuring seamless transitions in both directions.
 //
-// In this scenario the test starts with the TEE batcher running in Espresso
+// In this scenario the test starts with the batcher running in Espresso
 // mode and verifies transactions work correctly. It then stops the TEE batcher,
 // sends switch action to the batchAuthenticator contract and switches to the
 // fallback batcher, verifies transactions continue to work. Next, it switches
