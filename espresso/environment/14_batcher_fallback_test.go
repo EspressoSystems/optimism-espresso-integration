@@ -55,7 +55,7 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 }
 
 // TestBatcherSwitching is a test case that is meant to verify the correct
-// expected behavior when switching between an Espresso TEE batcher and a
+// expected behavior when switching between an Espresso batcher and a
 // fallback batcher, ensuring seamless transitions in both directions.
 //
 // In this scenario the test starts with the TEE batcher running in Espresso
