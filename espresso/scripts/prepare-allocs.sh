@@ -75,7 +75,7 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --intent-type standard-overrides \
                  --outdir ${DEPLOYER_DIR}
 
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v false
 
 # Configure Espresso batchers for devnet. We reuse the operator address for the
 # TEE batcher, but use a separate address for the non-TEE fallback batcher.
