@@ -62,6 +62,20 @@ jobs:
       - name: Compile contracts
         run: just compile-contracts
 
+      - name: Verify Proxy artifact exists
+        working-directory: packages/contracts-bedrock
+        run: |
+          if [ ! -f "forge-artifacts/Proxy.sol/Proxy.json" ]; then
+            echo "ERROR: Proxy artifact not found!"
+            echo "Contents of forge-artifacts:"
+            ls -la forge-artifacts/ || echo "forge-artifacts directory doesn't exist"
+            echo "Contents of forge-artifacts/Proxy.sol:"
+            ls -la forge-artifacts/Proxy.sol/ 2>&1 || echo "Proxy.sol directory doesn't exist"
+            exit 1
+          fi
+          echo "Proxy artifact found successfully"
+          ls -lh forge-artifacts/Proxy.sol/Proxy.json
+
       - name: Load environment variables
         run: |
           while IFS= read -r line; do
