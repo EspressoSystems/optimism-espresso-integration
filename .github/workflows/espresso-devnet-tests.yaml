@@ -67,6 +67,23 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just fix-proxy-artifact
 
+      - name: Verify Proxy artifacts have bytecode
+        working-directory: packages/contracts-bedrock
+        run: |
+          for contract in Proxy ProxyAdmin; do
+            if [ -f "forge-artifacts/${contract}.sol/${contract}.json" ]; then
+              BYTECODE_LEN=$(jq -r '.bytecode.object' "forge-artifacts/${contract}.sol/${contract}.json" | wc -c)
+              if [ "$BYTECODE_LEN" -lt 100 ]; then
+                echo "ERROR: ${contract}.json has empty or too short bytecode (length: $BYTECODE_LEN)"
+                exit 1
+              fi
+              echo "${contract}.json has bytecode (length: $BYTECODE_LEN)"
+            else
+              echo "ERROR: ${contract}.json not found"
+              exit 1
+            fi
+          done
+
       - name: Load environment variables
         run: |
           while IFS= read -r line; do
