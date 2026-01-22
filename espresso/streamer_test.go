@@ -86,6 +86,37 @@ type MockStreamerSource struct {
 	finalizedHeightHistory map[uint64]uint64
 }
 
+// FetchNamespaceTransactionsInRange implements espresso.EspressoClient.
+func (m *MockStreamerSource) FetchNamespaceTransactionsInRange(ctx context.Context, fromHeight uint64, toHeight uint64, namespace uint64) ([]espressoCommon.NamespaceTransactionsRangeData, error) {
+	var result []espressoCommon.NamespaceTransactionsRangeData
+
+	if fromHeight > toHeight {
+		return nil, ErrNotFound
+	}
+	for height := fromHeight; height <= toHeight; height++ {
+		transactionsInBlock, ok := m.EspTransactionData[BlockAndNamespace(height, namespace)]
+		if !ok {
+			// Preserve alignment with the requested range even if the block
+			// has no transactions in this namespace.
+			result = append(result, espressoCommon.NamespaceTransactionsRangeData{})
+			continue
+		}
+
+		var txs []espressoCommon.Transaction
+		for _, txPayload := range transactionsInBlock.Transactions {
+			tx := espressoCommon.Transaction{
+				Namespace: namespace,
+				Payload:   txPayload,
+			}
+			txs = append(txs, tx)
+		}
+
+		result = append(result, espressoCommon.NamespaceTransactionsRangeData{
+			Transactions: txs})
+	}
+	return result, nil
+}
+
 func NewMockStreamerSource() *MockStreamerSource {
 	finalizedL1 := createL1BlockRef(1)
 	return &MockStreamerSource{
@@ -203,7 +234,8 @@ func (ms *MockTransactionStream) Next(ctx context.Context) (*espressoCommon.Tran
 
 func (ms *MockTransactionStream) NextRaw(ctx context.Context) (json.RawMessage, error) {
 	for {
-		transactions, err := ms.source.FetchTransactionsInBlock(ctx, ms.pos, ms.namespace)
+		// get the latest block number
+		latestHeight, err := ms.source.FetchLatestBlockHeight(ctx)
 		if err != nil {
 			// We will return error on NotFound as well to speed up tests.
 			// More faithful imitation of HotShot streaming API would be to hang
@@ -212,21 +244,42 @@ func (ms *MockTransactionStream) NextRaw(ctx context.Context) (json.RawMessage, 
 			// threshold here before finishing update.
 			return nil, err
 		}
-		if len(transactions.Transactions) > int(ms.subPos) {
+
+		if ms.pos > latestHeight {
+			return nil, ErrNotFound
+		}
+
+		namespaceTransactions, err := ms.source.FetchNamespaceTransactionsInRange(ctx, ms.pos, latestHeight, ms.namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		// Each element in the returned slice corresponds to a block starting
+		// at fromHeight. We only need the current block (index 0) because
+		// fromHeight == ms.pos.
+		if len(namespaceTransactions) == 0 {
+			return nil, ErrNotFound
+		}
+
+		currentBlock := namespaceTransactions[0]
+
+		if len(currentBlock.Transactions) > int(ms.subPos) {
+			tx := currentBlock.Transactions[int(ms.subPos)]
 			transaction := &espressoCommon.TransactionQueryData{
 				BlockHeight: ms.pos,
 				Index:       ms.subPos,
 				Transaction: espressoCommon.Transaction{
-					Payload:   transactions.Transactions[int(ms.subPos)],
+					Payload:   tx.Payload,
 					Namespace: ms.namespace,
 				},
 			}
-			ms.subPos += 1
+			ms.subPos++
 			return json.Marshal(transaction)
-		} else {
-			ms.subPos = 0
-			ms.pos += 1
 		}
+
+		// Move on to the next block.
+		ms.subPos = 0
+		ms.pos++
 	}
 }
 
@@ -246,18 +299,6 @@ func (m *MockStreamerSource) StreamTransactionsInNamespace(ctx context.Context, 
 		namespace: namespace,
 		source:    m,
 	}, nil
-}
-
-func (m *MockStreamerSource) FetchTransactionsInBlock(ctx context.Context, blockHeight uint64, namespace uint64) (espressoClient.TransactionsInBlock, error) {
-	if m.LatestEspHeight < blockHeight {
-		return espressoClient.TransactionsInBlock{}, ErrNotFound
-	}
-
-	// NOTE: if this combination is not found, we will end up returning an
-	//       empty TransactionsInBlock, which is intentional.  It will allow
-	//       the consumer to know that this block exists, but no transactions
-	//       for the requested namespace exist.
-	return m.EspTransactionData[BlockAndNamespace(blockHeight, namespace)], nil
 }
 
 // Espresso Light Client implementation

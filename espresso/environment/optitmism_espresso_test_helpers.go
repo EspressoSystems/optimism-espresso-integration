@@ -53,9 +53,9 @@ func init() {
 	}
 }
 
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0"
 
-const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-fix-cors"
+const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-20251120-lip2p-tcp-3855"
 
 // This is the mnemonic that we use to create the private key for deploying
 // contacts on the L1
