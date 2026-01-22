@@ -2,8 +2,8 @@ package devnet_tests
 
 import (
 	"context"
-	"testing"
 	"fmt"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -39,9 +39,9 @@ func testRestart(t *testing.T, tee bool) {
 	}()
 
 	// STOP HERE
-    fmt.Println("FLAG: Sleep START 10 min")
-    time.Sleep(10 * time.Minute)
-    fmt.Println("FLAG: Sleep FINISHED")
+	fmt.Println("FLAG: Sleep START 10 min")
+	time.Sleep(10 * time.Minute)
+	fmt.Println("FLAG: Sleep FINISHED")
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())

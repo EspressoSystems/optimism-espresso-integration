@@ -45,8 +45,8 @@ const (
 type DevnetProfile string
 
 const (
-    DevnetProfileTee    DevnetProfile = "tee"
-    DevnetProfileNonTee DevnetProfile = "default"
+	DevnetProfileTee    DevnetProfile = "tee"
+	DevnetProfileNonTee DevnetProfile = "default"
 )
 
 type Devnet struct {
@@ -235,6 +235,7 @@ func (d *Devnet) Up(profile DevnetProfile) (err error) {
 
 	return nil
 }
+
 /*
 func (d *Devnet) ServiceUp(service string) error {
 	log.Info("bringing up service", "service", service)
@@ -266,7 +267,6 @@ func (d *Devnet) ServiceDown(service string) error {
 	cmd := d.compose("down", service)
 	return cmd.Run()
 }
-
 
 func (d *Devnet) ServiceRestart(service string) error {
 	if err := d.ServiceDown(service); err != nil {
@@ -860,4 +860,3 @@ func (d *Devnet) compose(arg ...string) *exec.Cmd {
 	)
 	return cmd
 }
-
