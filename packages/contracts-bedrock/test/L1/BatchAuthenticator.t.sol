@@ -18,7 +18,7 @@ import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
 
 /// @notice Extended mock that implements IEspressoTEEVerifier and IEspressoNitroTEEVerifier
-///         by wrapping EspressoTEEVerifierMock from espresso-tee-contracts.
+///         by extending EspressoTEEVerifierMock and reusing its registeredSigner mapping.
 ///         Supports only the Nitro TEE verifier.
 contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifier, IEspressoNitroTEEVerifier {
     function espressoNitroTEEVerifier() external view override returns (IEspressoNitroTEEVerifier) {
@@ -29,7 +29,42 @@ contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifie
         return IEspressoSGXTEEVerifier(address(0));
     }
 
-    function registeredEnclaveHashes(bytes32, TeeType) external pure override returns (bool) {
+    // Override to use interface's TeeType and delegate to parent.
+    function verify(bytes memory signature, bytes32 userDataHash, IEspressoTEEVerifier.TeeType teeType)
+        external
+        view
+        override
+        returns (bool)
+    {
+        EspressoTEEVerifierMock.TeeType parentTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
+        return super.verify(signature, userDataHash, parentTeeType);
+    }
+
+    // Override to use interface's TeeType and delegate to parent.
+    function registerSigner(bytes calldata attestation, bytes calldata data, IEspressoTEEVerifier.TeeType teeType)
+        external
+        override
+    {
+        require(teeType == IEspressoTEEVerifier.TeeType.NITRO, "MockEspressoTEEVerifier: only NITRO supported");
+        EspressoTEEVerifierMock.TeeType parentTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
+        super.registerSigner(attestation, data, parentTeeType);
+    }
+
+    // Override to use interface's TeeType and delegate to parent.
+    function registeredSigners(address signer, IEspressoTEEVerifier.TeeType teeType)
+        external
+        view
+        override
+        returns (bool)
+    {
+        if (teeType != IEspressoTEEVerifier.TeeType.NITRO) {
+            return false;
+        }
+        EspressoTEEVerifierMock.TeeType parentTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
+        return super.registeredSigners(signer, parentTeeType);
+    }
+
+    function registeredEnclaveHashes(bytes32, IEspressoTEEVerifier.TeeType) external pure override returns (bool) {
         return false;
     }
 
@@ -42,7 +77,7 @@ contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifie
     }
 
     function registeredSigners(address signer) external view override returns (bool) {
-        return super.registeredSigners(signer, TeeType.NITRO);
+        return registeredSigner[signer];
     }
 
     function registeredEnclaveHash(bytes32) external pure override returns (bool) {
@@ -57,12 +92,11 @@ contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifie
 
     function deleteRegisteredSigners(address[] memory) external pure override { }
 
-    /// @notice Test helper to directly set registered signer status
+    /// @notice Test helper to directly set registered signer status.
     function setRegisteredSigner(address signer, bool value) external {
         if (value) {
-            // Use parent's registerSigner which expects 20-byte data containing the signer address
             bytes memory data = abi.encodePacked(signer);
-            super.registerSigner("", data, TeeType.NITRO);
+            this.registerSigner("", data, IEspressoTEEVerifier.TeeType.NITRO);
         } else {
             // For false, we can't unregister through the parent's interface,
             // but tests only set to true, so this is fine.
