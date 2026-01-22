@@ -30,7 +30,11 @@ contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifie
     }
 
     // Override to use interface's TeeType and delegate to parent.
-    function verify(bytes memory signature, bytes32 userDataHash, IEspressoTEEVerifier.TeeType teeType)
+    function verify(
+        bytes memory signature,
+        bytes32 userDataHash,
+        IEspressoTEEVerifier.TeeType teeType
+    )
         external
         view
         override
@@ -41,7 +45,11 @@ contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifie
     }
 
     // Override to use interface's TeeType and delegate to parent.
-    function registerSigner(bytes calldata attestation, bytes calldata data, IEspressoTEEVerifier.TeeType teeType)
+    function registerSigner(
+        bytes calldata attestation,
+        bytes calldata data,
+        IEspressoTEEVerifier.TeeType teeType
+    )
         external
         override
     {
@@ -51,7 +59,10 @@ contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifie
     }
 
     // Override to use interface's TeeType and delegate to parent.
-    function registeredSigners(address signer, IEspressoTEEVerifier.TeeType teeType)
+    function registeredSigners(
+        address signer,
+        IEspressoTEEVerifier.TeeType teeType
+    )
         external
         view
         override
