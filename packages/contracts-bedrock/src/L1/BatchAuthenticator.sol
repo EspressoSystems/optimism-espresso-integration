@@ -13,8 +13,8 @@ import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 ///         Supports switching between TEE and non-TEE batchers.
 contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, ReinitializableBase {
     /// @notice Semantic version.
-    /// @custom:semver 2.0.0
-    string public constant version = "2.0.0";
+    /// @custom:semver 1.0.0
+    string public constant version = "1.0.0";
 
     /// @notice Emitted when a batch info is authenticated.
     event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
