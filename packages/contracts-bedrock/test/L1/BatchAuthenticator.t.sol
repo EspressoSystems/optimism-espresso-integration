@@ -10,45 +10,23 @@ import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
+import { EspressoTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoTEEVerifier.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
 
 import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
 
-/// @notice Mock implementation of IEspressoTEEVerifier and IEspressoNitroTEEVerifier.
+/// @notice Extended mock that implements IEspressoTEEVerifier and IEspressoNitroTEEVerifier
+///         by wrapping EspressoTEEVerifierMock from espresso-tee-contracts.
 ///         Supports only the Nitro TEE verifier.
-/// @dev Note: BatchAuthenticator only uses registeredSigners() and doesn't check
-///      enclave hashes, so registeredEnclaveHash() always returns false in this mock.
-contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerifier {
-    mapping(address => bool) private _registeredSigners;
-
+contract MockEspressoTEEVerifier is EspressoTEEVerifierMock, IEspressoTEEVerifier, IEspressoNitroTEEVerifier {
     function espressoNitroTEEVerifier() external view override returns (IEspressoNitroTEEVerifier) {
         return this;
     }
 
     function espressoSGXTEEVerifier() external pure override returns (IEspressoSGXTEEVerifier) {
         return IEspressoSGXTEEVerifier(address(0));
-    }
-
-    function verify(bytes memory, bytes32, TeeType teeType) external pure override returns (bool) {
-        if (teeType == TeeType.NITRO) {
-            return true;
-        }
-        // SGX is not supported.
-        return false;
-    }
-
-    function registerSigner(bytes calldata, bytes calldata, TeeType teeType) external pure override {
-        require(teeType == TeeType.NITRO, "MockEspressoTEEVerifier: only NITRO supported");
-    }
-
-    function registeredSigners(address signer, TeeType teeType) external view override returns (bool) {
-        if (teeType == TeeType.NITRO) {
-            return _registeredSigners[signer];
-        }
-        // SGX is not supported.
-        return false;
     }
 
     function registeredEnclaveHashes(bytes32, TeeType) external pure override returns (bool) {
@@ -64,22 +42,32 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
     }
 
     function registeredSigners(address signer) external view override returns (bool) {
-        return _registeredSigners[signer];
+        return super.registeredSigners(signer, TeeType.NITRO);
     }
 
     function registeredEnclaveHash(bytes32) external pure override returns (bool) {
         return false;
     }
 
-    function registerSigner(bytes calldata, bytes calldata) external pure override { }
+    function registerSigner(bytes calldata, bytes calldata) external pure override {
+        // No-op: registration should go through registerSigner(bytes, bytes, TeeType)
+    }
 
     function setEnclaveHash(bytes32, bool) external pure override { }
 
     function deleteRegisteredSigners(address[] memory) external pure override { }
 
-    /// @notice Test helper.
+    /// @notice Test helper to directly set registered signer status
     function setRegisteredSigner(address signer, bool value) external {
-        _registeredSigners[signer] = value;
+        if (value) {
+            // Use parent's registerSigner which expects 20-byte data containing the signer address
+            bytes memory data = abi.encodePacked(signer);
+            super.registerSigner("", data, TeeType.NITRO);
+        } else {
+            // For false, we can't unregister through the parent's interface,
+            // but tests only set to true, so this is fine.
+            revert("MockEspressoTEEVerifier: unregistering not supported");
+        }
     }
 }
 
