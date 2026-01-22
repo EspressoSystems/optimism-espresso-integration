@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +24,9 @@ func TestSmokeWithoutTEE(t *testing.T) {
 	require.NoError(t, d.RunSimpleL2Burn())
 }
 
+// need to be run with ESPRESSO_RUN_ENCLAVE_TESTS=true on an enclave-enabled machine
 func TestSmokeWithTEE(t *testing.T) {
+	env.RunOnlyWithEnclave(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 

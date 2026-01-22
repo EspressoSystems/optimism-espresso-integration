@@ -540,16 +540,19 @@ func (d *Devnet) Down() error {
 		return fmt.Errorf("failed to shut down docker: %w", err)
 	}
 
-	outBatcher, _ := exec.Command("docker", "ps", "-q", "--filter", "ancestor=op-batcher-tee:espresso").Output()
-	batcherContainers := strings.Fields(string(outBatcher))
-	if len(batcherContainers) > 0 {
-		cmd = exec.Command("docker", append([]string{"stop"}, batcherContainers...)...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to stop the batcher container: %w", err)
-		}
-		cmd = exec.Command("docker", append([]string{"rm"}, batcherContainers...)...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to remove the batcher container: %w", err)
+	// Clean up both regular and TEE batcher containers
+	for _, batcherImage := range []string{"op-batcher:espresso", "op-batcher-tee:espresso"} {
+		outBatcher, _ := exec.Command("docker", "ps", "-q", "--filter", fmt.Sprintf("ancestor=%s", batcherImage)).Output()
+		batcherContainers := strings.Fields(string(outBatcher))
+		if len(batcherContainers) > 0 {
+			cmd = exec.Command("docker", append([]string{"stop"}, batcherContainers...)...)
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to stop the batcher container (%s): %w", batcherImage, err)
+			}
+			cmd = exec.Command("docker", append([]string{"rm", "-f"}, batcherContainers...)...)
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to remove the batcher container (%s): %w", batcherImage, err)
+			}
 		}
 	}
 
