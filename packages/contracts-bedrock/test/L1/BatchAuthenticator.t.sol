@@ -278,7 +278,8 @@ contract BatchAuthenticator_Test is Test {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         bytes memory attestationTbs = "test attestation";
-        bytes memory signature = "test signature";
+        address signer = address(0x1234);
+        bytes memory signature = abi.encodePacked(signer);
 
         vm.expectEmit(true, false, false, true);
         emit SignerRegistrationInitiated(address(this));
