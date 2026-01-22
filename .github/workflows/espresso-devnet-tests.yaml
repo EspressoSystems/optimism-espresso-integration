@@ -63,29 +63,9 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build
 
-      - name: Verify Proxy artifact exists and has bytecode
+      - name: Fix Proxy artifact bytecode
         working-directory: packages/contracts-bedrock
-        run: |
-          if [ ! -f "forge-artifacts/Proxy.sol/Proxy.json" ]; then
-            echo "ERROR: Proxy artifact not found!"
-            exit 1
-          fi
-          echo "Proxy artifact found successfully"
-          ls -lh forge-artifacts/Proxy.sol/Proxy.json
-          echo "Checking artifact structure..."
-          echo "Top-level keys:"
-          jq 'keys' forge-artifacts/Proxy.sol/Proxy.json
-          echo "Bytecode object value:"
-          jq -r '.bytecode.object' forge-artifacts/Proxy.sol/Proxy.json | head -c 100
-          echo ""
-          BYTECODE_LEN=$(jq -r '.bytecode.object' forge-artifacts/Proxy.sol/Proxy.json | wc -c)
-          echo "Bytecode length: $BYTECODE_LEN characters"
-          if [ "$BYTECODE_LEN" -lt 100 ]; then
-            echo "ERROR: Bytecode is too short! This will cause deployment to fail."
-            echo "Checking if bytecode field exists but is empty..."
-            jq '.bytecode' forge-artifacts/Proxy.sol/Proxy.json
-            exit 1
-          fi
+        run: just fix-proxy-artifact
 
       - name: Load environment variables
         run: |
