@@ -48,14 +48,12 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         if (teeType != TeeType.NITRO) {
             return false;
         }
-        // Delegate to internal mock, converting enum types
         EspressoTEEVerifierMock.TeeType mockTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
         return _mock.verify(signature, userDataHash, mockTeeType);
     }
 
     function registerSigner(bytes calldata attestation, bytes calldata data, TeeType teeType) external override {
         require(teeType == TeeType.NITRO, "MockEspressoTEEVerifier: only NITRO supported");
-        // Delegate to internal mock, converting enum types
         EspressoTEEVerifierMock.TeeType mockTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
         _mock.registerSigner(attestation, data, mockTeeType);
     }
@@ -64,7 +62,6 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         if (teeType != TeeType.NITRO) {
             return false;
         }
-        // Delegate to internal mock, converting enum types
         EspressoTEEVerifierMock.TeeType mockTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
         return _mock.registeredSigners(signer, mockTeeType);
     }
@@ -81,9 +78,7 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         // No-op: this contract can only be used as the Nitro TEE verifier.
     }
 
-    // IEspressoNitroTEEVerifier methods
     function registeredSigners(address signer) external view override returns (bool) {
-        // Access the internal mock's registeredSigner mapping
         return _mock.registeredSigner(signer);
     }
 
@@ -102,7 +97,6 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
     /// @notice Test helper to directly set registered signer status.
     function setRegisteredSigner(address signer, bool value) external {
         if (value) {
-            // Use the internal mock's registerSigner which expects 20-byte data containing the signer address
             bytes memory data = abi.encodePacked(signer);
             this.registerSigner("", data, TeeType.NITRO);
         } else {
@@ -384,7 +378,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(authenticator.teeBatcher(), teeBatcher);
         assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
         assertTrue(authenticator.activeIsTee());
-        assertEq(authenticator.version(), "2.0.0");
+        assertEq(authenticator.version(), "1.0.0");
 
         // Verify proxy admin.
         address admin = EIP1967Helper.getAdmin(address(proxy));
@@ -467,7 +461,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(block.chainid, Chains.Sepolia);
 
         // Verify contract is functional.
-        assertEq(authenticator.version(), "2.0.0");
+        assertEq(authenticator.version(), "1.0.0");
         assertTrue(authenticator.activeIsTee());
 
         // Verify the fork is working by testing that we can read the block number.
