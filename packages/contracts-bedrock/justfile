@@ -51,13 +51,14 @@ clean:
 # Foundry generates Proxy.json with empty bytecode when multiple compiler versions are used.
 fix-proxy-artifact:
   @if [ -f "forge-artifacts/Proxy.sol/Proxy.0.8.15.json" ] && [ -f "forge-artifacts/Proxy.sol/Proxy.json" ]; then \
-    python3 << 'EOF' \
+    python3 <<'PYEOF'
 import json
 with open('forge-artifacts/Proxy.sol/Proxy.json', 'r') as f:
     main = json.load(f)
 with open('forge-artifacts/Proxy.sol/Proxy.0.8.15.json', 'r') as f:
     versioned = json.load(f)
-if len(main.get('bytecode', {}).get('object', '0x')) <= 2:
+bytecode_obj = main.get('bytecode', {}).get('object', '0x')
+if len(bytecode_obj) <= 2:
     main['bytecode'] = versioned['bytecode']
     main['deployedBytecode'] = versioned['deployedBytecode']
     with open('forge-artifacts/Proxy.sol/Proxy.json', 'w') as f:
@@ -65,7 +66,7 @@ if len(main.get('bytecode', {}).get('object', '0x')) <= 2:
     print('Fixed Proxy.json bytecode from Proxy.0.8.15.json')
 else:
     print('Proxy.json already has bytecode, skipping fix')
-EOF
+PYEOF
   else \
     echo "Proxy artifacts not found, skipping fix"; \
   fi
