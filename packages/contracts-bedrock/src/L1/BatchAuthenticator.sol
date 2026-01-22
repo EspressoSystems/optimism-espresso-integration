@@ -22,6 +22,9 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
     /// @notice Emitted when a signer registration is initiated through this contract.
     event SignerRegistrationInitiated(address indexed caller);
 
+    /// @notice Error thrown when an invalid address (zero address) is provided.
+    error InvalidAddress(address contract_);
+
     /// @notice Mapping of batches verified by this contract
     mapping(bytes32 => bool) public validBatchInfo;
 
@@ -54,9 +57,9 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
         // Initialization transactions must come from the ProxyAdmin or its owner.
         _assertOnlyProxyAdminOrProxyAdminOwner();
 
-        require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
-        require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
-        require(address(_espressoTEEVerifier) != address(0), "BatchAuthenticator: zero verifier");
+        if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
+        if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
+        if (address(_espressoTEEVerifier) == address(0)) revert InvalidAddress(address(_espressoTEEVerifier));
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
