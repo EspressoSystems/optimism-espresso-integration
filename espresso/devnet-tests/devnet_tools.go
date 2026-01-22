@@ -560,7 +560,8 @@ func (d *Devnet) Down() error {
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to stop the enclave container: %w", err)
 		}
-		cmd = exec.Command("docker", append([]string{"rm"}, enclaveContainers...)...)
+		// Use -f (force) to avoid errors if container was already removed (e.g., due to --rm flag)
+		cmd = exec.Command("docker", append([]string{"rm", "-f"}, enclaveContainers...)...)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to remove the enclave container: %w", err)
 		}

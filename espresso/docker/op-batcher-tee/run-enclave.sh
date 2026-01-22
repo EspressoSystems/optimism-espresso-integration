@@ -4,10 +4,10 @@
 
 set -e
 
-# If linuxkit is not installed then exit
-if ! command -v linuxkit >/dev/null 2>&1; then
-  echo "ERROR: linuxkit is not installed on this host."
-  echo "TEE / EIF build requires LinuxKit."
+# If enclaver is not installed then exit
+if ! command -v enclaver >/dev/null 2>&1; then
+  echo "ERROR: enclaver is not installed on this host."
+  echo "TEE / EIF build requires enclaver."
   echo "This machine is not TEE-capable."
   exit 1
 fi
@@ -93,9 +93,9 @@ if [ "$ENCLAVE_DEBUG" = "true" ]; then
 fi
 
 # Fail early if enclave prerequisites are missing
-if ! command -v linuxkit >/dev/null 2>&1; then
-    echo "ERROR: linuxkit is not installed."
-    echo "Enclave (EIF) build requires LinuxKit. This environment is not TEE-capable."
+if ! command -v enclaver >/dev/null 2>&1; then
+    echo "ERROR: enclaver is not installed."
+    echo "Enclave (EIF) build requires enclaver. This environment is not TEE-capable."
     exit 1
 fi
 
@@ -115,7 +115,7 @@ echo "Verifying enclave image exists: $TAG"
 
 if ! docker image inspect "$TAG" >/dev/null 2>&1; then
     echo "ERROR: Enclave image '$TAG' was not created."
-    echo "This usually means EIF build failed (e.g., missing LinuxKit / enclave prerequisites)."
+    echo "This usually means EIF build failed (e.g., missing enclaver / enclave prerequisites)."
     exit 1
 fi
 
