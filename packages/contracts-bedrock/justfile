@@ -50,26 +50,25 @@ clean:
 # Fixes Proxy artifact bytecode if it's empty.
 # Foundry generates Proxy.json with empty bytecode when multiple compiler versions are used.
 fix-proxy-artifact:
-  @if [ -f "forge-artifacts/Proxy.sol/Proxy.0.8.15.json" ] && [ -f "forge-artifacts/Proxy.sol/Proxy.json" ]; then \
-    python3 <<'PYEOF'
+  @sh -c 'if [ -f "forge-artifacts/Proxy.sol/Proxy.0.8.15.json" ] && [ -f "forge-artifacts/Proxy.sol/Proxy.json" ]; then python3 <<PYEOF
 import json
-with open('forge-artifacts/Proxy.sol/Proxy.json', 'r') as f:
+with open("forge-artifacts/Proxy.sol/Proxy.json", "r") as f:
     main = json.load(f)
-with open('forge-artifacts/Proxy.sol/Proxy.0.8.15.json', 'r') as f:
+with open("forge-artifacts/Proxy.sol/Proxy.0.8.15.json", "r") as f:
     versioned = json.load(f)
-bytecode_obj = main.get('bytecode', {}).get('object', '0x')
+bytecode_obj = main.get("bytecode", {}).get("object", "0x")
 if len(bytecode_obj) <= 2:
-    main['bytecode'] = versioned['bytecode']
-    main['deployedBytecode'] = versioned['deployedBytecode']
-    with open('forge-artifacts/Proxy.sol/Proxy.json', 'w') as f:
+    main["bytecode"] = versioned["bytecode"]
+    main["deployedBytecode"] = versioned["deployedBytecode"]
+    with open("forge-artifacts/Proxy.sol/Proxy.json", "w") as f:
         json.dump(main, f, indent=2)
-    print('Fixed Proxy.json bytecode from Proxy.0.8.15.json')
+    print("Fixed Proxy.json bytecode from Proxy.0.8.15.json")
 else:
-    print('Proxy.json already has bytecode, skipping fix')
+    print("Proxy.json already has bytecode, skipping fix")
 PYEOF
-  else \
-    echo "Proxy artifacts not found, skipping fix"; \
-  fi
+  else
+    echo "Proxy artifacts not found, skipping fix"
+  fi'
 
 
 ########################################################
