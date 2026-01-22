@@ -37,6 +37,9 @@ jobs:
       - name: Compile contracts
         run: just compile-contracts
 
+      - name: Fix Proxy artifact bytecode
+        run: cd packages/contracts-bedrock && just fix-proxy-artifact
+
       - name: Load environment variables
         run: |
           while IFS= read -r line; do
