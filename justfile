@@ -90,6 +90,7 @@ nuke:
 
 # Stop the containers
 stop-containers:
+ mkdir -p espresso/deployment/deployer && touch espresso/deployment/deployer/succinct.env
  (cd espresso && U_ID={{uid}} GID={{gid}} docker compose down -v)
 
 # Checks that TODO comments have corresponding issues.
