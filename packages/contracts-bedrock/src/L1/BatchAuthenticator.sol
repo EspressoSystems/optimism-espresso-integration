@@ -86,7 +86,7 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
         if (_newTeeBatcher == address(0)) revert InvalidAddress(_newTeeBatcher);
         address oldTeeBatcher = teeBatcher;
         teeBatcher = _newTeeBatcher;
-        emit TeeBatcherUpdated(oldTeeBatcher, _teeBatcher);
+        emit TeeBatcherUpdated(oldTeeBatcher, _newTeeBatcher);
     }
 
     /// @notice Updates the non-TEE batcher address.
