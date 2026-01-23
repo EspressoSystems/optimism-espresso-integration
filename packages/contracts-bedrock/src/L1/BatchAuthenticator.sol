@@ -129,4 +129,20 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
         espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
         emit SignerRegistrationInitiated(msg.sender);
     }
+
+    /// @notice Returns the address of the Nitro TEE validator.
+    function nitroValidator() external view returns (address) {
+        return address(espressoTEEVerifier.espressoNitroTEEVerifier());
+    }
+
+    /// @notice Decodes an attestation into its TBS (to-be-signed) portion and signature.
+    /// @param attestation The attestation bytes to decode.
+    /// @return attestationTbs The TBS portion of the attestation.
+    /// @return signature The signature portion of the attestation.
+    /// @dev This function is not implemented as decodeAttestationTbs is not available
+    ///      through the IEspressoNitroTEEVerifier interface. Use the NitroValidator
+    ///      contract directly if this functionality is needed.
+    function decodeAttestationTbs(bytes memory /* attestation */) external view returns (bytes memory, bytes memory) {
+        revert("BatchAuthenticator: decodeAttestationTbs not implemented - use NitroValidator directly");
+    }
 }
