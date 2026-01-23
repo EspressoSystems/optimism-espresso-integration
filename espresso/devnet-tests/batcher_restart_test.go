@@ -16,6 +16,7 @@ func TestBatcherRestart(t *testing.T) {
 	testRestart(t, false)
 }
 
+// need to be run with ESPRESSO_RUN_ENCLAVE_TESTS=true on an enclave-enabled machine
 func TestEnclaveRestart(t *testing.T) {
 	env.RunOnlyWithEnclave(t)
 	testRestart(t, true)
