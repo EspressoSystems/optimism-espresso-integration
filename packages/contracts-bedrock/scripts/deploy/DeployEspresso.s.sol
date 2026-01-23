@@ -103,16 +103,18 @@ contract DeployEspresso is Script {
         returns (IBatchAuthenticator)
     {
         // Deploy the proxy admin, the proxy, and the batch authenticator implementation.
-        vm.broadcast(deployerAddress);
-        ProxyAdmin proxyAdmin = new ProxyAdmin(deployerAddress);
+        // We create ProxyAdmin with msg.sender as the owner to ensure broadcasts come from
+        // the expected address, then transfer ownership to deployerAddress afterward.
+        vm.broadcast(msg.sender);
+        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
-        vm.broadcast(deployerAddress);
+        vm.broadcast(msg.sender);
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
-        vm.broadcast(deployerAddress);
+        vm.broadcast(msg.sender);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
-        vm.broadcast(deployerAddress);
+        vm.broadcast(msg.sender);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         // Initialize the proxy.
@@ -120,8 +122,14 @@ contract DeployEspresso is Script {
             BatchAuthenticator.initialize,
             (teeVerifier, input.teeBatcher(), input.nonTeeBatcher())
         );
-        vm.broadcast(deployerAddress);
+        vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
+
+        // Transfer ownership to the desired deployerAddress if it differs from msg.sender.
+        if (deployerAddress != msg.sender) {
+            vm.broadcast(msg.sender);
+            proxyAdmin.transferOwnership(deployerAddress);
+        }
 
         // Return the proxied contract.
         IBatchAuthenticator batchAuthenticator = IBatchAuthenticator(address(proxy));
@@ -131,7 +139,7 @@ contract DeployEspresso is Script {
 
     function deployTEEVerifier(DeployEspressoInput input, address deployerAddress) public returns (IEspressoTEEVerifier) {
         IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
-        vm.broadcast(deployerAddress);
+        vm.broadcast(msg.sender);
         IEspressoTEEVerifier impl = new EspressoTEEVerifier(
             // SGX TEE verifier is not yet implemented
             IEspressoSGXTEEVerifier(address(0)),
@@ -150,7 +158,7 @@ contract DeployEspresso is Script {
         public
     {
         bytes32 salt = input.salt();
-        vm.broadcast(deployerAddress);
+        vm.broadcast(msg.sender);
         IBatchInbox impl = IBatchInbox(
             DeployUtils.create2({
                 _name: "BatchInbox",
