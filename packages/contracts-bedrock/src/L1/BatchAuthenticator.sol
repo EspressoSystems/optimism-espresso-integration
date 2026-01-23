@@ -141,7 +141,7 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
     /// @dev This function is not implemented as decodeAttestationTbs is not available
     ///      through the IEspressoNitroTEEVerifier interface. Use the NitroValidator
     ///      contract directly if this functionality is needed.
-    function decodeAttestationTbs(bytes memory /* attestation */) external pure returns (bytes memory, bytes memory) {
+    function decodeAttestationTbs(bytes memory /* attestation */ ) external pure returns (bytes memory, bytes memory) {
         revert("BatchAuthenticator: decodeAttestationTbs not implemented - use NitroValidator directly");
     }
 }
