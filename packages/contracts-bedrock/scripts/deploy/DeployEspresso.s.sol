@@ -87,7 +87,7 @@ contract DeployEspressoOutput is BaseDeployIO {
 
 contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
-        IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
+        IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input, deployerAddress);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
         deployBatchInbox(input, output, batchAuthenticator, deployerAddress);
         checkOutput(output);
@@ -97,22 +97,22 @@ contract DeployEspresso is Script {
         DeployEspressoInput input,
         DeployEspressoOutput output,
         IEspressoTEEVerifier teeVerifier,
-        address owner
+        address deployerAddress
     )
         public
         returns (IBatchAuthenticator)
     {
         // Deploy the proxy admin, the proxy, and the batch authenticator implementation.
-        vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = new ProxyAdmin(owner);
+        vm.broadcast(deployerAddress);
+        ProxyAdmin proxyAdmin = new ProxyAdmin(deployerAddress);
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
-        vm.broadcast(msg.sender);
+        vm.broadcast(deployerAddress);
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
-        vm.broadcast(msg.sender);
+        vm.broadcast(deployerAddress);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
-        vm.broadcast(owner);
+        vm.broadcast(deployerAddress);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         // Initialize the proxy.
@@ -120,7 +120,7 @@ contract DeployEspresso is Script {
             BatchAuthenticator.initialize,
             (teeVerifier, input.teeBatcher(), input.nonTeeBatcher())
         );
-        vm.broadcast(owner);
+        vm.broadcast(deployerAddress);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
 
         // Return the proxied contract.
@@ -129,9 +129,9 @@ contract DeployEspresso is Script {
         return batchAuthenticator;
     }
 
-    function deployTEEVerifier(DeployEspressoInput input) public returns (IEspressoTEEVerifier) {
+    function deployTEEVerifier(DeployEspressoInput input, address deployerAddress) public returns (IEspressoTEEVerifier) {
         IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
-        vm.broadcast(msg.sender);
+        vm.broadcast(deployerAddress);
         IEspressoTEEVerifier impl = new EspressoTEEVerifier(
             // SGX TEE verifier is not yet implemented
             IEspressoSGXTEEVerifier(address(0)),
@@ -145,18 +145,18 @@ contract DeployEspresso is Script {
         DeployEspressoInput input,
         DeployEspressoOutput output,
         IBatchAuthenticator batchAuthenticator,
-        address owner
+        address deployerAddress
     )
         public
     {
         bytes32 salt = input.salt();
-        vm.broadcast(msg.sender);
+        vm.broadcast(deployerAddress);
         IBatchInbox impl = IBatchInbox(
             DeployUtils.create2({
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator), owner))
+                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator), deployerAddress))
                 )
             })
         );
