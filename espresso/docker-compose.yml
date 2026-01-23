@@ -10,7 +10,7 @@
 
 services:
   l1-data-init:
-    image: busybox
+    image: alpine:latest
     command: >
       sh -c '
         mkdir -p /deployment/l1-config /deployment/l2-config /deployment/deployer
@@ -373,6 +373,8 @@ services:
     command:
       - op-batcher
       - --espresso.enabled=true
+      - --espresso.origin-height-espresso=2526
+      - --espresso.origin-height-l2=536
       - --espresso.poll-interval=1s
       - --espresso.espresso-attestation-service=http://attestation-service-zk:${ESPRESSO_ATTESTATION_VERIFIER_PORT}
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
@@ -518,7 +520,7 @@ services:
 
   # Succinct proposer for ZK fault proofs
   succinct-proposer:
-    profiles: ["default"]
+    profiles: [ "default" ]
     image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-fd56351
     depends_on:
       l1-data-init:
@@ -611,7 +613,7 @@ services:
 
   # Succinct challenger for ZK fault proofs
   succinct-challenger:
-    profiles: ["default"]
+    profiles: [ "default" ]
     image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-fd56351
     depends_on:
       l1-geth:

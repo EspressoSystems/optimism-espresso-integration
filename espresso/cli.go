@@ -37,6 +37,7 @@ var (
 	NamespaceFlagName                = espressoFlags("namespace")
 	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
 	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
+	UseFetchApiFlagName              = espressoFlags("fetch-api")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -110,6 +111,13 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "ESPRESSO_ATTESTATION_SERVICE"),
 			Category: category,
 		},
+		&cli.BoolFlag{
+			Name:     UseFetchApiFlagName,
+			Usage:    "Use fetch API for Espresso queries",
+			Value:    false,
+			EnvVars:  espressoEnvs(envPrefix, "FETCH_API"),
+			Category: category,
+		},
 	}
 }
 
@@ -125,6 +133,7 @@ type CLIConfig struct {
 	CaffeinationHeightEspresso uint64
 	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
+	UseFetchAPI                bool
 
 	// Non directly configurable option
 	allowEmptyAttestationService bool `json:"-"`
@@ -173,6 +182,7 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
 		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
 		EspressoAttestationService: c.String(AttestationServiceFlagName),
+		UseFetchAPI:                c.Bool(UseFetchApiFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)

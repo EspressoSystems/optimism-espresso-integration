@@ -14,8 +14,10 @@ OP_ROOT=$(realpath "${OP_ROOT}")
 DEPLOYMENT_DIR="${OP_ROOT}/espresso/deployment"
 DEPLOYER_DIR="${DEPLOYMENT_DIR}/deployer"
 L1_CONFIG_DIR="${DEPLOYMENT_DIR}/l1-config"
+L2_CONFIG_DIR="${DEPLOYMENT_DIR}/l2-config"
 mkdir -p "${DEPLOYER_DIR}"
 mkdir -p "${L1_CONFIG_DIR}"
+mkdir -p "${L2_CONFIG_DIR}"
 
 ANVIL_STATE_FILE="${DEPLOYMENT_DIR}/anvil_state.json"
 ARTIFACTS_DIR="file:///${OP_ROOT}/packages/contracts-bedrock/forge-artifacts"
@@ -75,7 +77,7 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --intent-type standard-overrides \
                  --outdir ${DEPLOYER_DIR}
 
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v false
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
 
 # Configure Espresso batchers for devnet. We reuse the operator address for the
 # TEE batcher, but use a separate address for the non-TEE fallback batcher.
