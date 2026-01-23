@@ -11,6 +11,11 @@ import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEs
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
+import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
+import { IProxy } from "interfaces/universal/IProxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { console2 as console } from "forge-std/console2.sol";
 
 contract DeployEspressoInput is BaseDeployIO {
@@ -97,24 +102,31 @@ contract DeployEspresso is Script {
         public
         returns (IBatchAuthenticator)
     {
-        bytes32 salt = input.salt();
+        // Deploy the proxy admin, the proxy, and the batch authenticator implementation.
         vm.broadcast(msg.sender);
-        IBatchAuthenticator impl = IBatchAuthenticator(
-            DeployUtils.create2({
-                _name: "BatchAuthenticator",
-                _salt: salt,
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(
-                        IBatchAuthenticator.__constructor__,
-                        (address(teeVerifier), input.teeBatcher(), input.nonTeeBatcher(), owner)
-                    )
-                )
-            })
-        );
+        ProxyAdmin proxyAdmin = new ProxyAdmin(owner);
+        vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
+        vm.broadcast(msg.sender);
+        Proxy proxy = new Proxy(address(proxyAdmin));
+        vm.label(address(proxy), "BatchAuthenticatorProxy");
+        vm.broadcast(msg.sender);
+        BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
+        vm.broadcast(owner);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
-        output.set(output.batchAuthenticatorAddress.selector, address(impl));
-        return impl;
+        // Initialize the proxy.
+        bytes memory initData = abi.encodeCall(
+            BatchAuthenticator.initialize,
+            (teeVerifier, input.teeBatcher(), input.nonTeeBatcher())
+        );
+        vm.broadcast(owner);
+        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
+
+        // Return the proxied contract.
+        IBatchAuthenticator batchAuthenticator = IBatchAuthenticator(address(proxy));
+        output.set(output.batchAuthenticatorAddress.selector, address(batchAuthenticator));
+        return batchAuthenticator;
     }
 
     function deployTEEVerifier(DeployEspressoInput input) public returns (IEspressoTEEVerifier) {

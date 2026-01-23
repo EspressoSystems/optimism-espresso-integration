@@ -42,10 +42,7 @@ interface IBatchAuthenticator {
 
     function switchBatcher() external;
 
-    function __constructor__(
-        address _espressoTEEVerifier,
-        address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
-    ) external;
+    function setTeeBatcher(address _newTeeBatcher) external;
+
+    function setNonTeeBatcher(address _newNonTeeBatcher) external;
 }

@@ -74,6 +74,11 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
         activeIsTee = true;
     }
 
+    /// @notice Returns the owner of the ProxyAdmin that owns this proxy.
+    function owner() external view returns (address) {
+        return proxyAdminOwner();
+    }
+
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
     function switchBatcher() external {
         _assertOnlyProxyAdminOrProxyAdminOwner();
