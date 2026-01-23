@@ -13,8 +13,6 @@ import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspress
 import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { Proxy } from "src/universal/Proxy.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
@@ -135,10 +133,8 @@ contract DeployEspresso is Script {
         vm.label(address(impl), "BatchAuthenticatorImpl");
 
         // Initialize the proxy.
-        bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize,
-            (teeVerifier, input.teeBatcher(), input.nonTeeBatcher())
-        );
+        bytes memory initData =
+            abi.encodeCall(BatchAuthenticator.initialize, (teeVerifier, input.teeBatcher(), input.nonTeeBatcher()));
         vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
 
@@ -154,7 +150,13 @@ contract DeployEspresso is Script {
         return batchAuthenticator;
     }
 
-    function deployTEEVerifier(DeployEspressoInput input, address /* deployerAddress */) public returns (IEspressoTEEVerifier) {
+    function deployTEEVerifier(
+        DeployEspressoInput input,
+        address /* deployerAddress */
+    )
+        public
+        returns (IEspressoTEEVerifier)
+    {
         IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
         vm.broadcast(msg.sender);
         IEspressoTEEVerifier impl = new EspressoTEEVerifier(
