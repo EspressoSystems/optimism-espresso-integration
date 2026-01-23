@@ -3,10 +3,6 @@ pragma solidity ^0.8.0;
 
 interface IBatchAuthenticator {
     event Initialized(uint8 version);
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
 
     function authenticateBatchInfo(
         bytes32 commitment,
@@ -31,10 +27,6 @@ interface IBatchAuthenticator {
         bytes memory attestationTbs,
         bytes memory signature
     ) external;
-
-    function renounceOwnership() external;
-
-    function transferOwnership(address newOwner) external;
 
     function validBatchInfo(bytes32) external view returns (bool);
 
