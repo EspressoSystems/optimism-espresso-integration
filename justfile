@@ -15,6 +15,9 @@ devnet-tests: build-devnet
 devnet-smoke-test-without-tee: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmokeWithoutTEE' -v ./espresso/devnet-tests/...
 
+devnet-smoke-test-with-tee: build-devnet
+  U_ID={{uid}} GID={{gid}} ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout 30m -p 1 -count 1 -run 'TestSmokeWithTEE' -v ./espresso/devnet-tests/...
+
 devnet-challenge-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./espresso/devnet-tests/...
 
