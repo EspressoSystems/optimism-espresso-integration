@@ -107,11 +107,26 @@ contract DeployEspresso is Script {
         // Deploy the proxy admin, the proxy, and the batch authenticator implementation.
         // We create ProxyAdmin with msg.sender as the owner to ensure broadcasts come from
         // the expected address, then transfer ownership to deployerAddress afterward.
+        // Use DeployUtils.create1 to ensure artifacts are available for vm.getCode calls.
         vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
+        ProxyAdmin proxyAdmin = ProxyAdmin(
+            payable(
+                DeployUtils.create1({
+                    _name: "ProxyAdmin",
+                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+                })
+            )
+        );
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         vm.broadcast(msg.sender);
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        Proxy proxy = Proxy(
+            payable(
+                DeployUtils.create1({
+                    _name: "Proxy",
+                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
+                })
+            )
+        );
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
