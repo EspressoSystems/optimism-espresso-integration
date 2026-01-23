@@ -11,7 +11,7 @@ interface IBatchAuthenticator {
 
     function decodeAttestationTbs(
         bytes memory attestation
-    ) external view returns (bytes memory, bytes memory);
+    ) external pure returns (bytes memory, bytes memory);
 
     function espressoTEEVerifier() external view returns (address);
 
