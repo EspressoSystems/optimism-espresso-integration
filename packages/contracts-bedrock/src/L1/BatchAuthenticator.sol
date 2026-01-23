@@ -136,7 +136,6 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
     }
 
     /// @notice Decodes an attestation into its TBS (to-be-signed) portion and signature.
-    /// @param attestation The attestation bytes to decode.
     /// @return attestationTbs The TBS portion of the attestation.
     /// @return signature The signature portion of the attestation.
     /// @dev This function is not implemented as decodeAttestationTbs is not available
