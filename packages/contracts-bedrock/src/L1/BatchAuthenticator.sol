@@ -22,6 +22,12 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
     /// @notice Emitted when a signer registration is initiated through this contract.
     event SignerRegistrationInitiated(address indexed caller);
 
+    /// @notice Emitted when the TEE batcher address is updated.
+    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
+
+    /// @notice Emitted when the non-TEE batcher address is updated.
+    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
+
     /// @notice Error thrown when an invalid address (zero address) is provided.
     error InvalidAddress(address contract_);
 
@@ -72,6 +78,24 @@ contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, Rein
     function switchBatcher() external {
         _assertOnlyProxyAdminOrProxyAdminOwner();
         activeIsTee = !activeIsTee;
+    }
+
+    /// @notice Updates the TEE batcher address.
+    function setTeeBatcher(address _newTeeBatcher) external {
+        _assertOnlyProxyAdminOrProxyAdminOwner();
+        if (_newTeeBatcher == address(0)) revert InvalidAddress(_newTeeBatcher);
+        address oldTeeBatcher = teeBatcher;
+        teeBatcher = _newTeeBatcher;
+        emit TeeBatcherUpdated(oldTeeBatcher, _teeBatcher);
+    }
+
+    /// @notice Updates the non-TEE batcher address.
+    function setNonTeeBatcher(address _newNonTeeBatcher) external {
+        _assertOnlyProxyAdminOrProxyAdminOwner();
+        if (_newNonTeeBatcher == address(0)) revert InvalidAddress(_newNonTeeBatcher);
+        address oldNonTeeBatcher = nonTeeBatcher;
+        nonTeeBatcher = _newNonTeeBatcher;
+        emit NonTeeBatcherUpdated(oldNonTeeBatcher, _newNonTeeBatcher);
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {

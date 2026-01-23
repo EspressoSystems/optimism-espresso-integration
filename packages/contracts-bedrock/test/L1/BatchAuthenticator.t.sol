@@ -287,6 +287,104 @@ contract BatchAuthenticator_Test is Test {
         authenticator.registerSigner(attestationTbs, signature);
     }
 
+    /// @notice Test that setTeeBatcher can only be called by ProxyAdmin or owner.
+    function test_setTeeBatcher_onlyProxyAdminOrOwner() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        address newTeeBatcher = address(0x9999);
+
+        // ProxyAdmin owner can set.
+        vm.expectEmit(true, true, false, false);
+        emit TeeBatcherUpdated(teeBatcher, newTeeBatcher);
+        vm.prank(proxyAdminOwner);
+        authenticator.setTeeBatcher(newTeeBatcher);
+        assertEq(authenticator.teeBatcher(), newTeeBatcher);
+
+        // ProxyAdmin can set.
+        address anotherTeeBatcher = address(0x8888);
+        vm.expectEmit(true, true, false, false);
+        emit TeeBatcherUpdated(newTeeBatcher, anotherTeeBatcher);
+        vm.prank(address(proxyAdmin));
+        authenticator.setTeeBatcher(anotherTeeBatcher);
+        assertEq(authenticator.teeBatcher(), anotherTeeBatcher);
+
+        // Unauthorized cannot set.
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        authenticator.setTeeBatcher(address(0x7777));
+    }
+
+    /// @notice Test that setTeeBatcher reverts when zero address is provided.
+    function test_setTeeBatcher_revertsWhenZeroAddress() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        vm.prank(proxyAdminOwner);
+        vm.expectRevert(abi.encodeWithSelector(BatchAuthenticator.InvalidAddress.selector, address(0)));
+        authenticator.setTeeBatcher(address(0));
+    }
+
+    /// @notice Test that setTeeBatcher successfully updates the address.
+    function test_setTeeBatcher_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        address newTeeBatcher = address(0x9999);
+
+        vm.expectEmit(true, true, false, false);
+        emit TeeBatcherUpdated(teeBatcher, newTeeBatcher);
+
+        vm.prank(proxyAdminOwner);
+        authenticator.setTeeBatcher(newTeeBatcher);
+
+        assertEq(authenticator.teeBatcher(), newTeeBatcher);
+    }
+
+    /// @notice Test that setNonTeeBatcher can only be called by ProxyAdmin or owner.
+    function test_setNonTeeBatcher_onlyProxyAdminOrOwner() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        address newNonTeeBatcher = address(0xAAAA);
+
+        // ProxyAdmin owner can set.
+        vm.expectEmit(true, true, false, false);
+        emit NonTeeBatcherUpdated(nonTeeBatcher, newNonTeeBatcher);
+        vm.prank(proxyAdminOwner);
+        authenticator.setNonTeeBatcher(newNonTeeBatcher);
+        assertEq(authenticator.nonTeeBatcher(), newNonTeeBatcher);
+
+        // ProxyAdmin can set.
+        address anotherNonTeeBatcher = address(0xBBBB);
+        vm.expectEmit(true, true, false, false);
+        emit NonTeeBatcherUpdated(newNonTeeBatcher, anotherNonTeeBatcher);
+        vm.prank(address(proxyAdmin));
+        authenticator.setNonTeeBatcher(anotherNonTeeBatcher);
+        assertEq(authenticator.nonTeeBatcher(), anotherNonTeeBatcher);
+
+        // Unauthorized cannot set.
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        authenticator.setNonTeeBatcher(address(0xCCCC));
+    }
+
+    /// @notice Test that setNonTeeBatcher reverts when zero address is provided.
+    function test_setNonTeeBatcher_revertsWhenZeroAddress() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        vm.prank(proxyAdminOwner);
+        vm.expectRevert(abi.encodeWithSelector(BatchAuthenticator.InvalidAddress.selector, address(0)));
+        authenticator.setNonTeeBatcher(address(0));
+    }
+
+    /// @notice Test that setNonTeeBatcher successfully updates the address.
+    function test_setNonTeeBatcher_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        address newNonTeeBatcher = address(0xAAAA);
+
+        vm.expectEmit(true, true, false, false);
+        emit NonTeeBatcherUpdated(nonTeeBatcher, newNonTeeBatcher);
+
+        vm.prank(proxyAdminOwner);
+        authenticator.setNonTeeBatcher(newNonTeeBatcher);
+
+        assertEq(authenticator.nonTeeBatcher(), newNonTeeBatcher);
+    }
+
     /// @notice Test upgrade to new implementation with comprehensive state preservation.
     function test_upgrade_preservesState() external {
         // Create and initialize a proxy.
@@ -328,6 +426,8 @@ contract BatchAuthenticator_Test is Test {
     // Event declarations for expectEmit.
     event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
     event SignerRegistrationInitiated(address indexed caller);
+    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
+    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
 }
 
 /// @notice Fork tests for BatchAuthenticator on Sepolia.
@@ -474,4 +574,6 @@ contract BatchAuthenticator_Fork_Test is Test {
     // Event declarations for expectEmit.
     event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
     event SignerRegistrationInitiated(address indexed caller);
+    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
+    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
 }
