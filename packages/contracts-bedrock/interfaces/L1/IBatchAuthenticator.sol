@@ -9,10 +9,6 @@ interface IBatchAuthenticator {
         bytes memory _signature
     ) external;
 
-    function decodeAttestationTbs(
-        bytes memory attestation
-    ) external pure returns (bytes memory, bytes memory);
-
     function espressoTEEVerifier() external view returns (address);
 
     function nitroValidator() external view returns (address);

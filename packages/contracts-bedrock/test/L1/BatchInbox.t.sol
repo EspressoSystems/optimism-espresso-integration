@@ -43,7 +43,6 @@ contract BatchInbox_Test is Test {
 
         // Deploy TestBatchAuthenticator via proxy.
         TestBatchAuthenticator impl = new TestBatchAuthenticator();
-        vm.prank(deployer);
         proxyAdmin = new ProxyAdmin(deployer);
         proxy = new Proxy(address(proxyAdmin));
         vm.prank(deployer);

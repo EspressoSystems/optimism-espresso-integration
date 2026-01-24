@@ -55,10 +55,6 @@ jobs:
       - name: Cache Go modules
         uses: actions/setup-go@v5
 
-      - name: Clean contract artifacts
-        working-directory: packages/contracts-bedrock
-        run: just clean
-
       - name: Compile contracts
         working-directory: packages/contracts-bedrock
         run: just build
