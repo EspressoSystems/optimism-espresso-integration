@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.22;
 
 // Testing
 import { Test } from "forge-std/Test.sol";
@@ -9,27 +9,37 @@ import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 
 contract MockNitroTEEVerifier is IEspressoNitroTEEVerifier {
-    mapping(address => bool) private _registeredSigners;
+    mapping(address => mapping(ServiceType => bool)) private _registeredServices;
 
-    function registeredSigners(address signer) external view override returns (bool) {
-        return _registeredSigners[signer];
+    function registeredService(address signer, ServiceType serviceType) external view override returns (bool) {
+        return _registeredServices[signer][serviceType];
     }
 
-    function registeredEnclaveHash(bytes32) external pure override returns (bool) {
+    function registeredEnclaveHash(bytes32, ServiceType) external pure override returns (bool) {
         return false;
     }
 
-    function registerSigner(bytes calldata, bytes calldata) external pure override { }
+    function registerService(bytes calldata, bytes calldata, ServiceType) external pure override { }
 
-    function setEnclaveHash(bytes32, bool) external pure override { }
+    function setEnclaveHash(bytes32, bool, ServiceType) external pure override { }
 
-    function deleteRegisteredSigners(address[] memory) external pure override { }
+    function deleteRegisteredService(address[] memory, ServiceType) external pure { }
+
+    function enclaveHashSigners(bytes32, ServiceType) external pure override returns (address[] memory) {
+        return new address[](0);
+    }
+
+    function deleteEnclaveHashes(bytes32[] memory, ServiceType) external pure { }
+
+    function setNitroEnclaveVerifier(address) external pure { }
 
     // Test helper
-    function setRegisteredSigner(address signer, bool value) external {
-        _registeredSigners[signer] = value;
+    function setRegisteredService(address signer, ServiceType serviceType, bool value) external {
+        _registeredServices[signer][serviceType] = value;
     }
 }
 
@@ -50,18 +60,22 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier {
         return sgx;
     }
 
-    function verify(bytes memory, bytes32, TeeType) external pure override returns (bool) {
+    function verify(bytes memory, bytes32, TeeType, ServiceType) external pure override returns (bool) {
         return true;
     }
 
-    function registerSigner(bytes calldata, bytes calldata, TeeType) external pure override { }
+    function registerService(bytes calldata, bytes calldata, TeeType, ServiceType) external pure override { }
 
-    function registeredSigners(address, TeeType) external pure override returns (bool) {
+    function registeredService(address, TeeType, ServiceType) external pure override returns (bool) {
         return false;
     }
 
-    function registeredEnclaveHashes(bytes32, TeeType) external pure override returns (bool) {
+    function registeredEnclaveHashes(bytes32, TeeType, ServiceType) external pure override returns (bool) {
         return false;
+    }
+
+    function enclaveHashSigners(bytes32, TeeType, ServiceType) external pure override returns (address[] memory) {
+        return new address[](0);
     }
 
     function setEspressoSGXTEEVerifier(IEspressoSGXTEEVerifier _sgx) external override {
@@ -74,10 +88,11 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier {
 }
 
 /// @title BatchAuthenticator_SwitchBatcher_Test
-/// @notice Tests ownership restrictions on BatchAuthenticator switchBatcher behavior
+/// @notice Tests ownership and guardian restrictions on BatchAuthenticator switchBatcher behavior
 contract BatchAuthenticator_SwitchBatcher_Test is Test {
     address public deployer = address(0xABCD);
     address public unauthorized = address(0xDEAD);
+    address public guardian = address(0xFEED);
 
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
@@ -90,12 +105,24 @@ contract BatchAuthenticator_SwitchBatcher_Test is Test {
         nitroVerifier = new MockNitroTEEVerifier();
         teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
 
-        vm.prank(deployer);
-        authenticator =
-            new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        // Deploy implementation
+        BatchAuthenticator impl = new BatchAuthenticator();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            BatchAuthenticator.initialize.selector,
+            IEspressoTEEVerifier(address(teeVerifier)),
+            teeBatcher,
+            nonTeeBatcher,
+            deployer
+        );
+
+        // Deploy proxy
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        authenticator = BatchAuthenticator(address(proxy));
     }
 
-    /// @notice Test that only the owner can switch the active batcher
+    /// @notice Test that only the owner or guardian can switch the active batcher
     function test_switchBatcher_revertsForNonOwner() external {
         // Owner can switch batcher successfully.
         vm.startPrank(deployer);
@@ -106,13 +133,49 @@ contract BatchAuthenticator_SwitchBatcher_Test is Test {
 
         // Non-owner cannot switch batcher.
         vm.startPrank(unauthorized);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert();
         authenticator.switchBatcher();
+        vm.stopPrank();
+    }
+
+    /// @notice Test that guardians can switch the active batcher
+    function test_switchBatcher_guardianCanSwitch() external {
+        // Add guardian
+        vm.prank(deployer);
+        authenticator.addGuardian(guardian);
+
+        // Guardian can switch batcher
+        vm.startPrank(guardian);
+        bool initialIsTee = authenticator.activeIsTee();
+        authenticator.switchBatcher();
+        assertEq(authenticator.activeIsTee(), !initialIsTee, "guardian should be able to switch batcher");
+        vm.stopPrank();
+    }
+
+    /// @notice Test guardian management functions
+    function test_guardianManagement() external {
+        vm.startPrank(deployer);
+
+        // Add guardian
+        authenticator.addGuardian(guardian);
+        assertTrue(authenticator.isGuardian(guardian), "should be guardian");
+        assertEq(authenticator.guardianCount(), 1, "should have 1 guardian");
+
+        // Get guardians list
+        address[] memory guardians = authenticator.getGuardians();
+        assertEq(guardians.length, 1, "should have 1 guardian in list");
+        assertEq(guardians[0], guardian, "guardian address should match");
+
+        // Remove guardian
+        authenticator.removeGuardian(guardian);
+        assertFalse(authenticator.isGuardian(guardian), "should not be guardian");
+        assertEq(authenticator.guardianCount(), 0, "should have 0 guardians");
+
         vm.stopPrank();
     }
 }
 
-contract BatchAuthenticator_Constructor_Test is Test {
+contract BatchAuthenticator_Initialize_Test is Test {
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
 
@@ -126,20 +189,52 @@ contract BatchAuthenticator_Constructor_Test is Test {
         teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
     }
 
-    function test_constructor_revertsWhenTeeBatcherIsZero() external {
+    function test_initialize_revertsWhenTeeBatcherIsZero() external {
+        BatchAuthenticator impl = new BatchAuthenticator();
+
+        bytes memory initData = abi.encodeWithSelector(
+            BatchAuthenticator.initialize.selector,
+            IEspressoTEEVerifier(address(teeVerifier)),
+            address(0),
+            nonTeeBatcher,
+            owner
+        );
+
         vm.expectRevert("BatchAuthenticator: zero tee batcher");
-        new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), address(0), nonTeeBatcher, owner);
+        new ERC1967Proxy(address(impl), initData);
     }
 
-    function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
+    function test_initialize_revertsWhenNonTeeBatcherIsZero() external {
+        BatchAuthenticator impl = new BatchAuthenticator();
+
+        bytes memory initData = abi.encodeWithSelector(
+            BatchAuthenticator.initialize.selector,
+            IEspressoTEEVerifier(address(teeVerifier)),
+            teeBatcher,
+            address(0),
+            owner
+        );
+
         vm.expectRevert("BatchAuthenticator: zero non-tee batcher");
-        new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, address(0), owner);
+        new ERC1967Proxy(address(impl), initData);
     }
 
-    function test_constructor_succeedsWithValidAddresses() external {
-        BatchAuthenticator authenticator =
-            new BatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, owner);
+    function test_initialize_succeedsWithValidAddresses() external {
+        BatchAuthenticator impl = new BatchAuthenticator();
+
+        bytes memory initData = abi.encodeWithSelector(
+            BatchAuthenticator.initialize.selector,
+            IEspressoTEEVerifier(address(teeVerifier)),
+            teeBatcher,
+            nonTeeBatcher,
+            owner
+        );
+
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        BatchAuthenticator authenticator = BatchAuthenticator(address(proxy));
+
         assertEq(authenticator.teeBatcher(), teeBatcher);
         assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
+        assertEq(authenticator.owner(), owner);
     }
 }

@@ -8,11 +8,13 @@ import { Script } from "forge-std/Script.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 
 contract MockEspressoNitroTEEVerifier is IEspressoNitroTEEVerifier {
     constructor() { }
 
-    function registeredSigners(address signer) external pure override returns (bool) {
+    function registeredService(address signer, ServiceType) external pure override returns (bool) {
         // Added this special condition for test TestE2eDevnetWithUnattestedBatcherKey
         if (signer == address(0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C)) {
             return false;
@@ -20,15 +22,23 @@ contract MockEspressoNitroTEEVerifier is IEspressoNitroTEEVerifier {
         return true;
     }
 
-    function registeredEnclaveHash(bytes32) external pure override returns (bool) {
+    function registeredEnclaveHash(bytes32, ServiceType) external pure override returns (bool) {
         return true;
     }
 
-    function registerSigner(bytes calldata, bytes calldata) external override { }
+    function registerService(bytes calldata, bytes calldata, ServiceType) external override { }
 
-    function setEnclaveHash(bytes32, bool) external override { }
+    function setEnclaveHash(bytes32, bool, ServiceType) external override { }
 
-    function deleteRegisteredSigners(address[] memory) external override { }
+    function deleteEnclaveHashes(bytes32[] memory, ServiceType) external override { }
+
+    function enclaveHashSigners(bytes32, ServiceType) external pure override returns (address[] memory) {
+        return new address[](0);
+    }
+
+    function deleteRegisteredService(address[] memory, ServiceType) external { }
+
+    function setNitroEnclaveVerifier(address) external { }
 }
 
 contract DeployAWSNitroVerifierInput is BaseDeployIO {
@@ -88,19 +98,36 @@ contract DeployAWSNitroVerifier is Script {
         public
         returns (IEspressoNitroTEEVerifier)
     {
-        vm.broadcast(msg.sender);
-        bytes32 enclaveHash = input.enclaveHash();
         address nitroEnclaveVerifier = input.nitroEnclaveVerifier();
 
-        IEspressoNitroTEEVerifier impl;
+        IEspressoNitroTEEVerifier proxyAddr;
         if (nitroEnclaveVerifier == address(0)) {
-            impl = new MockEspressoNitroTEEVerifier();
+            // Deploy mock without proxy for testing
+            vm.broadcast(msg.sender);
+            proxyAddr = new MockEspressoNitroTEEVerifier();
+            vm.label(address(proxyAddr), "MockNitroTEEVerifier");
         } else {
-            impl = new EspressoNitroTEEVerifier(enclaveHash, INitroEnclaveVerifier(nitroEnclaveVerifier));
+            // Deploy implementation
+            vm.broadcast(msg.sender);
+            EspressoNitroTEEVerifier impl = new EspressoNitroTEEVerifier();
+            vm.label(address(impl), "NitroTEEVerifierImpl");
+
+            // Prepare initialization data
+            bytes memory initData = abi.encodeWithSelector(
+                EspressoNitroTEEVerifier.initialize.selector,
+                INitroEnclaveVerifier(nitroEnclaveVerifier),
+                msg.sender // initial owner
+            );
+
+            // Deploy proxy
+            vm.broadcast(msg.sender);
+            ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+            vm.label(address(proxy), "NitroTEEVerifierProxy");
+            proxyAddr = IEspressoNitroTEEVerifier(address(proxy));
         }
-        vm.label(address(impl), "NitroTEEVerifierImpl");
-        output.set(output.nitroTEEVerifierAddress.selector, address(impl));
-        return impl;
+
+        output.set(output.nitroTEEVerifierAddress.selector, address(proxyAddr));
+        return proxyAddr;
     }
 
     function checkOutput(DeployAWSNitroVerifierOutput output) public view {

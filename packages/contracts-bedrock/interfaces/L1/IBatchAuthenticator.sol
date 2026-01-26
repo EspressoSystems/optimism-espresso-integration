@@ -42,10 +42,22 @@ interface IBatchAuthenticator {
 
     function switchBatcher() external;
 
-    function __constructor__(
+
+    function initialize(
         address _espressoTEEVerifier,
         address _teeBatcher,
         address _nonTeeBatcher,
         address _owner
     ) external;
+
+    // Guardian functions
+    function addGuardian(address guardian) external;
+
+    function removeGuardian(address guardian) external;
+
+    function isGuardian(address account) external view returns (bool);
+
+    function getGuardians() external view returns (address[] memory);
+
+    function guardianCount() external view returns (uint256);
 }

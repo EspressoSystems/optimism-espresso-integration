@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";
@@ -7,10 +7,12 @@ import { Script } from "forge-std/Script.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { console2 as console } from "forge-std/console2.sol";
 
 contract DeployEspressoInput is BaseDeployIO {
@@ -84,7 +86,7 @@ contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier, deployerAddress);
-        deployBatchInbox(input, output, batchAuthenticator, deployerAddress);
+        deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(output);
     }
 
@@ -97,43 +99,53 @@ contract DeployEspresso is Script {
         public
         returns (IBatchAuthenticator)
     {
-        bytes32 salt = input.salt();
+        // Deploy implementation
         vm.broadcast(msg.sender);
-        IBatchAuthenticator impl = IBatchAuthenticator(
-            DeployUtils.create2({
-                _name: "BatchAuthenticator",
-                _salt: salt,
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(
-                        IBatchAuthenticator.__constructor__,
-                        (address(teeVerifier), input.teeBatcher(), input.nonTeeBatcher(), owner)
-                    )
-                )
-            })
-        );
+        BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
 
-        output.set(output.batchAuthenticatorAddress.selector, address(impl));
-        return impl;
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            BatchAuthenticator.initialize.selector, teeVerifier, input.teeBatcher(), input.nonTeeBatcher(), owner
+        );
+
+        // Deploy proxy
+        vm.broadcast(msg.sender);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        vm.label(address(proxy), "BatchAuthenticatorProxy");
+
+        output.set(output.batchAuthenticatorAddress.selector, address(proxy));
+        return IBatchAuthenticator(address(proxy));
     }
 
     function deployTEEVerifier(DeployEspressoInput input) public returns (IEspressoTEEVerifier) {
         IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
+
+        // Deploy implementation
         vm.broadcast(msg.sender);
-        IEspressoTEEVerifier impl = new EspressoTEEVerifier(
-            // SGX TEE verifier is not yet implemented
-            IEspressoSGXTEEVerifier(address(0)),
-            nitroTEEVerifier
-        );
+        EspressoTEEVerifier impl = new EspressoTEEVerifier();
         vm.label(address(impl), "EspressoTEEVerifierImpl");
-        return impl;
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            EspressoTEEVerifier.initialize.selector,
+            IEspressoSGXTEEVerifier(address(0)), // SGX TEE verifier not yet implemented
+            nitroTEEVerifier,
+            msg.sender // initial owner
+        );
+
+        // Deploy proxy
+        vm.broadcast(msg.sender);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        vm.label(address(proxy), "EspressoTEEVerifierProxy");
+
+        return IEspressoTEEVerifier(address(proxy));
     }
 
     function deployBatchInbox(
         DeployEspressoInput input,
         DeployEspressoOutput output,
-        IBatchAuthenticator batchAuthenticator,
-        address owner
+        IBatchAuthenticator batchAuthenticator
     )
         public
     {
@@ -144,7 +156,7 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator), owner))
+                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator)))
                 )
             })
         );
