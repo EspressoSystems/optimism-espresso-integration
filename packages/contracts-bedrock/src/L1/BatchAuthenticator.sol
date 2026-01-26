@@ -5,31 +5,17 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
 /// @notice Upgradeable contract that authenticates batch information using the Transparent Proxy
 ///         pattern.
 ///         Supports switching between TEE and non-TEE batchers.
-contract BatchAuthenticator is ISemver, Initializable, ProxyAdminOwnedBase, ReinitializableBase {
+contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, ProxyAdminOwnedBase, ReinitializableBase {
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
-
-    /// @notice Emitted when a batch info is authenticated.
-    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
-
-    /// @notice Emitted when a signer registration is initiated through this contract.
-    event SignerRegistrationInitiated(address indexed caller);
-
-    /// @notice Emitted when the TEE batcher address is updated.
-    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
-
-    /// @notice Emitted when the non-TEE batcher address is updated.
-    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
-
-    /// @notice Error thrown when an invalid address (zero address) is provided.
-    error InvalidAddress(address contract_);
 
     /// @notice Mapping of batches verified by this contract
     mapping(bytes32 => bool) public validBatchInfo;

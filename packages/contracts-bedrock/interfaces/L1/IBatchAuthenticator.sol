@@ -2,6 +2,21 @@
 pragma solidity ^0.8.0;
 
 interface IBatchAuthenticator {
+    /// @notice Error thrown when an invalid address (zero address) is provided.
+    error InvalidAddress(address contract_);
+
+    /// @notice Emitted when a batch info is authenticated.
+    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
+
+    /// @notice Emitted when a signer registration is initiated through this contract.
+    event SignerRegistrationInitiated(address indexed caller);
+
+    /// @notice Emitted when the TEE batcher address is updated.
+    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
+
+    /// @notice Emitted when the non-TEE batcher address is updated.
+    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
+
     event Initialized(uint8 version);
 
     function authenticateBatchInfo(
