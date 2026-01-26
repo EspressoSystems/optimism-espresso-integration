@@ -174,9 +174,13 @@ This is the essence of defense-in-depth: multiple independent barriers make the 
 
 Reference: [OP Stack Integration Specification §36.3.1](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-## 2. Robust Fallback Mechanisms
+## 2. Fault Tolerance and Recovery
 
-### 2.1 Graceful Degradation
+The system is designed to handle both **failures** (components stop working) and **unexpected events** (like chain reorganizations). This section covers both types of resilience.
+
+### 2.1 Fallback Mechanism (Handling Component Failures)
+
+**What is a fallback?** If critical components fail (TEE hardware fails, Espresso becomes unavailable), the system can switch to a simpler mode that still works.
 
 The integration is designed to never reduce security below standard Optimism guarantees:
 
@@ -187,53 +191,100 @@ function switchBatcher() external onlyOwner {
 }
 ```
 
-In worst-case scenarios (TEE failure, Espresso unavailability), the system gracefully falls back to:
-- Standard Optimism batcher operation
-- Direct L1 posting without Espresso confirmation
-- No loss of liveness or security properties
+#### When to Use Fallback
+
+| Failure Scenario | Impact | Fallback Response |
+|------------------|--------|-------------------|
+| AWS Nitro Enclave failure | TEE batcher cannot start | Switch to non-TEE batcher |
+| Espresso unavailable | Cannot get fast confirmations | Post directly to L1 only |
+| TEE attestation service down | Cannot register new keys | Use existing fallback batcher |
+
+#### What Happens in Fallback Mode
+
+In worst-case scenarios, the system gracefully falls back to:
+- ✅ Standard Optimism batcher operation (proven security model)
+- ✅ Direct L1 posting without Espresso confirmation (slower but works)
+- ✅ No loss of liveness (chain keeps producing blocks)
+- ✅ No reduction in security (same as vanilla OP Stack)
 
 **Recovery Process**
-1. Owner switches to fallback batcher
-2. System operates as vanilla OP Stack
-3. After recovery, re-enable TEE batcher with updated caffeination heights
-4. Resume Espresso-enhanced operation
+1. Owner calls `switchBatcher()` to activate non-TEE batcher
+2. System operates as vanilla OP Stack (no Espresso dependency)
+3. After component recovery, set new caffeination heights
+4. Switch back to TEE batcher
+5. Resume Espresso-enhanced operation
 
-This ensures the integration is strictly additive - it enhances security when operational but maintains baseline security during failures.
+**Key Insight**: The integration is **strictly additive**. It adds fast confirmations when working, but falls back to standard security when not. You never get *worse* than regular Optimism.
 
 References:
 - [`BatchInbox.t.sol:84-165`](packages/contracts-bedrock/test/L1/BatchInbox.t.sol)
 - [Specification §36.4.2](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-### 2.2 Reorg Resilience
+### 2.2 Reorg Resilience (Handling Blockchain Reorganizations)
 
-The system implements comprehensive reorg handling across all layers:
+**What is a reorg?** Sometimes blockchain nodes temporarily disagree about recent blocks. When consensus forms, some blocks get "reorganized" (replaced). This is normal blockchain behavior, not a failure.
 
-**L1 Reorg Detection**
+**Why this matters for Espresso integration:** Batches reference specific L1 blocks. If those blocks get reorganized, the batches must be reconsidered to maintain consistency.
+
+The system implements automatic reorg handling across all layers:
+
+#### How Each Component Handles Reorgs
+
+**1. L1 Reorg Detection (Catching when L1 reorganizes)**
 ```go
 if ref.ParentHash != p.tip.Hash {
+    // New block doesn't connect to our known chain
     p.emitter.Emit(ctx, superevents.RewindL1Event{
         IncomingBlock: ref.ID(),
     })
+    // → Triggers state reset
 }
 ```
+**What this does**: If a new L1 block doesn't connect to the previous one, we know there was a reorg. The system emits a rewind event to reset affected state.
 
-**Espresso-L1 Consistency**
+**2. Espresso-L1 Consistency Check (Validating batch references)**
 ```go
 if l1headerHash != origin.Hash {
+    // Batch claims to reference an L1 block that doesn't exist (anymore)
     s.Log.Warn("Dropping batch with invalid L1 origin hash")
     return BatchDrop, 0
 }
 ```
+**What this does**: Every batch claims to be based on a specific L1 block. If that block no longer exists (due to reorg), the batch is dropped as invalid.
 
-**Batcher State Reset**
+**3. Batcher State Reset (Recovering from safe chain reorg)**
 ```go
 if numBlocksToEnqueue > 0 && l.queuedBlocks[numBlocksToEnqueue-1].Hash != safeL2.Hash {
+    // Our queued blocks don't match the actual safe chain
     l.batcher.Log.Warn("safe chain reorg, resetting loader")
     return inclusiveBlockRange{}, ActionReset
+    // → Clear queue and start fresh from safe head
 }
 ```
+**What this does**: If the L2 safe chain reorganizes, the batcher clears its queue and starts fresh from the new safe head. No stale data.
 
-All components detect and recover from reorgs automatically, ensuring consistency between Espresso confirmations and L1 finality.
+#### Reorg Recovery Flow
+
+```
+1. L1 Reorg Detected
+   ↓
+2. System emits RewindL1Event
+   ↓
+3. All components check their state:
+   - Streamer: Drop batches with invalid L1 origins
+   - Batcher: Clear queued blocks that are now invalid
+   - Caff Node: Rewind derivation to last valid state
+   ↓
+4. Resume from new canonical chain state
+```
+
+**Result**: All components automatically detect and recover from reorgs, ensuring consistency between Espresso confirmations and L1 finality.
+
+**Key Difference from Fallback**:
+- **Fallback** = Switching modes when components fail
+- **Reorg Resilience** = Automatically handling normal blockchain events
+
+Both ensure the system keeps working correctly, but for different reasons.
 
 References:
 - [`espresso.go:829-885`](op-batcher/batcher/espresso.go)
