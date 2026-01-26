@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+
 interface IBatchAuthenticator {
     /// @notice Error thrown when an invalid address (zero address) is provided.
     error InvalidAddress(address contract_);
@@ -17,14 +19,12 @@ interface IBatchAuthenticator {
     /// @notice Emitted when the non-TEE batcher address is updated.
     event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
 
-    event Initialized(uint8 version);
-
     function authenticateBatchInfo(
         bytes32 commitment,
         bytes memory _signature
     ) external;
 
-    function espressoTEEVerifier() external view returns (address);
+    function espressoTEEVerifier() external view returns (IEspressoTEEVerifier);
 
     function nitroValidator() external view returns (address);
 
