@@ -10,18 +10,10 @@ import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockNitroTEEVerifier, MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
 
 contract TestBatchAuthenticator is BatchAuthenticator {
-    constructor(
-        IEspressoTEEVerifier _espressoTEEVerifier,
-        address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
-    )
-        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
-    { }
-
     // Test helper to bypass signature verification in authenticateBatchInfo.
     function setValidBatchInfo(bytes32 hash, bool valid) external {
         validBatchInfo[hash] = valid;
@@ -46,11 +38,23 @@ contract BatchInbox_Test is Test {
         nitroVerifier = new MockNitroTEEVerifier();
         teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
 
-        vm.prank(deployer);
-        authenticator =
-            new TestBatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        // Deploy implementation
+        TestBatchAuthenticator impl = new TestBatchAuthenticator();
 
-        inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            BatchAuthenticator.initialize.selector,
+            IEspressoTEEVerifier(address(teeVerifier)),
+            teeBatcher,
+            nonTeeBatcher,
+            deployer
+        );
+
+        // Deploy proxy
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        authenticator = TestBatchAuthenticator(address(proxy));
+
+        inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)));
     }
 }
 
@@ -107,7 +111,7 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         // Check the revert reason - contract returns detailed error with addresses
         string memory expectedError = string(
             abi.encodePacked(
-                "BatchInbox: batcher not authorized to post in fallback mode. Expected: ",
+                "BatchAuthenticator: batcher not authorized to post in fallback mode. Expected: ",
                 Strings.toHexString(uint160(nonTeeBatcher), 20),
                 ", Actual: ",
                 Strings.toHexString(uint160(teeBatcher), 20)
@@ -130,7 +134,10 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         (bool success, bytes memory returnData) = address(inbox).call(data);
         assertFalse(success, "Should revert");
         // Check the revert reason
-        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", "Invalid calldata batch")));
+        assertEq(
+            string(returnData),
+            string(abi.encodeWithSignature("Error(string)", "BatchAuthenticator: invalid calldata batch"))
+        );
     }
 
     /// @notice Test that TEE batcher succeeds with valid authentication
@@ -190,12 +197,101 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
         // Check the revert reason - contract checks sender first, so it returns TEE mode error
         string memory expectedError = string(
             abi.encodePacked(
-                "BatchInbox: batcher not authorized to post in TEE mode. Expected: ",
+                "BatchAuthenticator: batcher not authorized to post in TEE mode. Expected: ",
                 Strings.toHexString(uint160(teeBatcher), 20),
                 ", Actual: ",
                 Strings.toHexString(uint160(nonTeeBatcher), 20)
             )
         );
         assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", expectedError)));
+    }
+}
+
+/// @title BatchInbox_Blob_Test
+/// @notice Tests for blob batch submissions
+contract BatchInbox_Blob_Test is BatchInbox_Test {
+    /// @notice Test that TEE batcher succeeds with valid blob authentication
+    function test_fallback_blobBatchSucceedsWithValidAuth() external {
+        // TEE batcher is active by default
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = keccak256("blob1");
+        blobHashes[1] = keccak256("blob2");
+
+        // Set blob hashes for this transaction
+        vm.blobhashes(blobHashes);
+
+        // Calculate expected hash (concatenation of blob hashes)
+        bytes memory concatenatedHashes = bytes.concat(blobHashes[0], blobHashes[1]);
+        bytes32 expectedHash = keccak256(concatenatedHashes);
+
+        // Set the hash as valid in authenticator
+        authenticator.setValidBatchInfo(expectedHash, true);
+
+        // TEE batcher should succeed
+        vm.prank(teeBatcher);
+        (bool success,) = address(inbox).call("any-calldata");
+        assertTrue(success, "TEE batcher should succeed with valid blob auth");
+    }
+
+    /// @notice Test that TEE batcher fails with invalid blob authentication
+    function test_fallback_blobBatchFailsWithInvalidAuth() external {
+        // TEE batcher is active by default
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256("blob1");
+
+        // Set blob hashes for this transaction
+        vm.blobhashes(blobHashes);
+
+        // Don't set the hash as valid - should fail
+
+        // TEE batcher should fail
+        vm.prank(teeBatcher);
+        (bool success, bytes memory returnData) = address(inbox).call("any-calldata");
+        assertFalse(success, "TEE batcher should fail with invalid blob auth");
+        assertEq(
+            string(returnData),
+            string(abi.encodeWithSignature("Error(string)", "BatchAuthenticator: invalid blob batch"))
+        );
+    }
+
+    /// @notice Test that blob hashes take precedence over calldata
+    function test_fallback_blobHashesTakePrecedenceOverCalldata() external {
+        // TEE batcher is active by default
+        bytes memory data = "valid-calldata";
+        bytes32 calldataHash = keccak256(data);
+
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256("blob1");
+
+        // Set blob hashes for this transaction
+        vm.blobhashes(blobHashes);
+
+        // Only authenticate the calldata hash, not the blob hash
+        authenticator.setValidBatchInfo(calldataHash, true);
+
+        // Should fail because blob hashes take precedence and blob hash is not authenticated
+        vm.prank(teeBatcher);
+        (bool success,) = address(inbox).call(data);
+        assertFalse(success, "Should fail because blob hash is checked, not calldata");
+    }
+
+    /// @notice Test that non-TEE batcher ignores blobs (no auth required)
+    function test_fallback_nonTeeBatcherIgnoresBlobs() external {
+        // Switch to non-TEE batcher
+        vm.prank(deployer);
+        authenticator.switchBatcher();
+
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256("blob1");
+
+        // Set blob hashes for this transaction
+        vm.blobhashes(blobHashes);
+
+        // Don't authenticate the blob hash
+
+        // Non-TEE batcher should succeed without authentication
+        vm.prank(nonTeeBatcher);
+        (bool success,) = address(inbox).call("any-calldata");
+        assertTrue(success, "Non-TEE batcher should not require blob auth");
     }
 }

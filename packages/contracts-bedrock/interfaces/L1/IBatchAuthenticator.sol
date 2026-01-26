@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.22;
 
 interface IBatchAuthenticator {
     event Initialized(uint8 version);
@@ -42,13 +42,14 @@ interface IBatchAuthenticator {
 
     function switchBatcher() external;
 
-
     function initialize(
         address _espressoTEEVerifier,
         address _teeBatcher,
         address _nonTeeBatcher,
         address _owner
     ) external;
+
+    function validateBatch(address sender, bytes calldata data) external view;
 
     // Guardian functions
     function addGuardian(address guardian) external;
