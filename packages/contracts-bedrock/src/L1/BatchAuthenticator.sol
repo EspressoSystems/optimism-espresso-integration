@@ -67,13 +67,13 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
     function switchBatcher() external {
-        _assertOnlyProxyAdminOrProxyAdminOwner();
+        _assertOnlyProxyAdminOwner();
         activeIsTee = !activeIsTee;
     }
 
     /// @notice Updates the TEE batcher address.
     function setTeeBatcher(address _newTeeBatcher) external {
-        _assertOnlyProxyAdminOrProxyAdminOwner();
+        _assertOnlyProxyAdminOwner();
         if (_newTeeBatcher == address(0)) revert InvalidAddress(_newTeeBatcher);
         address oldTeeBatcher = teeBatcher;
         teeBatcher = _newTeeBatcher;
@@ -82,7 +82,7 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
 
     /// @notice Updates the non-TEE batcher address.
     function setNonTeeBatcher(address _newNonTeeBatcher) external {
-        _assertOnlyProxyAdminOrProxyAdminOwner();
+        _assertOnlyProxyAdminOwner();
         if (_newNonTeeBatcher == address(0)) revert InvalidAddress(_newNonTeeBatcher);
         address oldNonTeeBatcher = nonTeeBatcher;
         nonTeeBatcher = _newNonTeeBatcher;
