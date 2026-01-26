@@ -15,52 +15,162 @@ Each component operates within well-defined trust boundaries with multiple layer
 
 ## 1. Defense-in-Depth Security Model
 
-### 1.1 Multi-Layer Validation
+### What is Defense-in-Depth?
 
-The system implements validation at multiple layers:
+Defense-in-depth means using multiple independent security layers, so if one fails, the others still protect the system. Think of it like a castle with multiple walls - an attacker must breach all of them to succeed.
 
-**Layer 1: TEE Attestation**
-- AWS Nitro Enclaves provide hardware-backed isolation
-- Cryptographic attestation verifies code integrity (PCR0 measurements)
-- Ephemeral key generation within enclave ensures keys never leave secure environment
-- Reference: [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol)
+In this integration, a batch must pass **four independent security checks** before being accepted into the L2 chain. Each check validates different properties and uses different mechanisms.
 
-**Layer 2: Smart Contract Verification**
-- On-chain signature verification against registered TEE signers
-- Batch commitment authentication before acceptance
-- Dual authentication: batcher address + cryptographic signature
-- Reference: [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol)
+### 1.1 The Four Security Layers (How a Batch Gets Validated)
 
-**Layer 3: L1 Origin Validation**
-- All batches verify L1 block finality before acceptance
-- L1 origin hash validation prevents malicious reordering
-- Espresso confirmations cross-checked against finalized L1 state
-- Reference: [`streamer.go:183-224`](espresso/streamer.go)
+Let's follow a batch from creation to acceptance to see how the layers work:
 
-**Layer 4: Sequencer Signature Verification**
-- Independent verification of sequencer signatures
-- Batches validated against authorized sequencer keys
-- Protection against unauthorized batch injection
+#### **Layer 1: TEE Attestation (Proving the Code is Correct)**
 
-### 1.2 Cryptographic Key Management
+The batcher runs inside AWS Nitro Enclaves, a secure hardware environment that:
+- Isolates the batcher code from the operator
+- Generates a cryptographic proof (attestation) that the exact correct code is running
+- Creates a private key that never leaves the secure environment
 
-The system employs a sophisticated dual-key architecture:
+**Why this matters:** Even if the server operator is malicious, they cannot modify the batcher code or steal its keys. The hardware guarantees the code integrity.
 
-**Batcher Key (Sequencing Authority)**
+Reference: [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol)
+
+#### **Layer 2: Smart Contract Verification (Proving the Batch Came from the TEE)**
+
+When a batch reaches the L1 smart contract, it must pass two checks:
+
+1. **Address Check**: Is the sender the authorized batcher address?
+2. **Signature Check**: Does the batch have a valid signature from a TEE-generated key?
+
 ```solidity
-// Centralized sequencing key registered in rollup config
-// Provides ultimate authority over L2 block ordering
-address public immutable teeBatcher;
+// From BatchInbox.sol
+if (msg.sender != batchAuthenticator.teeBatcher()) {
+    revert("Not authorized");
+}
+if (!batchAuthenticator.validBatchInfo(hash)) {
+    revert("Invalid signature");
+}
 ```
 
-**Ephemeral Key (TEE Attestation)**
+**Why this matters:** Even if someone gets the batcher private key, they cannot post batches unless they also have the TEE ephemeral key (which is hardware-protected). Both keys are required.
+
+Reference: [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol)
+
+#### **Layer 3: L1 Origin Validation (Proving the Batch References Real L1 Blocks)**
+
+Every batch claims to be based on a specific L1 block. The streamer verifies:
+
+1. **Finality Check**: Is the referenced L1 block actually finalized?
+2. **Hash Check**: Does the L1 block hash match what's on-chain?
+
 ```go
-// Generated inside enclave, never exported
-// Proves data originated from verified TEE
-func (bs *BatcherService) initKeyPair() error
+// From streamer.go
+if origin.Number > s.FinalizedL1.Number {
+    return BatchUndecided  // L1 not finalized yet
+}
+if l1headerHash != origin.Hash {
+    return BatchDrop  // Invalid L1 reference
+}
 ```
 
-This separation ensures that even if the batcher key is compromised, attackers cannot forge TEE attestations. Conversely, compromise of the ephemeral key doesn't grant sequencing authority.
+**Why this matters:** Attackers cannot reference fake L1 blocks or reorder batches by claiming a different L1 history. The L1 chain is the source of truth.
+
+Reference: [`streamer.go:183-224`](espresso/streamer.go)
+
+#### **Layer 4: Sequencer Signature Verification (Proving the Transactions Are Authorized)**
+
+The sequencer signs each batch of transactions. The system verifies:
+- The signature is valid
+- The signature is from the authorized sequencer key
+
+**Why this matters:** Even if the batcher infrastructure is compromised, attackers cannot inject unauthorized transactions. They would need the sequencer's private key.
+
+### 1.2 How the Layers Work Together: A Complete Example
+
+Let's walk through what happens when a batch is created and validated:
+
+```
+1. User submits transaction to Sequencer
+   ↓
+2. Sequencer bundles transactions into a batch and signs it
+   ↓
+3. TEE Batcher (inside AWS Nitro Enclave):
+   - Reads batch from sequencer
+   - Submits to Espresso for fast confirmation
+   - Waits for Espresso finality
+   - Signs batch hash with TEE ephemeral key ✓ (Layer 1)
+   ↓
+4. Smart Contract on L1:
+   - Checks batcher address ✓ (Layer 2a)
+   - Verifies TEE signature ✓ (Layer 2b)
+   - Records batch as valid
+   ↓
+5. Espresso Streamer:
+   - Validates L1 block is finalized ✓ (Layer 3a)
+   - Checks L1 block hash matches ✓ (Layer 3b)
+   - Verifies sequencer signature ✓ (Layer 4)
+   ↓
+6. Batch accepted into L2 derivation pipeline
+```
+
+**If any check fails**, the batch is rejected. All four layers must pass.
+
+### 1.3 Why Use Multiple Keys? (Dual-Key Architecture)
+
+The system uses two different private keys with different purposes:
+
+#### **Batcher Key** (Long-lived, managed by operator)
+```solidity
+address public immutable teeBatcher;  // E.g., 0x1234...
+```
+- Registered in the rollup configuration
+- Gives authority to post batches to L1
+- Can exist outside the TEE
+- **Role**: Proves "this is the official batcher"
+
+#### **Ephemeral Key** (Short-lived, generated in TEE)
+```go
+func (bs *BatcherService) initKeyPair() error
+// Generates key inside enclave
+// Private key NEVER leaves the hardware
+```
+- Generated inside AWS Nitro Enclave
+- Used to sign batch commitments
+- Cannot be extracted from the hardware
+- **Role**: Proves "this came from the correct TEE code"
+
+#### Why both keys?
+
+This dual-key design creates a security separation:
+
+| Scenario | Batcher Key Compromised | Ephemeral Key Compromised |
+|----------|------------------------|---------------------------|
+| **What attacker can do** | Send transactions to L1 | Sign batch hashes |
+| **What attacker CANNOT do** | Forge TEE signatures | Post to L1 BatchInbox |
+| **Result** | Batches rejected (no TEE sig) | Signatures rejected (wrong address) |
+
+**Both keys must be compromised** to successfully post fraudulent batches. This is extremely difficult because:
+- Batcher key might be on a server the operator controls
+- Ephemeral key is locked in hardware the operator cannot access
+
+### 1.4 Security Properties Achieved
+
+Through these four layers and dual-key architecture, the system guarantees:
+
+✅ **Authenticity**: Only the real TEE batcher can post batches
+✅ **Integrity**: Batches cannot be modified in transit
+✅ **Consistency**: All batches reference valid, finalized L1 blocks
+✅ **Authorization**: Only the authorized sequencer can create transaction batches
+✅ **Isolation**: Malicious operators cannot compromise the batcher code
+
+**Key Insight**: An attacker would need to simultaneously:
+1. Break AWS Nitro hardware security (Layer 1)
+2. Compromise both private keys (Layer 2)
+3. Fake finalized L1 blocks (Layer 3)
+4. Steal the sequencer key (Layer 4)
+
+This is the essence of defense-in-depth: multiple independent barriers make the overall system much more secure.
 
 Reference: [OP Stack Integration Specification §36.3.1](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
