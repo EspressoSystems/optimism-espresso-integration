@@ -95,7 +95,15 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 	if err != nil {
 		return fmt.Errorf("failed to create transactor: %w", err)
 	}
-	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true)
+
+	// Convert hash to [32]byte for the contract call
+	var enclaveHash [32]byte
+	copy(enclaveHash[:], crypto.Keccak256(pcr0Bytes))
+
+	// ServiceType.BatchPoster = 0
+	const serviceTypeBatchPoster uint8 = 0
+
+	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, enclaveHash, true, serviceTypeBatchPoster)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}

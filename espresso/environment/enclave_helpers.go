@@ -288,7 +288,9 @@ func RegisterEnclaveHash(ctx context.Context, sys *e2esys.System, pcr0Bytes []by
 	if err != nil {
 		return fmt.Errorf("failed to create transactor: %w", err)
 	}
-	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true)
+	// ServiceType: 0 = BatchPoster, 1 = CaffNode
+	const serviceTypeBatchPoster uint8 = 0
+	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, serviceTypeBatchPoster)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}

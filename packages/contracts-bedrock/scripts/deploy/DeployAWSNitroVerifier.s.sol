@@ -14,7 +14,7 @@ import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 contract MockEspressoNitroTEEVerifier is IEspressoNitroTEEVerifier {
     constructor() { }
 
-    function registeredService(address signer, ServiceType) external pure override returns (bool) {
+    function isSignerValid(address signer, ServiceType) external pure override returns (bool) {
         // Added this special condition for test TestE2eDevnetWithUnattestedBatcherKey
         if (signer == address(0xe16d5c4080C0faD6D2Ef4eb07C657674a217271C)) {
             return false;
@@ -32,13 +32,15 @@ contract MockEspressoNitroTEEVerifier is IEspressoNitroTEEVerifier {
 
     function deleteEnclaveHashes(bytes32[] memory, ServiceType) external override { }
 
-    function enclaveHashSigners(bytes32, ServiceType) external pure override returns (address[] memory) {
-        return new address[](0);
+    function setNitroEnclaveVerifier(address) external override { }
+
+    function nitroEnclaveVerifier() external pure override returns (INitroEnclaveVerifier) {
+        return INitroEnclaveVerifier(address(0));
     }
 
-    function deleteRegisteredService(address[] memory, ServiceType) external { }
-
-    function setNitroEnclaveVerifier(address) external { }
+    function teeVerifier() external pure override returns (address) {
+        return address(0);
+    }
 }
 
 contract DeployAWSNitroVerifierInput is BaseDeployIO {

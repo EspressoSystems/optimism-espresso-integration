@@ -9,13 +9,14 @@ import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
+import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 
 contract MockNitroTEEVerifier is IEspressoNitroTEEVerifier {
     mapping(address => mapping(ServiceType => bool)) private _registeredServices;
 
-    function registeredService(address signer, ServiceType serviceType) external view override returns (bool) {
+    function isSignerValid(address signer, ServiceType serviceType) external view override returns (bool) {
         return _registeredServices[signer][serviceType];
     }
 
@@ -27,15 +28,17 @@ contract MockNitroTEEVerifier is IEspressoNitroTEEVerifier {
 
     function setEnclaveHash(bytes32, bool, ServiceType) external pure override { }
 
-    function deleteRegisteredService(address[] memory, ServiceType) external pure { }
+    function deleteEnclaveHashes(bytes32[] memory, ServiceType) external pure override { }
 
-    function enclaveHashSigners(bytes32, ServiceType) external pure override returns (address[] memory) {
-        return new address[](0);
+    function setNitroEnclaveVerifier(address) external pure override { }
+
+    function nitroEnclaveVerifier() external pure override returns (INitroEnclaveVerifier) {
+        return INitroEnclaveVerifier(address(0));
     }
 
-    function deleteEnclaveHashes(bytes32[] memory, ServiceType) external pure { }
-
-    function setNitroEnclaveVerifier(address) external pure { }
+    function teeVerifier() external pure override returns (address) {
+        return address(0);
+    }
 
     // Test helper
     function setRegisteredService(address signer, ServiceType serviceType, bool value) external {
@@ -66,16 +69,8 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier {
 
     function registerService(bytes calldata, bytes calldata, TeeType, ServiceType) external pure override { }
 
-    function registeredService(address, TeeType, ServiceType) external pure override returns (bool) {
-        return false;
-    }
-
     function registeredEnclaveHashes(bytes32, TeeType, ServiceType) external pure override returns (bool) {
         return false;
-    }
-
-    function enclaveHashSigners(bytes32, TeeType, ServiceType) external pure override returns (address[] memory) {
-        return new address[](0);
     }
 
     function setEspressoSGXTEEVerifier(IEspressoSGXTEEVerifier _sgx) external override {
@@ -85,6 +80,14 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier {
     function setEspressoNitroTEEVerifier(IEspressoNitroTEEVerifier _nitro) external override {
         nitro = _nitro;
     }
+
+    function setEnclaveHash(bytes32, bool, TeeType, ServiceType) external pure override { }
+
+    function deleteEnclaveHashes(bytes32[] memory, TeeType, ServiceType) external pure override { }
+
+    function setQuoteVerifier(address) external pure override { }
+
+    function setNitroEnclaveVerifier(address) external pure override { }
 }
 
 /// @title BatchAuthenticator_SwitchBatcher_Test

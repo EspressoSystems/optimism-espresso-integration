@@ -153,7 +153,7 @@ contract BatchAuthenticator is ISemver, OwnableWithGuardiansUpgradeable {
         require(signer != address(0), "BatchAuthenticator: invalid signature");
 
         require(
-            espressoTEEVerifier.registeredService(signer, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster),
+            espressoTEEVerifier.espressoNitroTEEVerifier().isSignerValid(signer, ServiceType.BatchPoster),
             "BatchAuthenticator: invalid signer"
         );
 
