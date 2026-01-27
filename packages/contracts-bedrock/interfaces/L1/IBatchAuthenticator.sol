@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+
 interface IBatchAuthenticator {
-    event Initialized(uint8 version);
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
+    /// @notice Error thrown when an invalid address (zero address) is provided.
+    error InvalidAddress(address contract_);
+
+    /// @notice Emitted when a batch info is authenticated.
+    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
+
+    /// @notice Emitted when a signer registration is initiated through this contract.
+    event SignerRegistrationInitiated(address indexed caller);
+
+    /// @notice Emitted when the TEE batcher address is updated.
+    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
+
+    /// @notice Emitted when the non-TEE batcher address is updated.
+    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
 
     function authenticateBatchInfo(
         bytes32 commitment,
         bytes memory _signature
     ) external;
 
-    function decodeAttestationTbs(
-        bytes memory attestation
-    ) external view returns (bytes memory, bytes memory);
-
-    function espressoTEEVerifier() external view returns (address);
+    function espressoTEEVerifier() external view returns (IEspressoTEEVerifier);
 
     function nitroValidator() external view returns (address);
 
@@ -32,20 +39,13 @@ interface IBatchAuthenticator {
         bytes memory signature
     ) external;
 
-    function renounceOwnership() external;
-
-    function transferOwnership(address newOwner) external;
-
     function validBatchInfo(bytes32) external view returns (bool);
 
     function activeIsTee() external view returns (bool);
 
     function switchBatcher() external;
 
-    function __constructor__(
-        address _espressoTEEVerifier,
-        address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
-    ) external;
+    function setTeeBatcher(address _newTeeBatcher) external;
+
+    function setNonTeeBatcher(address _newNonTeeBatcher) external;
 }
