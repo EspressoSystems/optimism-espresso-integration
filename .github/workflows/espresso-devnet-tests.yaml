@@ -56,7 +56,8 @@ jobs:
         uses: actions/setup-go@v5
 
       - name: Compile contracts
-        run: just compile-contracts
+        working-directory: packages/contracts-bedrock
+        run: just build
 
       - name: Load environment variables
         run: |
@@ -75,7 +76,9 @@ jobs:
           cd op-deployer
           just
           export PATH=$PATH:$PWD/bin
-          cd ../espresso
+          cd ../packages/contracts-bedrock
+          just fix-proxy-artifact
+          cd ../../espresso
           ./scripts/prepare-allocs.sh
           docker compose build
           docker compose pull l1-validator espresso-dev-node l1-data-init
