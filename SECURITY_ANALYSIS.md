@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document provides a comprehensive security analysis of the Celo-Espresso integration, which adds fast finality capabilities to the Optimism rollup stack while maintaining full compatibility with the standard OP Stack security model.
+This document provides a security analysis of the Celo-Espresso integration, which adds fast finality capabilities to the Optimism rollup stack while maintaining full compatibility with the standard OP Stack security model.
 
 ### Architecture
 
@@ -562,7 +562,7 @@ Each layer catches different classes of bugs:
 
 #### 5. **OP Stack Test Suite Availability**
 
-A comprehensive test script exists for validating OP Stack compatibility:
+A test script exists for validating OP Stack compatibility:
 
 ```bash
 # From run_all_tests.sh (manual execution)
@@ -590,7 +590,7 @@ Every PR triggers:
 
 **CI configuration**: Tests run in parallel across multiple groups with 30-minute timeouts.
 
-**Additional Testing**: A comprehensive OP Stack regression test suite (`run_all_tests.sh`) is available for manual execution to validate compatibility with all OP Stack components (op-program, cannon, op-challenger, op-node, op-proposer, op-service, op-supervisor, op-e2e).
+**Additional Testing**: An OP Stack regression test suite (`run_all_tests.sh`) is available for manual execution to validate compatibility with all OP Stack components (op-program, cannon, op-challenger, op-node, op-proposer, op-service, op-supervisor, op-e2e).
 
 References:
 - [`espresso-integration.yaml`](.github/workflows/espresso-integration.yaml)
