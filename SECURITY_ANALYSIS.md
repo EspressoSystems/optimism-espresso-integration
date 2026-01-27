@@ -160,22 +160,6 @@ The dual-key design implements the following separation:
 - Batcher key: Configured on the server
 - Ephemeral key: Generated and stored within the Nitro Enclave hardware
 
-### 1.4 Validation Properties
-
-The four-layer validation architecture implements the following checks:
-
-- **Authenticity**: Batches must come from an address with valid TEE attestation
-- **Integrity**: Batch hashes are signed and verified before acceptance
-- **Authorization**: Batcher signatures are verified when unmarshaling batches from Espresso
-- **Isolation**: Batcher code runs in hardware-isolated environment (AWS Nitro)
-
-**Architectural note**: For a batch to be accepted, it must pass validation at all three layers:
-1. TEE attestation verification (Layer 1)
-2. Dual-key authentication (Layer 2)
-3. Batcher signature verification (Layer 3)
-
-Reference: [OP Stack Integration Specification §36.3.1](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
-
 ## 2. Fault Tolerance and Recovery
 
 The implementation includes mechanisms for handling component failures and blockchain reorganizations. This section describes both categories.
@@ -311,7 +295,7 @@ Reference: [`7_stateless_batcher_test.go:21-38`](espresso/environment/7_stateles
 
 #### 1. **Security Property Validation**
 
-Each validation property described in Section 1.4 has corresponding test coverage:
+Each security validation layer has corresponding test coverage:
 
 | Validation Property | Test Coverage | Validation Method |
 |-------------------|-----------|-----------|
@@ -420,7 +404,7 @@ The test suite exhibits the following properties:
 - **Path coverage**: Tests include normal operation, failure scenarios, and edge cases
 - **Environment variety**: Tests run in both mocked and production-like environments
 - **Continuous execution**: CI runs all tests on every pull request
-- **Property validation**: Each validation property from Section 1.4 has test coverage
+- **Property validation**: Each validation layer has test coverage
 - **Deployment simulation**: Devnet tests use the same deployment process as production
 
 ### Trust Assumptions in Testing
