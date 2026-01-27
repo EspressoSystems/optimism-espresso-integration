@@ -8,21 +8,16 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import { MockNitroTEEVerifier, MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
+import { MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
 
+/// @notice Test helper contract that extends BatchAuthenticator to allow direct setting of validBatchInfo.
+///         This bypasses signature verification for testing purposes.
 contract TestBatchAuthenticator is BatchAuthenticator {
-    constructor(
-        IEspressoTEEVerifier _espressoTEEVerifier,
-        address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
-    )
-        BatchAuthenticator(_espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
-    { }
-
-    // Test helper to bypass signature verification in authenticateBatchInfo.
+    /// @notice Test helper to bypass signature verification in authenticateBatchInfo.
     function setValidBatchInfo(bytes32 hash, bool valid) external {
         validBatchInfo[hash] = valid;
     }
@@ -33,8 +28,9 @@ contract TestBatchAuthenticator is BatchAuthenticator {
 contract BatchInbox_Test is Test {
     BatchInbox public inbox;
     TestBatchAuthenticator public authenticator;
+    Proxy public proxy;
+    ProxyAdmin public proxyAdmin;
 
-    MockNitroTEEVerifier public nitroVerifier;
     MockEspressoTEEVerifier public teeVerifier;
 
     address public teeBatcher = address(0x1234);
@@ -43,12 +39,20 @@ contract BatchInbox_Test is Test {
     address public unauthorized = address(0xDEAD);
 
     function setUp() public virtual {
-        nitroVerifier = new MockNitroTEEVerifier();
-        teeVerifier = new MockEspressoTEEVerifier(nitroVerifier);
+        teeVerifier = new MockEspressoTEEVerifier();
 
+        // Deploy TestBatchAuthenticator via proxy.
+        TestBatchAuthenticator impl = new TestBatchAuthenticator();
+        proxyAdmin = new ProxyAdmin(deployer);
+        proxy = new Proxy(address(proxyAdmin));
         vm.prank(deployer);
-        authenticator =
-            new TestBatchAuthenticator(IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        bytes memory initData = abi.encodeCall(
+            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
+        );
+        vm.prank(deployer);
+        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
+        authenticator = TestBatchAuthenticator(address(proxy));
 
         inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
     }

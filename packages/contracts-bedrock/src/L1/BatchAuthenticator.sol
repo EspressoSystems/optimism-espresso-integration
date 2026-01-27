@@ -2,58 +2,91 @@
 pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
+import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
-contract BatchAuthenticator is ISemver, Ownable {
+/// @notice Upgradeable contract that authenticates batch information using the Transparent Proxy
+///         pattern.
+///         Supports switching between TEE and non-TEE batchers.
+contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, ProxyAdminOwnedBase, ReinitializableBase {
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
-
-    /// @notice Emitted when a batch info is authenticated.
-    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
-
-    /// @notice Emitted when a signer registration is initiated through this contract.
-    event SignerRegistrationInitiated(address indexed caller);
 
     /// @notice Mapping of batches verified by this contract
     mapping(bytes32 => bool) public validBatchInfo;
 
     /// @notice Address of the TEE batcher whose signatures may authenticate batches.
-    address public immutable teeBatcher;
+    address public teeBatcher;
 
     /// @notice Address of the non-TEE (fallback) batcher that can post when TEE is inactive.
-    address public immutable nonTeeBatcher;
+    address public nonTeeBatcher;
 
-    IEspressoTEEVerifier public immutable espressoTEEVerifier;
+    /// @notice Address of the Espresso TEE Verifier contract.
+    IEspressoTEEVerifier public espressoTEEVerifier;
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
     bool public activeIsTee;
 
-    constructor(
+    /// @notice Constructor disables initializers on implementation
+    constructor() ReinitializableBase(1) {
+        _disableInitializers();
+    }
+
+    function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
-        address _nonTeeBatcher,
-        address _owner
+        address _nonTeeBatcher
     )
-        Ownable()
+        external
+        reinitializer(initVersion())
     {
-        require(_teeBatcher != address(0), "BatchAuthenticator: zero tee batcher");
-        require(_nonTeeBatcher != address(0), "BatchAuthenticator: zero non-tee batcher");
+        // Initialization transactions must come from the ProxyAdmin or its owner.
+        _assertOnlyProxyAdminOrProxyAdminOwner();
+
+        if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
+        if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
+        if (address(_espressoTEEVerifier) == address(0)) revert InvalidAddress(address(_espressoTEEVerifier));
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
         nonTeeBatcher = _nonTeeBatcher;
         // By default, start with the TEE batcher active.
         activeIsTee = true;
-        _transferOwnership(_owner);
+    }
+
+    /// @notice Returns the owner of the ProxyAdmin that owns this proxy.
+    function owner() external view returns (address) {
+        return proxyAdminOwner();
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
-    function switchBatcher() external onlyOwner {
+    function switchBatcher() external {
+        _assertOnlyProxyAdminOwner();
         activeIsTee = !activeIsTee;
+    }
+
+    /// @notice Updates the TEE batcher address.
+    function setTeeBatcher(address _newTeeBatcher) external {
+        _assertOnlyProxyAdminOwner();
+        if (_newTeeBatcher == address(0)) revert InvalidAddress(_newTeeBatcher);
+        address oldTeeBatcher = teeBatcher;
+        teeBatcher = _newTeeBatcher;
+        emit TeeBatcherUpdated(oldTeeBatcher, _newTeeBatcher);
+    }
+
+    /// @notice Updates the non-TEE batcher address.
+    function setNonTeeBatcher(address _newNonTeeBatcher) external {
+        _assertOnlyProxyAdminOwner();
+        if (_newNonTeeBatcher == address(0)) revert InvalidAddress(_newNonTeeBatcher);
+        address oldNonTeeBatcher = nonTeeBatcher;
+        nonTeeBatcher = _newNonTeeBatcher;
+        emit NonTeeBatcherUpdated(oldNonTeeBatcher, _newNonTeeBatcher);
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
@@ -81,5 +114,10 @@ contract BatchAuthenticator is ISemver, Ownable {
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
         espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
         emit SignerRegistrationInitiated(msg.sender);
+    }
+
+    /// @notice Returns the address of the Nitro TEE validator.
+    function nitroValidator() external view returns (address) {
+        return address(espressoTEEVerifier.espressoNitroTEEVerifier());
     }
 }

@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	e2ebindings "github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
@@ -49,6 +51,27 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	bobAddress := d.secrets.Addresses().Bob
 	require.NotEqual(t, currentOwner, bobAddress)
 
+	// Get the ProxyAdmin address from the BatchAuthenticator proxy
+	proxyContract, err := e2ebindings.NewProxy(config.BatchAuthenticatorAddress, d.L1)
+	require.NoError(t, err)
+
+	var result []interface{}
+	proxyRaw := &e2ebindings.ProxyRaw{Contract: proxyContract}
+	err = proxyRaw.Call(&bind.CallOpts{}, &result, "admin")
+	require.NoError(t, err)
+	require.Len(t, result, 1, "admin() should return one value")
+	proxyAdminAddress := result[0].(common.Address)
+	require.NotEqual(t, proxyAdminAddress, common.Address{}, "ProxyAdmin address should not be zero")
+
+	// Get ProxyAdmin contract binding
+	proxyAdmin, err := e2ebindings.NewProxyAdmin(proxyAdminAddress, d.L1)
+	require.NoError(t, err)
+
+	// Verify current owner matches
+	proxyAdminOwner, err := proxyAdmin.Owner(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(t, currentOwner, proxyAdminOwner, "BatchAuthenticator owner should match ProxyAdmin owner")
+
 	// Use batch authenticator owner key to sign the transaction
 	batchAuthenticatorPrivateKeyHex := os.Getenv("BATCH_AUTHENTICATOR_OWNER_PRIVATE_KEY")
 	require.NotEmpty(t, batchAuthenticatorPrivateKeyHex, "BATCH_AUTHENTICATOR_OWNER_PRIVATE_KEY must be set")
@@ -60,8 +83,8 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	batchAuthenticatorOwnerOpts, err := bind.NewKeyedTransactorWithChainID(batchAuthenticatorKey, l1ChainID)
 	require.NoError(t, err)
 
-	// Call TransferOwnership
-	tx, err := batchAuthenticator.TransferOwnership(batchAuthenticatorOwnerOpts, bobAddress)
+	// Call TransferOwnership on the ProxyAdmin directly
+	tx, err := proxyAdmin.TransferOwnership(batchAuthenticatorOwnerOpts, bobAddress)
 	require.NoError(t, err)
 
 	// Wait for transaction receipt and check if it succeeded
