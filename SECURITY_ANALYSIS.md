@@ -800,87 +800,9 @@ The Espresso streamer received dedicated review:
 
 These internal reviews complement external audits by providing domain-specific security analysis.
 
-## 7. Operational Security
+## 7. Trust Model and Assumptions
 
-### 7.1 Deployment Security
-
-**Secure Bootstrap Process**
-
-```bash
-# 1. Deploy contracts with owner control
-deployer = msg.sender
-
-# 2. Register TEE batcher with attestation
-batcher.registerSigner(attestationTbs, signature)
-
-# 3. Set caffeination heights
-espressoCaffeinationHeight = currentEspressoHeight
-l2CaffeinationHeight = targetL2Height
-
-# 4. Launch TEE batcher
-nitro-cli run-enclave --eif-path op-batcher.eif
-```
-
-Each step includes verification before proceeding.
-
-### 7.2 Monitoring and Observability
-
-The system emits comprehensive metrics:
-
-```go
-bs.Metrics.RecordInfo(bs.Version)
-bs.Metrics.RecordUp()
-// Balance monitoring
-bs.balanceMetricer = bs.Metrics.StartBalanceMetrics(bs.Log, bs.L1Client, bs.TxManager.From())
-```
-
-Metrics support:
-- Health status tracking
-- Operational monitoring
-- Performance analysis
-
-### 7.3 Gas Cost Optimization
-
-**ZK-Based Attestation Verification**
-
-The integration now uses zero-knowledge proofs for TEE attestation verification, replacing the previous direct on-chain verification approach. This change was driven by the Fusaka upgrade, which made direct attestation verification economically infeasible.
-
-**Implementation:**
-
-The system integrates with [Automata Network's AWS Nitro ZK proof generation SDK](https://github.com/automata-network/aws-nitro-enclave-attestation/tree/main) and [NitroEnclaveVerifier contract](https://github.com/automata-network/aws-nitro-enclave-attestation/blob/main/contracts/src/NitroEnclaveVerifier.sol). Under the hood, this uses:
-- **Succinct's SP1** for zero-knowledge proof generation
-- **sp1-contracts** for on-chain ZK proof verification
-
-**Verification Flow:**
-
-1. Batch poster (running in TEE) creates attestation → sends to Espresso's attestation verifier service
-2. Attestation verifier service calls Automata's SDK → requests proof from Succinct Network
-3. Succinct Network generates and returns the ZK proof
-4. Batch poster submits ZK proof to L1 alongside batch data
-5. On-chain contracts verify the ZK proof (instead of the raw attestation)
-
-**Cost Improvement:**
-
-| Approach | Gas Cost | Off-Chain Cost | Total |
-|----------|----------|----------------|-------|
-| **Previous**: Direct on-chain verification | ~63 million gas (~$93 USD) | None | ~$93 |
-| **Current**: ZK proof verification | ~260k-270k gas (~$0.40 USD) | 0.3 PROVE tokens (~$0.13) | ~$0.53 |
-
-**Result**: Approximately **240× cost reduction** compared to direct attestation verification.
-
-**Additional Requirements:**
-
-- Espresso's Attestation Verifier service must be running
-- PROVE tokens required for Succinct Network proof generation (~0.3 tokens per attestation)
-- New attestation/proof generated on each code update or batcher restart
-
-References:
-- [ZK Attestation Verification Documentation](https://docs.espressosys.com/network/concepts/rollup-developers/integrating-an-optimistic-rollup/zk-attestation-verification)
-- [Specification §36.4.3](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
-
-## 8. Trust Model and Assumptions
-
-### 8.1 Trust Boundaries
+### 7.1 Trust Boundaries
 
 **Trusted Components**
 - AWS Nitro Enclave hardware
@@ -896,7 +818,7 @@ References:
 - Espresso query service (validated via majority voting)
 - Individual Espresso nodes
 
-### 8.2 Security Assumptions
+### 7.2 Security Assumptions
 
 1. **TEE Integrity**: AWS Nitro provides honest attestation and isolation
 2. **L1 Finality**: Ethereum finalized blocks don't reorg
@@ -906,7 +828,7 @@ References:
 6. **Proof Generation**: Succinct Network honestly generates ZK proofs
 7. **Attestation SDK**: Automata's Nitro ZK Attestation SDK correctly encodes attestations
 
-### 8.3 Adversarial Scenarios Considered
+### 7.3 Adversarial Scenarios Considered
 
 | Attack Vector | Mitigation |
 |---------------|------------|
@@ -919,9 +841,9 @@ References:
 | Malicious ZK proof | Succinct's SP1 verifier validates proof soundness on-chain |
 | Succinct Network unavailability | Batcher cannot register new attestations until service restored |
 
-## 9. Future Security Enhancements
+## 8. Future Security Enhancements
 
-### 9.1 Trustless Espresso Verification (Planned)
+### 8.1 Trustless Espresso Verification (Planned)
 
 Current: Majority voting across multiple Espresso nodes
 Future: Direct QC and namespace proof verification
@@ -937,14 +859,14 @@ func verifyEspressoBatch(batch, qc, proof) bool {
 
 This eliminates trust in query service operators.
 
-### 9.2 Trustless Enclave Networking (Planned)
+### 8.2 Trustless Enclave Networking (Planned)
 
 Current: Operator provides networking (potential MitM)
 Future: SSL certificate pinning or in-enclave L1 light client
 
 This removes operator's ability to forge receipts or L1 state.
 
-### 9.3 Permissionless Batching (Future)
+### 8.3 Permissionless Batching (Future)
 
 Current: Single permissioned batcher
 Future: Multiple batchers with sequencer signature verification
@@ -953,152 +875,7 @@ This improves censorship resistance and decentralization.
 
 Reference: [Specification §36.5](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-## 10. Development and Testing Practices
-
-### 10.1 Design Characteristics
-
-The implementation exhibits these design patterns:
-
-- **Permission Scoping**: Contract functions restricted to specific roles
-- **Validation Layers**: Four independent batch checks before acceptance
-- **Fallback Mode**: Non-TEE batcher available when TEE unavailable
-- **Batch Mediation**: All batches undergo validation before processing
-- **Contract Size**: ~163 total lines of Solidity
-- **Code Availability**: Public specification and open-source implementation
-- **Key Separation**: Batcher key and ephemeral key serve different purposes
-- **State Management**: Components minimize shared state
-
-### 10.2 Test Categories
-
-The test suite includes:
-
-- **Normal Operation**: Validates expected behavior paths
-- **Invalid Input**: Tests rejection of malformed batches
-- **Boundary Conditions**: Edge case scenarios
-- **Random Generation**: Fuzz testing where applicable
-- **Cross-Component**: Integration test scenarios
-- **Continuous**: CI execution on every commit
-- **Production Stack**: Actual AWS Nitro Enclave tests
-
-### 10.3 Code Characteristics
-
-The codebase includes:
-
-- **Linting**: Go and Solidity linters enforced in CI
-- **Type Systems**: Strongly typed languages (Go, Solidity)
-- **Immutable Values**: Critical contract values marked immutable
-- **Error Propagation**: Errors returned through call chain
-- **Documentation**: Inline code comments and external specification
-
-## 11. Component Boundaries
-
-### 11.1 On-Chain Components (L1 Contracts)
-
-**Implementation**
-- Signature verification (ECDSA recovery and validation)
-- Address authorization checking
-- Owner-controlled mode switching (TEE/non-TEE)
-
-**Dependencies**
-- Ethereum L1 consensus
-- OpenZeppelin libraries (ECDSA, Ownable)
-- EspressoTEEVerifier contract interface
-
-**Code Size**: ~163 lines of Solidity
-
-### 11.2 Off-Chain Components (Batcher + Streamer + Attestation Verifier)
-
-**Implementation**
-- Batch sequencing and submission
-- Batcher signature verification during unmarshaling
-- L2 reorganization detection and state reset
-- ZK proof generation for TEE attestations (via Attestation Verifier service)
-
-**Dependencies**
-- AWS Nitro Enclave (for TEE mode)
-- Espresso's Attestation Verifier service
-- Succinct Network (for ZK proof generation)
-- Automata's Nitro ZK Attestation SDK
-- Espresso query service endpoints
-- L1 RPC endpoint availability
-- PROVE tokens (for Succinct Network, ~0.3 tokens per attestation)
-
-**Recovery**: Fallback to non-TEE mode when TEE unavailable
-
-### 11.3 Implementation Properties
-
-The implementation exhibits these properties:
-
-1. **Validation**: Batches undergo three layers of checking before L2 acceptance
-2. **Fallback**: Non-TEE mode available when TEE components unavailable
-3. **Signature Verification**: Batcher signatures validated during batch unmarshaling
-4. **Force Inclusion**: Forced transaction mechanism inherited from OP Stack
-5. **Restart Capability**: Batcher and streamer designed for stateless recovery
-
-## 12. Audit Scope Considerations
-
-External audits may focus on different components based on their characteristics:
-
-### 12.1 L1 Smart Contracts
-
-**Components**
-- `BatchInbox.sol`: Batch acceptance and validation logic (77 lines)
-- `BatchAuthenticator.sol`: Signature verification and mode switching (86 lines)
-- `IEspressoTEEVerifier` interface integration
-- Automata's `NitroEnclaveVerifier` contract (external dependency)
-- Succinct's sp1-contracts (ZK proof verification, external dependency)
-
-**Characteristics**
-- Immutable after deployment (cannot be updated)
-- On-chain validation layer for all batches
-- ~163 lines of Solidity code (core contracts)
-- Dependencies: OpenZeppelin (ECDSA, Ownable), Automata SDK, Succinct SP1
-- Uses ZK proofs for attestation verification (~260k gas vs. ~63M gas for direct verification)
-
-**Potential Audit Depth**
-- Invariant analysis
-- Signature verification testing
-- ZK proof verification integration
-- Gas cost optimization
-- Access control validation
-- External dependency security (Automata, Succinct)
-
-### 12.2 Integration Flows
-
-**Components**
-- TEE attestation registration process
-- Batcher to L1 posting sequence
-- Fallback mode activation
-
-**Characteristics**
-- Cross-component state transitions
-- Multi-step authentication flows
-- Error propagation paths
-
-**Potential Audit Depth**
-- End-to-end flow analysis
-- Failure mode enumeration
-- State transition validation
-
-### 12.3 Off-Chain Components
-
-**Components**
-- Batcher validation logic
-- Streamer consistency checks
-- Reorganization handling
-
-**Characteristics**
-- Can restart from safe state
-- Fallback to standard OP Stack available
-- Tested across 23 integration + 9 devnet tests
-- No direct custody of user funds
-
-**Potential Audit Depth**
-- Architecture review
-- Resource management
-- Denial of service scenarios
-
-## 13. Summary
+## 9. Summary
 
 The Celo-Espresso integration implements the following architectural patterns:
 
