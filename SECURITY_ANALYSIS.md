@@ -17,9 +17,9 @@ Each component operates within well-defined trust boundaries with multiple layer
 
 ### Validation Flow Overview
 
-The integration implements four independent validation layers. Each layer checks different properties using separate mechanisms. A batch proceeds through all four layers before acceptance into the L2 chain.
+The integration implements three independent validation layers. Each layer checks different properties using separate mechanisms. A batch proceeds through all three layers before acceptance into the L2 chain.
 
-### 1.1 The Four Security Layers (How a Batch Gets Validated)
+### 1.1 The Three Security Layers (How a Batch Gets Validated)
 
 Let's follow a batch from creation to acceptance to see how the layers work:
 
@@ -57,28 +57,7 @@ if (!batchAuthenticator.validBatchInfo(hash)) {
 
 Reference: [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol)
 
-#### **Layer 3: L1 Origin Validation**
-
-Every batch references a specific L1 block as its origin. The streamer performs two checks:
-
-1. **Finality Check**: Verifies the referenced L1 block is finalized
-2. **Hash Check**: Confirms the L1 block hash matches the on-chain value
-
-```go
-// From streamer.go
-if origin.Number > s.FinalizedL1.Number {
-    return BatchUndecided  // L1 not finalized yet
-}
-if l1headerHash != origin.Hash {
-    return BatchDrop  // Invalid L1 reference
-}
-```
-
-**Implementation**: The streamer queries the L1 RPC endpoint for the block hash at the claimed origin height. If the hashes don't match, the batch is dropped. If the L1 block isn't yet finalized, the batch waits for finality before proceeding.
-
-Reference: [`streamer.go:183-224`](espresso/streamer.go)
-
-#### **Layer 4: Batcher Signature Verification**
+#### **Layer 3: Batcher Signature Verification**
 
 Each batch contains a signature from the batcher. When the streamer unmarshals batches from Espresso, it verifies:
 - The signature cryptographically validates
@@ -109,9 +88,7 @@ The following sequence shows how a batch moves through all validation layers:
    - Records batch as valid
    ↓
 5. Espresso Streamer:
-   - Validates L1 block is finalized (Layer 3a)
-   - Checks L1 block hash matches (Layer 3b)
-   - Verifies batcher signature during unmarshal (Layer 4)
+   - Verifies batcher signature during unmarshal (Layer 3)
    ↓
 6. Batch accepted into L2 derivation pipeline
 ```
@@ -162,15 +139,13 @@ The four-layer validation architecture implements the following checks:
 
 - **Authenticity**: Batches must come from an address with valid TEE attestation
 - **Integrity**: Batch hashes are signed and verified before acceptance
-- **Consistency**: Batch L1 origins are validated against finalized L1 state
 - **Authorization**: Batcher signatures are verified when unmarshaling batches from Espresso
 - **Isolation**: Batcher code runs in hardware-isolated environment (AWS Nitro)
 
-**Architectural note**: For a batch to be accepted, it must pass validation at all four layers:
+**Architectural note**: For a batch to be accepted, it must pass validation at all three layers:
 1. TEE attestation verification (Layer 1)
 2. Dual-key authentication (Layer 2)
-3. L1 finality and hash validation (Layer 3)
-4. Batcher signature verification (Layer 4)
+3. Batcher signature verification (Layer 3)
 
 Reference: [OP Stack Integration Specification §36.3.1](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
@@ -218,37 +193,9 @@ References:
 - [`BatchInbox.t.sol:84-165`](packages/contracts-bedrock/test/L1/BatchInbox.t.sol)
 - [Specification §36.4.2](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-### 2.2 Blockchain Reorganization Handling
+### 2.2 L2 Chain Reorganization Handling
 
-Blockchain reorganizations occur when nodes reach consensus on a different chain history, causing some recent blocks to be replaced. Since batches reference specific L1 blocks, reorganizations require state adjustments.
-
-The implementation includes reorg detection and recovery at multiple points:
-
-#### How Each Component Handles Reorgs
-
-**1. L1 Reorg Detection (Catching when L1 reorganizes)**
-```go
-if ref.ParentHash != p.tip.Hash {
-    // New block doesn't connect to our known chain
-    p.emitter.Emit(ctx, superevents.RewindL1Event{
-        IncomingBlock: ref.ID(),
-    })
-    // → Triggers state reset
-}
-```
-**What this does**: If a new L1 block doesn't connect to the previous one, we know there was a reorg. The system emits a rewind event to reset affected state.
-
-**2. Espresso-L1 Consistency Check (Validating batch references)**
-```go
-if l1headerHash != origin.Hash {
-    // Batch claims to reference an L1 block that doesn't exist (anymore)
-    s.Log.Warn("Dropping batch with invalid L1 origin hash")
-    return BatchDrop, 0
-}
-```
-**What this does**: Every batch claims to be based on a specific L1 block. If that block no longer exists (due to reorg), the batch is dropped as invalid.
-
-**3. Batcher State Reset (Recovering from safe chain reorg)**
+**Batcher State Reset (Recovering from safe chain reorg)**
 ```go
 if numBlocksToEnqueue > 0 && l.queuedBlocks[numBlocksToEnqueue-1].Hash != safeL2.Hash {
     // Our queued blocks don't match the actual safe chain
@@ -259,32 +206,10 @@ if numBlocksToEnqueue > 0 && l.queuedBlocks[numBlocksToEnqueue-1].Hash != safeL2
 ```
 **What this does**: If the L2 safe chain reorganizes, the batcher clears its queue and starts fresh from the new safe head. No stale data.
 
-#### Reorg Recovery Flow
-
-```
-1. L1 Reorg Detected
-   ↓
-2. System emits RewindL1Event
-   ↓
-3. All components check their state:
-   - Streamer: Drop batches with invalid L1 origins
-   - Batcher: Clear queued blocks that are now invalid
-   - Caff Node: Rewind derivation to last valid state
-   ↓
-4. Resume from new canonical chain state
-```
-
-**Observed behavior**: When a reorganization is detected, affected components drop invalidated state and rebuild from the new canonical chain. The process is automatic and does not require operator intervention.
-
-**Distinction from Fallback**:
-- **Fallback** = Manual mode switch when components are unavailable
-- **Reorg Handling** = Automatic state reset when blockchain history changes
-
-Both mechanisms address different types of events in the system's operation.
+**Observed behavior**: When a reorganization is detected, the batcher drops invalidated state and rebuilds from the new canonical L2 chain. The process is automatic and does not require operator intervention.
 
 References:
 - [`espresso.go:829-885`](op-batcher/batcher/espresso.go)
-- [`buffered_streamer.go:100-118`](espresso/buffered_streamer.go)
 - [`8_reorg_test.go`](espresso/environment/8_reorg_test.go)
 
 ## 3. Comprehensive Testing Strategy
@@ -304,11 +229,11 @@ These tests run in a controlled environment with mock Espresso nodes:
 | 3.1 | `espresso_caff_node_test.go` | Caff node derivation | L2 state correctness |
 | 3.2 | `deterministic_state_test.go` | State determinism | Same inputs → same state |
 | 3.3 | `fast_derivation_and_caff_node_test.go` | Optimistic derivation | Fast confirmation path |
-| 4 | `confirmation_integrity_with_reorgs_test.go` | Reorg handling | L1 reorganization safety |
+| 4 | `confirmation_integrity_with_reorgs_test.go` | Reorg handling | L2 reorganization safety |
 | 5 | `batch_authentication_test.go` | TEE attestation | Authentication security |
 | 6 | `batch_inbox_test.go` | Contract validation | On-chain security |
 | 7 | `stateless_batcher_test.go` | **Stateless recovery** | **Critical: restart safety** |
-| 8 | `reorg_test.go` | L1/L2/Espresso reorgs | Multi-layer consistency |
+| 8 | `reorg_test.go` | L2/Espresso reorgs | Multi-layer consistency |
 | 9 | `pipeline_enhancement_test.go` | Derivation pipeline | Integration correctness |
 | 10 | `soft_confirmation_integrity_test.go` | Fast confirmations | Espresso confirmation validity |
 | 11 | `forced_transaction_test.go` | Censorship resistance | Security invariant |
@@ -383,8 +308,7 @@ Tests include various failure scenarios and recovery mechanisms:
 | Batcher crash | Test 7, TestBatcherRestart | Stateless recovery |
 | TEE unavailable | Test 14, TestBatcherSwitching | Fallback to non-TEE |
 | Espresso unavailable | Test 14 | Direct L1 posting |
-| L1 reorg | Test 4, 8 | Automatic state reset |
-| L2 reorg | Test 8 | Chain rewind and rebuild |
+| L2 reorg | Test 4, 8 | Automatic state reset |
 | Invalid attestation | Test 5 | Contract rejection |
 | Query service disagreement | Test 12 | Majority rule application |
 
@@ -560,17 +484,8 @@ Reference: [`espresso-enclave.yaml`](.github/workflows/espresso-enclave.yaml)
 
 **Automated Security Checks**
 
-Every pull request triggers:
+Every pull request triggers triggers the execution of different test suites.
 
-```yaml
-strategy:
-  matrix:
-    group: [0, 1, 2, 3]  # Parallel test execution
-steps:
-  - Compile contracts
-  - Run Go integration tests (30min timeout)
-  - Validate in Nix environment
-```
 
 **Test Categories**
 - Unit tests: Component-level validation
@@ -676,18 +591,11 @@ The Espresso streamer implements defense-in-depth:
 
 ```go
 func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
-    // 1. Verify L1 origin finality
-    if origin.Number > s.FinalizedL1.Number {
-        return BatchUndecided, 0
-    }
-
-    // 2. Validate L1 origin hash
-    if l1headerHash != origin.Hash {
-        return BatchDrop, 0
-    }
-
-    // 3. Check ordering and buffering
+    // Check ordering and buffering
     i, batchRecorded := s.BatchBuffer.TryInsert(batch)
+
+    // Verify batcher signature during unmarshaling
+    batch, err := s.UnmarshalBatch(transaction)
 }
 ```
 
@@ -705,9 +613,7 @@ Reference: [`buffered_streamer.go`](espresso/buffered_streamer.go)
 Comprehensive error handling ensures observability:
 
 ```go
-s.Log.Warn("L1 origin not finalized, pending resync",
-    "finalized L1 block number", s.FinalizedL1.Number,
-    "origin number", origin.Number)
+s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
 ```
 
 Structured logging enables:
@@ -844,8 +750,8 @@ References:
 | Attack Vector | Mitigation |
 |---------------|------------|
 | Malicious batcher operator | TEE attestation proves code integrity, ephemeral keys prevent forgery |
-| Compromised Espresso node | Majority voting across multiple nodes, L1 consistency checks |
-| L1 reorg | Automatic detection and state reset |
+| Compromised Espresso node | Majority voting across multiple nodes |
+| L2 reorg | Automatic batcher state reset |
 | TEE/Espresso unavailability | Fallback to standard batcher |
 | Censorship | Forced transaction inclusion via L1 |
 | Invalid attestation | On-chain ZK proof verification rejects unauthorized batches |
@@ -943,8 +849,8 @@ The codebase includes:
 
 **Implementation**
 - Batch sequencing and submission
-- L1 origin validation and consistency checking
-- Reorganization detection and state reset
+- Batcher signature verification during unmarshaling
+- L2 reorganization detection and state reset
 - ZK proof generation for TEE attestations (via Attestation Verifier service)
 
 **Dependencies**
@@ -962,9 +868,9 @@ The codebase includes:
 
 The implementation exhibits these properties:
 
-1. **Validation**: Batches undergo four layers of checking before L2 acceptance
+1. **Validation**: Batches undergo three layers of checking before L2 acceptance
 2. **Fallback**: Non-TEE mode available when TEE components unavailable
-3. **State Alignment**: L1 origin validation checks maintain Espresso-L1 consistency
+3. **Signature Verification**: Batcher signatures validated during batch unmarshaling
 4. **Force Inclusion**: Forced transaction mechanism inherited from OP Stack
 5. **Restart Capability**: Batcher and streamer designed for stateless recovery
 
@@ -1035,7 +941,7 @@ External audits may focus on different components based on their characteristics
 
 The Celo-Espresso integration implements the following architectural patterns:
 
-**Multi-Layer Validation**: Four independent validation layers (TEE attestation, contract verification, L1 origin validation, batcher signatures) check batches before L2 acceptance.
+**Multi-Layer Validation**: Three independent validation layers (TEE attestation, contract verification, batcher signatures) check batches before L2 acceptance.
 
 **Test Coverage**: The codebase includes 23 integration tests, 9 devnet tests, contract tests, enclave tests, and the full OP Stack test suite, covering validation properties and failure scenarios.
 
