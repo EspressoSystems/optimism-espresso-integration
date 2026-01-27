@@ -54,6 +54,19 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 	return localSafeL2Height, err
 }
 
+// TestBatcherSwitching is a test case that is meant to verify the correct
+// expected behavior when switching between an Espresso batcher and a
+// fallback batcher, ensuring seamless transitions in both directions.
+//
+// In this scenario the test starts with the batcher running in Espresso
+// mode and verifies transactions work correctly. It then stops the TEE batcher,
+// sends switch action to the Batch Authenticator contract and switches to the
+// fallback batcher, verifies transactions continue to go through. Next, it switches
+// back to the TEE batcher by restarting it with proper caffeination heights
+// (both Espresso and L2 heights set to ensure correct sync points). Finally, it
+// launches a Caff node with the same caffeination heights and verifies it
+// derives the same chain state as the verifier by comparing block hashes at the
+// same height.
 func TestBatcherSwitching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
