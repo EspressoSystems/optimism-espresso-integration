@@ -69,31 +69,58 @@ Reference: [`espresso_batch.go:95-113`](op-node/rollup/derive/espresso_batch.go)
 
 ### 1.2 Validation Flow: Complete Example
 
-The following sequence shows how a batch moves through all validation layers:
+The system has two parallel derivation paths that both validate batches:
+
+#### **Batch Creation and Submission**
 
 ```
 1. User submits transaction to Sequencer
    ↓
-2. Sequencer bundles transactions into a batch and signs it
+2. Sequencer creates L2 block and bundles into batch
    ↓
 3. TEE Batcher (inside AWS Nitro Enclave):
    - Reads batch from sequencer
-   - Submits to Espresso for fast confirmation
+   - Signs batch with batcher private key
+   - Submits to Espresso (for fast confirmation)
    - Waits for Espresso finality
-   - Signs batch hash with TEE ephemeral key (Layer 1)
-   ↓
-4. Smart Contract on L1:
-   - Checks batcher address (Layer 2a)
-   - Verifies TEE signature (Layer 2b)
-   - Records batch as valid
-   ↓
-5. Espresso Streamer:
-   - Verifies batcher signature during unmarshal (Layer 3)
-   ↓
-6. Batch accepted into L2 derivation pipeline
+   - Calls BatchAuthenticator contract to register batch hash (Layer 2: TEE signature)
+   - Posts batch data to L1 BatchInbox (Layer 2: address check)
 ```
 
-Each layer operates independently. If any check fails, the batch does not proceed to the next stage.
+#### **Two Parallel Derivation Paths**
+
+After submission, batches flow through two independent paths:
+
+**Path A: Fast Confirmation (Caff Node)**
+```
+1. Espresso Streamer (in Caff Node):
+   - Reads batches from Espresso network
+   - Verifies batcher signature during unmarshal (Layer 3)
+   ↓
+2. Caff Node Derivation Pipeline:
+   - Derives L2 blocks from validated batches
+   - Produces optimistically finalized L2 state
+```
+
+**Path B: L1-Based Derivation (Standard OP Node)**
+```
+1. OP Node reads from L1:
+   - Reads batch data from BatchInbox contract
+   - Validates batches were authenticated via BatchAuthenticator
+   ↓
+2. Standard OP Derivation Pipeline:
+   - Derives L2 blocks from L1 data
+   - Produces L1-finalized L2 state
+```
+
+**Key Points:**
+- The **TEE Batcher** submits to both Espresso and L1
+- The **Espresso Streamer** is used by the Caff Node for fast derivation from Espresso
+- The **OP Node** uses standard L1-based derivation
+- Both paths independently validate batches
+- Layer 1 (TEE Attestation) validates the batcher's enclave
+- Layer 2 (Contract Verification) validates on L1 via address check + TEE signature
+- Layer 3 (Batcher Signature) validates when reading from Espresso
 
 ### 1.3 Dual-Key Architecture
 
@@ -1000,5 +1027,4 @@ The architecture uses multiple validation layers, includes recovery mechanisms f
 
 **Document Version**: 1.0
 **Last Updated**: January 26, 2026
-**Status**: Production
 
