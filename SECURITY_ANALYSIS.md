@@ -287,6 +287,64 @@ The standard security model remains unchanged:
 
 New trust assumptions (Espresso, Succinct, Automata) **only** affect fast finality, not base security.
 
+**6. Minimal Derivation Pipeline Changes**
+
+The Espresso integration makes only **one architectural change** to the OP Stack derivation pipeline: moving sender verification from the pipeline to the L1 smart contract.
+
+**The Single Modification: `isValidBatchTx()` Function**
+
+In the standard OP Stack, the derivation pipeline verifies the batch sender:
+
+```go
+// Standard OP Stack (vanilla)
+func isValidBatchTx(..., l1Signer types.Signer, ..., batcherAddr common.Address) bool {
+    // ... other checks ...
+
+    // Verify sender matches authorized batcher
+    from, err := l1Signer.Sender(tx)
+    if err != nil || from != batcherAddr {
+        return false
+    }
+}
+```
+
+In the Espresso integration, this verification is removed from the pipeline:
+
+```go
+// Espresso integration
+func isValidBatchTx(..., _ types.Signer, ..., batcherAddr common.Address) bool {
+    // ... same checks (tx type, inbox address, receipt status) ...
+
+    // NOTE: contrary to a standard OP batcher, we can safely skip any verification
+    // related to the sender of the transaction. Indeed the Batch Inbox contract
+    // takes care of ensuring the sender of the batch information is a legitimate batcher.
+
+    return true
+}
+```
+
+**Why This Change is Safe**
+
+The sender verification hasn't been removed—it's been **moved to a more secure location**:
+
+| Verification Location | Standard OP Stack | Espresso Integration |
+|----------------------|-------------------|----------------------|
+| **In derivation pipeline** | ✅ `l1Signer.Sender(tx) == batcherAddr` | ❌ Removed |
+| **In L1 smart contract** | ❌ Not present | ✅ `BatchInbox.sol` enforces sender check |
+
+**L1 Contract Enforcement:**
+```solidity
+// BatchInbox.sol
+fallback() external payable {
+    if (msg.sender != batchAuthenticator.teeBatcher() &&
+        msg.sender != batchAuthenticator.nonTeeBatcher()) {
+        revert("Not authorized");
+    }
+    // ... store batch data ...
+}
+```
+
+
 #### Tested Degradation Paths
 
 The test suite validates degradation behavior:
