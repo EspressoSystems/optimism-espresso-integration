@@ -50,6 +50,9 @@ jobs:
       - name: Compile contracts
         run: cd packages/contracts-bedrock && just build
 
+      - name: Fix Proxy artifact bytecode
+        run: cd packages/contracts-bedrock && just fix-proxy-artifact
+
       - name: Prepare allocations
         run: |
           cd espresso
