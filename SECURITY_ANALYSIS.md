@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The Celo-Espresso integration represents a carefully architected system that enhances Optimism's rollup stack with Espresso's fast confirmation layer. This document presents the security engineering practices, architectural decisions, and verification mechanisms that underpin the integration's design.
+This document describes the architecture, testing practices, and implementation details of the Celo-Espresso integration. The integration adds Espresso's fast confirmation layer to Optimism's rollup stack through three main components: L1 smart contracts for batch verification, a TEE-based batcher, and an Espresso streamer for batch ordering. The following sections detail the technical implementation, validation mechanisms, and testing coverage.
 
 ## Architecture Overview
 
@@ -13,35 +13,33 @@ The integration introduces three primary components:
 
 Each component operates within well-defined trust boundaries with multiple layers of validation.
 
-## 1. Defense-in-Depth Security Model
+## 1. Multi-Layer Validation Architecture
 
-### What is Defense-in-Depth?
+### Validation Flow Overview
 
-Defense-in-depth means using multiple independent security layers, so if one fails, the others still protect the system. Think of it like a castle with multiple walls - an attacker must breach all of them to succeed.
-
-In this integration, a batch must pass **four independent security checks** before being accepted into the L2 chain. Each check validates different properties and uses different mechanisms.
+The integration implements four independent validation layers. Each layer checks different properties using separate mechanisms. A batch proceeds through all four layers before acceptance into the L2 chain.
 
 ### 1.1 The Four Security Layers (How a Batch Gets Validated)
 
 Let's follow a batch from creation to acceptance to see how the layers work:
 
-#### **Layer 1: TEE Attestation (Proving the Code is Correct)**
+#### **Layer 1: TEE Attestation**
 
-The batcher runs inside AWS Nitro Enclaves, a secure hardware environment that:
-- Isolates the batcher code from the operator
-- Generates a cryptographic proof (attestation) that the exact correct code is running
-- Creates a private key that never leaves the secure environment
+The batcher runs inside AWS Nitro Enclaves, which:
+- Isolates the batcher code from the host operating system
+- Generates cryptographic attestations of the running code (PCR0 measurements)
+- Creates private keys within the enclave that cannot be exported
 
-**Why this matters:** Even if the server operator is malicious, they cannot modify the batcher code or steal its keys. The hardware guarantees the code integrity.
+**Implementation**: The enclave generates an attestation document containing the hash of the batcher code and a public key. This attestation is verified on-chain before the key is registered as authorized to sign batches.
 
 Reference: [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol)
 
-#### **Layer 2: Smart Contract Verification (Proving the Batch Came from the TEE)**
+#### **Layer 2: Smart Contract Verification**
 
-When a batch reaches the L1 smart contract, it must pass two checks:
+When a batch reaches the L1 smart contract, it undergoes two checks:
 
-1. **Address Check**: Is the sender the authorized batcher address?
-2. **Signature Check**: Does the batch have a valid signature from a TEE-generated key?
+1. **Address Check**: Validates the sender matches the authorized batcher address
+2. **Signature Check**: Verifies the batch hash signature against registered TEE signers
 
 ```solidity
 // From BatchInbox.sol
@@ -53,16 +51,16 @@ if (!batchAuthenticator.validBatchInfo(hash)) {
 }
 ```
 
-**Why this matters:** Even if someone gets the batcher private key, they cannot post batches unless they also have the TEE ephemeral key (which is hardware-protected). Both keys are required.
+**Implementation**: The contract maintains a mapping of valid batch hashes. Before posting to the inbox, the batcher calls `authenticateBatchInfo()` with a signature from the TEE ephemeral key. Only after both the address check and signature verification pass does the batch get recorded on L1.
 
 Reference: [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol)
 
-#### **Layer 3: L1 Origin Validation (Proving the Batch References Real L1 Blocks)**
+#### **Layer 3: L1 Origin Validation**
 
-Every batch claims to be based on a specific L1 block. The streamer verifies:
+Every batch references a specific L1 block as its origin. The streamer performs two checks:
 
-1. **Finality Check**: Is the referenced L1 block actually finalized?
-2. **Hash Check**: Does the L1 block hash match what's on-chain?
+1. **Finality Check**: Verifies the referenced L1 block is finalized
+2. **Hash Check**: Confirms the L1 block hash matches the on-chain value
 
 ```go
 // From streamer.go
@@ -74,21 +72,21 @@ if l1headerHash != origin.Hash {
 }
 ```
 
-**Why this matters:** Attackers cannot reference fake L1 blocks or reorder batches by claiming a different L1 history. The L1 chain is the source of truth.
+**Implementation**: The streamer queries the L1 RPC endpoint for the block hash at the claimed origin height. If the hashes don't match, the batch is dropped. If the L1 block isn't yet finalized, the batch waits for finality before proceeding.
 
 Reference: [`streamer.go:183-224`](espresso/streamer.go)
 
-#### **Layer 4: Sequencer Signature Verification (Proving the Transactions Are Authorized)**
+#### **Layer 4: Sequencer Signature Verification**
 
-The sequencer signs each batch of transactions. The system verifies:
-- The signature is valid
-- The signature is from the authorized sequencer key
+Each batch contains a signature from the sequencer. The derivation pipeline verifies:
+- The signature cryptographically validates
+- The signer matches the authorized sequencer address
 
-**Why this matters:** Even if the batcher infrastructure is compromised, attackers cannot inject unauthorized transactions. They would need the sequencer's private key.
+**Implementation**: Batches include the sequencer's ECDSA signature over the transaction data. The derivation pipeline calls `VerifySignature()` to validate before processing the batch into L2 blocks.
 
-### 1.2 How the Layers Work Together: A Complete Example
+### 1.2 Validation Flow: Complete Example
 
-Let's walk through what happens when a batch is created and validated:
+The following sequence shows how a batch moves through all validation layers:
 
 ```
 1. User submits transaction to Sequencer
@@ -99,26 +97,26 @@ Let's walk through what happens when a batch is created and validated:
    - Reads batch from sequencer
    - Submits to Espresso for fast confirmation
    - Waits for Espresso finality
-   - Signs batch hash with TEE ephemeral key ✓ (Layer 1)
+   - Signs batch hash with TEE ephemeral key (Layer 1)
    ↓
 4. Smart Contract on L1:
-   - Checks batcher address ✓ (Layer 2a)
-   - Verifies TEE signature ✓ (Layer 2b)
+   - Checks batcher address (Layer 2a)
+   - Verifies TEE signature (Layer 2b)
    - Records batch as valid
    ↓
 5. Espresso Streamer:
-   - Validates L1 block is finalized ✓ (Layer 3a)
-   - Checks L1 block hash matches ✓ (Layer 3b)
-   - Verifies sequencer signature ✓ (Layer 4)
+   - Validates L1 block is finalized (Layer 3a)
+   - Checks L1 block hash matches (Layer 3b)
+   - Verifies sequencer signature (Layer 4)
    ↓
 6. Batch accepted into L2 derivation pipeline
 ```
 
-**If any check fails**, the batch is rejected. All four layers must pass.
+Each layer operates independently. If any check fails, the batch does not proceed to the next stage.
 
-### 1.3 Why Use Multiple Keys? (Dual-Key Architecture)
+### 1.3 Dual-Key Architecture
 
-The system uses two different private keys with different purposes:
+The implementation uses two distinct private keys with separate roles:
 
 #### **Batcher Key** (Long-lived, managed by operator)
 ```solidity
@@ -140,49 +138,45 @@ func (bs *BatcherService) initKeyPair() error
 - Cannot be extracted from the hardware
 - **Role**: Proves "this came from the correct TEE code"
 
-#### Why both keys?
+#### Key Separation Properties
 
-This dual-key design creates a security separation:
+The dual-key design implements the following separation:
 
 | Scenario | Batcher Key Compromised | Ephemeral Key Compromised |
 |----------|------------------------|---------------------------|
-| **What attacker can do** | Send transactions to L1 | Sign batch hashes |
-| **What attacker CANNOT do** | Forge TEE signatures | Post to L1 BatchInbox |
-| **Result** | Batches rejected (no TEE sig) | Signatures rejected (wrong address) |
+| **Attacker capability** | Send transactions to L1 | Sign batch hashes |
+| **Missing capability** | Cannot forge TEE signatures | Cannot post to L1 BatchInbox |
+| **Observed result** | Batches rejected (no TEE sig) | Signatures rejected (wrong address) |
 
-**Both keys must be compromised** to successfully post fraudulent batches. This is extremely difficult because:
-- Batcher key might be on a server the operator controls
-- Ephemeral key is locked in hardware the operator cannot access
+**Design note**: Successful batch posting requires both keys. The keys are stored in different locations:
+- Batcher key: Configured on the server
+- Ephemeral key: Generated and stored within the Nitro Enclave hardware
 
-### 1.4 Security Properties Achieved
+### 1.4 Validation Properties
 
-Through these four layers and dual-key architecture, the system guarantees:
+The four-layer validation architecture implements the following checks:
 
-✅ **Authenticity**: Only the real TEE batcher can post batches
-✅ **Integrity**: Batches cannot be modified in transit
-✅ **Consistency**: All batches reference valid, finalized L1 blocks
-✅ **Authorization**: Only the authorized sequencer can create transaction batches
-✅ **Isolation**: Malicious operators cannot compromise the batcher code
+- **Authenticity**: Batches must come from an address with valid TEE attestation
+- **Integrity**: Batch hashes are signed and verified before acceptance
+- **Consistency**: Batch L1 origins are validated against finalized L1 state
+- **Authorization**: Sequencer signatures are verified on all transaction batches
+- **Isolation**: Batcher code runs in hardware-isolated environment (AWS Nitro)
 
-**Key Insight**: An attacker would need to simultaneously:
-1. Break AWS Nitro hardware security (Layer 1)
-2. Compromise both private keys (Layer 2)
-3. Fake finalized L1 blocks (Layer 3)
-4. Steal the sequencer key (Layer 4)
-
-This is the essence of defense-in-depth: multiple independent barriers make the overall system much more secure.
+**Architectural note**: For a batch to be accepted, it must pass validation at all four layers:
+1. TEE attestation verification (Layer 1)
+2. Dual-key authentication (Layer 2)
+3. L1 finality and hash validation (Layer 3)
+4. Sequencer signature verification (Layer 4)
 
 Reference: [OP Stack Integration Specification §36.3.1](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
 ## 2. Fault Tolerance and Recovery
 
-The system is designed to handle both **failures** (components stop working) and **unexpected events** (like chain reorganizations). This section covers both types of resilience.
+The implementation includes mechanisms for handling component failures and blockchain reorganizations. This section describes both categories.
 
-### 2.1 Fallback Mechanism (Handling Component Failures)
+### 2.1 Fallback Mechanism
 
-**What is a fallback?** If critical components fail (TEE hardware fails, Espresso becomes unavailable), the system can switch to a simpler mode that still works.
-
-The integration is designed to never reduce security below standard Optimism guarantees:
+The system includes a non-TEE batcher that can be activated when TEE components are unavailable. The owner can switch between TEE and non-TEE modes:
 
 **Fallback Batcher Activation**
 ```solidity
@@ -199,34 +193,32 @@ function switchBatcher() external onlyOwner {
 | Espresso unavailable | Cannot get fast confirmations | Post directly to L1 only |
 | TEE attestation service down | Cannot register new keys | Use existing fallback batcher |
 
-#### What Happens in Fallback Mode
+#### Fallback Mode Behavior
 
-In worst-case scenarios, the system gracefully falls back to:
-- ✅ Standard Optimism batcher operation (proven security model)
-- ✅ Direct L1 posting without Espresso confirmation (slower but works)
-- ✅ No loss of liveness (chain keeps producing blocks)
-- ✅ No reduction in security (same as vanilla OP Stack)
+When operating in non-TEE mode:
+- Batcher posts directly to L1 without TEE attestation
+- No Espresso confirmation required before L1 posting
+- BatchInbox accepts batches from the non-TEE batcher address
+- Derivation continues using standard OP Stack mechanisms
 
-**Recovery Process**
-1. Owner calls `switchBatcher()` to activate non-TEE batcher
-2. System operates as vanilla OP Stack (no Espresso dependency)
-3. After component recovery, set new caffeination heights
-4. Switch back to TEE batcher
-5. Resume Espresso-enhanced operation
+**Switching Procedure**
+1. Owner calls `switchBatcher()` on the BatchAuthenticator contract
+2. Non-TEE batcher begins posting to L1
+3. When ready to resume TEE mode, update caffeination heights
+4. Owner calls `switchBatcher()` again to re-enable TEE mode
+5. TEE batcher resumes operation from the new heights
 
-**Key Insight**: The integration is **strictly additive**. It adds fast confirmations when working, but falls back to standard security when not. You never get *worse* than regular Optimism.
+**Design observation**: In fallback mode, the system operates identically to standard Optimism. The Espresso integration adds capabilities but does not remove any existing functionality.
 
 References:
 - [`BatchInbox.t.sol:84-165`](packages/contracts-bedrock/test/L1/BatchInbox.t.sol)
 - [Specification §36.4.2](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-### 2.2 Reorg Resilience (Handling Blockchain Reorganizations)
+### 2.2 Blockchain Reorganization Handling
 
-**What is a reorg?** Sometimes blockchain nodes temporarily disagree about recent blocks. When consensus forms, some blocks get "reorganized" (replaced). This is normal blockchain behavior, not a failure.
+Blockchain reorganizations occur when nodes reach consensus on a different chain history, causing some recent blocks to be replaced. Since batches reference specific L1 blocks, reorganizations require state adjustments.
 
-**Why this matters for Espresso integration:** Batches reference specific L1 blocks. If those blocks get reorganized, the batches must be reconsidered to maintain consistency.
-
-The system implements automatic reorg handling across all layers:
+The implementation includes reorg detection and recovery at multiple points:
 
 #### How Each Component Handles Reorgs
 
@@ -278,13 +270,13 @@ if numBlocksToEnqueue > 0 && l.queuedBlocks[numBlocksToEnqueue-1].Hash != safeL2
 4. Resume from new canonical chain state
 ```
 
-**Result**: All components automatically detect and recover from reorgs, ensuring consistency between Espresso confirmations and L1 finality.
+**Observed behavior**: When a reorganization is detected, affected components drop invalidated state and rebuild from the new canonical chain. The process is automatic and does not require operator intervention.
 
-**Key Difference from Fallback**:
-- **Fallback** = Switching modes when components fail
-- **Reorg Resilience** = Automatically handling normal blockchain events
+**Distinction from Fallback**:
+- **Fallback** = Manual mode switch when components are unavailable
+- **Reorg Handling** = Automatic state reset when blockchain history changes
 
-Both ensure the system keeps working correctly, but for different reasons.
+Both mechanisms address different types of events in the system's operation.
 
 References:
 - [`espresso.go:829-885`](op-batcher/batcher/espresso.go)
@@ -359,51 +351,51 @@ func TestStatelessBatcher(t *testing.T)
 
 Reference: [`7_stateless_batcher_test.go:21-38`](espresso/environment/7_stateless_batcher_test.go)
 
-### Why This Test Coverage is Sufficient
+### Test Coverage Analysis
 
-#### 1. **Comprehensive Security Property Coverage**
+#### 1. **Security Property Validation**
 
-Every security property has dedicated tests:
+Each validation property described in Section 1.4 has corresponding test coverage:
 
-| Security Property | Tested By | Test Type |
+| Validation Property | Test Coverage | Validation Method |
 |-------------------|-----------|-----------|
-| **Authenticity** | Test 5, 6, TestSmokeWithTEE | TEE attestation validation |
-| **Integrity** | Test 7, 10, TestBatcherRestart | State consistency across restarts |
-| **Availability** | Test 2, 14, TestBatcherSwitching | Liveness under failures |
-| **Consistency** | Test 3.2, 4, 8 | Deterministic state across nodes |
-| **Censorship Resistance** | Test 11, TestForcedTransaction | Force inclusion mechanism |
-| **Fault Tolerance** | Test 14, TestBatcherSwitching | Graceful degradation |
-| **Byzantine Resistance** | Test 12 | Majority voting validation |
-| **Dispute Resolution** | Test 13, TestChallengeGame | Fault proof verification |
+| Authenticity | Test 5, 6, TestSmokeWithTEE | TEE attestation verification |
+| Integrity | Test 7, 10, TestBatcherRestart | State consistency across restarts |
+| Liveness | Test 2, 14, TestBatcherSwitching | Operation under component failures |
+| Consistency | Test 3.2, 4, 8 | Deterministic state across nodes |
+| Censorship Resistance | Test 11, TestForcedTransaction | Force inclusion via L1 |
+| Fallback Behavior | Test 14, TestBatcherSwitching | Mode switching validation |
+| Query Service | Test 12 | Majority voting implementation |
+| Dispute Resolution | Test 13, TestChallengeGame | Fault proof verification |
 
-**Result**: All critical security properties are validated by multiple independent tests.
+**Observation**: Each validation property has test coverage from multiple independent test scenarios.
 
-#### 2. **Complete Failure Mode Coverage**
+#### 2. **Failure Scenario Testing**
 
-Every failure scenario has a test:
+Tests include various failure scenarios and recovery mechanisms:
 
-| Failure Scenario | Test Coverage | Recovery Verified |
+| Failure Scenario | Test Coverage | Recovery Mechanism Tested |
 |------------------|---------------|-------------------|
-| Batcher crash | Test 7, TestBatcherRestart | ✅ Stateless recovery |
-| TEE unavailable | Test 14, TestBatcherSwitching | ✅ Fallback to non-TEE |
-| Espresso down | Test 14 | ✅ Direct L1 posting |
-| L1 reorg | Test 4, 8 | ✅ Automatic state reset |
-| L2 reorg | Test 8 | ✅ Chain consistency maintained |
-| Invalid attestation | Test 5 | ✅ Rejection verified |
-| Network partition | Test 12 | ✅ Majority rule enforced |
+| Batcher crash | Test 7, TestBatcherRestart | Stateless recovery |
+| TEE unavailable | Test 14, TestBatcherSwitching | Fallback to non-TEE |
+| Espresso unavailable | Test 14 | Direct L1 posting |
+| L1 reorg | Test 4, 8 | Automatic state reset |
+| L2 reorg | Test 8 | Chain rewind and rebuild |
+| Invalid attestation | Test 5 | Contract rejection |
+| Query service disagreement | Test 12 | Majority rule application |
 
-**Result**: No untested failure mode that could compromise security or liveness.
+**Test design**: Each test verifies that the system detects the failure condition and executes the corresponding recovery mechanism.
 
-#### 3. **Real Environment Validation**
+#### 3. **Environment Testing Characteristics**
 
-The devnet tests provide crucial validation that environment tests cannot:
+The devnet tests differ from environment tests in their setup:
 
-- **Real AWS Nitro Enclaves**: `TestSmokeWithTEE` runs actual enclave attestation
-- **Real Espresso Nodes**: Not mocked - tests actual consensus and query service
-- **Real L1 Interaction**: Full Ethereum L1 with real contract deployment
-- **Real Docker Networking**: Tests inter-service communication
+- **AWS Nitro Enclaves**: `TestSmokeWithTEE` runs against actual Nitro hardware
+- **Espresso Nodes**: Tests interact with running Espresso consensus nodes
+- **L1 Interaction**: Full Ethereum L1 deployment using actual contracts
+- **Docker Networking**: Inter-service communication over Docker networks
 
-**Why this matters**: Environment tests might miss issues that only appear in production-like setups (timing, networking, resource constraints).
+**Setup difference**: Environment tests use mocked Espresso components for faster iteration, while devnet tests use the full production stack.
 
 #### 4. **Layered Testing Strategy**
 
@@ -428,9 +420,9 @@ Each layer catches different classes of bugs:
 - **Devnet**: Real-world scenarios (high confidence)
 - **Enclave**: Hardware-specific issues
 
-#### 5. **Inherited OP Stack Test Coverage**
+#### 5. **OP Stack Test Suite Execution**
 
-Beyond Espresso-specific tests, the integration runs **all standard OP Stack tests**:
+The integration continues to run all standard OP Stack tests:
 
 ```bash
 # From run_all_tests.sh
@@ -440,7 +432,7 @@ just op-challenger-tests
 # ... (all OP Stack test suites)
 ```
 
-**Why this matters**: The integration doesn't break any existing OP Stack functionality. All original security guarantees are preserved.
+**Test scope**: These tests validate that the integration maintains compatibility with existing OP Stack components and behaviors.
 
 Reference: [`run_all_tests.sh`](run_all_tests.sh)
 
@@ -460,42 +452,47 @@ References:
 - [`espresso-devnet-tests.yaml`](.github/workflows/espresso-devnet-tests.yaml)
 - [`espresso-enclave.yaml`](.github/workflows/espresso-enclave.yaml)
 
-### What This Test Coverage Proves
+### Test Coverage Characteristics
 
-✅ **No single point of failure**: Multiple tests verify each component independently
+The test suite exhibits the following properties:
 
-✅ **All critical paths tested**: Normal operation, failures, edge cases all covered
+- **Component independence**: Each component has dedicated test coverage
+- **Path coverage**: Tests include normal operation, failure scenarios, and edge cases
+- **Environment variety**: Tests run in both mocked and production-like environments
+- **Continuous execution**: CI runs all tests on every pull request
+- **Property validation**: Each validation property from Section 1.4 has test coverage
+- **Deployment simulation**: Devnet tests use the same deployment process as production
 
-✅ **Real environment validated**: Not just mocks - actual TEE, actual Espresso, actual L1
+### Trust Assumptions in Testing
 
-✅ **Regression prevention**: CI catches any breaking changes immediately
+The test suite operates under several foundational assumptions:
 
-✅ **Security properties verified**: Each security guarantee has explicit test validation
+- **AWS Nitro hardware**: Assumes the Nitro hypervisor correctly isolates enclaves
+- **Ethereum L1 consensus**: Assumes L1 finalized blocks do not reorganize
+- **Cryptographic primitives**: Assumes ECDSA and Keccak256 are computationally secure
+- **Infrastructure**: Assumes standard data center security practices
 
-✅ **Production-ready**: Devnet tests simulate real deployment conditions
+These represent dependencies on external systems rather than gaps in test coverage. The tests validate the integration's behavior given these assumptions.
 
-### Gaps That Don't Need Tests
+### Test Suite Summary
 
-Some scenarios are intentionally not tested because they're outside the threat model:
+The test suite includes:
 
-- **AWS Nitro hardware compromise**: Assumed secure (industry standard)
-- **Ethereum L1 consensus failure**: Out of scope (underlying chain assumption)
-- **Cryptographic primitive breaks**: Would affect entire blockchain ecosystem
-- **Physical attacks on data centers**: Infrastructure security responsibility
+- 23 integration tests (environment)
+- 9 devnet tests (full stack)
+- Contract tests (Foundry)
+- Enclave tests (AWS Nitro)
+- Full OP Stack regression suite
 
-These are **assumptions**, not **gaps**. The test coverage validates behavior under all scenarios within the defined threat model.
+Test design approach:
 
-### Conclusion
+1. Each validation property has corresponding tests
+2. Failure scenarios include recovery mechanism validation
+3. Both mocked and production environments are tested
+4. CI executes all tests on every code change
+5. Tests build on the existing OP Stack test foundation
 
-The 23 integration tests + 9 devnet tests + contract tests + enclave tests provide comprehensive coverage because they:
-
-1. Test every security property
-2. Cover every failure mode
-3. Validate in real environments
-4. Run continuously in CI
-5. Build on proven OP Stack test suite
-
-This is not exhaustive testing of every possible input combination (infeasible), but **systematic validation of all critical security paths and failure scenarios**. The combination of scope, depth, and automation provides high confidence in the integration's correctness and security.
+The testing strategy focuses on validating critical paths and failure scenarios rather than exhaustive input combination testing.
 
 ### 3.2 Smart Contract Security Tests
 
@@ -766,10 +763,10 @@ bs.Metrics.RecordUp()
 bs.balanceMetricer = bs.Metrics.StartBalanceMetrics(bs.Log, bs.L1Client, bs.TxManager.From())
 ```
 
-Metrics enable:
-- Real-time health monitoring
-- Anomaly detection
-- Performance optimization
+Metrics support:
+- Health status tracking
+- Operational monitoring
+- Performance analysis
 
 ### 7.3 Gas Cost Optimization
 
@@ -850,148 +847,156 @@ This improves censorship resistance and decentralization.
 
 Reference: [Specification §36.5](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-## 10. Security Best Practices Applied
+## 10. Development and Testing Practices
 
-### 10.1 Secure Development
+### 10.1 Design Characteristics
 
-✅ **Principle of Least Privilege**: Components have minimal necessary permissions
-✅ **Defense in Depth**: Multiple validation layers
-✅ **Fail-Safe Defaults**: Fallback to secure mode on failure
-✅ **Complete Mediation**: All batches validated before processing
-✅ **Economy of Mechanism**: Simple, auditable contracts
-✅ **Open Design**: Public specification and source code
-✅ **Separation of Duties**: Dual key architecture
-✅ **Least Common Mechanism**: Minimal shared state between components
+The implementation exhibits these design patterns:
 
-### 10.2 Testing Rigor
+- **Permission Scoping**: Contract functions restricted to specific roles
+- **Validation Layers**: Four independent batch checks before acceptance
+- **Fallback Mode**: Non-TEE batcher available when TEE unavailable
+- **Batch Mediation**: All batches undergo validation before processing
+- **Contract Size**: ~163 total lines of Solidity
+- **Code Availability**: Public specification and open-source implementation
+- **Key Separation**: Batcher key and ephemeral key serve different purposes
+- **State Management**: Components minimize shared state
 
-✅ **Positive Testing**: Happy path validation
-✅ **Negative Testing**: Invalid input rejection
-✅ **Edge Case Testing**: Boundary conditions
-✅ **Fuzz Testing**: Random input generation
-✅ **Integration Testing**: Cross-component validation
-✅ **Regression Testing**: CI on every commit
-✅ **Real Environment Testing**: Actual Nitro Enclave execution
+### 10.2 Test Categories
 
-### 10.3 Code Quality
+The test suite includes:
 
-✅ **Static Analysis**: Linting and formatting enforced
-✅ **Type Safety**: Strongly typed Go and Solidity
-✅ **Immutability**: Critical values marked immutable
-✅ **Error Handling**: Comprehensive error propagation
-✅ **Documentation**: Inline comments and external specs
+- **Normal Operation**: Validates expected behavior paths
+- **Invalid Input**: Tests rejection of malformed batches
+- **Boundary Conditions**: Edge case scenarios
+- **Random Generation**: Fuzz testing where applicable
+- **Cross-Component**: Integration test scenarios
+- **Continuous**: CI execution on every commit
+- **Production Stack**: Actual AWS Nitro Enclave tests
 
-## 11. Security Boundaries Summary
+### 10.3 Code Characteristics
 
-### 11.1 On-Chain Security (L1 Contracts)
+The codebase includes:
 
-**What They Protect**
-- Batch authenticity (via signature verification)
-- Batcher authorization (via address validation)
-- Mode switching authority (via ownership)
+- **Linting**: Go and Solidity linters enforced in CI
+- **Type Systems**: Strongly typed languages (Go, Solidity)
+- **Immutable Values**: Critical contract values marked immutable
+- **Error Propagation**: Errors returned through call chain
+- **Documentation**: Inline code comments and external specification
 
-**What They Depend On**
-- Ethereum consensus
-- OpenZeppelin cryptography libraries
-- Espresso TEE Verifier contract
+## 11. Component Boundaries
 
-**Attack Surface**: ~163 lines of Solidity code
+### 11.1 On-Chain Components (L1 Contracts)
 
-### 11.2 Off-Chain Security (Batcher + Streamer)
+**Implementation**
+- Signature verification (ECDSA recovery and validation)
+- Address authorization checking
+- Owner-controlled mode switching (TEE/non-TEE)
 
-**What They Protect**
-- Batch ordering consistency
-- L1-Espresso alignment
-- Reorg resilience
+**Dependencies**
+- Ethereum L1 consensus
+- OpenZeppelin libraries (ECDSA, Ownable)
+- EspressoTEEVerifier contract interface
 
-**What They Depend On**
-- TEE isolation (AWS Nitro)
-- Espresso query service responses
-- L1 RPC endpoints
+**Code Size**: ~163 lines of Solidity
 
-**Mitigation**: Graceful degradation to standard OP Stack
+### 11.2 Off-Chain Components (Batcher + Streamer)
 
-### 11.3 Critical Security Properties
+**Implementation**
+- Batch sequencing and submission
+- L1 origin validation and consistency checking
+- Reorganization detection and state reset
 
-1. **Safety**: Invalid batches cannot finalize to L2
-2. **Liveness**: System can always make progress (via fallback)
-3. **Consistency**: Espresso and L1 states remain aligned
-4. **Censorship Resistance**: Forced transaction mechanism preserved
-5. **Recoverability**: All components can restart from safe state
+**Dependencies**
+- AWS Nitro Enclave (for TEE mode)
+- Espresso query service endpoints
+- L1 RPC endpoint availability
 
-## 12. Audit Recommendations
+**Recovery**: Fallback to non-TEE mode when TEE unavailable
 
-Based on the security architecture, we recommend focused external audits on:
+### 11.3 Implementation Properties
 
-### 12.1 High Priority: L1 Smart Contracts
+The implementation exhibits these properties:
 
-**Scope**
-- `BatchInbox.sol`: Batch acceptance and validation logic
-- `BatchAuthenticator.sol`: Signature verification and mode switching
-- `IEspressoTEEVerifier` interface usage
+1. **Validation**: Batches undergo four layers of checking before L2 acceptance
+2. **Fallback**: Non-TEE mode available when TEE components unavailable
+3. **State Alignment**: L1 origin validation checks maintain Espresso-L1 consistency
+4. **Force Inclusion**: Forced transaction mechanism inherited from OP Stack
+5. **Restart Capability**: Batcher and streamer designed for stateless recovery
 
-**Rationale**
-- Direct custody of security-critical validation
-- Immutable after deployment
-- Highest impact from undiscovered vulnerabilities
-- Small attack surface enables thorough analysis
+## 12. Audit Scope Considerations
 
-**Recommended Depth**
-- Formal verification of invariants
-- Fuzz testing of signature validation
-- Gas optimization review
-- Upgradeability analysis
+External audits may focus on different components based on their characteristics:
 
-### 12.2 Medium Priority: Integration Flows
+### 12.1 L1 Smart Contracts
 
-**Scope**
-- TEE attestation registration flow
-- Batcher→L1 batch posting flow
-- Fallback activation sequence
+**Components**
+- `BatchInbox.sol`: Batch acceptance and validation logic (77 lines)
+- `BatchAuthenticator.sol`: Signature verification and mode switching (86 lines)
+- `IEspressoTEEVerifier` interface integration
 
-**Rationale**
-- Critical security transitions
-- Cross-component interactions
-- Complex error handling
+**Characteristics**
+- Immutable after deployment (cannot be updated)
+- On-chain validation layer for all batches
+- ~163 lines of Solidity code
+- Dependencies: OpenZeppelin (ECDSA, Ownable)
 
-**Recommended Depth**
-- End-to-end security testing
-- Failure mode analysis
-- Timing attack considerations
+**Potential Audit Depth**
+- Invariant analysis
+- Signature verification testing
+- Gas cost optimization
+- Access control validation
 
-### 12.3 Lower Priority: Off-Chain Components
+### 12.2 Integration Flows
 
-**Scope**
-- Batcher batch validation logic
-- Streamer L1 consistency checks
-- Reorg handling
+**Components**
+- TEE attestation registration process
+- Batcher to L1 posting sequence
+- Fallback mode activation
 
-**Rationale**
-- Can recover via restart
-- Fallback mechanisms limit impact
-- Extensive test coverage already exists
-- No direct asset custody
+**Characteristics**
+- Cross-component state transitions
+- Multi-step authentication flows
+- Error propagation paths
 
-**Recommended Depth**
+**Potential Audit Depth**
+- End-to-end flow analysis
+- Failure mode enumeration
+- State transition validation
+
+### 12.3 Off-Chain Components
+
+**Components**
+- Batcher validation logic
+- Streamer consistency checks
+- Reorganization handling
+
+**Characteristics**
+- Can restart from safe state
+- Fallback to standard OP Stack available
+- Tested across 23 integration + 9 devnet tests
+- No direct custody of user funds
+
+**Potential Audit Depth**
 - Architecture review
-- DoS resistance validation
-- Resource exhaustion testing
+- Resource management
+- Denial of service scenarios
 
-## 13. Conclusion
+## 13. Summary
 
-The Celo-Espresso integration demonstrates security engineering best practices:
+The Celo-Espresso integration implements the following architectural patterns:
 
-**Layered Security**: Multiple independent validation mechanisms ensure that single-point failures cannot compromise the system.
+**Multi-Layer Validation**: Four independent validation layers (TEE attestation, contract verification, L1 origin validation, sequencer signatures) check batches before L2 acceptance.
 
-**Rigorous Testing**: Comprehensive test suites covering normal operation, failures, and edge cases provide confidence in implementation correctness.
+**Test Coverage**: The codebase includes 23 integration tests, 9 devnet tests, contract tests, enclave tests, and the full OP Stack test suite, covering validation properties and failure scenarios.
 
-**Graceful Degradation**: Fallback mechanisms ensure the system is strictly more secure than standard Optimism, never less.
+**Fallback Design**: A non-TEE batcher can be activated when TEE components are unavailable, operating identically to standard Optimism.
 
-**Minimal Attack Surface**: Small, focused smart contracts reduce on-chain vulnerabilities.
+**Contract Size**: L1 contracts total ~163 lines of Solidity (BatchInbox: 77 lines, BatchAuthenticator: 86 lines).
 
-**Transparency**: Open source code and public specification enable community review.
+**Code Availability**: Source code, specification, and test results are publicly available for review.
 
-The architecture prioritizes security over performance, follows defense-in-depth principles, and includes comprehensive recovery mechanisms. The L1 contracts represent the critical security boundary warranting the most scrutiny in external audits, as they provide the ultimate validation layer that all other components depend upon.
+The architecture uses multiple validation layers, includes recovery mechanisms for component failures, and maintains compatibility with standard Optimism behavior. The L1 contracts implement the on-chain validation logic that all other components build upon.
 
 ---
 
