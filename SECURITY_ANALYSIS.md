@@ -30,9 +30,11 @@ The batcher runs inside AWS Nitro Enclaves, which:
 - Generates cryptographic attestations of the running code (PCR0 measurements)
 - Creates private keys within the enclave that cannot be exported
 
-**Implementation**: The enclave generates an attestation document containing the hash of the batcher code and a public key. This attestation is verified on-chain before the key is registered as authorized to sign batches.
+**Implementation**: The enclave generates an attestation document containing the hash of the batcher code and a public key. This attestation is converted into a zero-knowledge proof (using Automata Network's SDK and Succinct's SP1) and verified on-chain before the key is registered as authorized to sign batches. The ZK proof approach reduces verification costs from ~63M gas to ~260k gas (approximately 240× improvement).
 
-Reference: [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol)
+References:
+- [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol)
+- [ZK Attestation Verification](https://docs.espressosys.com/network/concepts/rollup-developers/integrating-an-optimistic-rollup/zk-attestation-verification)
 
 #### **Layer 2: Smart Contract Verification**
 
@@ -770,15 +772,42 @@ Metrics support:
 
 ### 7.3 Gas Cost Optimization
 
-To reduce attestation verification costs:
+**ZK-Based Attestation Verification**
 
-1. Initial attestation validates full PCR0 measurement (~63M gas)
-2. Ephemeral key registered with contract
-3. Subsequent batches use simple signature verification (~5k gas)
+The integration now uses zero-knowledge proofs for TEE attestation verification, replacing the previous direct on-chain verification approach. This change was driven by the Fusaka upgrade, which made direct attestation verification economically infeasible.
 
-This amortizes expensive verification across many batches.
+**Implementation:**
 
-Reference: [Specification §36.4.3](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
+The system integrates with [Automata Network's AWS Nitro ZK proof generation SDK](https://github.com/automata-network/aws-nitro-enclave-attestation/tree/main) and [NitroEnclaveVerifier contract](https://github.com/automata-network/aws-nitro-enclave-attestation/blob/main/contracts/src/NitroEnclaveVerifier.sol). Under the hood, this uses:
+- **Succinct's SP1** for zero-knowledge proof generation
+- **sp1-contracts** for on-chain ZK proof verification
+
+**Verification Flow:**
+
+1. Batch poster (running in TEE) creates attestation → sends to Espresso's attestation verifier service
+2. Attestation verifier service calls Automata's SDK → requests proof from Succinct Network
+3. Succinct Network generates and returns the ZK proof
+4. Batch poster submits ZK proof to L1 alongside batch data
+5. On-chain contracts verify the ZK proof (instead of the raw attestation)
+
+**Cost Improvement:**
+
+| Approach | Gas Cost | Off-Chain Cost | Total |
+|----------|----------|----------------|-------|
+| **Previous**: Direct on-chain verification | ~63 million gas (~$93 USD) | None | ~$93 |
+| **Current**: ZK proof verification | ~260k-270k gas (~$0.40 USD) | 0.3 PROVE tokens (~$0.13) | ~$0.53 |
+
+**Result**: Approximately **240× cost reduction** compared to direct attestation verification.
+
+**Additional Requirements:**
+
+- Espresso's Attestation Verifier service must be running
+- PROVE tokens required for Succinct Network proof generation (~0.3 tokens per attestation)
+- New attestation/proof generated on each code update or batcher restart
+
+References:
+- [ZK Attestation Verification Documentation](https://docs.espressosys.com/network/concepts/rollup-developers/integrating-an-optimistic-rollup/zk-attestation-verification)
+- [Specification §36.4.3](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
 ## 8. Trust Model and Assumptions
 
@@ -789,6 +818,9 @@ Reference: [Specification §36.4.3](https://eng-wiki.espressosys.com/mainch36.ht
 - L1 Ethereum consensus
 - Espresso consensus (for liveness)
 - Sequencer (for censorship resistance)
+- Succinct Network (for ZK proof generation)
+- Automata's Nitro ZK Attestation SDK
+- Espresso's Attestation Verifier service
 
 **Untrusted Components**
 - Batcher operator (networking, infrastructure)
@@ -801,6 +833,9 @@ Reference: [Specification §36.4.3](https://eng-wiki.espressosys.com/mainch36.ht
 2. **L1 Finality**: Ethereum finalized blocks don't reorg
 3. **Cryptographic Primitives**: ECDSA, Keccak256 remain secure
 4. **Ownership**: Contract owner is honest and available
+5. **ZK Proof System**: Succinct's SP1 proof system is sound and secure
+6. **Proof Generation**: Succinct Network honestly generates ZK proofs
+7. **Attestation SDK**: Automata's Nitro ZK Attestation SDK correctly encodes attestations
 
 ### 8.3 Adversarial Scenarios Considered
 
@@ -811,7 +846,9 @@ Reference: [Specification §36.4.3](https://eng-wiki.espressosys.com/mainch36.ht
 | L1 reorg | Automatic detection and state reset |
 | TEE/Espresso unavailability | Fallback to standard batcher |
 | Censorship | Forced transaction inclusion via L1 |
-| Invalid attestation | On-chain verification rejects unauthorized batches |
+| Invalid attestation | On-chain ZK proof verification rejects unauthorized batches |
+| Malicious ZK proof | Succinct's SP1 verifier validates proof soundness on-chain |
+| Succinct Network unavailability | Batcher cannot register new attestations until service restored |
 
 ## 9. Future Security Enhancements
 
@@ -900,17 +937,22 @@ The codebase includes:
 
 **Code Size**: ~163 lines of Solidity
 
-### 11.2 Off-Chain Components (Batcher + Streamer)
+### 11.2 Off-Chain Components (Batcher + Streamer + Attestation Verifier)
 
 **Implementation**
 - Batch sequencing and submission
 - L1 origin validation and consistency checking
 - Reorganization detection and state reset
+- ZK proof generation for TEE attestations (via Attestation Verifier service)
 
 **Dependencies**
 - AWS Nitro Enclave (for TEE mode)
+- Espresso's Attestation Verifier service
+- Succinct Network (for ZK proof generation)
+- Automata's Nitro ZK Attestation SDK
 - Espresso query service endpoints
 - L1 RPC endpoint availability
+- PROVE tokens (for Succinct Network, ~0.3 tokens per attestation)
 
 **Recovery**: Fallback to non-TEE mode when TEE unavailable
 
@@ -934,18 +976,23 @@ External audits may focus on different components based on their characteristics
 - `BatchInbox.sol`: Batch acceptance and validation logic (77 lines)
 - `BatchAuthenticator.sol`: Signature verification and mode switching (86 lines)
 - `IEspressoTEEVerifier` interface integration
+- Automata's `NitroEnclaveVerifier` contract (external dependency)
+- Succinct's sp1-contracts (ZK proof verification, external dependency)
 
 **Characteristics**
 - Immutable after deployment (cannot be updated)
 - On-chain validation layer for all batches
-- ~163 lines of Solidity code
-- Dependencies: OpenZeppelin (ECDSA, Ownable)
+- ~163 lines of Solidity code (core contracts)
+- Dependencies: OpenZeppelin (ECDSA, Ownable), Automata SDK, Succinct SP1
+- Uses ZK proofs for attestation verification (~260k gas vs. ~63M gas for direct verification)
 
 **Potential Audit Depth**
 - Invariant analysis
 - Signature verification testing
+- ZK proof verification integration
 - Gas cost optimization
 - Access control validation
+- External dependency security (Automata, Succinct)
 
 ### 12.2 Integration Flows
 
