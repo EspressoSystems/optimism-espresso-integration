@@ -348,32 +348,37 @@ Each layer catches different classes of bugs:
 - **Devnet**: Real-world scenarios (high confidence)
 - **Enclave**: Hardware-specific issues
 
-#### 5. **OP Stack Test Suite Execution**
+#### 5. **OP Stack Test Suite Availability**
 
-The integration continues to run all standard OP Stack tests:
+A comprehensive test script exists for validating OP Stack compatibility:
 
 ```bash
-# From run_all_tests.sh
-just op-program-tests
-just cannon-tests
-just op-challenger-tests
-# ... (all OP Stack test suites)
+# From run_all_tests.sh (manual execution)
+make -C ./cannon test
+just -f ./op-batcher/justfile test
+just -f ./op-challenger/justfile test
+just -f ./op-node/justfile test
+just -f ./op-proposer/justfile test
+# ... (all OP Stack component tests)
 ```
 
 **Test scope**: These tests validate that the integration maintains compatibility with existing OP Stack components and behaviors.
+
+**Note**: This comprehensive suite is available for manual testing but does not run automatically in CI. CI focuses on Espresso-specific integration tests and L1 contract tests.
 
 Reference: [`run_all_tests.sh`](run_all_tests.sh)
 
 #### 6. **Continuous Testing in CI**
 
 Every PR triggers:
-- ✅ 23 test scenarios across 14 environment tests
-- ✅ 9 devnet tests (parallelized into 5 groups)
-- ✅ Contract security tests
+- ✅ 14 integration tests (parallelized into 4 groups, 30min timeout)
+- ✅ 9 devnet tests (via workflow dispatch)
+- ✅ L1 contract tests (Foundry tests for BatchInbox, BatchAuthenticator)
 - ✅ Enclave tests (on actual AWS infrastructure)
-- ✅ Full OP Stack regression tests
 
-**CI configuration**: Tests run for 30+ minutes with configurable liveness periods (1m default, 10m for thorough validation).
+**CI configuration**: Tests run in parallel across multiple groups with 30-minute timeouts.
+
+**Additional Testing**: A comprehensive OP Stack regression test suite (`run_all_tests.sh`) is available for manual execution to validate compatibility with all OP Stack components (op-program, cannon, op-challenger, op-node, op-proposer, op-service, op-supervisor, op-e2e).
 
 References:
 - [`espresso-integration.yaml`](.github/workflows/espresso-integration.yaml)
@@ -406,11 +411,13 @@ These represent dependencies on external systems rather than gaps in test covera
 
 The test suite includes:
 
-- 23 integration tests (environment)
-- 9 devnet tests (full stack)
-- Contract tests (Foundry)
+- 14 Espresso integration tests (environment tests in `espresso/environment/`)
+- 9 devnet tests (full stack with real Espresso nodes)
+- L1 contract tests (Foundry tests for BatchInbox, BatchAuthenticator)
 - Enclave tests (AWS Nitro)
-- Full OP Stack regression suite
+- OP Stack compatibility tests (available via `run_all_tests.sh`, manual execution)
+
+**CI Coverage**: Continuous integration automatically runs Espresso integration tests, L1 contract tests, and (on-demand) devnet and enclave tests. Full OP Stack regression testing is available for manual validation.
 
 Test design approach:
 
@@ -484,18 +491,45 @@ Reference: [`espresso-enclave.yaml`](.github/workflows/espresso-enclave.yaml)
 
 **Automated Security Checks**
 
-Every pull request triggers triggers the execution of different test suites.
+Every pull request triggers the execution of different test suites:
 
+**1. Espresso Integration Tests** (automatic on every PR)
+```yaml
+# .github/workflows/espresso-integration.yaml
+- Parallelized across 4 groups
+- Tests all Espresso-specific components
+- Runs: ./espresso/... test suite
+- Timeout: 30 minutes
+```
 
-**Test Categories**
-- Unit tests: Component-level validation
-- Integration tests: Cross-component interaction
-- Devnet tests: Full system scenarios
-- Enclave tests: TEE-specific validation
+**2. L1 Contract Tests** (automatic on every PR)
+```yaml
+# .github/workflows/contracts-l1-tests.yaml
+- Foundry tests for BatchInbox and BatchAuthenticator
+- Validates on-chain security properties
+```
 
-CI ensures no regression in security properties.
+**3. Devnet Tests** (on-demand via workflow dispatch)
+```yaml
+# .github/workflows/espresso-devnet-tests.yaml
+- Full Docker-based environment with real Espresso nodes
+- Tests 9 real-world scenarios
+```
 
-Reference: [`espresso-integration.yaml`](.github/workflows/espresso-integration.yaml)
+**4. Enclave Tests** (on-demand via workflow dispatch)
+```yaml
+# .github/workflows/espresso-enclave.yaml
+- Runs on actual AWS Nitro Enclave hardware
+- Validates TEE attestation and key isolation
+```
+
+CI ensures no regression in Espresso-specific security properties and contract behavior.
+
+References:
+- [`espresso-integration.yaml`](.github/workflows/espresso-integration.yaml)
+- [`contracts-l1-tests.yaml`](.github/workflows/contracts-l1-tests.yaml)
+- [`espresso-devnet-tests.yaml`](.github/workflows/espresso-devnet-tests.yaml)
+- [`espresso-enclave.yaml`](.github/workflows/espresso-enclave.yaml)
 
 ## 4. Contract Security Architecture
 
@@ -943,7 +977,7 @@ The Celo-Espresso integration implements the following architectural patterns:
 
 **Multi-Layer Validation**: Three independent validation layers (TEE attestation, contract verification, batcher signatures) check batches before L2 acceptance.
 
-**Test Coverage**: The codebase includes 23 integration tests, 9 devnet tests, contract tests, enclave tests, and the full OP Stack test suite, covering validation properties and failure scenarios.
+**Test Coverage**: The codebase includes 14 integration tests, 9 devnet tests, L1 contract tests, enclave tests, and OP Stack compatibility tests (manual), covering validation properties and failure scenarios.
 
 **Fallback Design**: A non-TEE batcher can be activated when TEE components are unavailable, operating identically to standard Optimism.
 
