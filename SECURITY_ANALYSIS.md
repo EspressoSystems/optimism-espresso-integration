@@ -204,24 +204,140 @@ References:
 - [`BatchInbox.t.sol:84-165`](packages/contracts-bedrock/test/L1/BatchInbox.t.sol)
 - [Specification §36.4.2](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-### 2.2 L2 Chain Reorganization Handling
+### 2.2 Worst-Case Degradation: Equivalent to Vanilla Celo Rollup
 
-**Batcher State Reset (Recovering from safe chain reorg)**
-```go
-if numBlocksToEnqueue > 0 && l.queuedBlocks[numBlocksToEnqueue-1].Hash != safeL2.Hash {
-    // Our queued blocks don't match the actual safe chain
-    l.batcher.Log.Warn("safe chain reorg, resetting loader")
-    return inclusiveBlockRange{}, ActionReset
-    // → Clear queue and start fresh from safe head
+**Security Property**: In all failure scenarios, the system degrades gracefully to behave identically to the current vanilla Celo L2 rollup, never worse.
+
+#### Degradation Scenarios
+
+The Espresso integration adds fast finality capabilities without compromising the baseline security of the standard OP Stack. In every failure mode, the system falls back to standard behavior:
+
+| Failure | Espresso Integration Response | Resulting Behavior |
+|---------|------------------------------|-------------------|
+| **Espresso network unavailable** | Batcher posts directly to L1 only | Standard OP Stack (vanilla Celo rollup) |
+| **TEE enclave failure** | Owner switches to non-TEE batcher | Standard OP Stack (vanilla Celo rollup) |
+| **Succinct Network down** | Cannot register new TEE attestations | Use fallback batcher (vanilla Celo rollup) |
+| **Attestation service failure** | No new ZK proofs generated | Use fallback batcher (vanilla Celo rollup) |
+| **All Espresso components fail** | Fallback mode + L1-only posting | Standard OP Stack (vanilla Celo rollup) |
+
+#### Why Degradation is Always Safe
+
+**1. L1 Derivation Path Always Exists**
+
+The standard OP Stack derivation pipeline remains fully functional regardless of Espresso status:
+
+```
+OP Node → L1 BatchInbox → Standard Derivation Pipeline → L2 Blocks
+```
+
+This path operates independently of:
+- Espresso network availability
+- TEE batcher status
+- Fast finality features
+
+**2. Non-TEE Batcher is Pre-Configured**
+
+```solidity
+address public immutable teeBatcher;     // Espresso-enhanced batcher
+address public immutable nonTeeBatcher;  // Fallback (standard) batcher
+```
+
+The non-TEE batcher address is immutably configured in the contracts. The owner can activate it instantly via `switchBatcher()`.
+
+**3. Espresso Features are Additive, Not Replacement**
+
+The integration **adds** capabilities without **replacing** core functionality:
+
+| Capability | Standard OP Stack | With Espresso Integration |
+|------------|-------------------|---------------------------|
+| L2 block production | ✅ Sequencer | ✅ Same sequencer |
+| Batch posting to L1 | ✅ Batcher → L1 | ✅ Same, plus optional Espresso |
+| Derivation from L1 | ✅ OP Node | ✅ Same OP Node derivation |
+| Fault proofs | ✅ Dispute game | ✅ Same dispute game |
+| Withdrawals | ✅ Standard bridge | ✅ Same bridge |
+| **Fast finality** | ❌ Not available | ✅ **New**: Caff Node + Espresso |
+
+**4. Fallback Mode = Exact Vanilla Behavior**
+
+When operating in fallback mode:
+
+```solidity
+if (!activeIsTee) {
+    // Non-TEE batcher posts to BatchInbox
+    // No TEE attestation required
+    // No Espresso submission required
+    // Identical to standard OP Stack
 }
 ```
-**What this does**: If the L2 safe chain reorganizes, the batcher clears its queue and starts fresh from the new safe head. No stale data.
 
-**Observed behavior**: When a reorganization is detected, the batcher drops invalidated state and rebuilds from the new canonical L2 chain. The process is automatic and does not require operator intervention.
+The system:
+- Uses standard batcher (no TEE)
+- Posts only to L1 (no Espresso)
+- Derives blocks using standard OP Node
+- Processes transactions identically
+- Maintains same security guarantees
+
+**5. No New Trust Assumptions for Base Security**
+
+The standard security model remains unchanged:
+- L1 Ethereum consensus (same)
+- Sequencer liveness (same)
+- Fault proof system (same)
+- Contract immutability (same)
+
+New trust assumptions (Espresso, Succinct, Automata) **only** affect fast finality, not base security.
+
+#### Tested Degradation Paths
+
+The test suite validates degradation behavior:
+
+| Test | What It Validates |
+|------|-------------------|
+| `TestBatcherSwitching` | Switching between TEE and non-TEE modes maintains correctness |
+| `TestBatcherRestart` | Batcher failures don't compromise chain state |
+| `TestSmokeWithoutTEE` | System operates correctly in non-TEE mode |
+| Fallback tests | Manual switch to vanilla mode preserves all functionality |
+
+#### Operational Guarantees
+
+**Guarantee 1: No Additional Liveness Risk**
+- If Espresso fails → system continues via L1
+- If TEE fails → system continues via non-TEE batcher
+- Worst case: vanilla Celo rollup liveness
+
+**Guarantee 2: No Additional Safety Risk**
+- L1 contracts validate all batches (TEE or non-TEE)
+- Standard derivation path validates all blocks
+- Fault proof system covers all state transitions
+- Worst case: vanilla Celo rollup safety
+
+**Guarantee 3: Instant Fallback**
+- Owner can switch batchers via single transaction
+- No migration or state transition required
+- Chain continues from current block
+- Worst case: vanilla Celo rollup behavior
+
+#### Design Principle: Strictly Additive
+
+The Espresso integration follows a **strictly additive** design philosophy:
+
+```
+Vanilla Celo Rollup (Base)
+    + Espresso Fast Finality (Optional)
+    + TEE Attestation (Optional)
+    + ZK Proof Verification (Optional)
+    = Espresso-Enhanced Celo Rollup
+
+If all optional components fail:
+    = Vanilla Celo Rollup (Base)
+```
+
+This ensures that **in the worst case**, the system behaves exactly as it would without the Espresso integration.
 
 References:
-- [`espresso.go:829-885`](op-batcher/batcher/espresso.go)
-- [`8_reorg_test.go`](espresso/environment/8_reorg_test.go)
+- [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol) - Dual batcher support
+- [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol) - Mode switching
+- [Section 2.1: Fallback Mechanism](#21-fallback-mechanism)
 
 ## 3. Comprehensive Testing Strategy
 
