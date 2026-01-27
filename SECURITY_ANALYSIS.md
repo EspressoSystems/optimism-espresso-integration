@@ -78,13 +78,15 @@ if l1headerHash != origin.Hash {
 
 Reference: [`streamer.go:183-224`](espresso/streamer.go)
 
-#### **Layer 4: Sequencer Signature Verification**
+#### **Layer 4: Batcher Signature Verification**
 
-Each batch contains a signature from the sequencer. The derivation pipeline verifies:
+Each batch contains a signature from the batcher. When the streamer unmarshals batches from Espresso, it verifies:
 - The signature cryptographically validates
-- The signer matches the authorized sequencer address
+- The signer matches the authorized batcher address
 
-**Implementation**: Batches include the sequencer's ECDSA signature over the transaction data. The derivation pipeline calls `VerifySignature()` to validate before processing the batch into L2 blocks.
+**Implementation**: Batches posted to Espresso include the batcher's ECDSA signature over the batch data. The streamer calls `UnmarshalEspressoTransaction()` which recovers the public key from the signature and verifies it matches the expected batcher address before accepting the batch.
+
+Reference: [`espresso_batch.go:95-113`](op-node/rollup/derive/espresso_batch.go)
 
 ### 1.2 Validation Flow: Complete Example
 
@@ -109,7 +111,7 @@ The following sequence shows how a batch moves through all validation layers:
 5. Espresso Streamer:
    - Validates L1 block is finalized (Layer 3a)
    - Checks L1 block hash matches (Layer 3b)
-   - Verifies sequencer signature (Layer 4)
+   - Verifies batcher signature during unmarshal (Layer 4)
    ↓
 6. Batch accepted into L2 derivation pipeline
 ```
@@ -161,14 +163,14 @@ The four-layer validation architecture implements the following checks:
 - **Authenticity**: Batches must come from an address with valid TEE attestation
 - **Integrity**: Batch hashes are signed and verified before acceptance
 - **Consistency**: Batch L1 origins are validated against finalized L1 state
-- **Authorization**: Sequencer signatures are verified on all transaction batches
+- **Authorization**: Batcher signatures are verified when unmarshaling batches from Espresso
 - **Isolation**: Batcher code runs in hardware-isolated environment (AWS Nitro)
 
 **Architectural note**: For a batch to be accepted, it must pass validation at all four layers:
 1. TEE attestation verification (Layer 1)
 2. Dual-key authentication (Layer 2)
 3. L1 finality and hash validation (Layer 3)
-4. Sequencer signature verification (Layer 4)
+4. Batcher signature verification (Layer 4)
 
 Reference: [OP Stack Integration Specification §36.3.1](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
@@ -1033,7 +1035,7 @@ External audits may focus on different components based on their characteristics
 
 The Celo-Espresso integration implements the following architectural patterns:
 
-**Multi-Layer Validation**: Four independent validation layers (TEE attestation, contract verification, L1 origin validation, sequencer signatures) check batches before L2 acceptance.
+**Multi-Layer Validation**: Four independent validation layers (TEE attestation, contract verification, L1 origin validation, batcher signatures) check batches before L2 acceptance.
 
 **Test Coverage**: The codebase includes 23 integration tests, 9 devnet tests, contract tests, enclave tests, and the full OP Stack test suite, covering validation properties and failure scenarios.
 
