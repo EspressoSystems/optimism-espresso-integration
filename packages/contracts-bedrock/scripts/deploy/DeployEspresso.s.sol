@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";

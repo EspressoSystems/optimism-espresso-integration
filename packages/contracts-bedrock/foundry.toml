@@ -90,6 +90,21 @@ multiline_func_header = 'all'
 bracket_spacing = true
 wrap_comments = true
 
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=11155111" }
+
+################################################################
+#                       PROFILE: ESPRESSO                      #
+################################################################
+
+# Use this profile for Espresso deployment to avoid .0.8.30 suffix
+# during verification. Run with: FOUNDRY_PROFILE=espresso forge script ...
+[profile.espresso]
+optimizer = true
+optimizer_runs = 999999
+additional_compiler_profiles = []
+compilation_restrictions = []
+
 ################################################################
 #                         PROFILE: CI                          #
 ################################################################
