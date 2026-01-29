@@ -30,10 +30,10 @@ This report presents the findings of a security audit of the Optimism-Espresso i
 |----|---------------|----------|-----------|--------|-----------|
 | V-4 | Cross-Chain Deployment | 🔴 Critical | TEE Contracts | Fixed | Section 4.1, PR #43 |
 | V-6 | Missing Journal Validations | 🔴 Critical | TEE Contracts | Fixed | Section 4.3, PR #43 |
-| V-2 | Infinite Buffer Growth | 🟠 High | OP Streamer | Open | Section 3.2 |
-| V-3 | TEE Networking MitM Attack | 🟠 High | TEE Enclave | Open | Section 3.3 |
-| V-5 | Signers List DoS Attack | 🟠 High | TEE Contracts | Fixed | Section 4.2, PR #43 |
-| V-1 | All-At-Once RPC Calls | 🟡 Medium | OP Streamer | Open | Section 3.1 |
+| V-2 | Infinite Buffer Growth | 🟠 High | OP Streamer | Open | Section 2.2 |
+| V-3 | TEE Networking MitM Attack | 🟠 High | TEE Enclave | Open | Section 3.1 |
+| V-5 | Signer Deletion DoS | 🟠 High | TEE Contracts | Fixed | Section 4.2, PR #43 |
+| V-1 | All-At-Once RPC Calls | 🟡 Medium | OP Streamer | Open | Section 2.1 |
 
 ---
 
@@ -43,13 +43,13 @@ This report presents the findings of a security audit of the Optimism-Espresso i
 2. [OP Streamer Component Vulnerabilities](#2-op-streamer-component-vulnerabilities)
    - 2.1 [V-1: All-At-Once RPC Calls](#v-1-all-at-once-rpc-calls)
    - 2.2 [V-2: Infinite Buffer Growth](#v-2-infinite-buffer-growth)
-   - 2.3 [V-3: TEE Networking MitM Attack](#v-3-tee-networking-mitm-attack)
-3. [TEE Contracts Vulnerabilities](#3-tee-contracts-vulnerabilities)
-   - 3.1 [V-4: Cross-Chain Deployment](#v-4-cross-chain-deployment-vulnerability)
-   - 3.2 [V-5: Signers List DoS Attack](#v-5-signers-list-dos-attack)
-   - 3.3 [V-6: Missing Journal Validations](#v-6-missing-tee-journal-struct-validations)
-4. [Detailed Code Analysis](#4-detailed-code-analysis)
-5. [Recommendations](#5-recommendations)
+3. [TEE Enclave Vulnerabilities](#3-tee-enclave-vulnerabilities)
+   - 3.1 [V-3: TEE Networking MitM Attack](#v-3-tee-networking-mitm-attack)
+4. [TEE Contracts Vulnerabilities](#4-tee-contracts-vulnerabilities)
+   - 4.1 [V-4: Cross-Chain Deployment](#v-4-cross-chain-deployment-vulnerability)
+   - 4.2 [V-5: Signer Deletion DoS Attack](#v-5-signer-deletion-dos-attack)
+   - 4.3 [V-6: Missing Journal Validations](#v-6-missing-tee-journal-struct-validations)
+5. [Detailed Code Analysis](#5-detailed-code-analysis)
 6. [General Code Quality Notes](#6-general-code-quality-notes)
 7. [References](#7-references)
 
@@ -216,6 +216,8 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
 
 ---
 
+## 3. TEE Enclave Vulnerabilities
+
 ### V-3: TEE Networking MitM Attack
 
 **Severity:** 🟠 **High**
@@ -306,7 +308,7 @@ func VerifyConnection(conn *tls.Conn) error {
 
 ---
 
-## 3. TEE Contracts Vulnerabilities
+## 4. TEE Contracts Vulnerabilities
 
 The following vulnerabilities were identified and **fixed** in [PR #43](https://github.com/EspressoSystems/espresso-tee-contracts/pull/43) of the `espresso-tee-contracts` repository.
 
@@ -609,9 +611,9 @@ Main TEE verifier integration:
 
 ---
 
-## 4. Detailed Code Analysis
+## 5. Detailed Code Analysis
 
-### 4.1 Batch Buffer Implementation
+### 5.1 Batch Buffer Implementation
 
 **File:** `espresso/batch_buffer.go`
 
@@ -649,7 +651,7 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool)
 
 ---
 
-### 4.2 Streamer Implementation
+### 5.2 Streamer Implementation
 
 **File:** `espresso/streamer.go`
 
@@ -730,67 +732,6 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 **Risk:** Low (safe default behavior)
 
 **Recommendation:** Consider explicit error handling for network failures
-
----
-
-## 5. Recommendations
-
-### 5.1 High Priority
-
-1. **V-2: Infinite Buffer Growth**
-   - Implement max buffer size (1000 batches)
-   - Add missing batch timeout (10 minutes)
-   - Estimated effort: 1-2 days
-
-2. **V-3: TEE Networking MitM**
-   - Implement certificate pinning
-   - Embed certificates in enclave build
-   - Estimated effort: 3-5 days
-
-3. **V-1: All-At-Once RPC Calls**
-   - Implement batch RPC calls
-   - Add asynchronous RPC handling
-   - Estimated effort: 2-3 days
-
-4. **Code Quality**
-   - Fix type mismatch in `Refresh()` line 173
-   - Clarify logging messages
-   - Add duplicate detection in `Insert()`
-   - Estimated effort: 1 day
-
-5. **Monitoring & Alerting**
-   - Add metrics for buffer size
-   - Alert on RPC call spikes
-   - Monitor gap detection
-   - Estimated effort: 2 days
-
-### 5.2 Medium Priority
-
-1. **Documentation**
-   - Document `BatchBuffer` preconditions
-   - Add architecture diagrams
-   - Create runbook for operators
-   - Estimated effort: 2-3 days
-
-2. **Testing**
-   - Add fuzz testing for buffer operations
-   - Add integration tests for RPC failures
-   - Add chaos engineering scenarios
-   - Estimated effort: 3-5 days
-
-### 5.3 Long-term Improvements
-
-1. **Architecture**
-   - Design stream reset mechanism
-   - Implement peer-to-peer batch recovery
-   - Add distributed attestation verification
-   - Estimated effort: 2-3 weeks
-
-2. **Resilience**
-   - Implement circuit breakers for RPC
-   - Add graceful degradation
-   - Design multi-region redundancy
-   - Estimated effort: 2-3 weeks
 
 ---
 
