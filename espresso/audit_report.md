@@ -13,14 +13,14 @@
 
 ## Executive Summary
 
-This report presents the findings of a comprehensive security audit of the Optimism-Espresso integration, focusing on the OP Streamer component and TEE (Trusted Execution Environment) contracts. The audit identified **6 vulnerabilities** (3 Critical, 2 High, 1 Medium) across batch streaming logic, TEE networking, and smart contract implementations.
+This report presents the findings of a comprehensive security audit of the Optimism-Espresso integration, focusing on the OP Streamer component and TEE (Trusted Execution Environment) contracts. The audit identified **6 vulnerabilities** (2 Critical, 3 High, 1 Medium) across batch streaming logic, TEE networking, and smart contract implementations.
 
 ### Severity Distribution
 
 | Severity | Count | Status |
 |----------|-------|--------|
-| 🔴 Critical | 3 | 3 Fixed, 0 Open |
-| 🟠 High | 2 | 1 Fixed, 1 Open |
+| 🔴 Critical | 2 | 2 Fixed, 0 Open |
+| 🟠 High | 3 | 1 Fixed, 2 Open |
 | 🟡 Medium | 1 | 0 Fixed, 1 Open |
 | **Total** | **6** | **4 Fixed, 2 Open** |
 
@@ -28,10 +28,10 @@ This report presents the findings of a comprehensive security audit of the Optim
 
 | ID | Vulnerability | Severity | Component | Status | Reference |
 |----|---------------|----------|-----------|--------|-----------|
-| V-3 | TEE Networking MitM Attack | 🔴 Critical | TEE Enclave | Open | Section 3.3, Asana #1212819560549006 |
 | V-4 | Cross-Chain Deployment | 🔴 Critical | TEE Contracts | Fixed | Section 4.1, PR #43 |
 | V-6 | Missing Journal Validations | 🔴 Critical | TEE Contracts | Fixed | Section 4.3, PR #43 |
 | V-2 | Infinite Buffer Growth | 🟠 High | OP Streamer | Open | Section 3.2 |
+| V-3 | TEE Networking MitM Attack | 🟠 High | TEE Enclave | Open | Section 3.3, Asana #1212819560549006 |
 | V-5 | Signers List DoS Attack | 🟠 High | TEE Contracts | Fixed | Section 4.2, PR #43 |
 | V-1 | All-At-Once RPC Calls | 🟡 Medium | OP Streamer | Open | Section 3.1 |
 
@@ -262,7 +262,7 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
 
 ### V-3: TEE Networking MitM Attack
 
-**Severity:** 🔴 **Critical**
+**Severity:** 🟠 **High**
 **Status:** ⚠️ **Open**
 **Component:** TEE Enclave Networking Layer
 **Reference:** [Asana Task #1212819560549006](https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1212819560549006)
@@ -800,38 +800,36 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 
 ## 6. Recommendations
 
-### 6.1 Critical Priority (Address Immediately)
-
-1. **V-3: TEE Networking MitM**
-   - Implement certificate pinning
-   - Embed certificates in enclave build
-   - Estimated effort: 3-5 days
-
-### 6.2 High Priority
+### 6.1 High Priority
 
 1. **V-2: Infinite Buffer Growth**
    - Implement max buffer size (1000 batches)
    - Add missing batch timeout (10 minutes)
    - Estimated effort: 1-2 days
 
-2. **V-1: All-At-Once RPC Calls**
+2. **V-3: TEE Networking MitM**
+   - Implement certificate pinning
+   - Embed certificates in enclave build
+   - Estimated effort: 3-5 days
+
+3. **V-1: All-At-Once RPC Calls**
    - Implement batch RPC calls
    - Add asynchronous RPC handling
    - Estimated effort: 2-3 days
 
-3. **Code Quality**
+4. **Code Quality**
    - Fix type mismatch in `Refresh()` line 173
    - Clarify logging messages
    - Add duplicate detection in `Insert()`
    - Estimated effort: 1 day
 
-4. **Monitoring & Alerting**
+5. **Monitoring & Alerting**
    - Add metrics for buffer size
    - Alert on RPC call spikes
    - Monitor gap detection
    - Estimated effort: 2 days
 
-### 6.3 Medium Priority
+### 6.2 Medium Priority
 
 1. **Documentation**
    - Document `BatchBuffer` preconditions
@@ -845,7 +843,7 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
    - Add chaos engineering scenarios
    - Estimated effort: 3-5 days
 
-### 6.4 Long-term Improvements
+### 6.3 Long-term Improvements
 
 1. **Architecture**
    - Design stream reset mechanism
