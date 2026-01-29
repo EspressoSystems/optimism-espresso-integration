@@ -824,19 +824,23 @@ Reference: [`buffered_streamer.go`](espresso/buffered_streamer.go)
 
 ## 6. Internal Security Reviews
 
-### 6.1 TEE Contract Audit
+The Celo-Espresso integration has undergone comprehensive internal security audits covering TEE contracts and the Espresso streamer component.
 
-The Espresso TEE contracts underwent internal audit:
-- **Reference**: PR #43 in EspressoSystems/espresso-tee-contracts
-- **Scope**: Attestation verification, signer registration, enclave hash validation
-- **Outcome**: Issues identified and resolved
+### Audit Summary
 
-### 6.2 Streamer Audit
+| Audit | Date | Reference | Scope | Critical | High | Medium | Low | Status |
+|-------|------|-----------|-------|----------|------|--------|-----|--------|
+| **TEE Contracts** | Jan 28, 2026 | [PR #43](https://github.com/EspressoSystems/espresso-tee-contracts/pull/43) | Attestation verification, signer registration, enclave hash validation | 2 | 1 | 0 | 0 | ✅ All resolved |
+| **Streamer** | 2026 | [PR #339](https://github.com/EspressoSystems/optimism-espresso-integration/pull/339) | Batch validation, reorg handling, L1 consistency, buffer management | 0 | 2 | 2 | 7 | ⚠️ Hardened, 2 high documented |
+| **Total** | - | - | - | **2** | **3** | **2** | **7** | **3 fixed, 11 documented** |
 
-The Espresso streamer received dedicated review:
-- **Reference**: PR #339 in EspressoSystems/optimism-espresso-integration
-- **Scope**: Batch validation, reorg handling, L1 consistency checks
-- **Outcome**: Validation logic hardened
+### Key Outcomes
+
+**TEE Contracts:** All critical and high-severity vulnerabilities resolved, including cross-chain deployment replay attacks, missing journal validations, and signer deletion DoS attacks.
+
+**Streamer:** Batch validation logic hardened with improved error handling, L1 consistency checks strengthened, and reorg detection enhanced. High-severity items (infinite buffer growth, TEE networking MitM) documented for future mitigation.
+
+**For complete details** including vulnerability descriptions, attack scenarios, and fixes, see the [Security Audit Report](audit_report.md).
 
 
 
@@ -947,7 +951,59 @@ This improves censorship resistance and decentralization.
 
 Reference: [Specification §36.5](https://eng-wiki.espressosys.com/mainch36.html#x43-22900036)
 
-## 9. Summary
+## 9. External Security Audit
+
+### 9.1 Planned Audit with Least Authority
+
+All L1 smart contracts for the Celo-Espresso integration will undergo external security audit by **Least Authority**, a security research firm specializing in privacy-focused and cryptographic systems.
+
+**Audit Scope:**
+- `BatchInbox.sol` - Batch data submission and authentication
+- `BatchAuthenticator.sol` - Dual-batcher switching and TEE signature verification
+- TEE Verifier contracts (`EspressoNitroTEEVerifier.sol`, `EspressoSGXTEEVerifier.sol`) - Attestation verification and signer registration
+
+**Total Lines of Code:** ~163 lines (BatchInbox/BatchAuthenticator) + TEE verifier contracts
+
+### 9.2 Least Authority Methodology
+
+Least Authority employs a **collaborative, holistic review approach** that differs from traditional security audits:
+
+**Review Focus:**
+- **Privacy** - Data exposure and confidentiality guarantees
+- **Permissions** - Access control and authorization mechanisms
+- **Logic** - Business logic correctness and state transitions
+
+**Team Composition:**
+- Diverse experts including mathematicians and philosophers
+- Specialists in cryptographic systems and formal verification
+- AI-assisted tools to enhance review coverage
+
+**Reporting Approach:**
+- **No proof-of-concept exploits** - Least Authority verifies vulnerabilities internally but does not provide runnable exploit code
+- **Instructions and suggestions** - Findings include detailed descriptions and remediation guidance
+- **Engineer-driven validation** - Development teams reconstruct attacks based on audit instructions to verify and test fixes
+
+This approach prioritizes thorough understanding and sustainable remediation over demonstrable exploits.
+
+### 9.3 Prior Relationship and Track Record
+
+Least Authority has previously contributed to the Espresso ecosystem security:
+
+**Self-Reported Vulnerability:** Least Authority proactively identified and disclosed a bug in the **Espresso Jellyfish cryptographic library**, demonstrating their commitment to responsible disclosure and deep understanding of cryptographic systems.
+
+This prior engagement with Espresso's cryptographic infrastructure makes them well-suited to audit the TEE attestation and verification mechanisms in the L1 contracts.
+
+### 9.4 Audit Timeline and Deliverables
+
+**Expected Timeline:** TBD
+
+**Deliverables:**
+- Comprehensive security audit report
+- Vulnerability findings with severity classifications
+- Remediation guidance and architectural recommendations
+- Post-remediation review of fixes
+
+## 10. Summary
 
 The Celo-Espresso integration implements the following architectural patterns:
 
@@ -971,6 +1027,6 @@ The architecture uses multiple validation layers, includes recovery mechanisms f
 - [Optimism Rollup Protocol Specification](https://specs.optimism.io/)
 - [AWS Nitro Enclaves Documentation](https://docs.aws.amazon.com/enclaves/)
 
-**Document Version**: 1.0
-**Last Updated**: January 26, 2026
+**Document Version**: 1.1
+**Last Updated**: January 29, 2026
 
