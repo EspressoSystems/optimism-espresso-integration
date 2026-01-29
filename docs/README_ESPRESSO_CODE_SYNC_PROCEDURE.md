@@ -25,7 +25,7 @@
 - Set a cutoff time and let the team know about this.
     - This is to prevent the case where a team member is working on something necessary to be merged to the default branch ASAP, but the code syncing process may block that.
 
-### 1.1. Sync Kona Fork Repo
+### 1.1 Sync Kona Fork Repo
 
 - Fetch the latest from upstream (if not done already).
 
@@ -34,7 +34,7 @@ git remote add kona-upstream https://github.com/celo-org/kona
 git fetch kona-upstream
 ```
 
-- If Celo’s [default Kona branch](https://github.com/celo-org/kona/tree/replace-max-sequencer-drift-v1.1.7) has no updates since our last code sync, proceed to [1-2 Sync Celo-Kona Fork Repo](#1-2-sync-celo-kona-fork-repo).
+- If Celo’s [default Kona branch](https://github.com/celo-org/kona/tree/replace-max-sequencer-drift-v1.1.7) has no updates since our last code sync, proceed to [1-2 Sync Celo-Kona Fork Repo](#12-sync-celo-kona-fork-repo).
     - Note: The default upstream branch is `replace-max-sequencer-drift-v1.1.7` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1765799738195899?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Kona branch.
 
@@ -68,9 +68,9 @@ git remote add celo-kona-upstream https://github.com/celo-org/celo-kona
 git fetch celo-kona-upstream
 ```
 
-- If Celo’s [default Celo-Kona branch](https://github.com/celo-org/celo-kona/tree/release/v1.0.0-rc.4) has no updates since our last code sync, proceed to [1-3 Sync Succinct Repo](#1-3-sync-succinct-repo).
-  - Note: The default upstream branch we are using is `release/v1.0.0-rc.4` as of January, 2026.
-- Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Celo-Kona branch.
+- If Celo’s [Celo-Kona release](https://github.com/celo-org/celo-kona/releases) has no updates since our last code sync and Celo has not informed us of a new version, proceed to [1-3 Sync Succinct Repo](#13-sync-succinct-repo).
+  - Note: The release we should use is `v1.0.0` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1769002077899559?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
+- Otherwise, create a sync branch `espresso-integration-y` where `y` is new version on Celo’s Celo-Kona branch.
 
 ```bash
 git checkout -b espresso-integration-x celo-kona-upstream/release/v1.0.0-rc.4
@@ -102,7 +102,7 @@ git remote add succinct-upstream https://github.com/celo-org/op-succinct.git
 git fetch succinct-upstream
 ```
 
-- If Celo’s [default OP Succinct branch](https://github.com/celo-org/op-succinct) has no updates since our last code sync, proceed to [2 Procedure: Sync with Celo](#2-procedure-sync-with-celo).
+- If Celo’s [default OP Succinct branch](https://github.com/celo-org/op-succinct) has no updates since our last code sync, proceed to [1.4 Update Imports in Succinct Repo](#14-update-imports-in-succinct-repo).
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Succinct branch.
 
 ```bash
@@ -129,9 +129,14 @@ git push -u origin espresso-integration-y
 - Start the [Build & push Celo fault-proof images](https://github.com/EspressoSystems/op-succinct/actions/workflows/fault-proof-celo-docker-build.yaml) CI workflow.
   - Make sure to use the link above since there is another CI workflow with the same name.
 
-- After the CI completes, get the latest SHA of the [op-succinct-lite-proposer-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo) and [op-succinct-lite-challenger-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo) and proceed to [2 Procedure: Sync with Celo](#2-procedure-sync-with-celo).
-
 - Set the new default branches.
+
+### 1.4 Update Imports in Succinct Repo
+
+- If the kona and celo-kona repos were not updated in [1.1 Sync Kona Fork Repo](#11-sync-kona-fork-repo) and [1.2 Sync Celo-Kona Fork Repo](#12-sync-celo-kona-fork-repo), get the latest SHA of the [op-succinct-lite-proposer-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo) and [op-succinct-lite-challenger-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo) images and proceed to [2 Procedure: Sync with Celo](#2-procedure-sync-with-celo).
+- Otherwise, update the `kona-*` and `celo-*` imports in `Cargo.toml`.
+- Push the change to the new default branch, or if there is no such branch, create a PR and push to the original default branch.
+- Get the latest SHA of the [op-succinct-lite-proposer-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo) and [op-succinct-lite-challenger-celo](https://github.com/EspressoSystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo) images.
 
 ## 2 Procedure: Sync with Celo
 
@@ -150,7 +155,7 @@ git push -u origin espresso-integration-y
     git fetch celo-upstream
     ```
 
-    - If Celo’s [default branch](https://github.com/celo-org/optimism) has no updates since our last code sync, proceed to [2.2 Update Images in Celo Integration Repo ](#2-2-update-images-in-celo-integration-repo).
+    - If Celo’s [default branch](https://github.com/celo-org/optimism) has no updates since our last code sync, proceed to [2.2 Update Images in Celo Integration Repo ](#22-update-images-in-celo-integration-repo).
     - Otherwise, if Celo’s branch is on `x` and our tip branch is on `x.y`, create a new tip branch `celo-rebase-x.y'` where `y' = y + 1`.
 
     ```bash
@@ -198,7 +203,7 @@ git push -u origin espresso-integration-y
 
 ### 2.2 Update Images in Celo Integration Repo
 
-- If the Succinct images were not updated in [1-3 Sync Succinct Repo](#1-3-sync-succinct-repo), get the latest commit on the default branch and proceed to [2-3 Update Images in Terraform Repo](#2-3-update-images-in-terraform-repo).
+- If the Succinct images were not updated in [1-3 Sync Succinct Repo](#13-sync-succinct-repo), get the latest commit on the default branch and proceed to [2-3 Update Images in Terraform Repo](#23-update-images-in-terraform-repo).
 - Otherwise, replace the image SHA of the `succinct-proposer` and `succinct-challenger` services in `docker-compose.yml`.
 - Push the change to the new default branch, or if there is no such branch, create a PR and push to the original default branch.
 - Get the latest commit on the default branch.
