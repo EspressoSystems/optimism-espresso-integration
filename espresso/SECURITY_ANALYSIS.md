@@ -838,9 +838,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 
 **TEE Contracts:** All critical and high-severity vulnerabilities resolved, including cross-chain deployment replay attacks, missing journal validations, and signer deletion DoS attacks.
 
-
 **For more details**, see the [Security Audit Report](audit_report.md).
-
 
 
 ## 7. Trust Model and Assumptions
@@ -917,7 +915,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 | Centralized batcher operation | Single TEE batcher address | Permissionless batching with stake-based selection |
 
 
-## 9. External Security Audit
+## 9. Next steps
 
 ### 9.1 Planned Audit with Least Authority
 
@@ -928,21 +926,12 @@ All L1 smart contracts for the Celo-Espresso integration will undergo external s
 - `BatchAuthenticator.sol` - Dual-batcher switching and TEE signature verification
 - TEE Verifier contracts
 
-### 9.2 Prior Relationship
 
 Least Authority proactively identified and disclosed a bug in the [Espresso Jellyfish cryptographic library](https://github.com/EspressoSystems/jellyfish), demonstrating their commitment to responsible disclosure and deep understanding of cryptographic systems.
 
+### 9.2 Monitoring System
 
-### 9.4 Audit Timeline and Deliverables
-
-**Expected Timeline:** TBD
-
-**Deliverables:**
-- Comprehensive security audit report
-- Vulnerability findings with severity classifications
-- Remediation guidance and architectural recommendations
-- Post-remediation review of fixes
-
+The specification of the monitoring system is in progress.
 
 ## References
 
