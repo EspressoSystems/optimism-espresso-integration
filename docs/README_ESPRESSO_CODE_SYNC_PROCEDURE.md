@@ -39,7 +39,7 @@ git fetch kona-upstream
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Kona branch.
 
 ```bash
-git checkout -b espresso-integration-x kona-upstream/replace-max-sequencer-drift-v1.1.7
+git checkout -b espresso-integration-y kona-upstream/replace-max-sequencer-drift-v1.1.7
 ```
 
 - Cherry-pick commits from the original Kona branch `espresso-integration-x` onto Celo’s Kona branch.
@@ -73,7 +73,7 @@ git fetch celo-kona-upstream
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is new version on Celo’s Celo-Kona branch.
 
 ```bash
-git checkout -b espresso-integration-x celo-kona-upstream/release/v1.0.0-rc.4
+git checkout -b espresso-integration-y celo-kona-upstream/release/v1.0.0-rc.4
 ```
 
 - Cherry-pick commits from the original Celo-Kona fork branch `espresso-integration-x` onto Celo’s Celo-Kona branch.
@@ -106,7 +106,7 @@ git fetch succinct-upstream
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Succinct branch.
 
 ```bash
-git checkout -b espresso-integration-x succinct-upstream/develop
+git checkout -b espresso-integration-y succinct-upstream/develop
 ```
 
 - Cherry-pick commits from the original Succinct branch `espresso-integration-x` onto Celo’s Succinct branch.
