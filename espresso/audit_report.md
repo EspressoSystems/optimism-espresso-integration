@@ -13,7 +13,7 @@
 
 ## Executive Summary
 
-This report presents the findings of a comprehensive security audit of the Optimism-Espresso integration, focusing on the OP Streamer component and TEE (Trusted Execution Environment) contracts. The audit identified **6 vulnerabilities** (2 Critical, 3 High, 1 Medium) across batch streaming logic, TEE networking, and smart contract implementations.
+This report presents the findings of a security audit of the Optimism-Espresso integration, focusing on the OP Streamer component and TEE (Trusted Execution Environment) contracts. The audit identified **6 vulnerabilities** (2 Critical, 3 High, 1 Medium) across batch streaming logic, TEE networking, and smart contract implementations.
 
 ### Severity Distribution
 
@@ -31,7 +31,7 @@ This report presents the findings of a comprehensive security audit of the Optim
 | V-4 | Cross-Chain Deployment | 🔴 Critical | TEE Contracts | Fixed | Section 4.1, PR #43 |
 | V-6 | Missing Journal Validations | 🔴 Critical | TEE Contracts | Fixed | Section 4.3, PR #43 |
 | V-2 | Infinite Buffer Growth | 🟠 High | OP Streamer | Open | Section 3.2 |
-| V-3 | TEE Networking MitM Attack | 🟠 High | TEE Enclave | Open | Section 3.3, Asana #1212819560549006 |
+| V-3 | TEE Networking MitM Attack | 🟠 High | TEE Enclave | Open | Section 3.3 |
 | V-5 | Signers List DoS Attack | 🟠 High | TEE Contracts | Fixed | Section 4.2, PR #43 |
 | V-1 | All-At-Once RPC Calls | 🟡 Medium | OP Streamer | Open | Section 3.1 |
 
@@ -40,17 +40,17 @@ This report presents the findings of a comprehensive security audit of the Optim
 ## Table of Contents
 
 1. [Scope and Methodology](#1-scope-and-methodology)
-2. [General Code Quality Notes](#2-general-code-quality-notes)
-3. [OP Streamer Component Vulnerabilities](#3-op-streamer-component-vulnerabilities)
-   - 3.1 [V-1: All-At-Once RPC Calls](#v-1-all-at-once-rpc-calls)
-   - 3.2 [V-2: Infinite Buffer Growth](#v-2-infinite-buffer-growth)
-   - 3.3 [V-3: TEE Networking MitM Attack](#v-3-tee-networking-mitm-attack)
-4. [TEE Contracts Vulnerabilities](#4-tee-contracts-vulnerabilities)
-   - 4.1 [V-4: Cross-Chain Deployment](#v-4-cross-chain-deployment-vulnerability)
-   - 4.2 [V-5: Signers List DoS Attack](#v-5-signers-list-dos-attack)
-   - 4.3 [V-6: Missing Journal Validations](#v-6-missing-tee-journal-struct-validations)
-5. [Detailed Code Analysis](#5-detailed-code-analysis)
-6. [Recommendations](#6-recommendations)
+2. [OP Streamer Component Vulnerabilities](#2-op-streamer-component-vulnerabilities)
+   - 2.1 [V-1: All-At-Once RPC Calls](#v-1-all-at-once-rpc-calls)
+   - 2.2 [V-2: Infinite Buffer Growth](#v-2-infinite-buffer-growth)
+   - 2.3 [V-3: TEE Networking MitM Attack](#v-3-tee-networking-mitm-attack)
+3. [TEE Contracts Vulnerabilities](#3-tee-contracts-vulnerabilities)
+   - 3.1 [V-4: Cross-Chain Deployment](#v-4-cross-chain-deployment-vulnerability)
+   - 3.2 [V-5: Signers List DoS Attack](#v-5-signers-list-dos-attack)
+   - 3.3 [V-6: Missing Journal Validations](#v-6-missing-tee-journal-struct-validations)
+4. [Detailed Code Analysis](#4-detailed-code-analysis)
+5. [Recommendations](#5-recommendations)
+6. [General Code Quality Notes](#6-general-code-quality-notes)
 7. [References](#7-references)
 
 ---
@@ -81,51 +81,7 @@ This audit covers the following components:
 
 ---
 
-## 2. General Code Quality Notes
-
-### 2.1 Minor Issues
-
-The following non-critical issues were identified:
-
-1. **Naming Clarity**: The variable `PollingHotShotPollingInterval` could be simplified to `HotshotPollingInterval` for better readability.
-
-2. **Unused Constant**: The value `HOTSHOT_BLOCK_STREAM_LIMIT` is defined but never used in the codebase.
-
-3. **Race Condition Risk**: The primary vulnerabilities identified would manifest under race conditions or adversarial network conditions.
-
-### 2.2 Code Analysis Observations
-
-**File: `espresso/batch_buffer.go`**
-
-- **`Insert(batch B, i int)`**: Function does not check for duplicates. Calling twice with the same batch will insert duplicates at index `i`.
-  - **Impact**: Low - relies on correct upstream usage
-  - **Recommendation**: Add duplicate detection or document preconditions
-
-- **`TryInsert(batch B) (int, bool)`**: Assumes list is already sorted, which should always be maintained by the implementation.
-  - **Impact**: Low - invariant should be maintained
-  - **Recommendation**: Add debug assertions in development builds
-
-**File: `espresso/streamer.go`**
-
-- **`GetFinalizedL1(header)`**: Extracts L1 block info from Espresso headers.
-  - **Observation**: Could be moved to espresso-network Go SDK if this is a common pattern
-
-- **`Refresh()` Line 173**: Compares `fallbackBatchPos` (Batch Index) with `hotShotPos` (Espresso Block Height).
-  - **Concern**: Type mismatch suggests potential logic error
-  - **Recommendation**: Review comparison logic
-
-- **`processEspressoTransaction()` Logging**:
-  - Debug log at line 304 is redundant with Trace log in `fetchHotShotRange`
-  - "Batch already in buffer" (line 435) is misleading - refers to `RemainingBatches` map, not `BatchBuffer`
-  - Recommendation: Clarify log messages and remove redundancy
-
-- **`confirmEspressoBlockHeight()`**: Returns false when `FinalizedState()` fails, treating network failure as "no reorg".
-  - **Impact**: Low - conservative default
-  - **Recommendation**: Consider explicit error handling
-
----
-
-## 3. OP Streamer Component Vulnerabilities
+## 2. OP Streamer Component Vulnerabilities
 
 ### V-1: All-At-Once RPC Calls
 
@@ -265,7 +221,7 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
 **Severity:** 🟠 **High**
 **Status:** ⚠️ **Open**
 **Component:** TEE Enclave Networking Layer
-**Reference:** [Asana Task #1212819560549006](https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1212819560549006)
+
 
 #### Description
 
@@ -350,7 +306,7 @@ func VerifyConnection(conn *tls.Conn) error {
 
 ---
 
-## 4. TEE Contracts Vulnerabilities
+## 3. TEE Contracts Vulnerabilities
 
 The following vulnerabilities were identified and **fixed** in [PR #43](https://github.com/EspressoSystems/espresso-tee-contracts/pull/43) of the `espresso-tee-contracts` repository.
 
@@ -425,44 +381,12 @@ Timeline:
 
 #### Fix Applied
 
-1. ✅ Added comprehensive documentation in `CROSS_CHAIN_SECURITY.md`
-2. ✅ Updated `VULNERABILITY_REPORT.md` with deployment guidance
-3. ✅ Documented best practice: TEE should encode chain ID in attestation userData
+✅ Added [Security Considerations](https://github.com/EspressoSystems/espresso-tee-contracts/blob/main/README.md#security-considerations) section in README.md.
 
-**Recommended Pattern:**
-```solidity
-function registerService(...) external {
-    // Decode chain ID from attestation userData
-    (uint256 attestedChainId, ...) = abi.decode(journal.userData, (uint256, ...));
-
-    // Validate chain ID matches current chain
-    require(attestedChainId == block.chainid, "Attestation for wrong chain");
-
-    // ... rest of registration logic
-}
-```
-
-**TEE Implementation:**
-```rust
-// In TEE code:
-let user_data = encode({
-    chain_id: block.chainid,  // Embed target chain ID
-    service: "BatchPoster",
-    timestamp: now(),
-    nonce: random()
-});
-```
-
-#### Verification
-
-- ✅ Documentation added
-- ✅ Best practices published
-- ✅ Deployment guide updated
-- ⚠️ Implementation is **recommended** but not enforced
 
 ---
 
-### V-5: Signers List DoS Attack
+### V-5: Signer Deletion DoS Attack
 
 **Severity:** 🟠 **High**
 **Status:** ✅ **Fixed**
@@ -473,37 +397,28 @@ let user_data = encode({
 
 The TEE Helper contract iterates over a list of registered signers in deletion operations. An attacker could exploit unbounded loops to cause denial of service by exceeding block gas limits.
 
-#### Technical Details
+**Fix:** PR #43 changed the security model so that **deleting signers is no longer required**. Revoking an enclave hash via `setEnclaveHash(hash, false)` is now sufficient to prevent new malicious registrations, eliminating the need for the DoS-vulnerable deletion operation.
 
-**Vulnerable Code Pattern:**
-```solidity
-// BEFORE: Unbounded loop
-function deleteAllSigners() external {
-    for (uint256 i = 0; i < signers.length; i++) {  // No limit!
-        delete registeredServices[signers[i]];
-    }
-}
-```
 
-#### Attack Scenario
 
+**Attack Scenario:**
 1. Attacker registers many signers (e.g., 10,000 addresses)
-2. Contract owner attempts to delete signers
-3. Gas cost exceeds block gas limit
-4. Transaction reverts
-5. **Contract becomes unable to clean up signers**
+2. Enclave is compromised
+3. Operator tries to revoke by calling `setEnclaveHash(hash, false)` and `deleteRegisteredSigners()`
+4. **Deletion fails due to gas limit** - transaction reverts
+5. **Compromised signers remain active** - security breach!
 
 #### Impact
 
-- **Denial of Service**: Unable to delete signers or update registry
-- **Gas Griefing**: Legitimate operations become impossible
-- **Contract Lock**: Administrative functions blocked
+- **Security Bypass**: Unable to fully revoke compromised enclave access
+- **DoS on Critical Security Function**: Deletion operation required but impossible
+- **Persistent Vulnerability**: Compromised signers remain valid indefinitely
 
 #### Likelihood
 
-**Medium** - Requires significant gas expenditure by attacker but permanently blocks admin functions
+**High** - Attacker can easily register many signers to prevent future revocation
 
-#### Gas Analysis
+#### Fix Applied in PR #43
 
 | Signers | Gas Cost | Block Limit (30M) | Status |
 |---------|----------|-------------------|---------|
@@ -512,38 +427,24 @@ function deleteAllSigners() external {
 | 5,000 | ~25M | ⚠️ Close | Risk |
 | 10,000 | ~50M | ❌ Over | DoS |
 
-#### Fix Applied
+**AFTER PR #43:** Revoking an enclave only requires one step:
+1. Call `setEnclaveHash(hash, false)` to prevent new registrations ✅ **Sufficient**
+2. ~~Delete existing signers~~ ❌ **No longer needed**
 
-1. ✅ Added `MAX_BATCH_DELETE_SIZE` constant (prevents unbounded operations)
-2. ✅ Implemented batched deletion with size checks
-3. ✅ Added validation to prevent operations exceeding gas limits
-4. ✅ Comprehensive test coverage (248 lines in `test/TEEHelper_DoSFix.t.sol`)
-5. ✅ Signer validation tests (164 lines in `test/SignerValidation.t.sol`)
+**Why This Works:**
+- When an enclave is compromised, the private keys are already exposed to attackers
+- Existing signer addresses in the registry don't grant any additional attack surface
+- The security boundary is enforced at enclave hash validation, not signer presence
+- Revoking the hash immediately protects the system
 
-**Fixed Code:**
-```solidity
-// AFTER: Bounded batched deletion
-uint256 constant MAX_BATCH_DELETE_SIZE = 100;
 
-function deleteSignersBatch(uint256 offset, uint256 count) external {
-    require(count <= MAX_BATCH_DELETE_SIZE, "Batch too large");
 
-    for (uint256 i = 0; i < count; i++) {
-        delete registeredServices[signers[offset + i]];
-    }
-}
-
-function canDeleteInOneBatch() external view returns (bool) {
-    return signers.length <= MAX_BATCH_DELETE_SIZE;
-}
-```
+**Note:** Operators may optionally use this function to reduce contract state size, but it's not a security requirement.
 
 #### Verification
 
-- ✅ Fix implemented
-- ✅ Tests pass (412 lines of test coverage)
-- ✅ Gas analysis confirms safety
-- ✅ No unbounded loops remain
+- ✅ Enclave hash revocation alone is sufficient to protect system
+- ✅ DoS attack vector eliminated by removing requirement for vulnerable operation
 
 ---
 
@@ -650,33 +551,67 @@ function registerService(...) external {
 
 #### Test Coverage
 
-Added comprehensive test suite (`test/JournalValidation.t.sol` - 212 lines):
+**File: `test/EspressoNitroTEEVerifier.t.sol`** (181 lines)
 
-```solidity
-✅ testValidAttestationPassesValidation()
-   - Verifies legitimate attestations still work
+AWS Nitro Enclave attestation verification:
+- ✅ `testRegisterSigner()` - Valid attestation and signature registration
+- ✅ `testRegisterSignerInvalidPCR0Hash()` - Revoked enclave hash rejection
+- ✅ `testInvalidProof()` - Invalid ZK proof rejection
+- ✅ `testExpiredProof()` - Expired attestation rejection
+- ✅ `testNitroOwnershipTransfer()` - Ownable2Step ownership transfer
+- ✅ `testNitroOwnershipTransferFailure()` - Non-owner access control
+- ✅ `testSetNitroEnclaveHash()` - Enclave hash management and access control
+- ✅ `testDeleteRegisterSignerOwnership()` - Signer deletion ownership validation
 
-✅ testOldAttestationRejected()
-   - Attestations older than 7 days rejected
-   - VerificationResult.InvalidTimestamp
+**File: `test/EspressoSGXTEEVerifier.t.sol`** (225 lines)
 
-✅ testFutureAttestationRejected()
-   - Attestations from future rejected
-   - VerificationResult.InvalidTimestamp
-```
+Intel SGX quote verification:
+- ✅ `testRegisterSigner()` - Valid SGX quote and signer registration
+- ✅ `testRegisterSignerInvalidQuote()` - Invalid quote rejection
+- ✅ `testRegisterSignerInvalidAddress()` - Report data hash mismatch rejection
+- ✅ `testRegisterSignerInvalidDataLength()` - Data length validation
+- ✅ `testDeleteRegisteredSigner()` - Signer deletion and ownership checks
+- ✅ `testVerifyQuoteValid()` - Direct quote verification
+- ✅ `testVerifyInvalidHeaderInQuote()` - Header version validation
+- ✅ `testVerifyInvalidQuote()` - Malformed quote rejection
+- ✅ `testIncorrectReportDataHash()` - Report data mismatch detection
+- ✅ `testVerifyQuoteEmptyRawQuote()` - Empty quote rejection
+- ✅ `testIncorrectMrEnclave()` - Enclave hash validation
+- ✅ `testSetEnclaveHash()` - Enclave hash management
+- ✅ `testOwnershipTransfer()` - Ownable2Step implementation
 
-#### Verification
+**File: `test/EspressoTEEVerifier.t.sol`** (236 lines)
 
-- ✅ Validation function implemented
-- ✅ All critical fields validated
-- ✅ Test coverage 100% for validation paths
-- ✅ No regression in legitimate use cases
+Main TEE verifier integration:
+- ✅ `testSGXRegisterSigner()` - SGX registration via main contract
+- ✅ `testNitroRegisterSigner()` - Nitro registration via main contract
+- ✅ `testSGXRegisterSignerWithInvalidQuote()` - Error propagation from SGX verifier
+- ✅ `testSGXRegisteredSigners()` - SGX signer registry validation
+- ✅ `testNitroRegisteredSigners()` - Nitro signer registry validation
+- ✅ `testSGXRegisteredEnclaveHash()` - SGX enclave hash checking
+- ✅ `testNitroRegisteredEnclaveHash()` - Nitro enclave hash checking
+- ✅ `testSetEspressoSGXTEEVerifier()` - SGX verifier address update
+- ✅ `testSetEspressoNitroTEEVerifier()` - Nitro verifier address update
+- ✅ `testNitroRegisterSignerInvalidPCR0Hash()` - Cross-contract validation
+- ✅ `testOwnershipTransfer()` - Main contract ownership
+- ✅ `testAddressRetrievalNitro()` - Nitro verifier address getter
+- ✅ `testAddressRetrievalSGX()` - SGX verifier address getter
+
+**Total Test Coverage:** 642 lines across 3 comprehensive test files
+
+**Key Security Validations:**
+- Attestation verification (both SGX and Nitro)
+- Enclave hash revocation prevents new registrations
+- Signer deletion is owner-only and optional
+- Access control on all administrative functions
+- Error handling and invalid input rejection
+- Integration between main contract and specialized verifiers
 
 ---
 
-## 5. Detailed Code Analysis
+## 4. Detailed Code Analysis
 
-### 5.1 Batch Buffer Implementation
+### 4.1 Batch Buffer Implementation
 
 **File:** `espresso/batch_buffer.go`
 
@@ -714,7 +649,7 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool)
 
 ---
 
-### 5.2 Streamer Implementation
+### 4.2 Streamer Implementation
 
 **File:** `espresso/streamer.go`
 
@@ -798,9 +733,9 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
 
 ---
 
-## 6. Recommendations
+## 5. Recommendations
 
-### 6.1 High Priority
+### 5.1 High Priority
 
 1. **V-2: Infinite Buffer Growth**
    - Implement max buffer size (1000 batches)
@@ -829,7 +764,7 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
    - Monitor gap detection
    - Estimated effort: 2 days
 
-### 6.2 Medium Priority
+### 5.2 Medium Priority
 
 1. **Documentation**
    - Document `BatchBuffer` preconditions
@@ -843,7 +778,7 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
    - Add chaos engineering scenarios
    - Estimated effort: 3-5 days
 
-### 6.3 Long-term Improvements
+### 5.3 Long-term Improvements
 
 1. **Architecture**
    - Design stream reset mechanism
@@ -856,6 +791,50 @@ func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) 
    - Add graceful degradation
    - Design multi-region redundancy
    - Estimated effort: 2-3 weeks
+
+---
+
+## 6. General Code Quality Notes
+
+### 6.1 Minor Issues
+
+The following non-critical issues were identified:
+
+1. **Naming Clarity**: The variable `PollingHotShotPollingInterval` could be simplified to `HotshotPollingInterval` for better readability.
+
+2. **Unused Constant**: The value `HOTSHOT_BLOCK_STREAM_LIMIT` is defined but never used in the codebase.
+
+3. **Race Condition Risk**: The primary vulnerabilities identified would manifest under race conditions or adversarial network conditions.
+
+### 6.2 Code Analysis Observations
+
+**File: `espresso/batch_buffer.go`**
+
+- **`Insert(batch B, i int)`**: Function does not check for duplicates. Calling twice with the same batch will insert duplicates at index `i`.
+  - **Impact**: Low - relies on correct upstream usage
+  - **Recommendation**: Add duplicate detection or document preconditions
+
+- **`TryInsert(batch B) (int, bool)`**: Assumes list is already sorted, which should always be maintained by the implementation.
+  - **Impact**: Low - invariant should be maintained
+  - **Recommendation**: Add debug assertions in development builds
+
+**File: `espresso/streamer.go`**
+
+- **`GetFinalizedL1(header)`**: Extracts L1 block info from Espresso headers.
+  - **Observation**: Could be moved to espresso-network Go SDK if this is a common pattern
+
+- **`Refresh()` Line 173**: Compares `fallbackBatchPos` (Batch Index) with `hotShotPos` (Espresso Block Height).
+  - **Concern**: Type mismatch suggests potential logic error
+  - **Recommendation**: Review comparison logic
+
+- **`processEspressoTransaction()` Logging**:
+  - Debug log at line 304 is redundant with Trace log in `fetchHotShotRange`
+  - "Batch already in buffer" (line 435) is misleading - refers to `RemainingBatches` map, not `BatchBuffer`
+  - Recommendation: Clarify log messages and remove redundancy
+
+- **`confirmEspressoBlockHeight()`**: Returns false when `FinalizedState()` fails, treating network failure as "no reorg".
+  - **Impact**: Low - conservative default
+  - **Recommendation**: Consider explicit error handling
 
 ---
 
@@ -935,14 +914,13 @@ Severity = **Impact** × **Likelihood**
 
 ## Appendix B: Test Coverage Summary
 
-### TEE Contracts (PR #43)
+### TEE Contracts
 
-| Test File | Lines | Focus |
-|-----------|-------|-------|
-| `TEEHelper_DoSFix.t.sol` | 248 | DoS attack mitigation |
-| `JournalValidation.t.sol` | 212 | Journal struct validation |
-| `SignerValidation.t.sol` | 164 | Signer registry validation |
-| **Total** | **624** | **Comprehensive coverage** |
+| Test File | Focus |
+|-----------|-------|
+| `EspressoNitroTEEVerifier.t.sol` | AWS Nitro attestation verification |
+| `EspressoSGXTEEVerifier.t.sol` | Intel SGX attestation verification |
+| `EspressoTEEVerifier.t.sol` | Main TEE verifier contract |
 
 ### Test Results
 
