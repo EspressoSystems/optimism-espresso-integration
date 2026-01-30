@@ -10,103 +10,12 @@ import { Proxy } from "src/universal/Proxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
-import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
-import { EspressoTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoTEEVerifier.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
+import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
-
-/// @notice Mock that implements IEspressoTEEVerifier and IEspressoNitroTEEVerifier by using
-///         composition with EspressoTEEVerifierMock to reuse its logic.
-///         Supports only the Nitro TEE verifier.
-contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerifier {
-    EspressoTEEVerifierMock private _mock;
-
-    constructor() {
-        _mock = new EspressoTEEVerifierMock();
-    }
-
-    function espressoNitroTEEVerifier() external view override returns (IEspressoNitroTEEVerifier) {
-        return this;
-    }
-
-    function espressoSGXTEEVerifier() external pure override returns (IEspressoSGXTEEVerifier) {
-        return IEspressoSGXTEEVerifier(address(0));
-    }
-
-    function verify(
-        bytes memory signature,
-        bytes32 userDataHash,
-        TeeType teeType
-    )
-        external
-        view
-        override
-        returns (bool)
-    {
-        if (teeType != TeeType.NITRO) {
-            return false;
-        }
-        EspressoTEEVerifierMock.TeeType mockTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
-        return _mock.verify(signature, userDataHash, mockTeeType);
-    }
-
-    function registerSigner(bytes calldata attestation, bytes calldata data, TeeType teeType) external override {
-        require(teeType == TeeType.NITRO, "MockEspressoTEEVerifier: only NITRO supported");
-        EspressoTEEVerifierMock.TeeType mockTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
-        _mock.registerSigner(attestation, data, mockTeeType);
-    }
-
-    function registeredSigners(address signer, TeeType teeType) external view override returns (bool) {
-        if (teeType != TeeType.NITRO) {
-            return false;
-        }
-        EspressoTEEVerifierMock.TeeType mockTeeType = EspressoTEEVerifierMock.TeeType(uint8(teeType));
-        return _mock.registeredSigners(signer, mockTeeType);
-    }
-
-    function registeredEnclaveHashes(bytes32, TeeType) external pure override returns (bool) {
-        return false;
-    }
-
-    function setEspressoSGXTEEVerifier(IEspressoSGXTEEVerifier) external pure override {
-        // No-op: SGX is not supported.
-    }
-
-    function setEspressoNitroTEEVerifier(IEspressoNitroTEEVerifier) external pure override {
-        // No-op: this contract can only be used as the Nitro TEE verifier.
-    }
-
-    function registeredSigners(address signer) external view override returns (bool) {
-        return _mock.registeredSigner(signer);
-    }
-
-    function registeredEnclaveHash(bytes32) external pure override returns (bool) {
-        return false;
-    }
-
-    function registerSigner(bytes calldata, bytes calldata) external pure override {
-        // No-op: registration should go through registerSigner(bytes, bytes, TeeType)
-    }
-
-    function setEnclaveHash(bytes32, bool) external pure override { }
-
-    function deleteRegisteredSigners(address[] memory) external pure override { }
-
-    /// @notice Test helper to directly set registered signer status.
-    function setRegisteredSigner(address signer, bool value) external {
-        if (value) {
-            bytes memory data = abi.encodePacked(signer);
-            this.registerSigner("", data, TeeType.NITRO);
-        } else {
-            // For false, we can't unregister through the mock's interface,
-            // but tests only set to true, so this is fine.
-            revert("MockEspressoTEEVerifier: unregistering not supported");
-        }
-    }
-}
 
 /// @notice Tests for the upgradeable BatchAuthenticator contract using the Transparent Proxy pattern.
 contract BatchAuthenticator_Test is Test {
@@ -122,8 +31,9 @@ contract BatchAuthenticator_Test is Test {
     ProxyAdmin public proxyAdmin;
 
     function setUp() public {
-        // Deploy the mock TEE verifier and the authenticator implementation.
-        teeVerifier = new MockEspressoTEEVerifier();
+        // Deploy the mock TEE verifier (standalone mode with no external nitro verifier)
+        // and the authenticator implementation.
+        teeVerifier = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(0)));
         implementation = new BatchAuthenticator();
 
         // Deploy the proxy admin.
@@ -269,18 +179,54 @@ contract BatchAuthenticator_Test is Test {
         assertTrue(authenticator.validBatchInfo(commitment));
     }
 
+    /// @notice Test that authenticateBatchInfo reverts for unregistered signers.
+    function test_authenticateBatchInfo_revertsForUnregisteredSigner() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        uint256 privateKey = 1;
+        bytes32 commitment = keccak256("test commitment");
+
+        // DO NOT register signer - signer is not registered in the TEE verifier
+
+        // Create valid signature from unregistered signer.
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Should revert because signer is not registered.
+        vm.expectRevert("BatchAuthenticator: invalid signer");
+        authenticator.authenticateBatchInfo(commitment, signature);
+
+        // Verify commitment was NOT marked as valid
+        assertFalse(authenticator.validBatchInfo(commitment));
+    }
+
+    /// @notice Test that authenticateBatchInfo reverts for invalid signature (zero address recovery).
+    function test_authenticateBatchInfo_revertsForInvalidSignature() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        bytes32 commitment = keccak256("test commitment");
+
+        // Create an invalid signature that will recover to address(0)
+        bytes memory invalidSignature = new bytes(65);
+
+        // OpenZeppelin's ECDSA.recover reverts with its own error for invalid signatures
+        vm.expectRevert("ECDSA: invalid signature");
+        authenticator.authenticateBatchInfo(commitment, invalidSignature);
+    }
+
     /// @notice Test that registerSigner works correctly.
     function test_registerSigner_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
-        bytes memory attestationTbs = "test attestation";
+        // The new mock expects signer address in the first parameter (output/attestation)
         address signer = address(0x1234);
-        bytes memory signature = abi.encodePacked(signer);
+        bytes memory signerData = abi.encodePacked(signer);
+        bytes memory proofBytes = "";
 
         vm.expectEmit(true, false, false, true);
         emit SignerRegistrationInitiated(address(this));
 
-        authenticator.registerSigner(attestationTbs, signature);
+        authenticator.registerSigner(signerData, proofBytes);
     }
 
     /// @notice Test that setTeeBatcher can only be called by ProxyAdmin owner.
@@ -413,8 +359,8 @@ contract BatchAuthenticator_Fork_Test is Test {
         require(block.chainid == Chains.Sepolia, "Fork test must run on Sepolia");
         console.log("Forked Sepolia at block:", block.number);
 
-        // Deploy mock TEE verifier and authenticator implementation.
-        teeVerifier = new MockEspressoTEEVerifier();
+        // Deploy mock TEE verifier (standalone mode) and authenticator implementation.
+        teeVerifier = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(0)));
         implementation = new BatchAuthenticator();
 
         // Deploy proxy admin and proxy.

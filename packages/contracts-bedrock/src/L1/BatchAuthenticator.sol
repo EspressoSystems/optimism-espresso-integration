@@ -5,6 +5,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
@@ -103,7 +104,7 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
         require(signer != address(0), "BatchAuthenticator: invalid signature");
 
         require(
-            espressoTEEVerifier.espressoNitroTEEVerifier().registeredSigners(signer),
+            espressoTEEVerifier.espressoNitroTEEVerifier().isSignerValid(signer, ServiceType.BatchPoster),
             "BatchAuthenticator: invalid signer"
         );
 
@@ -112,7 +113,9 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
     }
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
-        espressoTEEVerifier.registerSigner(attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO);
+        espressoTEEVerifier.registerService(
+            attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
+        );
         emit SignerRegistrationInitiated(msg.sender);
     }
 

@@ -8,24 +8,33 @@ import (
 )
 
 type DeployAWSNitroVerifierInput struct {
-	EnclaveHash          [32]byte
 	NitroEnclaveVerifier common.Address
+	TeeVerifierAddress   common.Address
+	ProxyAdminOwner      common.Address
 }
 
 type DeployAWSNitroVerifierOutput struct {
-	NitroTEEVerifierAddress common.Address
+	NitroTEEVerifierProxy common.Address
+	NitroTEEVerifierImpl  common.Address
+	ProxyAdmin            common.Address
 }
 
 type DeployEspressoInput struct {
-	Salt             common.Hash
-	NitroTEEVerifier common.Address
-	NonTeeBatcher    common.Address
-	TeeBatcher       common.Address
+	Salt               common.Hash
+	NitroTEEVerifier   common.Address
+	SgxTEEVerifier     common.Address
+	NonTeeBatcher      common.Address
+	TeeBatcher         common.Address
+	ProxyAdminOwner    common.Address
+	UseMockTEEVerifier bool
 }
 
 type DeployEspressoOutput struct {
-	BatchAuthenticatorAddress common.Address
 	BatchInboxAddress         common.Address
+	BatchAuthenticatorAddress common.Address
+	TeeVerifierProxy          common.Address
+	TeeVerifierImpl           common.Address
+	TeeVerifierProxyAdmin     common.Address
 }
 
 type DeployEspressoScript struct {

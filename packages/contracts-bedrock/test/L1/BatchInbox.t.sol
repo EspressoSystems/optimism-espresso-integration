@@ -12,7 +12,8 @@ import { Proxy } from "src/universal/Proxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import { MockEspressoTEEVerifier } from "./BatchAuthenticator.t.sol";
+import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
+import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 /// @notice Test helper contract that extends BatchAuthenticator to allow direct setting of validBatchInfo.
 ///         This bypasses signature verification for testing purposes.
@@ -39,7 +40,7 @@ contract BatchInbox_Test is Test {
     address public unauthorized = address(0xDEAD);
 
     function setUp() public virtual {
-        teeVerifier = new MockEspressoTEEVerifier();
+        teeVerifier = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(0)));
 
         // Deploy TestBatchAuthenticator via proxy.
         TestBatchAuthenticator impl = new TestBatchAuthenticator();
