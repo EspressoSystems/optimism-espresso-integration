@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
@@ -122,5 +123,77 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
     /// @notice Returns the address of the Nitro TEE validator.
     function nitroValidator() external view returns (address) {
         return address(espressoTEEVerifier.espressoNitroTEEVerifier());
+    }
+
+    /// @notice Validates a batch submission in TEE mode.
+    /// @param sender The address attempting to submit the batch.
+    /// @param data The batch data being submitted.
+    /// @dev Checks sender is teeBatcher and batch is authenticated.
+    ///      Handles both blob and calldata batches.
+    function validateTeeBatch(address sender, bytes calldata data) public view {
+        // Check sender authorization
+        if (sender != teeBatcher) {
+            revert(
+                string(
+                    abi.encodePacked(
+                        "BatchInbox: batcher not authorized to post in TEE mode. Expected: ",
+                        Strings.toHexString(uint160(teeBatcher), 20),
+                        ", Actual: ",
+                        Strings.toHexString(uint160(sender), 20)
+                    )
+                )
+            );
+        }
+
+        // Check batch authentication
+        if (blobhash(0) != 0) {
+            // Blob batch: concatenate all blob hashes
+            bytes memory concatenatedHashes = new bytes(0);
+            uint256 currentBlob = 0;
+            while (blobhash(currentBlob) != 0) {
+                concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(currentBlob));
+                currentBlob++;
+            }
+            bytes32 hash = keccak256(concatenatedHashes);
+            if (!validBatchInfo[hash]) {
+                revert("Invalid blob batch");
+            }
+        } else {
+            // Calldata batch
+            bytes32 hash = keccak256(data);
+            if (!validBatchInfo[hash]) {
+                revert("Invalid calldata batch");
+            }
+        }
+    }
+
+    /// @notice Validates a batch submission in non-TEE (fallback) mode.
+    /// @param sender The address attempting to submit the batch.
+    /// @dev Only checks sender is nonTeeBatcher. No batch authentication required.
+    function validateNonTeeBatch(address sender) public view {
+        if (sender != nonTeeBatcher) {
+            revert(
+                string(
+                    abi.encodePacked(
+                        "BatchInbox: batcher not authorized to post in fallback mode. Expected: ",
+                        Strings.toHexString(uint160(nonTeeBatcher), 20),
+                        ", Actual: ",
+                        Strings.toHexString(uint160(sender), 20)
+                    )
+                )
+            );
+        }
+    }
+
+    /// @notice Validates a batch submission based on current batcher mode.
+    /// @param sender The address attempting to submit the batch.
+    /// @param data The batch data being submitted.
+    /// @dev Routes to validateTeeBatch or validateNonTeeBatch based on activeIsTee.
+    function validateBatch(address sender, bytes calldata data) external view {
+        if (activeIsTee) {
+            validateTeeBatch(sender, data);
+        } else {
+            validateNonTeeBatch(sender);
+        }
     }
 }

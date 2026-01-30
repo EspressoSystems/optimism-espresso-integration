@@ -55,7 +55,7 @@ contract BatchInbox_Test is Test {
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
         authenticator = TestBatchAuthenticator(address(proxy));
 
-        inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)), deployer);
+        inbox = new BatchInbox(IBatchAuthenticator(address(authenticator)));
     }
 }
 
@@ -202,5 +202,87 @@ contract BatchInbox_Fallback_Test is BatchInbox_Test {
             )
         );
         assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", expectedError)));
+    }
+}
+
+/// @title BatchInbox_BlobBatch_Test
+/// @notice Tests for blob batch handling
+contract BatchInbox_BlobBatch_Test is BatchInbox_Test {
+    /// @notice Test that TEE batcher succeeds with valid blob batch authentication
+    /// @dev Verifies that blobhash() works correctly when called from BatchAuthenticator
+    function test_fallback_teeBatcherSucceedsWithValidBlobAuth() external {
+        // TEE batcher is active by default
+
+        // Create test blob hashes
+        bytes32 blobHash1 = keccak256("blob1");
+        bytes32 blobHash2 = keccak256("blob2");
+
+        // Calculate the expected concatenated hash
+        bytes memory concatenatedHashes = bytes.concat(blobHash1, blobHash2);
+        bytes32 expectedHash = keccak256(concatenatedHashes);
+
+        // Set the hash as valid in authenticator
+        authenticator.setValidBatchInfo(expectedHash, true);
+
+        // Set blob hashes for this transaction using Foundry's cheatcode
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = blobHash1;
+        blobHashes[1] = blobHash2;
+        vm.blobhashes(blobHashes);
+
+        // TEE batcher should succeed with valid blob authentication
+        vm.prank(teeBatcher);
+        (bool success,) = address(inbox).call("");
+        assertTrue(success, "TEE batcher should succeed with valid blob auth");
+    }
+
+    /// @notice Test that TEE batcher reverts with invalid blob authentication
+    function test_fallback_teeBatcherRevertsWithInvalidBlobAuth() external {
+        // TEE batcher is active by default
+
+        // Create test blob hashes
+        bytes32 blobHash1 = keccak256("blob1");
+        bytes32 blobHash2 = keccak256("blob2");
+
+        // Calculate hash but DON'T set it as valid
+        bytes memory concatenatedHashes = bytes.concat(blobHash1, blobHash2);
+        bytes32 expectedHash = keccak256(concatenatedHashes);
+        authenticator.setValidBatchInfo(expectedHash, false);
+
+        // Set blob hashes
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = blobHash1;
+        blobHashes[1] = blobHash2;
+        vm.blobhashes(blobHashes);
+
+        // TEE batcher should revert
+        vm.prank(teeBatcher);
+        (bool success, bytes memory returnData) = address(inbox).call("");
+        assertFalse(success, "Should revert with invalid blob auth");
+        assertEq(string(returnData), string(abi.encodeWithSignature("Error(string)", "Invalid blob batch")));
+    }
+
+    /// @notice Test that blob batch with single blob works
+    function test_fallback_teeBatcherSucceedsWithSingleBlob() external {
+        // TEE batcher is active by default
+
+        // Create single test blob hash
+        bytes32 blobHash1 = keccak256("single-blob");
+
+        // For single blob, the hash is just the blob hash itself (no concatenation)
+        bytes32 expectedHash = keccak256(abi.encodePacked(blobHash1));
+
+        // Set the hash as valid in authenticator
+        authenticator.setValidBatchInfo(expectedHash, true);
+
+        // Set single blob hash
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = blobHash1;
+        vm.blobhashes(blobHashes);
+
+        // TEE batcher should succeed
+        vm.prank(teeBatcher);
+        (bool success,) = address(inbox).call("");
+        assertTrue(success, "TEE batcher should succeed with single blob");
     }
 }

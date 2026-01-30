@@ -329,7 +329,7 @@ contract DeployEspresso is Script {
                 _name: "BatchInbox",
                 _salt: salt,
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator), deployerAddress))
+                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator)))
                 )
             })
         );
