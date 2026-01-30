@@ -64,7 +64,9 @@ contract BatchAuthenticator is
 
         if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
         if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
-        if (address(_espressoTEEVerifier) == address(0)) revert InvalidAddress(address(_espressoTEEVerifier));
+        if (address(_espressoTEEVerifier) == address(0)) {
+            revert InvalidAddress(address(_espressoTEEVerifier));
+        }
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
@@ -94,7 +96,9 @@ contract BatchAuthenticator is
 
     /// @notice Updates the non-TEE batcher address.
     function setNonTeeBatcher(address _newNonTeeBatcher) external onlyOwner {
-        if (_newNonTeeBatcher == address(0)) revert InvalidAddress(_newNonTeeBatcher);
+        if (_newNonTeeBatcher == address(0)) {
+            revert InvalidAddress(_newNonTeeBatcher);
+        }
         address oldNonTeeBatcher = nonTeeBatcher;
         nonTeeBatcher = _newNonTeeBatcher;
         emit NonTeeBatcherUpdated(oldNonTeeBatcher, _newNonTeeBatcher);
@@ -157,11 +161,15 @@ contract BatchAuthenticator is
         // Check batch authentication
         if (blobhash(0) != 0) {
             // Blob batch: concatenate all blob hashes
-            bytes memory concatenatedHashes = new bytes(0);
-            uint256 currentBlob = 0;
-            while (blobhash(currentBlob) != 0) {
-                concatenatedHashes = bytes.concat(concatenatedHashes, blobhash(currentBlob));
-                currentBlob++;
+            uint256 numBlobs = 0;
+            while (blobhash(numBlobs) != 0) {
+                numBlobs++;
+            }
+            bytes memory concatenatedHashes = new bytes(32 * numBlobs);
+            for (uint256 i = 0; i < numBlobs; i++) {
+                assembly {
+                    mstore(add(concatenatedHashes, add(0x20, mul(i, 32))), blobhash(i))
+                }
             }
             bytes32 hash = keccak256(concatenatedHashes);
             if (!validBatchInfo[hash]) {
