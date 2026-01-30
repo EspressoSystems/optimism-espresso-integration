@@ -313,6 +313,14 @@ cd espresso
 docker compose down -v --remove-orphans
 ```
 
+or
+```console
+COMPOSE_PROFILES=tee docker compose down -v --remove-orphans
+docker rm -f $(docker ps -aq --filter "ancestor=op-batcher-enclavetool")
+```
+If there are remaining containers running from your last TEE run.
+
+
 * Prepare OP contract allocations. Nix shell provides dependencies for the script. This step needs to be re-run only when the OP contracts are modified.
 
 ```console
@@ -364,6 +372,13 @@ docker compose --env-file .env up <service-name>
 ```console
 docker compose down
 ```
+
+or do this if you run with `COMPOSE_PROFILES=tee`
+```console
+COMPOSE_PROFILES=tee docker compose down -v --remove-orphans
+docker rm -f $(docker ps -aq --filter "ancestor=op-batcher-enclavetool")
+```
+
 
 * To start the project fresh, remove containers, volumes, and network, from this project.
 
