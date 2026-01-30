@@ -485,7 +485,7 @@ func TestStatelessBatcher(t *testing.T)
    - Randomly picks another to **start** the batcher
    - For all other iterations: send 1 coin to Alice
 3. Asserts:
-   - Alice's balance on Caff node = - Alice's balance on OP node
+   - Alice's balance on Caff node = Alice's balance on OP node
    - No transactions lost during batcher downtime
 
 **Why this is critical:** Proves the batcher maintains no persistent state and can recover from arbitrary restarts without data loss or inconsistency.
