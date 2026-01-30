@@ -3,18 +3,26 @@ pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from
+    "lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { OwnableWithGuardiansUpgradeable } from "@espresso-tee-contracts/OwnableWithGuardiansUpgradeable.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
 /// @notice Upgradeable contract that authenticates batch information using the Transparent Proxy
 ///         pattern.
 ///         Supports switching between TEE and non-TEE batchers.
-contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, ProxyAdminOwnedBase, ReinitializableBase {
+contract BatchAuthenticator is
+    IBatchAuthenticator,
+    ISemver,
+    OwnableWithGuardiansUpgradeable,
+    ProxyAdminOwnedBase,
+    ReinitializableBase
+{
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -51,6 +59,9 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
         // Initialization transactions must come from the ProxyAdmin or its owner.
         _assertOnlyProxyAdminOrProxyAdminOwner();
 
+        // Initialize OwnableWithGuardians with the ProxyAdmin owner as the initial owner
+        __OwnableWithGuardians_init(proxyAdminOwner());
+
         if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
         if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
         if (address(_espressoTEEVerifier) == address(0)) revert InvalidAddress(address(_espressoTEEVerifier));
@@ -62,20 +73,19 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
         activeIsTee = true;
     }
 
-    /// @notice Returns the owner of the ProxyAdmin that owns this proxy.
-    function owner() external view returns (address) {
-        return proxyAdminOwner();
+    /// @notice Returns the owner of the contract.
+    function owner() public view override(IBatchAuthenticator, OwnableUpgradeable) returns (address) {
+        return super.owner();
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
-    function switchBatcher() external {
-        _assertOnlyProxyAdminOwner();
+    function switchBatcher() external onlyGuardianOrOwner {
         activeIsTee = !activeIsTee;
+        emit BatcherSwitched(activeIsTee);
     }
 
     /// @notice Updates the TEE batcher address.
-    function setTeeBatcher(address _newTeeBatcher) external {
-        _assertOnlyProxyAdminOwner();
+    function setTeeBatcher(address _newTeeBatcher) external onlyOwner {
         if (_newTeeBatcher == address(0)) revert InvalidAddress(_newTeeBatcher);
         address oldTeeBatcher = teeBatcher;
         teeBatcher = _newTeeBatcher;
@@ -83,8 +93,7 @@ contract BatchAuthenticator is IBatchAuthenticator, ISemver, Initializable, Prox
     }
 
     /// @notice Updates the non-TEE batcher address.
-    function setNonTeeBatcher(address _newNonTeeBatcher) external {
-        _assertOnlyProxyAdminOwner();
+    function setNonTeeBatcher(address _newNonTeeBatcher) external onlyOwner {
         if (_newNonTeeBatcher == address(0)) revert InvalidAddress(_newNonTeeBatcher);
         address oldNonTeeBatcher = nonTeeBatcher;
         nonTeeBatcher = _newNonTeeBatcher;

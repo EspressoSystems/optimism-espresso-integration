@@ -22,6 +22,7 @@ contract BatchAuthenticator_Test is Test {
     address public deployer = address(0xABCD);
     address public proxyAdminOwner = address(0xBEEF);
     address public unauthorized = address(0xDEAD);
+    address public guardian = address(0xFACE);
 
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
@@ -130,17 +131,40 @@ contract BatchAuthenticator_Test is Test {
         assertTrue(authenticator.activeIsTee());
     }
 
-    /// @notice Test that switchBatcher can only be called by ProxyAdmin owner.
-    function test_switchBatcher_onlyProxyAdminOwner() external {
+    /// @notice Test that switchBatcher can be called by owner or guardian.
+    function test_switchBatcher_onlyOwnerOrGuardian() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
-        // ProxyAdmin owner can switch.
+        // ProxyAdmin owner (now contract owner) can switch.
+        vm.expectEmit(true, false, false, false);
+        emit BatcherSwitched(false);
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
         assertFalse(authenticator.activeIsTee());
 
         // Switch back.
+        vm.expectEmit(true, false, false, false);
+        emit BatcherSwitched(true);
         vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
+        assertTrue(authenticator.activeIsTee());
+
+        // Add a guardian.
+        vm.prank(proxyAdminOwner);
+        authenticator.addGuardian(guardian);
+        assertTrue(authenticator.isGuardian(guardian));
+
+        // Guardian can switch.
+        vm.expectEmit(true, false, false, false);
+        emit BatcherSwitched(false);
+        vm.prank(guardian);
+        authenticator.switchBatcher();
+        assertFalse(authenticator.activeIsTee());
+
+        // Guardian can switch back.
+        vm.expectEmit(true, false, false, false);
+        emit BatcherSwitched(true);
+        vm.prank(guardian);
         authenticator.switchBatcher();
         assertTrue(authenticator.activeIsTee());
 
@@ -336,6 +360,7 @@ contract BatchAuthenticator_Test is Test {
     event SignerRegistrationInitiated(address indexed caller);
     event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
     event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
+    event BatcherSwitched(bool indexed activeIsTee);
 }
 
 /// @notice Fork tests for BatchAuthenticator on Sepolia.
@@ -484,4 +509,5 @@ contract BatchAuthenticator_Fork_Test is Test {
     event SignerRegistrationInitiated(address indexed caller);
     event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
     event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
+    event BatcherSwitched(bool indexed activeIsTee);
 }
