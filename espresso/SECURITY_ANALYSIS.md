@@ -14,7 +14,7 @@ The integration introduces three main components:
 
 ### Security Model
 
-Every batch undergoes validation through **three independent layers**:
+Every batch is expected to undergo validation through **three independent layers**:
 
 - **TEE Attestation** - Cryptographic attestations verified via zero-knowledge proofs (Automata SDK + Succinct SP1)
 - **Smart Contract Verification** - On-chain validation of sender address and TEE signatures
