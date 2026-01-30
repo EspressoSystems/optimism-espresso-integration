@@ -87,9 +87,49 @@ contract DeployAWSNitroVerifierOutput is BaseDeployIO {
 }
 
 contract DeployAWSNitroVerifier is Script {
+    struct ProxyDeployment {
+        ProxyAdmin proxyAdmin;
+        Proxy proxy;
+    }
+
     function run(DeployAWSNitroVerifierInput input, DeployAWSNitroVerifierOutput output) public {
         deployNitroTEEVerifier(input, output);
         checkOutput(output);
+    }
+
+    /// @notice Deploys ProxyAdmin and Proxy contracts
+    /// @param labelPrefix Prefix for vm.label (e.g., "Mock" or "")
+    /// @return deployment Struct containing the deployed ProxyAdmin and Proxy
+    function deployProxyInfrastructure(string memory labelPrefix)
+        internal
+        returns (ProxyDeployment memory deployment)
+    {
+        vm.broadcast(msg.sender);
+        deployment.proxyAdmin = ProxyAdmin(
+            payable(
+                DeployUtils.create1({
+                    _name: "ProxyAdmin",
+                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+                })
+            )
+        );
+        vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
+
+        vm.broadcast(msg.sender);
+        deployment.proxy = Proxy(
+            payable(
+                DeployUtils.create1({
+                    _name: "Proxy",
+                    _args: DeployUtils.encodeConstructor(
+                        abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
+                    )
+                })
+            )
+        );
+        vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
+
+        vm.broadcast(msg.sender);
+        deployment.proxyAdmin.setProxyType(address(deployment.proxy), ProxyAdmin.ProxyType.ERC1967);
     }
 
     function deployNitroTEEVerifier(
@@ -100,98 +140,55 @@ contract DeployAWSNitroVerifier is Script {
         returns (IEspressoNitroTEEVerifier)
     {
         address nitroEnclaveVerifier = input.nitroEnclaveVerifier();
-
-        // If nitroEnclaveVerifier is not set, deploy a mock for testing
-        if (nitroEnclaveVerifier == address(0)) {
-            vm.broadcast(msg.sender);
-            MockEspressoNitroTEEVerifier mock = new MockEspressoNitroTEEVerifier();
-            vm.label(address(mock), "MockNitroTEEVerifier");
-
-            // For mock deployments, we still need a valid distinct ProxyAdmin address.
-            // Deploy a minimal ProxyAdmin to satisfy the output requirements.
-            address mockProxyAdminOwner = input.proxyAdminOwner();
-            if (mockProxyAdminOwner == address(0)) {
-                mockProxyAdminOwner = msg.sender;
-            }
-            vm.broadcast(msg.sender);
-            ProxyAdmin mockProxyAdmin = ProxyAdmin(
-                payable(
-                    DeployUtils.create1({
-                        _name: "ProxyAdmin",
-                        _args: DeployUtils.encodeConstructor(
-                            abi.encodeCall(IProxyAdmin.__constructor__, (mockProxyAdminOwner))
-                        )
-                    })
-                )
-            );
-            vm.label(address(mockProxyAdmin), "MockNitroTEEVerifierProxyAdmin");
-
-            output.set(output.nitroTEEVerifierProxy.selector, address(mock));
-            output.set(output.nitroTEEVerifierImpl.selector, address(mock));
-            output.set(output.proxyAdmin.selector, address(mockProxyAdmin));
-            return IEspressoNitroTEEVerifier(address(mock));
-        }
-
-        // Production deployment: use Proxy + ProxyAdmin pattern
         address proxyAdminOwner = input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) {
             proxyAdminOwner = msg.sender;
         }
 
-        address teeVerifierAddress = input.teeVerifierAddress();
+        // Deploy proxy infrastructure
+        ProxyDeployment memory deployment = deployProxyInfrastructure(nitroEnclaveVerifier == address(0) ? "Mock" : "");
 
-        // 1. Deploy the ProxyAdmin
-        vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = ProxyAdmin(
-            payable(
-                DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-                })
-            )
-        );
-        vm.label(address(proxyAdmin), "NitroTEEVerifierProxyAdmin");
+        address implAddress;
 
-        // 2. Deploy the Proxy
-        vm.broadcast(msg.sender);
-        Proxy proxy = Proxy(
-            payable(
-                DeployUtils.create1({
-                    _name: "Proxy",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
-                })
-            )
-        );
-        vm.label(address(proxy), "NitroTEEVerifierProxy");
+        if (nitroEnclaveVerifier == address(0)) {
+            // Deploy mock implementation
+            vm.broadcast(msg.sender);
+            MockEspressoNitroTEEVerifier mockImpl = new MockEspressoNitroTEEVerifier();
+            vm.label(address(mockImpl), "MockNitroTEEVerifierImpl");
+            implAddress = address(mockImpl);
 
-        // 3. Set proxy type
-        vm.broadcast(msg.sender);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+            // Upgrade proxy to point to mock implementation
+            vm.broadcast(msg.sender);
+            deployment.proxyAdmin.upgrade(payable(address(deployment.proxy)), implAddress);
+        } else {
+            // Deploy production implementation
+            address teeVerifierAddress = input.teeVerifierAddress();
 
-        // 4. Deploy the implementation
-        vm.broadcast(msg.sender);
-        EspressoNitroTEEVerifier impl = new EspressoNitroTEEVerifier();
-        vm.label(address(impl), "NitroTEEVerifierImpl");
+            vm.broadcast(msg.sender);
+            EspressoNitroTEEVerifier impl = new EspressoNitroTEEVerifier();
+            vm.label(address(impl), "NitroTEEVerifierImpl");
+            implAddress = address(impl);
 
-        // 5. Initialize the proxy
-        bytes memory initData = abi.encodeCall(
-            EspressoNitroTEEVerifier.initialize, (teeVerifierAddress, INitroEnclaveVerifier(nitroEnclaveVerifier))
-        );
-        vm.broadcast(msg.sender);
-        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
+            // Initialize the proxy
+            bytes memory initData = abi.encodeCall(
+                EspressoNitroTEEVerifier.initialize, (teeVerifierAddress, INitroEnclaveVerifier(nitroEnclaveVerifier))
+            );
+            vm.broadcast(msg.sender);
+            deployment.proxyAdmin.upgradeAndCall(payable(address(deployment.proxy)), implAddress, initData);
+        }
 
-        // 6. Transfer ownership to the desired proxyAdminOwner if different from msg.sender
+        // Transfer ownership if needed
         if (proxyAdminOwner != msg.sender) {
             vm.broadcast(msg.sender);
-            proxyAdmin.transferOwnership(proxyAdminOwner);
+            deployment.proxyAdmin.transferOwnership(proxyAdminOwner);
         }
 
         // Set outputs
-        output.set(output.nitroTEEVerifierProxy.selector, address(proxy));
-        output.set(output.nitroTEEVerifierImpl.selector, address(impl));
-        output.set(output.proxyAdmin.selector, address(proxyAdmin));
+        output.set(output.nitroTEEVerifierProxy.selector, address(deployment.proxy));
+        output.set(output.nitroTEEVerifierImpl.selector, implAddress);
+        output.set(output.proxyAdmin.selector, address(deployment.proxyAdmin));
 
-        return IEspressoNitroTEEVerifier(address(proxy));
+        return IEspressoNitroTEEVerifier(address(deployment.proxy));
     }
 
     function checkOutput(DeployAWSNitroVerifierOutput output) public view {
