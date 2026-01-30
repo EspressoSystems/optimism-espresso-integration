@@ -301,7 +301,7 @@ The integration **adds** capabilities without **replacing** core functionality:
 | Withdrawals | ✅ Standard bridge | ✅ Same bridge |
 | **Fast finality** | ❌ Not available | ✅ **New**: Caff Node + Espresso |
 
-**4. Fallback Mode = Exact Vanilla Behavior**
+**4. Fallback Mode is equivalent to Vanilla Behavior**
 
 When operating in fallback mode:
 
