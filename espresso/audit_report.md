@@ -13,15 +13,15 @@
 
 ## Executive Summary
 
-This report presents the findings of a security audit of the Optimism-Espresso integration, focusing on the OP Streamer component and TEE (Trusted Execution Environment) contracts. The audit identified **14 vulnerabilities** (2 Critical, 3 High, 2 Medium, 7 Low) across batch streaming logic, TEE networking, and smart contract implementations.
+This report presents the findings of a security audit of the Optimism-Espresso integration, focusing on the OP Streamer component and TEE (Trusted Execution Environment) contracts. The audit identified **14 vulnerabilities** (2 Critical, 4 High, 1 Medium, 7 Low) across batch streaming logic, TEE networking, and smart contract implementations.
 
 ### Severity Distribution
 
 | Severity | Count | Status |
 |----------|-------|--------|
 | 🔴 Critical | 2 | 2 Fixed, 0 Open |
-| 🟠 High | 3 | 1 Fixed, 2 Open |
-| 🟡 Medium | 2 | 0 Fixed, 2 Open |
+| 🟠 High | 4 | 1 Fixed, 3 Open |
+| 🟡 Medium | 1 | 0 Fixed, 1 Open |
 | 🟢 Low | 7 | 0 Fixed, 7 Open |
 | **Total** | **14** | **3 Fixed, 11 Open** |
 
@@ -34,8 +34,8 @@ This report presents the findings of a security audit of the Optimism-Espresso i
 | V-2 | Infinite Buffer Growth | 🟠 High | OP Streamer | Open | Section 2.2 |
 | V-3 | TEE Networking MitM Attack | 🟠 High | TEE Enclave | Open | Section 3.1 |
 | V-5 | Signer Deletion DoS | 🟠 High | TEE Contracts | Fixed | Section 4.2, PR #43 |
+| V-7 | Type Mismatch in Refresh() | 🟠 High | OP Streamer | Open | Section 2.3 |
 | V-1 | All-At-Once RPC Calls | 🟡 Medium | OP Streamer | Open | Section 2.1 |
-| V-7 | Type Mismatch in Refresh() | 🟡 Medium | OP Streamer | Open | Section 2.3 |
 | V-8 | Missing Duplicate Detection | 🟢 Low | OP Streamer | Open | Section 2.4 |
 | V-9 | Misleading Log Messages | 🟢 Low | OP Streamer | Open | Section 2.5 |
 | V-10 | Inefficient Batch Overwrite | 🟢 Low | OP Streamer | Open | Section 2.6 |
@@ -232,7 +232,7 @@ func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
 
 ### V-7: Type Mismatch in Refresh()
 
-**Severity:** 🟡 **Medium**
+**Severity:** 🟠 **High**
 **Status:** ⚠️ **Open**
 **Component:** `espresso/streamer.go` - `Refresh()` function, Line 173
 
@@ -270,7 +270,7 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 
 #### Overall Risk
 
-**Medium** - Logic error with potential for incorrect state management
+**High** - Logic error with potential for incorrect state management
 
 #### Recommendation
 
