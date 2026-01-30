@@ -22,7 +22,6 @@ type DeployAWSNitroVerifierOutput struct {
 type DeployEspressoInput struct {
 	Salt               common.Hash
 	NitroTEEVerifier   common.Address
-	SgxTEEVerifier     common.Address
 	NonTeeBatcher      common.Address
 	TeeBatcher         common.Address
 	ProxyAdminOwner    common.Address

@@ -63,7 +63,6 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		Salt:               st.Create2Salt,
 		NitroTEEVerifier:   nvo.NitroTEEVerifierProxy,
-		SgxTEEVerifier:     common.Address{}, // SGX not currently supported
 		NonTeeBatcher:      chainIntent.NonTeeBatcher,
 		TeeBatcher:         chainIntent.TeeBatcher,
 		ProxyAdminOwner:    batchAuthenticatorOwnwerAddress,

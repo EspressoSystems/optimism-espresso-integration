@@ -21,7 +21,6 @@ import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _nitroTEEVerifier;
-    address internal _sgxTEEVerifier;
     address internal _nonTeeBatcher;
     address internal _teeBatcher;
     address internal _proxyAdminOwner;
@@ -40,8 +39,6 @@ contract DeployEspressoInput is BaseDeployIO {
     function set(bytes4 _sel, address _val) public {
         if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
-        } else if (_sel == this.sgxTEEVerifier.selector) {
-            _sgxTEEVerifier = _val;
         } else if (_sel == this.nonTeeBatcher.selector) {
             _nonTeeBatcher = _val;
         } else if (_sel == this.teeBatcher.selector) {
@@ -61,11 +58,6 @@ contract DeployEspressoInput is BaseDeployIO {
     /// @notice Address of the EspressoNitroTEEVerifier proxy (deployed via DeployAWSNitroVerifier)
     function nitroTEEVerifier() public view returns (address) {
         return _nitroTEEVerifier;
-    }
-
-    /// @notice Address of the EspressoSGXTEEVerifier proxy. Can be address(0) if not using SGX.
-    function sgxTEEVerifier() public view returns (address) {
-        return _sgxTEEVerifier;
     }
 
     function nonTeeBatcher() public view returns (address) {
@@ -220,7 +212,8 @@ contract DeployEspresso is Script {
         returns (IEspressoTEEVerifier)
     {
         IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
-        IEspressoSGXTEEVerifier sgxTEEVerifier = IEspressoSGXTEEVerifier(input.sgxTEEVerifier());
+        // OP only uses Nitro TEE, not SGX
+        IEspressoSGXTEEVerifier sgxTEEVerifier = IEspressoSGXTEEVerifier(address(0));
 
         // Use mock if explicitly requested or if nitroTEEVerifier is not set
         if (input.useMockTEEVerifier() || address(nitroTEEVerifier) == address(0)) {
