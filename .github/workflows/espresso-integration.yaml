@@ -7,7 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-contracts:
+    uses: ./.github/workflows/build-contracts.yml
+    with:
+      build-type: fast
+      artifact-name: contracts-fast
+
   test:
+    needs: build-contracts
     runs-on: ubuntu-24.04-8core
     strategy:
       fail-fast: false
@@ -16,6 +23,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download contract artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: contracts-fast
+          path: packages/contracts-bedrock/
 
       - name: Install Nix
         uses: nixbuild/nix-quick-install-action@v30
@@ -33,12 +46,6 @@ jobs:
 
       - name: Cache Go modules
         uses: actions/setup-go@v5
-
-      - name: Compile contracts
-        run: just compile-contracts
-
-      - name: Fix Proxy artifact bytecode
-        run: cd packages/contracts-bedrock && just fix-proxy-artifact
 
       - name: Load environment variables
         run: |

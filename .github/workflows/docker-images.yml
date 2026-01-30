@@ -12,7 +12,15 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository }}
 
 jobs:
+  build-contracts:
+    uses: ./.github/workflows/build-contracts.yml
+    with:
+      build-type: optimized
+      prepare-deployment: true
+      artifact-name: contracts-optimized
+
   prepare-deployment:
+    needs: build-contracts
     runs-on: ubuntu-latest
     outputs:
       deployment-hash: ${{ steps.hash.outputs.hash }}
@@ -20,52 +28,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install just
-        uses: extractions/setup-just@v2
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Download contract and deployment artifacts
+        uses: actions/download-artifact@v4
         with:
-          toolchain: stable
-          override: true
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9 # same as for the nix environment
-
-      - name: Install dasel
-        run: |
-          curl -sSL "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_amd64" -o /tmp/dasel
-          sudo mv /tmp/dasel /usr/local/bin/dasel
-          sudo chmod +x /usr/local/bin/dasel
-          dasel --version
-
-      - name: Build op-deployer
-        run: |
-          cd op-deployer
-          just
-          echo "$(pwd)/bin" >> $GITHUB_PATH
-
-      - name: Compile contracts
-        run: cd packages/contracts-bedrock && just build
-
-      - name: Fix Proxy artifact bytecode
-        run: cd packages/contracts-bedrock && just fix-proxy-artifact
-
-      - name: Prepare allocations
-        run: |
-          cd espresso
-          ./scripts/prepare-allocs.sh
-
-      - name: List generated files
-        run: |
-          echo "=== Generated deployment files ==="
-          find espresso/deployment -type f -name "*.json" -o -name "*.toml" | head -20
-          echo "=== L1 Config ==="
-          ls -la espresso/deployment/l1-config/ || echo "No l1-config directory"
-          echo "=== Deployer ==="
-          ls -la espresso/deployment/deployer/ || echo "No deployer directory"
+          name: contracts-optimized
 
       - name: Generate deployment hash
         id: hash
@@ -79,7 +45,7 @@ jobs:
             op-deployer/bin/
             espresso/deployment/
             packages/contracts-bedrock/
-          retention-days: 1
+          retention-days: 7
 
   build-l1-geth:
     needs: prepare-deployment

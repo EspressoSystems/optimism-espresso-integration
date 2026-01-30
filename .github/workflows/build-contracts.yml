@@ -1,0 +1,125 @@
+name: Build Contracts
+
+on:
+  workflow_call:
+    inputs:
+      build-type:
+        description: 'Build type: fast (unoptimized) or optimized'
+        type: string
+        required: true
+      prepare-deployment:
+        description: 'Prepare deployment artifacts (op-deployer, allocations)'
+        type: boolean
+        default: false
+      artifact-name:
+        description: 'Name for the uploaded artifact'
+        type: string
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9
+
+      - name: Install Just
+        uses: extractions/setup-just@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install Rust
+        if: inputs.prepare-deployment
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install dasel
+        if: inputs.prepare-deployment
+        run: |
+          curl -sSL "https://github.com/TomWright/dasel/releases/download/v2.8.1/dasel_linux_amd64" -o /tmp/dasel
+          sudo mv /tmp/dasel /usr/local/bin/dasel
+          sudo chmod +x /usr/local/bin/dasel
+          dasel --version
+
+      - name: Cache Foundry artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/contracts-bedrock/cache
+            packages/contracts-bedrock/out
+          key: foundry-${{ inputs.build-type }}-${{ runner.os }}-${{ hashFiles('packages/contracts-bedrock/**/*.sol', 'packages/contracts-bedrock/foundry.toml') }}
+          # Only restore caches from the same build type to avoid pollution
+          restore-keys: |
+            foundry-${{ inputs.build-type }}-${{ runner.os }}-
+
+      - name: Build op-deployer
+        if: inputs.prepare-deployment
+        run: |
+          cd op-deployer
+          just
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Build go-ffi
+        working-directory: packages/contracts-bedrock
+        run: just build-go-ffi
+
+      - name: Build contracts (fast/unoptimized)
+        if: inputs.build-type == 'fast'
+        working-directory: packages/contracts-bedrock
+        run: just build-dev
+
+      - name: Build contracts (optimized)
+        if: inputs.build-type == 'optimized'
+        working-directory: packages/contracts-bedrock
+        run: just build
+
+      - name: Fix Proxy artifact bytecode
+        working-directory: packages/contracts-bedrock
+        run: just fix-proxy-artifact
+
+      - name: Prepare allocations
+        if: inputs.prepare-deployment
+        run: |
+          cd espresso
+          ./scripts/prepare-allocs.sh
+
+      - name: List generated files
+        if: inputs.prepare-deployment
+        run: |
+          echo "=== Generated deployment files ==="
+          find espresso/deployment -type f -name "*.json" -o -name "*.toml" | head -20
+          echo "=== L1 Config ==="
+          ls -la espresso/deployment/l1-config/ || echo "No l1-config directory"
+          echo "=== Deployer ==="
+          ls -la espresso/deployment/deployer/ || echo "No deployer directory"
+
+      - name: Upload contract artifacts (basic)
+        if: ${{ !inputs.prepare-deployment }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: packages/contracts-bedrock/
+          retention-days: 7
+
+      - name: Upload contract artifacts (with deployment)
+        if: inputs.prepare-deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: |
+            packages/contracts-bedrock/
+            op-deployer/bin/
+            espresso/deployment/
+          retention-days: 7
