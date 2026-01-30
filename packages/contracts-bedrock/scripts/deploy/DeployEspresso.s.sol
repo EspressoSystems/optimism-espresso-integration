@@ -147,7 +147,7 @@ contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input, output, deployerAddress);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
-        deployBatchInbox(input, output, batchAuthenticator, deployerAddress);
+        deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(input, output);
     }
 
@@ -317,8 +317,7 @@ contract DeployEspresso is Script {
     function deployBatchInbox(
         DeployEspressoInput input,
         DeployEspressoOutput output,
-        IBatchAuthenticator batchAuthenticator,
-        address deployerAddress
+        IBatchAuthenticator batchAuthenticator
     )
         public
     {
