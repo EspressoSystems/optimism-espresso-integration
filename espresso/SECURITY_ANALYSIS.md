@@ -894,7 +894,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 | Attack Vector | Mitigation | Test Coverage |
 |---------------|------------|---------------|
 | L1 reorg invalidating posted batches | Batcher re-derives and re-posts same batches in same order after L1 reorg | [Test 4](espresso/environment/4_confirmation_integrity_with_reorgs_test.go) |
-| Submitting batches on unfinalized L1 blocks | Batcher and Caff node wait for L1 finality before submission/processing | [Test 8](espresso/environment/8_reorg_test.go) |
+| Submitting batches derived from unfinalized L1 blocks | Batcher and Caff node wait for L1 finality before submission/processing | [Test 8](espresso/environment/8_reorg_test.go) |
 
 **Smart Contract Attacks**
 
