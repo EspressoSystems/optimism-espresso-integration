@@ -318,7 +318,7 @@ or
 COMPOSE_PROFILES=tee docker compose down -v --remove-orphans
 docker rm -f $(docker ps -aq --filter "ancestor=op-batcher-enclavetool")
 ```
-If there's some remaining containers running from your last TEE run.
+If there are remaining containers running from your last TEE run.
 
 
 * Prepare OP contract allocations. Nix shell provides dependencies for the script. This step needs to be re-run only when the OP contracts are modified.
