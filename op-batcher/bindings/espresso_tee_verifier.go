@@ -31,8 +31,8 @@ var (
 
 // EspressoTEEVerifierMetaData contains all meta data concerning the EspressoTEEVerifier contract.
 var EspressoTEEVerifierMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_espressoSGXTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoSGXTEEVerifier\"},{\"name\":\"_espressoNitroTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoNitroTEEVerifier\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"espressoNitroTEEVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIEspressoNitroTEEVerifier\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"espressoSGXTEEVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIEspressoSGXTEEVerifier\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerSigner\",\"inputs\":[{\"name\":\"attestation\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registeredEnclaveHashes\",\"inputs\":[{\"name\":\"enclaveHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registeredSigners\",\"inputs\":[{\"name\":\"signer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEspressoNitroTEEVerifier\",\"inputs\":[{\"name\":\"_espressoNitroTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoNitroTEEVerifier\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEspressoSGXTEEVerifier\",\"inputs\":[{\"name\":\"_espressoSGXTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoSGXTEEVerifier\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"verify\",\"inputs\":[{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"userDataHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidSignature\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UnsupportedTeeType\",\"inputs\":[]}]",
-	Bin: "0x6080346100aa57601f61115d38819003918201601f19168301916001600160401b038311848410176100ae5780849260409485528339810103126100aa5780516001600160a01b03811691908290036100aa57602001516001600160a01b03811691908290036100aa57610072336100c2565b60018060a01b0319600254161760025560018060a01b0319600354161760035561009b336100c2565b60405161104690816101178239f35b5f80fd5b634e487b7160e01b5f52604160045260245ffd5b600180546001600160a01b03199081169091555f80546001600160a01b03938416928116831782559192909116907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e09080a356fe60806040526004361015610011575f80fd5b5f3560e01c8063330282f5146108c457806335ecb4c11461083c5780633cbe6803146107f35780636b406341146105ad578063715018a6146104eb57806379ba50971461038b57806380710c801461033a5780638da5cb5b146102ea578063bc3a091114610265578063d80a4c2814610214578063e30c3978146101c3578063e9b1a7be146101695763f2fde38b146100a8575f80fd5b346101655760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101655773ffffffffffffffffffffffffffffffffffffffff6100f46109b8565b6100fc610d94565b16807fffffffffffffffffffffffff0000000000000000000000000000000000000000600154161760015573ffffffffffffffffffffffffffffffffffffffff5f54167f38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e227005f80a3005b5f80fd5b346101655760407ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc360112610165576101a06109b8565b602435906002821015610165576020916101b991610c8e565b6040519015158152f35b34610165575f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261016557602073ffffffffffffffffffffffffffffffffffffffff60015416604051908152f35b34610165575f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261016557602073ffffffffffffffffffffffffffffffffffffffff60035416604051908152f35b346101655760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101655760043573ffffffffffffffffffffffffffffffffffffffff8116809103610165576102bd610d94565b7fffffffffffffffffffffffff000000000000000000000000000000000000000060025416176002555f80f35b34610165575f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261016557602073ffffffffffffffffffffffffffffffffffffffff5f5416604051908152f35b34610165575f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261016557602073ffffffffffffffffffffffffffffffffffffffff60025416604051908152f35b34610165575f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc360112610165573373ffffffffffffffffffffffffffffffffffffffff6001541603610467577fffffffffffffffffffffffff0000000000000000000000000000000000000000600154166001555f54337fffffffffffffffffffffffff00000000000000000000000000000000000000008216175f5573ffffffffffffffffffffffffffffffffffffffff3391167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e05f80a3005b60846040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602960248201527f4f776e61626c6532537465703a2063616c6c6572206973206e6f74207468652060448201527f6e6577206f776e657200000000000000000000000000000000000000000000006064820152fd5b34610165575f7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011261016557610521610d94565b7fffffffffffffffffffffffff0000000000000000000000000000000000000000600154166001555f73ffffffffffffffffffffffffffffffffffffffff81547fffffffffffffffffffffffff000000000000000000000000000000000000000081168355167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e08280a3005b346101655760407ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101655760043567ffffffffffffffff811161016557366023820112156101655780600401359067ffffffffffffffff82116107c65760405161064360207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8601160182610977565b8281523660248484010111610165575f60208461067995602461067196018386013783010152602435610e12565b919091610e47565b73ffffffffffffffffffffffffffffffffffffffff60208160025416926024604051809481937f0123d0c100000000000000000000000000000000000000000000000000000000835216958660048301525afa90811561079c575f916107a7575b501561074557602073ffffffffffffffffffffffffffffffffffffffff60035416916024604051809481937f0123d0c100000000000000000000000000000000000000000000000000000000835260048301525afa90811561079c575f9161076d575b501561074557005b7f8baa579f000000000000000000000000000000000000000000000000000000005f5260045ffd5b61078f915060203d602011610795575b6107878183610977565b810190610bc6565b8161073d565b503d61077d565b6040513d5f823e3d90fd5b6107c0915060203d602011610795576107878183610977565b826106da565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b346101655760407ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc360112610165576024356002811015610165576101b9602091600435610bde565b346101655760607ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101655760043567ffffffffffffffff81116101655761088b903690600401610949565b60243567ffffffffffffffff8111610165576108ab903690600401610949565b90604435926002841015610165576108c294610a43565b005b346101655760207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101655760043573ffffffffffffffffffffffffffffffffffffffff81168091036101655761091c610d94565b7fffffffffffffffffffffffff000000000000000000000000000000000000000060035416176003555f80f35b9181601f840112156101655782359167ffffffffffffffff8311610165576020838186019501011161016557565b90601f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0910116810190811067ffffffffffffffff8211176107c657604052565b6004359073ffffffffffffffffffffffffffffffffffffffff8216820361016557565b601f82602094937fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe093818652868601375f8582860101520116010190565b9290610a3290610a4095936040865260408601916109db565b9260208185039101526109db565b90565b905f946002811015610b99578015610b1a57600114610a84576004857fd0cb35a1000000000000000000000000000000000000000000000000000000008152fd5b73ffffffffffffffffffffffffffffffffffffffff6003541691823b15610b1657908580949392610ae4604051978896879586947fba58e82a00000000000000000000000000000000000000000000000000000000865260048601610a19565b03925af18015610b0b57610af6575050565b610b01828092610977565b610b085750565b80fd5b6040513d84823e3d90fd5b8580fd5b509092935073ffffffffffffffffffffffffffffffffffffffff6002541690813b15610165575f8094610b7c604051978896879586947fba58e82a00000000000000000000000000000000000000000000000000000000865260048601610a19565b03925af1801561079c57610b8d5750565b5f610b9791610977565b565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602160045260245ffd5b90816020910312610165575180151581036101655790565b906002811015610b995715610c15577fd0cb35a1000000000000000000000000000000000000000000000000000000005f5260045ffd5b602073ffffffffffffffffffffffffffffffffffffffff60025416916024604051809481937f966989ee00000000000000000000000000000000000000000000000000000000835260048301525afa90811561079c575f91610c75575090565b610a40915060203d602011610795576107878183610977565b906002811015610b99578015610d3057600114610ccd577fd0cb35a1000000000000000000000000000000000000000000000000000000005f5260045ffd5b602073ffffffffffffffffffffffffffffffffffffffff602481600354169360405194859384927f0123d0c10000000000000000000000000000000000000000000000000000000084521660048301525afa90811561079c575f91610c75575090565b50602073ffffffffffffffffffffffffffffffffffffffff602481600254169360405194859384927f0123d0c10000000000000000000000000000000000000000000000000000000084521660048301525afa90811561079c575f91610c75575090565b73ffffffffffffffffffffffffffffffffffffffff5f54163303610db457565b60646040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602060248201527f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e65726044820152fd5b9060418151145f14610e3e57610e3a91602082015190606060408401519301515f1a90610fb1565b9091565b50505f90600290565b6005811015610b995780610e585750565b60018103610ebe5760646040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601860248201527f45434453413a20696e76616c6964207369676e617475726500000000000000006044820152fd5b60028103610f245760646040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f45434453413a20696e76616c6964207369676e6174757265206c656e677468006044820152fd5b600314610f2d57565b60846040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602260248201527f45434453413a20696e76616c6964207369676e6174757265202773272076616c60448201527f75650000000000000000000000000000000000000000000000000000000000006064820152fd5b7f7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0841161102e576020935f9360ff60809460405194855216868401526040830152606082015282805260015afa1561079c575f5173ffffffffffffffffffffffffffffffffffffffff81161561102657905f90565b505f90600190565b505050505f9060039056fea164736f6c634300081c000a",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GUARDIAN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deleteEnclaveHashes\",\"inputs\":[{\"name\":\"enclaveHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"},{\"name\":\"service\",\"type\":\"uint8\",\"internalType\":\"enumServiceType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"espressoNitroTEEVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIEspressoNitroTEEVerifier\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"espressoSGXTEEVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIEspressoSGXTEEVerifier\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGuardians\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleMember\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleMemberCount\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleMembers\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"guardianCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_espressoSGXTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoSGXTEEVerifier\"},{\"name\":\"_espressoNitroTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoNitroTEEVerifier\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isGuardian\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerService\",\"inputs\":[{\"name\":\"verificationData\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"},{\"name\":\"service\",\"type\":\"uint8\",\"internalType\":\"enumServiceType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registeredEnclaveHashes\",\"inputs\":[{\"name\":\"enclaveHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"},{\"name\":\"service\",\"type\":\"uint8\",\"internalType\":\"enumServiceType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEnclaveHash\",\"inputs\":[{\"name\":\"enclaveHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"valid\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"},{\"name\":\"service\",\"type\":\"uint8\",\"internalType\":\"enumServiceType\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEspressoNitroTEEVerifier\",\"inputs\":[{\"name\":\"_espressoNitroTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoNitroTEEVerifier\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setEspressoSGXTEEVerifier\",\"inputs\":[{\"name\":\"_espressoSGXTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoSGXTEEVerifier\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNitroEnclaveVerifier\",\"inputs\":[{\"name\":\"nitroVerifier\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setQuoteVerifier\",\"inputs\":[{\"name\":\"quoteVerifier\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"verify\",\"inputs\":[{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"userDataHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"teeType\",\"type\":\"uint8\",\"internalType\":\"enumIEspressoTEEVerifier.TeeType\"},{\"name\":\"service\",\"type\":\"uint8\",\"internalType\":\"enumServiceType\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"GuardianAdded\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardianRemoved\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ECDSAInvalidSignature\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ECDSAInvalidSignatureLength\",\"inputs\":[{\"name\":\"length\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ECDSAInvalidSignatureS\",\"inputs\":[{\"name\":\"s\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"InvalidGuardianAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSignature\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidVerifierAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotGuardian\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotGuardianOrOwner\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
+	Bin: "0x608060405234801561000f575f80fd5b5061001e61002360201b60201c565b61019e565b5f61003261012160201b60201c565b9050805f0160089054906101000a900460ff161561007c576040517ff92ee8a900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b67ffffffffffffffff8016815f015f9054906101000a900467ffffffffffffffff1667ffffffffffffffff161461011e5767ffffffffffffffff815f015f6101000a81548167ffffffffffffffff021916908367ffffffffffffffff1602179055507fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d267ffffffffffffffff6040516101159190610185565b60405180910390a15b50565b5f8061013161013a60201b60201c565b90508091505090565b5f7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005f1b905090565b5f67ffffffffffffffff82169050919050565b61017f81610163565b82525050565b5f6020820190506101985f830184610176565b92915050565b6138bf806101ab5f395ff3fe608060405234801561000f575f80fd5b50600436106101f9575f3560e01c80638da5cb5b11610118578063bc3a0911116100ab578063d522f60a1161007a578063d522f60a146105a9578063d547741f146105c5578063d80a4c28146105e1578063e30c3978146105ff578063f2fde38b1461061d576101f9565b8063bc3a091114610525578063c0c53b8b14610541578063ca15c8731461055d578063ce3fe7ee1461058d576101f9565b8063a217fddf116100e7578063a217fddf1461049f578063a3246ad3146104bd578063a526d83b146104ed578063a628a19e14610509576101f9565b80638da5cb5b146104055780639010d07c146104235780639143e7641461045357806391d148541461046f576101f9565b806354387ad71161019057806379ba50971161015f57806379ba5097146103915780637e41f57c1461039b5780637f82ea6c146103cb57806380710c80146103e7576101f9565b806354387ad71461031d57806355ddfa061461033b578063714041561461036b578063715018a614610387576101f9565b806324ea54f4116101cc57806324ea54f4146102ab5780632f2ff15d146102c9578063330282f5146102e557806336568abe14610301576101f9565b806301ffc9a7146101fd5780630665f04b1461022d5780630c68ba211461024b578063248a9ca31461027b575b5f80fd5b61021760048036038101906102129190612a5d565b610639565b6040516102249190612aa2565b60405180910390f35b6102356106b2565b6040516102429190612ba2565b60405180910390f35b61026560048036038101906102609190612bec565b6107c3565b6040516102729190612aa2565b60405180910390f35b61029560048036038101906102909190612c4a565b6107f5565b6040516102a29190612c84565b60405180910390f35b6102b361081f565b6040516102c09190612c84565b60405180910390f35b6102e360048036038101906102de9190612c9d565b610843565b005b6102ff60048036038101906102fa9190612d16565b610865565b005b61031b60048036038101906103169190612c9d565b61091e565b005b610325610999565b6040516103329190612d59565b60405180910390f35b61035560048036038101906103509190612ef4565b6109c8565b6040516103629190612aa2565b60405180910390f35b61038560048036038101906103809190612bec565b610bc5565b005b61038f610c6d565b005b610399610c80565b005b6103b560048036038101906103b09190612f74565b610d0e565b6040516103c29190612aa2565b60405180910390f35b6103e560048036038101906103e09190613021565b610e91565b005b6103ef610ff8565b6040516103fc919061311f565b60405180910390f35b61040d611028565b60405161041a9190613147565b60405180910390f35b61043d6004803603810190610438919061318a565b61105d565b60405161044a9190613147565b60405180910390f35b61046d600480360381019061046891906131f2565b611096565b005b61048960048036038101906104849190612c9d565b61129e565b6040516104969190612aa2565b60405180910390f35b6104a761130f565b6040516104b49190612c84565b60405180910390f35b6104d760048036038101906104d29190612c4a565b611315565b6040516104e49190612ba2565b60405180910390f35b61050760048036038101906105029190612bec565b611344565b005b610523600480360381019061051e9190612bec565b611450565b005b61053f600480360381019061053a9190613291565b6114eb565b005b61055b600480360381019061055691906132bc565b6115a3565b005b61057760048036038101906105729190612c4a565b6117b5565b6040516105849190612d59565b60405180910390f35b6105a760048036038101906105a29190612bec565b6117e3565b005b6105c360048036038101906105be91906133cc565b61187d565b005b6105df60048036038101906105da9190612c9d565b611a80565b005b6105e9611aa2565b6040516105f69190613458565b60405180910390f35b610607611ad3565b6040516106149190613147565b60405180910390f35b61063760048036038101906106329190612bec565b611b08565b005b5f7f5a05180f000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916827bffffffffffffffffffffffffffffffffffffffffffffffffffffffff191614806106ab57506106aa82611bc1565b5b9050919050565b60605f6106de7f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50416117b5565b90505f8167ffffffffffffffff8111156106fb576106fa612d8a565b5b6040519080825280602002602001820160405280156107295781602001602082028036833780820191505090505b5090505f5b828110156107ba576107607f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50418261105d565b82828151811061077357610772613471565b5b602002602001019073ffffffffffffffffffffffffffffffffffffffff16908173ffffffffffffffffffffffffffffffffffffffff1681525050808060010191505061072e565b50809250505090565b5f6107ee7f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50418361129e565b9050919050565b5f806107ff611c3a565b9050805f015f8481526020019081526020015f2060010154915050919050565b7f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504181565b61084c826107f5565b61085581611c61565b61085f8383611c75565b50505050565b61086d611cc5565b5f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff16036108d2576040517f10c40e8c00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b806108db611d4c565b6001015f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b610926611d73565b73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff161461098a576040517f6697b23200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6109948282611d7a565b505050565b5f6109c37f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50416117b5565b905090565b5f806109d2611d4c565b90505f6109df8688611dca565b90505f60018111156109f4576109f361349e565b5b856001811115610a0757610a0661349e565b5b03610ae357815f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d8f5aa982866040518363ffffffff1660e01b8152600401610a69929190613511565b602060405180830381865afa158015610a84573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610aa8919061354c565b610ade576040517f8baa579f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b610bb7565b816001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16636d8f5aa982866040518363ffffffff1660e01b8152600401610b41929190613511565b602060405180830381865afa158015610b5c573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610b80919061354c565b610bb6576040517f8baa579f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b5b600192505050949350505050565b610bcd611cc5565b610bf77f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50418261129e565b15610c6a57610c267f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504182611a80565b8073ffffffffffffffffffffffffffffffffffffffff167fb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c5260405160405180910390a25b50565b610c75611cc5565b610c7e5f611df4565b565b5f610c89611d73565b90508073ffffffffffffffffffffffffffffffffffffffff16610caa611ad3565b73ffffffffffffffffffffffffffffffffffffffff1614610d0257806040517f118cdaa7000000000000000000000000000000000000000000000000000000008152600401610cf99190613147565b60405180910390fd5b610d0b81611df4565b50565b5f80610d18611d4c565b90505f6001811115610d2d57610d2c61349e565b5b846001811115610d4057610d3f61349e565b5b03610de957805f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16639f3eb67286856040518363ffffffff1660e01b8152600401610da2929190613577565b602060405180830381865afa158015610dbd573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610de1919061354c565b915050610e8a565b806001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16639f3eb67286856040518363ffffffff1660e01b8152600401610e47929190613577565b602060405180830381865afa158015610e62573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610e86919061354c565b9150505b9392505050565b5f610e9a611d4c565b90505f6001811115610eaf57610eae61349e565b5b836001811115610ec257610ec161349e565b5b03610f5d57805f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663dac79fc888888888876040518663ffffffff1660e01b8152600401610f2a9594939291906135da565b5f604051808303815f87803b158015610f41575f80fd5b505af1158015610f53573d5f803e3d5ffd5b5050505050610ff0565b806001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663dac79fc888888888876040518663ffffffff1660e01b8152600401610fc19594939291906135da565b5f604051808303815f87803b158015610fd8575f80fd5b505af1158015610fea573d5f803e3d5ffd5b50505050505b505050505050565b5f611001611d4c565b5f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b5f80611032611e5a565b9050805f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1691505090565b5f80611067611e81565b905061108d83825f015f8781526020019081526020015f20611ea890919063ffffffff16565b91505092915050565b6110c07f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50413361129e565b15801561110057506110d0611028565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614155b1561114257336040517fd53780c40000000000000000000000000000000000000000000000000000000081526004016111399190613147565b60405180910390fd5b5f61114b611d4c565b90505f60018111156111605761115f61349e565b5b8360018111156111735761117261349e565b5b0361120957805f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16630f1f0f868686856040518463ffffffff1660e01b81526004016111d793929190613621565b5f604051808303815f87803b1580156111ee575f80fd5b505af1158015611200573d5f803e3d5ffd5b50505050611297565b806001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16630f1f0f868686856040518463ffffffff1660e01b815260040161126993929190613621565b5f604051808303815f87803b158015611280575f80fd5b505af1158015611292573d5f803e3d5ffd5b505050505b5050505050565b5f806112a8611c3a565b9050805f015f8581526020019081526020015f205f015f8473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020015f205f9054906101000a900460ff1691505092915050565b5f801b81565b60605f611320611e81565b905061133c815f015f8581526020019081526020015f20611ebf565b915050919050565b61134c611cc5565b5f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff16036113b1576040517f1b08105400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6113db7f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50418261129e565b61144d576114097f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504182610843565b8073ffffffffffffffffffffffffffffffffffffffff167f038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f96960405160405180910390a25b50565b611458611cc5565b611460611d4c565b6001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663a628a19e826040518263ffffffff1660e01b81526004016114bb9190613147565b5f604051808303815f87803b1580156114d2575f80fd5b505af11580156114e4573d5f803e3d5ffd5b5050505050565b6114f3611cc5565b5f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1603611558576040517f10c40e8c00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b80611561611d4c565b5f015f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555050565b5f6115ac611ede565b90505f815f0160089054906101000a900460ff161590505f825f015f9054906101000a900467ffffffffffffffff1690505f808267ffffffffffffffff161480156115f45750825b90505f60018367ffffffffffffffff1614801561162757505f3073ffffffffffffffffffffffffffffffffffffffff163b145b905081158015611635575080155b1561166c576040517ff92ee8a900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6001855f015f6101000a81548167ffffffffffffffff021916908367ffffffffffffffff16021790555083156116b9576001855f0160086101000a81548160ff0219169083151502179055505b5f6116c2611d4c565b905087815f015f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555086816001015f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555061175089611ef1565b5083156117ab575f855f0160086101000a81548160ff0219169083151502179055507fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d260016040516117a291906136a2565b60405180910390a15b5050505050505050565b5f806117bf611e81565b90506117db815f015f8581526020019081526020015f20611f1e565b915050919050565b6117eb611cc5565b6117f3611d4c565b5f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663ce3fe7ee826040518263ffffffff1660e01b815260040161184d9190613147565b5f604051808303815f87803b158015611864575f80fd5b505af1158015611876573d5f803e3d5ffd5b5050505050565b6118a77f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50413361129e565b1580156118e757506118b7611028565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614155b1561192957336040517fd53780c40000000000000000000000000000000000000000000000000000000081526004016119209190613147565b60405180910390fd5b5f611932611d4c565b90505f60018111156119475761194661349e565b5b83600181111561195a5761195961349e565b5b036119ee57805f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663cd8f699785846040518363ffffffff1660e01b81526004016119bc929190613772565b5f604051808303815f87803b1580156119d3575f80fd5b505af11580156119e5573d5f803e3d5ffd5b50505050611a7a565b806001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663cd8f699785846040518363ffffffff1660e01b8152600401611a4c929190613772565b5f604051808303815f87803b158015611a63575f80fd5b505af1158015611a75573d5f803e3d5ffd5b505050505b50505050565b611a89826107f5565b611a9281611c61565b611a9c8383611d7a565b50505050565b5f611aab611d4c565b6001015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b5f80611add611f31565b9050805f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1691505090565b611b10611cc5565b5f611b19611f31565b905081815f015f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508173ffffffffffffffffffffffffffffffffffffffff16611b7b611028565b73ffffffffffffffffffffffffffffffffffffffff167f38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e2270060405160405180910390a35050565b5f7f7965db0b000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916827bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19161480611c335750611c3282611f58565b5b9050919050565b5f7f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800905090565b611c7281611c6d611d73565b611fc1565b50565b5f80611c7f611e81565b90505f611c8c8585612012565b90508015611cba57611cb884835f015f8881526020019081526020015f2061210a90919063ffffffff16565b505b809250505092915050565b611ccd611d73565b73ffffffffffffffffffffffffffffffffffffffff16611ceb611028565b73ffffffffffffffffffffffffffffffffffffffff1614611d4a57611d0e611d73565b6040517f118cdaa7000000000000000000000000000000000000000000000000000000008152600401611d419190613147565b60405180910390fd5b565b5f7f89639f446056f5d7661bbd94e8ab0617a80058ed7b072845818d4b93332e4800905090565b5f33905090565b5f80611d84611e81565b90505f611d918585612137565b90508015611dbf57611dbd84835f015f8881526020019081526020015f2061222f90919063ffffffff16565b505b809250505092915050565b5f805f80611dd8868661225c565b925092509250611de882826122b1565b82935050505092915050565b5f611dfd611028565b9050611e0882612413565b5f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614611e4957611e475f801b82611d7a565b505b611e555f801b83611c75565b505050565b5f7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300905090565b5f7fc1f6fe24621ce81ec5827caf0253cadb74709b061630e6b55e82371705932000905090565b5f611eb5835f0183612450565b5f1c905092915050565b60605f611ecd835f01612477565b905060608190508092505050919050565b5f80611ee86124d0565b90508091505090565b611ef96124f9565b611f0281612539565b611f0a61254d565b611f12612557565b611f1b81612561565b50565b5f611f2a825f016125a5565b9050919050565b5f7f237e158222e3e6968b72b9db0d8043aacf074ad9f650f0d1606b4d82ee432c00905090565b5f7f01ffc9a7000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916827bffffffffffffffffffffffffffffffffffffffffffffffffffffffff1916149050919050565b611fcb828261129e565b61200e5780826040517fe2517d3f0000000000000000000000000000000000000000000000000000000081526004016120059291906137a0565b60405180910390fd5b5050565b5f8061201c611c3a565b9050612028848461129e565b6120ff576001815f015f8681526020019081526020015f205f015f8573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020015f205f6101000a81548160ff02191690831515021790555061209b611d73565b73ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16857f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d60405160405180910390a46001915050612104565b5f9150505b92915050565b5f61212f835f018373ffffffffffffffffffffffffffffffffffffffff165f1b6125b4565b905092915050565b5f80612141611c3a565b905061214d848461129e565b15612224575f815f015f8681526020019081526020015f205f015f8573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020015f205f6101000a81548160ff0219169083151502179055506121c0611d73565b73ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16857ff6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b60405160405180910390a46001915050612229565b5f9150505b92915050565b5f612254835f018373ffffffffffffffffffffffffffffffffffffffff165f1b61261b565b905092915050565b5f805f604184510361229c575f805f602087015192506040870151915060608701515f1a905061228e88828585612717565b9550955095505050506122aa565b5f600285515f1b9250925092505b9250925092565b5f60038111156122c4576122c361349e565b5b8260038111156122d7576122d661349e565b5b031561240f57600160038111156122f1576122f061349e565b5b8260038111156123045761230361349e565b5b0361233b576040517ff645eedf00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6002600381111561234f5761234e61349e565b5b8260038111156123625761236161349e565b5b036123a657805f1c6040517ffce698f700000000000000000000000000000000000000000000000000000000815260040161239d9190612d59565b60405180910390fd5b6003808111156123b9576123b861349e565b5b8260038111156123cc576123cb61349e565b5b0361240e57806040517fd78bce0c0000000000000000000000000000000000000000000000000000000081526004016124059190612c84565b60405180910390fd5b5b5050565b5f61241c611f31565b9050805f015f6101000a81549073ffffffffffffffffffffffffffffffffffffffff021916905561244c826127fe565b5050565b5f825f01828154811061246657612465613471565b5b905f5260205f200154905092915050565b6060815f018054806020026020016040519081016040528092919081815260200182805480156124c457602002820191905f5260205f20905b8154815260200190600101908083116124b0575b50505050509050919050565b5f7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a005f1b905090565b6125016128cf565b612537576040517fd7e6bcf800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b565b6125416124f9565b61254a816128ed565b50565b6125556124f9565b565b61255f6124f9565b565b6125696124f9565b6125755f801b82611c75565b506125a27f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50415f801b612971565b50565b5f815f01805490509050919050565b5f6125bf83836129d7565b61261157825f0182908060018154018082558091505060019003905f5260205f20015f9091909190915055825f0180549050836001015f8481526020019081526020015f208190555060019050612615565b5f90505b92915050565b5f80836001015f8481526020019081526020015f205490505f811461270c575f60018261264891906137f4565b90505f6001865f018054905061265e91906137f4565b90508082146126c4575f865f01828154811061267d5761267c613471565b5b905f5260205f200154905080875f01848154811061269e5761269d613471565b5b905f5260205f20018190555083876001015f8381526020019081526020015f2081905550505b855f018054806126d7576126d6613827565b5b600190038181905f5260205f20015f90559055856001015f8681526020019081526020015f205f905560019350505050612711565b5f9150505b92915050565b5f805f7f7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0845f1c1115612753575f6003859250925092506127f4565b5f6001888888886040515f8152602001604052604051612776949392919061386f565b6020604051602081039080840390855afa158015612796573d5f803e3d5ffd5b5050506020604051035190505f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff16036127e7575f60015f801b935093509350506127f4565b805f805f1b935093509350505b9450945094915050565b5f612807611e5a565b90505f815f015f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905082825f015f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508273ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3505050565b5f6128d8611ede565b5f0160089054906101000a900460ff16905090565b6128f56124f9565b5f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1603612965575f6040517f1e4fbdf700000000000000000000000000000000000000000000000000000000815260040161295c9190613147565b60405180910390fd5b61296e81611df4565b50565b5f61297a611c3a565b90505f612986846107f5565b905082825f015f8681526020019081526020015f20600101819055508281857fbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff60405160405180910390a450505050565b5f80836001015f8481526020019081526020015f20541415905092915050565b5f604051905090565b5f80fd5b5f80fd5b5f7fffffffff0000000000000000000000000000000000000000000000000000000082169050919050565b612a3c81612a08565b8114612a46575f80fd5b50565b5f81359050612a5781612a33565b92915050565b5f60208284031215612a7257612a71612a00565b5b5f612a7f84828501612a49565b91505092915050565b5f8115159050919050565b612a9c81612a88565b82525050565b5f602082019050612ab55f830184612a93565b92915050565b5f81519050919050565b5f82825260208201905092915050565b5f819050602082019050919050565b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f612b0d82612ae4565b9050919050565b612b1d81612b03565b82525050565b5f612b2e8383612b14565b60208301905092915050565b5f602082019050919050565b5f612b5082612abb565b612b5a8185612ac5565b9350612b6583612ad5565b805f5b83811015612b95578151612b7c8882612b23565b9750612b8783612b3a565b925050600181019050612b68565b5085935050505092915050565b5f6020820190508181035f830152612bba8184612b46565b905092915050565b612bcb81612b03565b8114612bd5575f80fd5b50565b5f81359050612be681612bc2565b92915050565b5f60208284031215612c0157612c00612a00565b5b5f612c0e84828501612bd8565b91505092915050565b5f819050919050565b612c2981612c17565b8114612c33575f80fd5b50565b5f81359050612c4481612c20565b92915050565b5f60208284031215612c5f57612c5e612a00565b5b5f612c6c84828501612c36565b91505092915050565b612c7e81612c17565b82525050565b5f602082019050612c975f830184612c75565b92915050565b5f8060408385031215612cb357612cb2612a00565b5b5f612cc085828601612c36565b9250506020612cd185828601612bd8565b9150509250929050565b5f612ce582612b03565b9050919050565b612cf581612cdb565b8114612cff575f80fd5b50565b5f81359050612d1081612cec565b92915050565b5f60208284031215612d2b57612d2a612a00565b5b5f612d3884828501612d02565b91505092915050565b5f819050919050565b612d5381612d41565b82525050565b5f602082019050612d6c5f830184612d4a565b92915050565b5f80fd5b5f80fd5b5f601f19601f8301169050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b612dc082612d7a565b810181811067ffffffffffffffff82111715612ddf57612dde612d8a565b5b80604052505050565b5f612df16129f7565b9050612dfd8282612db7565b919050565b5f67ffffffffffffffff821115612e1c57612e1b612d8a565b5b612e2582612d7a565b9050602081019050919050565b828183375f83830152505050565b5f612e52612e4d84612e02565b612de8565b905082815260208101848484011115612e6e57612e6d612d76565b5b612e79848285612e32565b509392505050565b5f82601f830112612e9557612e94612d72565b5b8135612ea5848260208601612e40565b91505092915050565b60028110612eba575f80fd5b50565b5f81359050612ecb81612eae565b92915050565b60028110612edd575f80fd5b50565b5f81359050612eee81612ed1565b92915050565b5f805f8060808587031215612f0c57612f0b612a00565b5b5f85013567ffffffffffffffff811115612f2957612f28612a04565b5b612f3587828801612e81565b9450506020612f4687828801612c36565b9350506040612f5787828801612ebd565b9250506060612f6887828801612ee0565b91505092959194509250565b5f805f60608486031215612f8b57612f8a612a00565b5b5f612f9886828701612c36565b9350506020612fa986828701612ebd565b9250506040612fba86828701612ee0565b9150509250925092565b5f80fd5b5f80fd5b5f8083601f840112612fe157612fe0612d72565b5b8235905067ffffffffffffffff811115612ffe57612ffd612fc4565b5b60208301915083600182028301111561301a57613019612fc8565b5b9250929050565b5f805f805f806080878903121561303b5761303a612a00565b5b5f87013567ffffffffffffffff81111561305857613057612a04565b5b61306489828a01612fcc565b9650965050602087013567ffffffffffffffff81111561308757613086612a04565b5b61309389828a01612fcc565b945094505060406130a689828a01612ebd565b92505060606130b789828a01612ee0565b9150509295509295509295565b5f819050919050565b5f6130e76130e26130dd84612ae4565b6130c4565b612ae4565b9050919050565b5f6130f8826130cd565b9050919050565b5f613109826130ee565b9050919050565b613119816130ff565b82525050565b5f6020820190506131325f830184613110565b92915050565b61314181612b03565b82525050565b5f60208201905061315a5f830184613138565b92915050565b61316981612d41565b8114613173575f80fd5b50565b5f8135905061318481613160565b92915050565b5f80604083850312156131a05761319f612a00565b5b5f6131ad85828601612c36565b92505060206131be85828601613176565b9150509250929050565b6131d181612a88565b81146131db575f80fd5b50565b5f813590506131ec816131c8565b92915050565b5f805f806080858703121561320a57613209612a00565b5b5f61321787828801612c36565b9450506020613228878288016131de565b935050604061323987828801612ebd565b925050606061324a87828801612ee0565b91505092959194509250565b5f61326082612b03565b9050919050565b61327081613256565b811461327a575f80fd5b50565b5f8135905061328b81613267565b92915050565b5f602082840312156132a6576132a5612a00565b5b5f6132b38482850161327d565b91505092915050565b5f805f606084860312156132d3576132d2612a00565b5b5f6132e086828701612bd8565b93505060206132f18682870161327d565b925050604061330286828701612d02565b9150509250925092565b5f67ffffffffffffffff82111561332657613325612d8a565b5b602082029050602081019050919050565b5f6133496133448461330c565b612de8565b9050808382526020820190506020840283018581111561336c5761336b612fc8565b5b835b8181101561339557806133818882612c36565b84526020840193505060208101905061336e565b5050509392505050565b5f82601f8301126133b3576133b2612d72565b5b81356133c3848260208601613337565b91505092915050565b5f805f606084860312156133e3576133e2612a00565b5b5f84013567ffffffffffffffff811115613400576133ff612a04565b5b61340c8682870161339f565b935050602061341d86828701612ebd565b925050604061342e86828701612ee0565b9150509250925092565b5f613442826130ee565b9050919050565b61345281613438565b82525050565b5f60208201905061346b5f830184613449565b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603260045260245ffd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602160045260245ffd5b600281106134dc576134db61349e565b5b50565b5f8190506134ec826134cb565b919050565b5f6134fb826134df565b9050919050565b61350b816134f1565b82525050565b5f6040820190506135245f830185613138565b6135316020830184613502565b9392505050565b5f81519050613546816131c8565b92915050565b5f6020828403121561356157613560612a00565b5b5f61356e84828501613538565b91505092915050565b5f60408201905061358a5f830185612c75565b6135976020830184613502565b9392505050565b5f82825260208201905092915050565b5f6135b9838561359e565b93506135c6838584612e32565b6135cf83612d7a565b840190509392505050565b5f6060820190508181035f8301526135f38187896135ae565b905081810360208301526136088185876135ae565b90506136176040830184613502565b9695505050505050565b5f6060820190506136345f830186612c75565b6136416020830185612a93565b61364e6040830184613502565b949350505050565b5f819050919050565b5f67ffffffffffffffff82169050919050565b5f61368c61368761368284613656565b6130c4565b61365f565b9050919050565b61369c81613672565b82525050565b5f6020820190506136b55f830184613693565b92915050565b5f81519050919050565b5f82825260208201905092915050565b5f819050602082019050919050565b6136ed81612c17565b82525050565b5f6136fe83836136e4565b60208301905092915050565b5f602082019050919050565b5f613720826136bb565b61372a81856136c5565b9350613735836136d5565b805f5b8381101561376557815161374c88826136f3565b97506137578361370a565b925050600181019050613738565b5085935050505092915050565b5f6040820190508181035f83015261378a8185613716565b90506137996020830184613502565b9392505050565b5f6040820190506137b35f830185613138565b6137c06020830184612c75565b9392505050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f6137fe82612d41565b915061380983612d41565b9250828203905081811115613821576138206137c7565b5b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603160045260245ffd5b5f60ff82169050919050565b61386981613854565b82525050565b5f6080820190506138825f830187612c75565b61388f6020830186613860565b61389c6040830185612c75565b6138a96060830184612c75565b9594505050505056fea164736f6c6343000819000a",
 }
 
 // EspressoTEEVerifierABI is the input ABI used to generate the binding from.
@@ -44,7 +44,7 @@ var EspressoTEEVerifierABI = EspressoTEEVerifierMetaData.ABI
 var EspressoTEEVerifierBin = EspressoTEEVerifierMetaData.Bin
 
 // DeployEspressoTEEVerifier deploys a new Ethereum contract, binding an instance of EspressoTEEVerifier to it.
-func DeployEspressoTEEVerifier(auth *bind.TransactOpts, backend bind.ContractBackend, _espressoSGXTEEVerifier common.Address, _espressoNitroTEEVerifier common.Address) (common.Address, *types.Transaction, *EspressoTEEVerifier, error) {
+func DeployEspressoTEEVerifier(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *EspressoTEEVerifier, error) {
 	parsed, err := EspressoTEEVerifierMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -53,7 +53,7 @@ func DeployEspressoTEEVerifier(auth *bind.TransactOpts, backend bind.ContractBac
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(EspressoTEEVerifierBin), backend, _espressoSGXTEEVerifier, _espressoNitroTEEVerifier)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(EspressoTEEVerifierBin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -202,6 +202,68 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorRaw) Transact(opts *bin
 	return _EspressoTEEVerifier.Contract.contract.Transact(opts, method, params...)
 }
 
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) DEFAULTADMINROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "DEFAULT_ADMIN_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) DEFAULTADMINROLE() ([32]byte, error) {
+	return _EspressoTEEVerifier.Contract.DEFAULTADMINROLE(&_EspressoTEEVerifier.CallOpts)
+}
+
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) DEFAULTADMINROLE() ([32]byte, error) {
+	return _EspressoTEEVerifier.Contract.DEFAULTADMINROLE(&_EspressoTEEVerifier.CallOpts)
+}
+
+// GUARDIANROLE is a free data retrieval call binding the contract method 0x24ea54f4.
+//
+// Solidity: function GUARDIAN_ROLE() view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GUARDIANROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "GUARDIAN_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GUARDIANROLE is a free data retrieval call binding the contract method 0x24ea54f4.
+//
+// Solidity: function GUARDIAN_ROLE() view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GUARDIANROLE() ([32]byte, error) {
+	return _EspressoTEEVerifier.Contract.GUARDIANROLE(&_EspressoTEEVerifier.CallOpts)
+}
+
+// GUARDIANROLE is a free data retrieval call binding the contract method 0x24ea54f4.
+//
+// Solidity: function GUARDIAN_ROLE() view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GUARDIANROLE() ([32]byte, error) {
+	return _EspressoTEEVerifier.Contract.GUARDIANROLE(&_EspressoTEEVerifier.CallOpts)
+}
+
 // EspressoNitroTEEVerifier is a free data retrieval call binding the contract method 0xd80a4c28.
 //
 // Solidity: function espressoNitroTEEVerifier() view returns(address)
@@ -262,6 +324,254 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierSession) EspressoSGXTEEVerifier()
 // Solidity: function espressoSGXTEEVerifier() view returns(address)
 func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) EspressoSGXTEEVerifier() (common.Address, error) {
 	return _EspressoTEEVerifier.Contract.EspressoSGXTEEVerifier(&_EspressoTEEVerifier.CallOpts)
+}
+
+// GetGuardians is a free data retrieval call binding the contract method 0x0665f04b.
+//
+// Solidity: function getGuardians() view returns(address[])
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GetGuardians(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "getGuardians")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetGuardians is a free data retrieval call binding the contract method 0x0665f04b.
+//
+// Solidity: function getGuardians() view returns(address[])
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GetGuardians() ([]common.Address, error) {
+	return _EspressoTEEVerifier.Contract.GetGuardians(&_EspressoTEEVerifier.CallOpts)
+}
+
+// GetGuardians is a free data retrieval call binding the contract method 0x0665f04b.
+//
+// Solidity: function getGuardians() view returns(address[])
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GetGuardians() ([]common.Address, error) {
+	return _EspressoTEEVerifier.Contract.GetGuardians(&_EspressoTEEVerifier.CallOpts)
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GetRoleAdmin(opts *bind.CallOpts, role [32]byte) ([32]byte, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "getRoleAdmin", role)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GetRoleAdmin(role [32]byte) ([32]byte, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleAdmin(&_EspressoTEEVerifier.CallOpts, role)
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GetRoleAdmin(role [32]byte) ([32]byte, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleAdmin(&_EspressoTEEVerifier.CallOpts, role)
+}
+
+// GetRoleMember is a free data retrieval call binding the contract method 0x9010d07c.
+//
+// Solidity: function getRoleMember(bytes32 role, uint256 index) view returns(address)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GetRoleMember(opts *bind.CallOpts, role [32]byte, index *big.Int) (common.Address, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "getRoleMember", role, index)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetRoleMember is a free data retrieval call binding the contract method 0x9010d07c.
+//
+// Solidity: function getRoleMember(bytes32 role, uint256 index) view returns(address)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GetRoleMember(role [32]byte, index *big.Int) (common.Address, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleMember(&_EspressoTEEVerifier.CallOpts, role, index)
+}
+
+// GetRoleMember is a free data retrieval call binding the contract method 0x9010d07c.
+//
+// Solidity: function getRoleMember(bytes32 role, uint256 index) view returns(address)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GetRoleMember(role [32]byte, index *big.Int) (common.Address, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleMember(&_EspressoTEEVerifier.CallOpts, role, index)
+}
+
+// GetRoleMemberCount is a free data retrieval call binding the contract method 0xca15c873.
+//
+// Solidity: function getRoleMemberCount(bytes32 role) view returns(uint256)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GetRoleMemberCount(opts *bind.CallOpts, role [32]byte) (*big.Int, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "getRoleMemberCount", role)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetRoleMemberCount is a free data retrieval call binding the contract method 0xca15c873.
+//
+// Solidity: function getRoleMemberCount(bytes32 role) view returns(uint256)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GetRoleMemberCount(role [32]byte) (*big.Int, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleMemberCount(&_EspressoTEEVerifier.CallOpts, role)
+}
+
+// GetRoleMemberCount is a free data retrieval call binding the contract method 0xca15c873.
+//
+// Solidity: function getRoleMemberCount(bytes32 role) view returns(uint256)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GetRoleMemberCount(role [32]byte) (*big.Int, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleMemberCount(&_EspressoTEEVerifier.CallOpts, role)
+}
+
+// GetRoleMembers is a free data retrieval call binding the contract method 0xa3246ad3.
+//
+// Solidity: function getRoleMembers(bytes32 role) view returns(address[])
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GetRoleMembers(opts *bind.CallOpts, role [32]byte) ([]common.Address, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "getRoleMembers", role)
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetRoleMembers is a free data retrieval call binding the contract method 0xa3246ad3.
+//
+// Solidity: function getRoleMembers(bytes32 role) view returns(address[])
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GetRoleMembers(role [32]byte) ([]common.Address, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleMembers(&_EspressoTEEVerifier.CallOpts, role)
+}
+
+// GetRoleMembers is a free data retrieval call binding the contract method 0xa3246ad3.
+//
+// Solidity: function getRoleMembers(bytes32 role) view returns(address[])
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GetRoleMembers(role [32]byte) ([]common.Address, error) {
+	return _EspressoTEEVerifier.Contract.GetRoleMembers(&_EspressoTEEVerifier.CallOpts, role)
+}
+
+// GuardianCount is a free data retrieval call binding the contract method 0x54387ad7.
+//
+// Solidity: function guardianCount() view returns(uint256)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) GuardianCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "guardianCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GuardianCount is a free data retrieval call binding the contract method 0x54387ad7.
+//
+// Solidity: function guardianCount() view returns(uint256)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GuardianCount() (*big.Int, error) {
+	return _EspressoTEEVerifier.Contract.GuardianCount(&_EspressoTEEVerifier.CallOpts)
+}
+
+// GuardianCount is a free data retrieval call binding the contract method 0x54387ad7.
+//
+// Solidity: function guardianCount() view returns(uint256)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) GuardianCount() (*big.Int, error) {
+	return _EspressoTEEVerifier.Contract.GuardianCount(&_EspressoTEEVerifier.CallOpts)
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) HasRole(opts *bind.CallOpts, role [32]byte, account common.Address) (bool, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "hasRole", role, account)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) HasRole(role [32]byte, account common.Address) (bool, error) {
+	return _EspressoTEEVerifier.Contract.HasRole(&_EspressoTEEVerifier.CallOpts, role, account)
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) HasRole(role [32]byte, account common.Address) (bool, error) {
+	return _EspressoTEEVerifier.Contract.HasRole(&_EspressoTEEVerifier.CallOpts, role, account)
+}
+
+// IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
+//
+// Solidity: function isGuardian(address account) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) IsGuardian(opts *bind.CallOpts, account common.Address) (bool, error) {
+	var out []interface{}
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "isGuardian", account)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
+//
+// Solidity: function isGuardian(address account) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) IsGuardian(account common.Address) (bool, error) {
+	return _EspressoTEEVerifier.Contract.IsGuardian(&_EspressoTEEVerifier.CallOpts, account)
+}
+
+// IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
+//
+// Solidity: function isGuardian(address account) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) IsGuardian(account common.Address) (bool, error) {
+	return _EspressoTEEVerifier.Contract.IsGuardian(&_EspressoTEEVerifier.CallOpts, account)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -326,12 +636,12 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) PendingOwner() (co
 	return _EspressoTEEVerifier.Contract.PendingOwner(&_EspressoTEEVerifier.CallOpts)
 }
 
-// RegisteredEnclaveHashes is a free data retrieval call binding the contract method 0x3cbe6803.
+// RegisteredEnclaveHashes is a free data retrieval call binding the contract method 0x7e41f57c.
 //
-// Solidity: function registeredEnclaveHashes(bytes32 enclaveHash, uint8 teeType) view returns(bool)
-func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) RegisteredEnclaveHashes(opts *bind.CallOpts, enclaveHash [32]byte, teeType uint8) (bool, error) {
+// Solidity: function registeredEnclaveHashes(bytes32 enclaveHash, uint8 teeType, uint8 service) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) RegisteredEnclaveHashes(opts *bind.CallOpts, enclaveHash [32]byte, teeType uint8, service uint8) (bool, error) {
 	var out []interface{}
-	err := _EspressoTEEVerifier.contract.Call(opts, &out, "registeredEnclaveHashes", enclaveHash, teeType)
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "registeredEnclaveHashes", enclaveHash, teeType, service)
 
 	if err != nil {
 		return *new(bool), err
@@ -343,26 +653,26 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) RegisteredEnclaveHashes(o
 
 }
 
-// RegisteredEnclaveHashes is a free data retrieval call binding the contract method 0x3cbe6803.
+// RegisteredEnclaveHashes is a free data retrieval call binding the contract method 0x7e41f57c.
 //
-// Solidity: function registeredEnclaveHashes(bytes32 enclaveHash, uint8 teeType) view returns(bool)
-func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RegisteredEnclaveHashes(enclaveHash [32]byte, teeType uint8) (bool, error) {
-	return _EspressoTEEVerifier.Contract.RegisteredEnclaveHashes(&_EspressoTEEVerifier.CallOpts, enclaveHash, teeType)
+// Solidity: function registeredEnclaveHashes(bytes32 enclaveHash, uint8 teeType, uint8 service) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RegisteredEnclaveHashes(enclaveHash [32]byte, teeType uint8, service uint8) (bool, error) {
+	return _EspressoTEEVerifier.Contract.RegisteredEnclaveHashes(&_EspressoTEEVerifier.CallOpts, enclaveHash, teeType, service)
 }
 
-// RegisteredEnclaveHashes is a free data retrieval call binding the contract method 0x3cbe6803.
+// RegisteredEnclaveHashes is a free data retrieval call binding the contract method 0x7e41f57c.
 //
-// Solidity: function registeredEnclaveHashes(bytes32 enclaveHash, uint8 teeType) view returns(bool)
-func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) RegisteredEnclaveHashes(enclaveHash [32]byte, teeType uint8) (bool, error) {
-	return _EspressoTEEVerifier.Contract.RegisteredEnclaveHashes(&_EspressoTEEVerifier.CallOpts, enclaveHash, teeType)
+// Solidity: function registeredEnclaveHashes(bytes32 enclaveHash, uint8 teeType, uint8 service) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) RegisteredEnclaveHashes(enclaveHash [32]byte, teeType uint8, service uint8) (bool, error) {
+	return _EspressoTEEVerifier.Contract.RegisteredEnclaveHashes(&_EspressoTEEVerifier.CallOpts, enclaveHash, teeType, service)
 }
 
-// RegisteredSigners is a free data retrieval call binding the contract method 0xe9b1a7be.
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
 //
-// Solidity: function registeredSigners(address signer, uint8 teeType) view returns(bool)
-func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) RegisteredSigners(opts *bind.CallOpts, signer common.Address, teeType uint8) (bool, error) {
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
 	var out []interface{}
-	err := _EspressoTEEVerifier.contract.Call(opts, &out, "registeredSigners", signer, teeType)
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "supportsInterface", interfaceId)
 
 	if err != nil {
 		return *new(bool), err
@@ -374,47 +684,49 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) RegisteredSigners(opts *b
 
 }
 
-// RegisteredSigners is a free data retrieval call binding the contract method 0xe9b1a7be.
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
 //
-// Solidity: function registeredSigners(address signer, uint8 teeType) view returns(bool)
-func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RegisteredSigners(signer common.Address, teeType uint8) (bool, error) {
-	return _EspressoTEEVerifier.Contract.RegisteredSigners(&_EspressoTEEVerifier.CallOpts, signer, teeType)
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
+	return _EspressoTEEVerifier.Contract.SupportsInterface(&_EspressoTEEVerifier.CallOpts, interfaceId)
 }
 
-// RegisteredSigners is a free data retrieval call binding the contract method 0xe9b1a7be.
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
 //
-// Solidity: function registeredSigners(address signer, uint8 teeType) view returns(bool)
-func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) RegisteredSigners(signer common.Address, teeType uint8) (bool, error) {
-	return _EspressoTEEVerifier.Contract.RegisteredSigners(&_EspressoTEEVerifier.CallOpts, signer, teeType)
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
+	return _EspressoTEEVerifier.Contract.SupportsInterface(&_EspressoTEEVerifier.CallOpts, interfaceId)
 }
 
-// Verify is a free data retrieval call binding the contract method 0x6b406341.
+// Verify is a free data retrieval call binding the contract method 0x55ddfa06.
 //
-// Solidity: function verify(bytes signature, bytes32 userDataHash) view returns()
-func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) Verify(opts *bind.CallOpts, signature []byte, userDataHash [32]byte) error {
+// Solidity: function verify(bytes signature, bytes32 userDataHash, uint8 teeType, uint8 service) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCaller) Verify(opts *bind.CallOpts, signature []byte, userDataHash [32]byte, teeType uint8, service uint8) (bool, error) {
 	var out []interface{}
-	err := _EspressoTEEVerifier.contract.Call(opts, &out, "verify", signature, userDataHash)
+	err := _EspressoTEEVerifier.contract.Call(opts, &out, "verify", signature, userDataHash, teeType, service)
 
 	if err != nil {
-		return err
+		return *new(bool), err
 	}
 
-	return err
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
 
 }
 
-// Verify is a free data retrieval call binding the contract method 0x6b406341.
+// Verify is a free data retrieval call binding the contract method 0x55ddfa06.
 //
-// Solidity: function verify(bytes signature, bytes32 userDataHash) view returns()
-func (_EspressoTEEVerifier *EspressoTEEVerifierSession) Verify(signature []byte, userDataHash [32]byte) error {
-	return _EspressoTEEVerifier.Contract.Verify(&_EspressoTEEVerifier.CallOpts, signature, userDataHash)
+// Solidity: function verify(bytes signature, bytes32 userDataHash, uint8 teeType, uint8 service) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) Verify(signature []byte, userDataHash [32]byte, teeType uint8, service uint8) (bool, error) {
+	return _EspressoTEEVerifier.Contract.Verify(&_EspressoTEEVerifier.CallOpts, signature, userDataHash, teeType, service)
 }
 
-// Verify is a free data retrieval call binding the contract method 0x6b406341.
+// Verify is a free data retrieval call binding the contract method 0x55ddfa06.
 //
-// Solidity: function verify(bytes signature, bytes32 userDataHash) view returns()
-func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) Verify(signature []byte, userDataHash [32]byte) error {
-	return _EspressoTEEVerifier.Contract.Verify(&_EspressoTEEVerifier.CallOpts, signature, userDataHash)
+// Solidity: function verify(bytes signature, bytes32 userDataHash, uint8 teeType, uint8 service) view returns(bool)
+func (_EspressoTEEVerifier *EspressoTEEVerifierCallerSession) Verify(signature []byte, userDataHash [32]byte, teeType uint8, service uint8) (bool, error) {
+	return _EspressoTEEVerifier.Contract.Verify(&_EspressoTEEVerifier.CallOpts, signature, userDataHash, teeType, service)
 }
 
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
@@ -438,25 +750,130 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) AcceptOwnershi
 	return _EspressoTEEVerifier.Contract.AcceptOwnership(&_EspressoTEEVerifier.TransactOpts)
 }
 
-// RegisterSigner is a paid mutator transaction binding the contract method 0x35ecb4c1.
+// AddGuardian is a paid mutator transaction binding the contract method 0xa526d83b.
 //
-// Solidity: function registerSigner(bytes attestation, bytes data, uint8 teeType) returns()
-func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) RegisterSigner(opts *bind.TransactOpts, attestation []byte, data []byte, teeType uint8) (*types.Transaction, error) {
-	return _EspressoTEEVerifier.contract.Transact(opts, "registerSigner", attestation, data, teeType)
+// Solidity: function addGuardian(address guardian) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) AddGuardian(opts *bind.TransactOpts, guardian common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "addGuardian", guardian)
 }
 
-// RegisterSigner is a paid mutator transaction binding the contract method 0x35ecb4c1.
+// AddGuardian is a paid mutator transaction binding the contract method 0xa526d83b.
 //
-// Solidity: function registerSigner(bytes attestation, bytes data, uint8 teeType) returns()
-func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RegisterSigner(attestation []byte, data []byte, teeType uint8) (*types.Transaction, error) {
-	return _EspressoTEEVerifier.Contract.RegisterSigner(&_EspressoTEEVerifier.TransactOpts, attestation, data, teeType)
+// Solidity: function addGuardian(address guardian) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) AddGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.AddGuardian(&_EspressoTEEVerifier.TransactOpts, guardian)
 }
 
-// RegisterSigner is a paid mutator transaction binding the contract method 0x35ecb4c1.
+// AddGuardian is a paid mutator transaction binding the contract method 0xa526d83b.
 //
-// Solidity: function registerSigner(bytes attestation, bytes data, uint8 teeType) returns()
-func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) RegisterSigner(attestation []byte, data []byte, teeType uint8) (*types.Transaction, error) {
-	return _EspressoTEEVerifier.Contract.RegisterSigner(&_EspressoTEEVerifier.TransactOpts, attestation, data, teeType)
+// Solidity: function addGuardian(address guardian) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) AddGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.AddGuardian(&_EspressoTEEVerifier.TransactOpts, guardian)
+}
+
+// DeleteEnclaveHashes is a paid mutator transaction binding the contract method 0xd522f60a.
+//
+// Solidity: function deleteEnclaveHashes(bytes32[] enclaveHashes, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) DeleteEnclaveHashes(opts *bind.TransactOpts, enclaveHashes [][32]byte, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "deleteEnclaveHashes", enclaveHashes, teeType, service)
+}
+
+// DeleteEnclaveHashes is a paid mutator transaction binding the contract method 0xd522f60a.
+//
+// Solidity: function deleteEnclaveHashes(bytes32[] enclaveHashes, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) DeleteEnclaveHashes(enclaveHashes [][32]byte, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.DeleteEnclaveHashes(&_EspressoTEEVerifier.TransactOpts, enclaveHashes, teeType, service)
+}
+
+// DeleteEnclaveHashes is a paid mutator transaction binding the contract method 0xd522f60a.
+//
+// Solidity: function deleteEnclaveHashes(bytes32[] enclaveHashes, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) DeleteEnclaveHashes(enclaveHashes [][32]byte, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.DeleteEnclaveHashes(&_EspressoTEEVerifier.TransactOpts, enclaveHashes, teeType, service)
+}
+
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) GrantRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "grantRole", role, account)
+}
+
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) GrantRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.GrantRole(&_EspressoTEEVerifier.TransactOpts, role, account)
+}
+
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) GrantRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.GrantRole(&_EspressoTEEVerifier.TransactOpts, role, account)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xc0c53b8b.
+//
+// Solidity: function initialize(address _owner, address _espressoSGXTEEVerifier, address _espressoNitroTEEVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) Initialize(opts *bind.TransactOpts, _owner common.Address, _espressoSGXTEEVerifier common.Address, _espressoNitroTEEVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "initialize", _owner, _espressoSGXTEEVerifier, _espressoNitroTEEVerifier)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xc0c53b8b.
+//
+// Solidity: function initialize(address _owner, address _espressoSGXTEEVerifier, address _espressoNitroTEEVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) Initialize(_owner common.Address, _espressoSGXTEEVerifier common.Address, _espressoNitroTEEVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.Initialize(&_EspressoTEEVerifier.TransactOpts, _owner, _espressoSGXTEEVerifier, _espressoNitroTEEVerifier)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xc0c53b8b.
+//
+// Solidity: function initialize(address _owner, address _espressoSGXTEEVerifier, address _espressoNitroTEEVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) Initialize(_owner common.Address, _espressoSGXTEEVerifier common.Address, _espressoNitroTEEVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.Initialize(&_EspressoTEEVerifier.TransactOpts, _owner, _espressoSGXTEEVerifier, _espressoNitroTEEVerifier)
+}
+
+// RegisterService is a paid mutator transaction binding the contract method 0x7f82ea6c.
+//
+// Solidity: function registerService(bytes verificationData, bytes data, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) RegisterService(opts *bind.TransactOpts, verificationData []byte, data []byte, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "registerService", verificationData, data, teeType, service)
+}
+
+// RegisterService is a paid mutator transaction binding the contract method 0x7f82ea6c.
+//
+// Solidity: function registerService(bytes verificationData, bytes data, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RegisterService(verificationData []byte, data []byte, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RegisterService(&_EspressoTEEVerifier.TransactOpts, verificationData, data, teeType, service)
+}
+
+// RegisterService is a paid mutator transaction binding the contract method 0x7f82ea6c.
+//
+// Solidity: function registerService(bytes verificationData, bytes data, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) RegisterService(verificationData []byte, data []byte, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RegisterService(&_EspressoTEEVerifier.TransactOpts, verificationData, data, teeType, service)
+}
+
+// RemoveGuardian is a paid mutator transaction binding the contract method 0x71404156.
+//
+// Solidity: function removeGuardian(address guardian) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) RemoveGuardian(opts *bind.TransactOpts, guardian common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "removeGuardian", guardian)
+}
+
+// RemoveGuardian is a paid mutator transaction binding the contract method 0x71404156.
+//
+// Solidity: function removeGuardian(address guardian) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RemoveGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RemoveGuardian(&_EspressoTEEVerifier.TransactOpts, guardian)
+}
+
+// RemoveGuardian is a paid mutator transaction binding the contract method 0x71404156.
+//
+// Solidity: function removeGuardian(address guardian) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) RemoveGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RemoveGuardian(&_EspressoTEEVerifier.TransactOpts, guardian)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -478,6 +895,69 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RenounceOwnership() (*ty
 // Solidity: function renounceOwnership() returns()
 func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) RenounceOwnership() (*types.Transaction, error) {
 	return _EspressoTEEVerifier.Contract.RenounceOwnership(&_EspressoTEEVerifier.TransactOpts)
+}
+
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) RenounceRole(opts *bind.TransactOpts, role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "renounceRole", role, callerConfirmation)
+}
+
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RenounceRole(role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RenounceRole(&_EspressoTEEVerifier.TransactOpts, role, callerConfirmation)
+}
+
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) RenounceRole(role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RenounceRole(&_EspressoTEEVerifier.TransactOpts, role, callerConfirmation)
+}
+
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) RevokeRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "revokeRole", role, account)
+}
+
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) RevokeRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RevokeRole(&_EspressoTEEVerifier.TransactOpts, role, account)
+}
+
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) RevokeRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.RevokeRole(&_EspressoTEEVerifier.TransactOpts, role, account)
+}
+
+// SetEnclaveHash is a paid mutator transaction binding the contract method 0x9143e764.
+//
+// Solidity: function setEnclaveHash(bytes32 enclaveHash, bool valid, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) SetEnclaveHash(opts *bind.TransactOpts, enclaveHash [32]byte, valid bool, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "setEnclaveHash", enclaveHash, valid, teeType, service)
+}
+
+// SetEnclaveHash is a paid mutator transaction binding the contract method 0x9143e764.
+//
+// Solidity: function setEnclaveHash(bytes32 enclaveHash, bool valid, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) SetEnclaveHash(enclaveHash [32]byte, valid bool, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.SetEnclaveHash(&_EspressoTEEVerifier.TransactOpts, enclaveHash, valid, teeType, service)
+}
+
+// SetEnclaveHash is a paid mutator transaction binding the contract method 0x9143e764.
+//
+// Solidity: function setEnclaveHash(bytes32 enclaveHash, bool valid, uint8 teeType, uint8 service) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) SetEnclaveHash(enclaveHash [32]byte, valid bool, teeType uint8, service uint8) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.SetEnclaveHash(&_EspressoTEEVerifier.TransactOpts, enclaveHash, valid, teeType, service)
 }
 
 // SetEspressoNitroTEEVerifier is a paid mutator transaction binding the contract method 0x330282f5.
@@ -522,6 +1002,48 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) SetEspressoSGX
 	return _EspressoTEEVerifier.Contract.SetEspressoSGXTEEVerifier(&_EspressoTEEVerifier.TransactOpts, _espressoSGXTEEVerifier)
 }
 
+// SetNitroEnclaveVerifier is a paid mutator transaction binding the contract method 0xa628a19e.
+//
+// Solidity: function setNitroEnclaveVerifier(address nitroVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) SetNitroEnclaveVerifier(opts *bind.TransactOpts, nitroVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "setNitroEnclaveVerifier", nitroVerifier)
+}
+
+// SetNitroEnclaveVerifier is a paid mutator transaction binding the contract method 0xa628a19e.
+//
+// Solidity: function setNitroEnclaveVerifier(address nitroVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) SetNitroEnclaveVerifier(nitroVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.SetNitroEnclaveVerifier(&_EspressoTEEVerifier.TransactOpts, nitroVerifier)
+}
+
+// SetNitroEnclaveVerifier is a paid mutator transaction binding the contract method 0xa628a19e.
+//
+// Solidity: function setNitroEnclaveVerifier(address nitroVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) SetNitroEnclaveVerifier(nitroVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.SetNitroEnclaveVerifier(&_EspressoTEEVerifier.TransactOpts, nitroVerifier)
+}
+
+// SetQuoteVerifier is a paid mutator transaction binding the contract method 0xce3fe7ee.
+//
+// Solidity: function setQuoteVerifier(address quoteVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactor) SetQuoteVerifier(opts *bind.TransactOpts, quoteVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.contract.Transact(opts, "setQuoteVerifier", quoteVerifier)
+}
+
+// SetQuoteVerifier is a paid mutator transaction binding the contract method 0xce3fe7ee.
+//
+// Solidity: function setQuoteVerifier(address quoteVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierSession) SetQuoteVerifier(quoteVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.SetQuoteVerifier(&_EspressoTEEVerifier.TransactOpts, quoteVerifier)
+}
+
+// SetQuoteVerifier is a paid mutator transaction binding the contract method 0xce3fe7ee.
+//
+// Solidity: function setQuoteVerifier(address quoteVerifier) returns()
+func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) SetQuoteVerifier(quoteVerifier common.Address) (*types.Transaction, error) {
+	return _EspressoTEEVerifier.Contract.SetQuoteVerifier(&_EspressoTEEVerifier.TransactOpts, quoteVerifier)
+}
+
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
@@ -541,6 +1063,428 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierSession) TransferOwnership(newOwn
 // Solidity: function transferOwnership(address newOwner) returns()
 func (_EspressoTEEVerifier *EspressoTEEVerifierTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
 	return _EspressoTEEVerifier.Contract.TransferOwnership(&_EspressoTEEVerifier.TransactOpts, newOwner)
+}
+
+// EspressoTEEVerifierGuardianAddedIterator is returned from FilterGuardianAdded and is used to iterate over the raw logs and unpacked data for GuardianAdded events raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierGuardianAddedIterator struct {
+	Event *EspressoTEEVerifierGuardianAdded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *EspressoTEEVerifierGuardianAddedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(EspressoTEEVerifierGuardianAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(EspressoTEEVerifierGuardianAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *EspressoTEEVerifierGuardianAddedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *EspressoTEEVerifierGuardianAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// EspressoTEEVerifierGuardianAdded represents a GuardianAdded event raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierGuardianAdded struct {
+	Guardian common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterGuardianAdded is a free log retrieval operation binding the contract event 0x038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969.
+//
+// Solidity: event GuardianAdded(address indexed guardian)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) FilterGuardianAdded(opts *bind.FilterOpts, guardian []common.Address) (*EspressoTEEVerifierGuardianAddedIterator, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.FilterLogs(opts, "GuardianAdded", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return &EspressoTEEVerifierGuardianAddedIterator{contract: _EspressoTEEVerifier.contract, event: "GuardianAdded", logs: logs, sub: sub}, nil
+}
+
+// WatchGuardianAdded is a free log subscription operation binding the contract event 0x038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969.
+//
+// Solidity: event GuardianAdded(address indexed guardian)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchGuardianAdded(opts *bind.WatchOpts, sink chan<- *EspressoTEEVerifierGuardianAdded, guardian []common.Address) (event.Subscription, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.WatchLogs(opts, "GuardianAdded", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(EspressoTEEVerifierGuardianAdded)
+				if err := _EspressoTEEVerifier.contract.UnpackLog(event, "GuardianAdded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseGuardianAdded is a log parse operation binding the contract event 0x038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969.
+//
+// Solidity: event GuardianAdded(address indexed guardian)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseGuardianAdded(log types.Log) (*EspressoTEEVerifierGuardianAdded, error) {
+	event := new(EspressoTEEVerifierGuardianAdded)
+	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "GuardianAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// EspressoTEEVerifierGuardianRemovedIterator is returned from FilterGuardianRemoved and is used to iterate over the raw logs and unpacked data for GuardianRemoved events raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierGuardianRemovedIterator struct {
+	Event *EspressoTEEVerifierGuardianRemoved // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *EspressoTEEVerifierGuardianRemovedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(EspressoTEEVerifierGuardianRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(EspressoTEEVerifierGuardianRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *EspressoTEEVerifierGuardianRemovedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *EspressoTEEVerifierGuardianRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// EspressoTEEVerifierGuardianRemoved represents a GuardianRemoved event raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierGuardianRemoved struct {
+	Guardian common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterGuardianRemoved is a free log retrieval operation binding the contract event 0xb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52.
+//
+// Solidity: event GuardianRemoved(address indexed guardian)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) FilterGuardianRemoved(opts *bind.FilterOpts, guardian []common.Address) (*EspressoTEEVerifierGuardianRemovedIterator, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.FilterLogs(opts, "GuardianRemoved", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return &EspressoTEEVerifierGuardianRemovedIterator{contract: _EspressoTEEVerifier.contract, event: "GuardianRemoved", logs: logs, sub: sub}, nil
+}
+
+// WatchGuardianRemoved is a free log subscription operation binding the contract event 0xb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52.
+//
+// Solidity: event GuardianRemoved(address indexed guardian)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchGuardianRemoved(opts *bind.WatchOpts, sink chan<- *EspressoTEEVerifierGuardianRemoved, guardian []common.Address) (event.Subscription, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.WatchLogs(opts, "GuardianRemoved", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(EspressoTEEVerifierGuardianRemoved)
+				if err := _EspressoTEEVerifier.contract.UnpackLog(event, "GuardianRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseGuardianRemoved is a log parse operation binding the contract event 0xb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52.
+//
+// Solidity: event GuardianRemoved(address indexed guardian)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseGuardianRemoved(log types.Log) (*EspressoTEEVerifierGuardianRemoved, error) {
+	event := new(EspressoTEEVerifierGuardianRemoved)
+	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "GuardianRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// EspressoTEEVerifierInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierInitializedIterator struct {
+	Event *EspressoTEEVerifierInitialized // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *EspressoTEEVerifierInitializedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(EspressoTEEVerifierInitialized)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(EspressoTEEVerifierInitialized)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *EspressoTEEVerifierInitializedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *EspressoTEEVerifierInitializedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// EspressoTEEVerifierInitialized represents a Initialized event raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierInitialized struct {
+	Version uint64
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterInitialized is a free log retrieval operation binding the contract event 0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2.
+//
+// Solidity: event Initialized(uint64 version)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) FilterInitialized(opts *bind.FilterOpts) (*EspressoTEEVerifierInitializedIterator, error) {
+
+	logs, sub, err := _EspressoTEEVerifier.contract.FilterLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return &EspressoTEEVerifierInitializedIterator{contract: _EspressoTEEVerifier.contract, event: "Initialized", logs: logs, sub: sub}, nil
+}
+
+// WatchInitialized is a free log subscription operation binding the contract event 0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2.
+//
+// Solidity: event Initialized(uint64 version)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *EspressoTEEVerifierInitialized) (event.Subscription, error) {
+
+	logs, sub, err := _EspressoTEEVerifier.contract.WatchLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(EspressoTEEVerifierInitialized)
+				if err := _EspressoTEEVerifier.contract.UnpackLog(event, "Initialized", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseInitialized is a log parse operation binding the contract event 0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2.
+//
+// Solidity: event Initialized(uint64 version)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseInitialized(log types.Log) (*EspressoTEEVerifierInitialized, error) {
+	event := new(EspressoTEEVerifierInitialized)
+	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // EspressoTEEVerifierOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the EspressoTEEVerifier contract.
@@ -843,6 +1787,492 @@ func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchOwnershipTransferr
 func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseOwnershipTransferred(log types.Log) (*EspressoTEEVerifierOwnershipTransferred, error) {
 	event := new(EspressoTEEVerifierOwnershipTransferred)
 	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// EspressoTEEVerifierRoleAdminChangedIterator is returned from FilterRoleAdminChanged and is used to iterate over the raw logs and unpacked data for RoleAdminChanged events raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierRoleAdminChangedIterator struct {
+	Event *EspressoTEEVerifierRoleAdminChanged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *EspressoTEEVerifierRoleAdminChangedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(EspressoTEEVerifierRoleAdminChanged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(EspressoTEEVerifierRoleAdminChanged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *EspressoTEEVerifierRoleAdminChangedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *EspressoTEEVerifierRoleAdminChangedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// EspressoTEEVerifierRoleAdminChanged represents a RoleAdminChanged event raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierRoleAdminChanged struct {
+	Role              [32]byte
+	PreviousAdminRole [32]byte
+	NewAdminRole      [32]byte
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleAdminChanged is a free log retrieval operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) FilterRoleAdminChanged(opts *bind.FilterOpts, role [][32]byte, previousAdminRole [][32]byte, newAdminRole [][32]byte) (*EspressoTEEVerifierRoleAdminChangedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var previousAdminRoleRule []interface{}
+	for _, previousAdminRoleItem := range previousAdminRole {
+		previousAdminRoleRule = append(previousAdminRoleRule, previousAdminRoleItem)
+	}
+	var newAdminRoleRule []interface{}
+	for _, newAdminRoleItem := range newAdminRole {
+		newAdminRoleRule = append(newAdminRoleRule, newAdminRoleItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.FilterLogs(opts, "RoleAdminChanged", roleRule, previousAdminRoleRule, newAdminRoleRule)
+	if err != nil {
+		return nil, err
+	}
+	return &EspressoTEEVerifierRoleAdminChangedIterator{contract: _EspressoTEEVerifier.contract, event: "RoleAdminChanged", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleAdminChanged is a free log subscription operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchRoleAdminChanged(opts *bind.WatchOpts, sink chan<- *EspressoTEEVerifierRoleAdminChanged, role [][32]byte, previousAdminRole [][32]byte, newAdminRole [][32]byte) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var previousAdminRoleRule []interface{}
+	for _, previousAdminRoleItem := range previousAdminRole {
+		previousAdminRoleRule = append(previousAdminRoleRule, previousAdminRoleItem)
+	}
+	var newAdminRoleRule []interface{}
+	for _, newAdminRoleItem := range newAdminRole {
+		newAdminRoleRule = append(newAdminRoleRule, newAdminRoleItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.WatchLogs(opts, "RoleAdminChanged", roleRule, previousAdminRoleRule, newAdminRoleRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(EspressoTEEVerifierRoleAdminChanged)
+				if err := _EspressoTEEVerifier.contract.UnpackLog(event, "RoleAdminChanged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleAdminChanged is a log parse operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseRoleAdminChanged(log types.Log) (*EspressoTEEVerifierRoleAdminChanged, error) {
+	event := new(EspressoTEEVerifierRoleAdminChanged)
+	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "RoleAdminChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// EspressoTEEVerifierRoleGrantedIterator is returned from FilterRoleGranted and is used to iterate over the raw logs and unpacked data for RoleGranted events raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierRoleGrantedIterator struct {
+	Event *EspressoTEEVerifierRoleGranted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *EspressoTEEVerifierRoleGrantedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(EspressoTEEVerifierRoleGranted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(EspressoTEEVerifierRoleGranted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *EspressoTEEVerifierRoleGrantedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *EspressoTEEVerifierRoleGrantedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// EspressoTEEVerifierRoleGranted represents a RoleGranted event raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierRoleGranted struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleGranted is a free log retrieval operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) FilterRoleGranted(opts *bind.FilterOpts, role [][32]byte, account []common.Address, sender []common.Address) (*EspressoTEEVerifierRoleGrantedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.FilterLogs(opts, "RoleGranted", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &EspressoTEEVerifierRoleGrantedIterator{contract: _EspressoTEEVerifier.contract, event: "RoleGranted", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleGranted is a free log subscription operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchRoleGranted(opts *bind.WatchOpts, sink chan<- *EspressoTEEVerifierRoleGranted, role [][32]byte, account []common.Address, sender []common.Address) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.WatchLogs(opts, "RoleGranted", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(EspressoTEEVerifierRoleGranted)
+				if err := _EspressoTEEVerifier.contract.UnpackLog(event, "RoleGranted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleGranted is a log parse operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseRoleGranted(log types.Log) (*EspressoTEEVerifierRoleGranted, error) {
+	event := new(EspressoTEEVerifierRoleGranted)
+	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "RoleGranted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// EspressoTEEVerifierRoleRevokedIterator is returned from FilterRoleRevoked and is used to iterate over the raw logs and unpacked data for RoleRevoked events raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierRoleRevokedIterator struct {
+	Event *EspressoTEEVerifierRoleRevoked // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *EspressoTEEVerifierRoleRevokedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(EspressoTEEVerifierRoleRevoked)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(EspressoTEEVerifierRoleRevoked)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *EspressoTEEVerifierRoleRevokedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *EspressoTEEVerifierRoleRevokedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// EspressoTEEVerifierRoleRevoked represents a RoleRevoked event raised by the EspressoTEEVerifier contract.
+type EspressoTEEVerifierRoleRevoked struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleRevoked is a free log retrieval operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) FilterRoleRevoked(opts *bind.FilterOpts, role [][32]byte, account []common.Address, sender []common.Address) (*EspressoTEEVerifierRoleRevokedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.FilterLogs(opts, "RoleRevoked", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &EspressoTEEVerifierRoleRevokedIterator{contract: _EspressoTEEVerifier.contract, event: "RoleRevoked", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleRevoked is a free log subscription operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) WatchRoleRevoked(opts *bind.WatchOpts, sink chan<- *EspressoTEEVerifierRoleRevoked, role [][32]byte, account []common.Address, sender []common.Address) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _EspressoTEEVerifier.contract.WatchLogs(opts, "RoleRevoked", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(EspressoTEEVerifierRoleRevoked)
+				if err := _EspressoTEEVerifier.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleRevoked is a log parse operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_EspressoTEEVerifier *EspressoTEEVerifierFilterer) ParseRoleRevoked(log types.Log) (*EspressoTEEVerifierRoleRevoked, error) {
+	event := new(EspressoTEEVerifierRoleRevoked)
+	if err := _EspressoTEEVerifier.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
