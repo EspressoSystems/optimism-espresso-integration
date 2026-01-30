@@ -181,13 +181,21 @@ contract DeployEspresso is Script {
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
 
-        // Initialize the proxy.
-        bytes memory initData =
-            abi.encodeCall(BatchAuthenticator.initialize, (teeVerifier, input.teeBatcher(), input.nonTeeBatcher()));
+        // Determine the desired BatchAuthenticator owner
+        address batchAuthenticatorOwner = input.proxyAdminOwner();
+        if (batchAuthenticatorOwner == address(0)) {
+            batchAuthenticatorOwner = msg.sender;
+        }
+
+        // Initialize the proxy with explicit owner parameter
+        bytes memory initData = abi.encodeCall(
+            BatchAuthenticator.initialize,
+            (teeVerifier, input.teeBatcher(), input.nonTeeBatcher(), batchAuthenticatorOwner)
+        );
         vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
 
-        // Transfer ownership to the desired proxyAdminOwner if different from msg.sender.
+        // Transfer ProxyAdmin ownership to the desired proxyAdminOwner if different from msg.sender.
         address proxyAdminOwner = input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) {
             proxyAdminOwner = msg.sender;

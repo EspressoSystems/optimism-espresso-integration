@@ -49,7 +49,8 @@ contract BatchAuthenticator_Test is Test {
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
         );
         vm.prank(proxyAdminOwner);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
@@ -64,7 +65,8 @@ contract BatchAuthenticator_Test is Test {
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
         );
 
         // First initialization succeeds.
@@ -84,7 +86,8 @@ contract BatchAuthenticator_Test is Test {
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), address(0), nonTeeBatcher)
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(teeVerifier)), address(0), nonTeeBatcher, proxyAdminOwner)
         );
 
         vm.prank(proxyAdminOwner);
@@ -99,7 +102,8 @@ contract BatchAuthenticator_Test is Test {
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, address(0))
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, address(0), proxyAdminOwner)
         );
 
         vm.prank(proxyAdminOwner);
@@ -113,8 +117,10 @@ contract BatchAuthenticator_Test is Test {
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
-        bytes memory initData =
-            abi.encodeCall(BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(0)), teeBatcher, nonTeeBatcher));
+        bytes memory initData = abi.encodeCall(
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(0)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
+        );
 
         vm.prank(proxyAdminOwner);
         vm.expectRevert("Proxy: delegatecall to new implementation contract failed");
@@ -397,7 +403,8 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         // Initialize the proxy.
         bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize, (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher)
+            BatchAuthenticator.initialize,
+            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
         );
         vm.prank(proxyAdminOwner);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);

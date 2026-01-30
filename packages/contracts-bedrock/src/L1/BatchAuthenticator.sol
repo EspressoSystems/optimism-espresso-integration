@@ -51,7 +51,8 @@ contract BatchAuthenticator is
     function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
-        address _nonTeeBatcher
+        address _nonTeeBatcher,
+        address _owner
     )
         external
         reinitializer(initVersion())
@@ -59,8 +60,8 @@ contract BatchAuthenticator is
         // Initialization transactions must come from the ProxyAdmin or its owner.
         _assertOnlyProxyAdminOrProxyAdminOwner();
 
-        // Initialize OwnableWithGuardians with the ProxyAdmin owner as the initial owner
-        __OwnableWithGuardians_init(proxyAdminOwner());
+        // Initialize OwnableWithGuardians with the provided owner address
+        __OwnableWithGuardians_init(_owner);
 
         if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
         if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
