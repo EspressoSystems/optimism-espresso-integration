@@ -56,7 +56,7 @@ build *ARGS: lint-fix-no-fail
 
 # Builds the contracts (developer mode).
 build-dev *ARGS: lint-fix-no-fail
-  just forge-build-dev {{ARGS}}
+  just forge-build-dev {{ARGS}} && just fix-proxy-artifact
 
 # Builds the go-ffi tool for contract tests.
 build-go-ffi:
