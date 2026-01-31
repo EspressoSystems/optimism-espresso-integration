@@ -39,19 +39,11 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		nitroEnclaveVerifierAddress = common.Address{}
 	}
 
-	// get enclave hash from environment variable, fallback to zeroed hash
-	var enclaveHash [32]byte
-	if envVar := os.Getenv("ENCLAVE_HASH"); envVar != "" {
-		copy(enclaveHash[:], common.FromHex(envVar))
-		lgr.Info("Using enclave hash from ENCLAVE_HASH env var", "hash", common.Bytes2Hex(enclaveHash[:]))
-	} else {
-		lgr.Info("ENCLAVE_HASH env var not set, using zeroed hash")
-	}
-
 	var nvo opcm.DeployAWSNitroVerifierOutput
 	nvo, err = opcm.DeployAWSNitroVerifier(env.L1ScriptHost, opcm.DeployAWSNitroVerifierInput{
-		EnclaveHash:          enclaveHash,
 		NitroEnclaveVerifier: nitroEnclaveVerifierAddress,
+		TeeVerifierAddress:   common.Address{}, // Will be set after TEEVerifier deployment if needed
+		ProxyAdminOwner:      env.Deployer,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to deploy nitro verifier contracts: %w", err)
@@ -69,10 +61,12 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
-		Salt:             st.Create2Salt,
-		NitroTEEVerifier: nvo.NitroTEEVerifierAddress,
-		NonTeeBatcher:    chainIntent.NonTeeBatcher,
-		TeeBatcher:       chainIntent.TeeBatcher,
+		Salt:               st.Create2Salt,
+		NitroTEEVerifier:   nvo.NitroTEEVerifierProxy,
+		NonTeeBatcher:      chainIntent.NonTeeBatcher,
+		TeeBatcher:         chainIntent.TeeBatcher,
+		ProxyAdminOwner:    batchAuthenticatorOwnwerAddress,
+		UseMockTEEVerifier: nitroEnclaveVerifierAddress == common.Address{},
 	}, batchAuthenticatorOwnwerAddress)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)
