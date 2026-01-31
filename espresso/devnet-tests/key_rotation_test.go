@@ -67,10 +67,10 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	proxyAdmin, err := e2ebindings.NewProxyAdmin(proxyAdminAddress, d.L1)
 	require.NoError(t, err)
 
-	// Verify current owner matches
+	// Verify current owner matches initially (they're set to the same address during deployment)
 	proxyAdminOwner, err := proxyAdmin.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, currentOwner, proxyAdminOwner, "BatchAuthenticator owner should match ProxyAdmin owner")
+	require.Equal(t, currentOwner, proxyAdminOwner, "BatchAuthenticator owner should initially match ProxyAdmin owner")
 
 	// Use batch authenticator owner key to sign the transaction
 	batchAuthenticatorPrivateKeyHex := os.Getenv("BATCH_AUTHENTICATOR_OWNER_PRIVATE_KEY")
@@ -83,18 +83,40 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	batchAuthenticatorOwnerOpts, err := bind.NewKeyedTransactorWithChainID(batchAuthenticatorKey, l1ChainID)
 	require.NoError(t, err)
 
-	// Call TransferOwnership on the ProxyAdmin directly
+	// Transfer ownership of both ProxyAdmin and BatchAuthenticator
+	// Note: BatchAuthenticator and ProxyAdmin have independent ownership since the migration
+	// to OwnableWithGuardiansUpgradeable, so we need to transfer both.
+
+	// 1. Transfer ProxyAdmin ownership
 	tx, err := proxyAdmin.TransferOwnership(batchAuthenticatorOwnerOpts, bobAddress)
 	require.NoError(t, err)
-
-	// Wait for transaction receipt and check if it succeeded
 	_, err = wait.ForReceiptOK(ctx, d.L1, tx.Hash())
 	require.NoError(t, err)
 
-	// Ensure the owner has been changed
+	// 2. Transfer BatchAuthenticator ownership (2-step process with Ownable2StepUpgradeable)
+	// Step 2a: Current owner initiates transfer
+	tx, err = batchAuthenticator.TransferOwnership(batchAuthenticatorOwnerOpts, bobAddress)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, d.L1, tx.Hash())
+	require.NoError(t, err)
+
+	// Step 2b: New owner (Bob) accepts ownership
+	bobOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Bob, l1ChainID)
+	require.NoError(t, err)
+	tx, err = batchAuthenticator.AcceptOwnership(bobOpts)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(ctx, d.L1, tx.Hash())
+	require.NoError(t, err)
+
+	// Verify ProxyAdmin owner has been changed
+	newProxyAdminOwner, err := proxyAdmin.Owner(&bind.CallOpts{})
+	require.NoError(t, err)
+	require.Equal(t, bobAddress, newProxyAdminOwner, "ProxyAdmin owner should be updated to Bob")
+
+	// Verify BatchAuthenticator owner has been changed
 	newOwner, err := batchAuthenticator.Owner(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.Equal(t, newOwner, bobAddress)
+	require.Equal(t, bobAddress, newOwner, "BatchAuthenticator owner should be updated to Bob")
 
 	// Check that everything still functions
 	require.NoError(t, d.RunSimpleL2Burn())
