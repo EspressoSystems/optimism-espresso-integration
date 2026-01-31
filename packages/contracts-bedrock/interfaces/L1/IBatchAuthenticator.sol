@@ -19,6 +19,9 @@ interface IBatchAuthenticator {
     /// @notice Emitted when the non-TEE batcher address is updated.
     event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
 
+    /// @notice Emitted when the active batcher is switched.
+    event BatcherSwitched(bool indexed activeIsTee);
+
     function authenticateBatchInfo(
         bytes32 commitment,
         bytes memory _signature
@@ -48,4 +51,6 @@ interface IBatchAuthenticator {
     function setTeeBatcher(address _newTeeBatcher) external;
 
     function setNonTeeBatcher(address _newNonTeeBatcher) external;
+
+    function validateBatch(address sender, bytes calldata data) external view;
 }
