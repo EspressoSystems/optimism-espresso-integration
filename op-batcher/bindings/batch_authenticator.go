@@ -31,8 +31,8 @@ var (
 
 // BatchAuthenticatorMetaData contains all meta data concerning the BatchAuthenticator contract.
 var BatchAuthenticatorMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_espressoTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoTEEVerifier\"},{\"name\":\"_teeBatcher\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_nonTeeBatcher\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activeIsTee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"authenticateBatchInfo\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"espressoTEEVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIEspressoTEEVerifier\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nonTeeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerSigner\",\"inputs\":[{\"name\":\"attestationTbs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"switchBatcher\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"teeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validBatchInfo\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"version\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BatchInfoAuthenticated\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"signer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignerRegistrationInitiated\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false}]",
-	Bin: "0x60e060405234801561000f575f5ffd5b50604051611c58380380611c5883398181016040528101906100319190610358565b61004d6100426101f760201b60201c565b6101fe60201b60201c565b5f73ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16036100bb576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016100b29061043c565b60405180910390fd5b5f73ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1603610129576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610120906104ca565b60405180910390fd5b8373ffffffffffffffffffffffffffffffffffffffff1660c08173ffffffffffffffffffffffffffffffffffffffff16815250508273ffffffffffffffffffffffffffffffffffffffff1660808173ffffffffffffffffffffffffffffffffffffffff16815250508173ffffffffffffffffffffffffffffffffffffffff1660a08173ffffffffffffffffffffffffffffffffffffffff1681525050600160025f6101000a81548160ff0219169083151502179055506101ee816101fe60201b60201c565b505050506104e8565b5f33905090565b5f5f5f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff169050815f5f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508173ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a35050565b5f5ffd5b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f6102ec826102c3565b9050919050565b5f6102fd826102e2565b9050919050565b61030d816102f3565b8114610317575f5ffd5b50565b5f8151905061032881610304565b92915050565b610337816102e2565b8114610341575f5ffd5b50565b5f815190506103528161032e565b92915050565b5f5f5f5f608085870312156103705761036f6102bf565b5b5f61037d8782880161031a565b945050602061038e87828801610344565b935050604061039f87828801610344565b92505060606103b087828801610344565b91505092959194509250565b5f82825260208201905092915050565b7f426174636841757468656e74696361746f723a207a65726f20746565206261745f8201527f6368657200000000000000000000000000000000000000000000000000000000602082015250565b5f6104266024836103bc565b9150610431826103cc565b604082019050919050565b5f6020820190508181035f8301526104538161041a565b9050919050565b7f426174636841757468656e74696361746f723a207a65726f206e6f6e2d7465655f8201527f2062617463686572000000000000000000000000000000000000000000000000602082015250565b5f6104b46028836103bc565b91506104bf8261045a565b604082019050919050565b5f6020820190508181035f8301526104e1816104a8565b9050919050565b60805160a05160c0516117316105275f395f81816102ad0152818161047a015261063801525f61028901525f81816103b7015261074401526117315ff3fe608060405234801561000f575f5ffd5b50600436106100b2575f3560e01c8063bc347f471161006f578063bc347f4714610154578063d909ba7c1461015e578063f2fde38b1461017c578063f81f208314610198578063fa14fe6d146101c8578063fc619e41146101e6576100b2565b806354fd4d50146100b6578063715018a6146100d45780637877a9ed146100de5780638da5cb5b146100fc578063b1bd42851461011a578063ba58e82a14610138575b5f5ffd5b6100be610202565b6040516100cb9190610d3a565b60405180910390f35b6100dc61023b565b005b6100e661024e565b6040516100f39190610d74565b60405180910390f35b610104610260565b6040516101119190610dcc565b60405180910390f35b610122610287565b60405161012f9190610dcc565b60405180910390f35b610152600480360381019061014d9190610e4e565b6102ab565b005b61015c610383565b005b6101666103b5565b6040516101739190610dcc565b60405180910390f35b61019660048036038101906101919190610ef6565b6103d9565b005b6101b260048036038101906101ad9190610f54565b61045b565b6040516101bf9190610d74565b60405180910390f35b6101d0610478565b6040516101dd9190610fda565b60405180910390f35b61020060048036038101906101fb9190610ff3565b61049c565b005b6040518060400160405280600581526020017f312e302e3000000000000000000000000000000000000000000000000000000081525081565b610243610847565b61024c5f6108c5565b565b60025f9054906101000a900460ff1681565b5f5f5f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b7f000000000000000000000000000000000000000000000000000000000000000081565b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff166335ecb4c18585858560016040518663ffffffff1660e01b815260040161030d95949392919061110d565b5f604051808303815f87803b158015610324575f5ffd5b505af1158015610336573d5f5f3e3d5ffd5b505050503373ffffffffffffffffffffffffffffffffffffffff167f665b016a0ac50d1280744eaaff1cf21254d0fd30e4c3987d291913c32163416c60405160405180910390a250505050565b61038b610847565b60025f9054906101000a900460ff161560025f6101000a81548160ff021916908315150217905550565b7f000000000000000000000000000000000000000000000000000000000000000081565b6103e1610847565b5f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff160361044f576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610446906111c4565b60405180910390fd5b610458816108c5565b50565b6001602052805f5260405f205f915054906101000a900460ff1681565b7f000000000000000000000000000000000000000000000000000000000000000081565b5f82828080601f0160208091040260200160405190810160405280939291908181526020018383808284375f81840152601f19601f8201169050808301925050505050505090506041815114610527576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161051e9061122c565b60405180910390fd5b5f8160408151811061053c5761053b61124a565b5b602001015160f81c60f81b60f81c90505f8160ff161480610560575060018160ff16145b156105bb57601b8161057291906112b0565b90508060f81b8260408151811061058c5761058b61124a565b5b60200101907effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690815f1a9053505b5f6105c68684610986565b90505f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1603610636576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161062d9061132e565b60405180910390fd5b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff1663d80a4c286040518163ffffffff1660e01b8152600401602060405180830381865afa15801561069f573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906106c39190611387565b73ffffffffffffffffffffffffffffffffffffffff16630123d0c1826040518263ffffffff1660e01b81526004016106fb9190610dcc565b602060405180830381865afa158015610716573d5f5f3e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061073a91906113dc565b15801561079357507f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614155b156107d3576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016107ca90611451565b60405180910390fd5b6001805f8881526020019081526020015f205f6101000a81548160ff0219169083151502179055508073ffffffffffffffffffffffffffffffffffffffff16867f731978a77d438b0ea35a9034fb28d9cf9372e1649f18c213110adcfab65c5c5c60405160405180910390a3505050505050565b61084f6109ab565b73ffffffffffffffffffffffffffffffffffffffff1661086d610260565b73ffffffffffffffffffffffffffffffffffffffff16146108c3576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016108ba906114b9565b60405180910390fd5b565b5f5f5f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff169050815f5f6101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508173ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a35050565b5f5f5f61099385856109b2565b915091506109a0816109fe565b819250505092915050565b5f33905090565b5f5f60418351036109ef575f5f5f602086015192506040860151915060608601515f1a90506109e387828585610bc9565b945094505050506109f7565b5f6002915091505b9250929050565b5f6004811115610a1157610a1061109a565b5b816004811115610a2457610a2361109a565b5b0315610bc65760016004811115610a3e57610a3d61109a565b5b816004811115610a5157610a5061109a565b5b03610a91576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610a8890611521565b60405180910390fd5b60026004811115610aa557610aa461109a565b5b816004811115610ab857610ab761109a565b5b03610af8576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610aef90611589565b60405180910390fd5b60036004811115610b0c57610b0b61109a565b5b816004811115610b1f57610b1e61109a565b5b03610b5f576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610b5690611617565b60405180910390fd5b600480811115610b7257610b7161109a565b5b816004811115610b8557610b8461109a565b5b03610bc5576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610bbc906116a5565b60405180910390fd5b5b50565b5f5f7f7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0835f1c1115610c01575f600391509150610cc1565b601b8560ff1614158015610c195750601c8560ff1614155b15610c2a575f600491509150610cc1565b5f6001878787876040515f8152602001604052604051610c4d94939291906116e1565b6020604051602081039080840390855afa158015610c6d573d5f5f3e3d5ffd5b5050506020604051035190505f73ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1603610cb9575f60019250925050610cc1565b805f92509250505b94509492505050565b5f81519050919050565b5f82825260208201905092915050565b8281835e5f83830152505050565b5f601f19601f8301169050919050565b5f610d0c82610cca565b610d168185610cd4565b9350610d26818560208601610ce4565b610d2f81610cf2565b840191505092915050565b5f6020820190508181035f830152610d528184610d02565b905092915050565b5f8115159050919050565b610d6e81610d5a565b82525050565b5f602082019050610d875f830184610d65565b92915050565b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f610db682610d8d565b9050919050565b610dc681610dac565b82525050565b5f602082019050610ddf5f830184610dbd565b92915050565b5f5ffd5b5f5ffd5b5f5ffd5b5f5ffd5b5f5ffd5b5f5f83601f840112610e0e57610e0d610ded565b5b8235905067ffffffffffffffff811115610e2b57610e2a610df1565b5b602083019150836001820283011115610e4757610e46610df5565b5b9250929050565b5f5f5f5f60408587031215610e6657610e65610de5565b5b5f85013567ffffffffffffffff811115610e8357610e82610de9565b5b610e8f87828801610df9565b9450945050602085013567ffffffffffffffff811115610eb257610eb1610de9565b5b610ebe87828801610df9565b925092505092959194509250565b610ed581610dac565b8114610edf575f5ffd5b50565b5f81359050610ef081610ecc565b92915050565b5f60208284031215610f0b57610f0a610de5565b5b5f610f1884828501610ee2565b91505092915050565b5f819050919050565b610f3381610f21565b8114610f3d575f5ffd5b50565b5f81359050610f4e81610f2a565b92915050565b5f60208284031215610f6957610f68610de5565b5b5f610f7684828501610f40565b91505092915050565b5f819050919050565b5f610fa2610f9d610f9884610d8d565b610f7f565b610d8d565b9050919050565b5f610fb382610f88565b9050919050565b5f610fc482610fa9565b9050919050565b610fd481610fba565b82525050565b5f602082019050610fed5f830184610fcb565b92915050565b5f5f5f6040848603121561100a57611009610de5565b5b5f61101786828701610f40565b935050602084013567ffffffffffffffff81111561103857611037610de9565b5b61104486828701610df9565b92509250509250925092565b5f82825260208201905092915050565b828183375f83830152505050565b5f6110798385611050565b9350611086838584611060565b61108f83610cf2565b840190509392505050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602160045260245ffd5b600281106110d8576110d761109a565b5b50565b5f8190506110e8826110c7565b919050565b5f6110f7826110db565b9050919050565b611107816110ed565b82525050565b5f6060820190508181035f83015261112681878961106e565b9050818103602083015261113b81858761106e565b905061114a60408301846110fe565b9695505050505050565b7f4f776e61626c653a206e6577206f776e657220697320746865207a65726f20615f8201527f6464726573730000000000000000000000000000000000000000000000000000602082015250565b5f6111ae602683610cd4565b91506111b982611154565b604082019050919050565b5f6020820190508181035f8301526111db816111a2565b9050919050565b7f496e76616c6964207369676e6174757265206c656e67746800000000000000005f82015250565b5f611216601883610cd4565b9150611221826111e2565b602082019050919050565b5f6020820190508181035f8301526112438161120a565b9050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603260045260245ffd5b5f60ff82169050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f6112ba82611277565b91506112c583611277565b9250828201905060ff8111156112de576112dd611283565b5b92915050565b7f496e76616c6964207369676e61747572650000000000000000000000000000005f82015250565b5f611318601183610cd4565b9150611323826112e4565b602082019050919050565b5f6020820190508181035f8301526113458161130c565b9050919050565b5f61135682610dac565b9050919050565b6113668161134c565b8114611370575f5ffd5b50565b5f815190506113818161135d565b92915050565b5f6020828403121561139c5761139b610de5565b5b5f6113a984828501611373565b91505092915050565b6113bb81610d5a565b81146113c5575f5ffd5b50565b5f815190506113d6816113b2565b92915050565b5f602082840312156113f1576113f0610de5565b5b5f6113fe848285016113c8565b91505092915050565b7f496e76616c6964207369676e65720000000000000000000000000000000000005f82015250565b5f61143b600e83610cd4565b915061144682611407565b602082019050919050565b5f6020820190508181035f8301526114688161142f565b9050919050565b7f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e65725f82015250565b5f6114a3602083610cd4565b91506114ae8261146f565b602082019050919050565b5f6020820190508181035f8301526114d081611497565b9050919050565b7f45434453413a20696e76616c6964207369676e617475726500000000000000005f82015250565b5f61150b601883610cd4565b9150611516826114d7565b602082019050919050565b5f6020820190508181035f830152611538816114ff565b9050919050565b7f45434453413a20696e76616c6964207369676e6174757265206c656e677468005f82015250565b5f611573601f83610cd4565b915061157e8261153f565b602082019050919050565b5f6020820190508181035f8301526115a081611567565b9050919050565b7f45434453413a20696e76616c6964207369676e6174757265202773272076616c5f8201527f7565000000000000000000000000000000000000000000000000000000000000602082015250565b5f611601602283610cd4565b915061160c826115a7565b604082019050919050565b5f6020820190508181035f83015261162e816115f5565b9050919050565b7f45434453413a20696e76616c6964207369676e6174757265202776272076616c5f8201527f7565000000000000000000000000000000000000000000000000000000000000602082015250565b5f61168f602283610cd4565b915061169a82611635565b604082019050919050565b5f6020820190508181035f8301526116bc81611683565b9050919050565b6116cc81610f21565b82525050565b6116db81611277565b82525050565b5f6080820190506116f45f8301876116c3565b61170160208301866116d2565b61170e60408301856116c3565b61171b60608301846116c3565b9594505050505056fea164736f6c634300081c000a",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"DEFAULT_ADMIN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GUARDIAN_ROLE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"activeIsTee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"addGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"authenticateBatchInfo\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"espressoTEEVerifier\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIEspressoTEEVerifier\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getGuardians\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleAdmin\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleMember\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleMemberCount\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getRoleMembers\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"grantRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"guardianCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"hasRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initVersion\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_espressoTEEVerifier\",\"type\":\"address\",\"internalType\":\"contractIEspressoTEEVerifier\"},{\"name\":\"_teeBatcher\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_nonTeeBatcher\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isGuardian\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nitroValidator\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"nonTeeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxyAdmin\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIProxyAdmin\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxyAdminOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerSigner\",\"inputs\":[{\"name\":\"attestationTbs\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"signature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeGuardian\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"callerConfirmation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"revokeRole\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNonTeeBatcher\",\"inputs\":[{\"name\":\"_newNonTeeBatcher\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setTeeBatcher\",\"inputs\":[{\"name\":\"_newTeeBatcher\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"supportsInterface\",\"inputs\":[{\"name\":\"interfaceId\",\"type\":\"bytes4\",\"internalType\":\"bytes4\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"switchBatcher\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"teeBatcher\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"validBatchInfo\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateBatch\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateNonTeeBatch\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"validateTeeBatch\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"version\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BatchInfoAuthenticated\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"signer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BatcherSwitched\",\"inputs\":[{\"name\":\"activeIsTee\",\"type\":\"bool\",\"indexed\":true,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardianAdded\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardianRemoved\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NonTeeBatcherUpdated\",\"inputs\":[{\"name\":\"oldNonTeeBatcher\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newNonTeeBatcher\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleAdminChanged\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"previousAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"newAdminRole\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleGranted\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RoleRevoked\",\"inputs\":[{\"name\":\"role\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"account\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignerRegistrationInitiated\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TeeBatcherUpdated\",\"inputs\":[{\"name\":\"oldTeeBatcher\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newTeeBatcher\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AccessControlBadConfirmation\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"AccessControlUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"neededRole\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"InvalidAddress\",\"inputs\":[{\"name\":\"contract_\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InvalidGuardianAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotGuardian\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotGuardianOrOwner\",\"inputs\":[{\"name\":\"caller\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ProxyAdminOwnedBase_NotProxyAdmin\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProxyAdminOwnedBase_NotProxyAdminOrProxyAdminOwner\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProxyAdminOwnedBase_NotProxyAdminOwner\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProxyAdminOwnedBase_NotResolvedDelegateProxy\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProxyAdminOwnedBase_NotSharedProxyAdminOwner\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProxyAdminOwnedBase_ProxyAdminNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ReinitializableBase_ZeroInitVersion\",\"inputs\":[]}]",
+	Bin: "0x60a060405234801561000f575f5ffd5b50600160805261001d610022565b6100d4565b7ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00805468010000000000000000900460ff16156100725760405163f92ee8a960e01b815260040160405180910390fd5b80546001600160401b03908116146100d15780546001600160401b0319166001600160401b0390811782556040519081527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a15b50565b6080516135c56100f35f395f81816103f0015261175f01526135c55ff3fe608060405234801561000f575f5ffd5b50600436106102b7575f3560e01c80639010d07c11610171578063ca15c873116100d2578063f2fde38b11610088578063f8c8765e1161006e578063f8c8765e14610679578063fa14fe6d1461068c578063fc619e41146106ac575f5ffd5b8063f2fde38b14610644578063f81f208314610657575f5ffd5b8063d909ba7c116100b8578063d909ba7c14610614578063dad544e014610634578063e30c39781461063c575f5ffd5b8063ca15c873146105ee578063d547741f14610601575f5ffd5b8063a3246ad311610127578063b1bd42851161010d578063b1bd4285146105b3578063ba58e82a146105d3578063bc347f47146105e6575f5ffd5b8063a3246ad31461058d578063a526d83b146105a0575f5ffd5b806391d148541161015757806391d148541461050f578063995bd81e14610573578063a217fddf14610586575f5ffd5b80639010d07c146104e957806391a1a35d146104fc575f5ffd5b80633e47158c1161021b578063715018a6116101d157806379ba5097116101b757806379ba5097146104c65780638c8fc531146104ce5780638da5cb5b146104e1575f5ffd5b8063715018a6146104995780637877a9ed146104a1575f5ffd5b806354fd4d501161020157806354fd4d501461042a5780636f7eda47146104735780637140415614610486575f5ffd5b80633e47158c1461041a57806354387ad714610422575f5ffd5b806324ea54f411610270578063361d2d7b11610256578063361d2d7b146103c357806336568abe146103d657806338d38c97146103e9575f5ffd5b806324ea54f4146103875780632f2ff15d146103ae575f5ffd5b80630c68ba21116102a05780630c68ba21146102f85780631b076a4c1461030b578063248a9ca314610338575f5ffd5b806301ffc9a7146102bb5780630665f04b146102e3575b5f5ffd5b6102ce6102c9366004612e74565b6106bf565b60405190151581526020015b60405180910390f35b6102eb61071a565b6040516102da9190612eb3565b6102ce610306366004612f2c565b610808565b610313610854565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020016102da565b610379610346366004612f47565b5f9081527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800602052604090206001015490565b6040519081526020016102da565b6103797f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504181565b6103c16103bc366004612f5e565b6108ea565b005b6103c16103d1366004612f2c565b610933565b6103c16103e4366004612f5e565b610a15565b60405160ff7f00000000000000000000000000000000000000000000000000000000000000001681526020016102da565b610313610a73565b610379610c79565b6104666040518060400160405280600581526020017f312e302e3000000000000000000000000000000000000000000000000000000081525081565b6040516102da9190612f8c565b6103c1610481366004612f2c565b610ca3565b6103c1610494366004612f2c565b610d86565b6103c1610e47565b6003546102ce9074010000000000000000000000000000000000000000900460ff1681565b6103c1610e5a565b6103c16104dc366004612f2c565b610ed2565b610313610fb5565b6103136104f7366004612fdf565b610fbe565b6103c161050a36600461303d565b610ffe565b6102ce61051d366004612f5e565b5f9182527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b6268006020908152604080842073ffffffffffffffffffffffffffffffffffffffff93909316845291905290205460ff1690565b6103c161058136600461303d565b611035565b6103795f81565b6102eb61059b366004612f47565b61125e565b6103c16105ae366004612f2c565b6112a1565b6002546103139073ffffffffffffffffffffffffffffffffffffffff1681565b6103c16105e136600461308e565b6113ae565b6103c161146c565b6103796105fc366004612f47565b61159a565b6103c161060f366004612f5e565b6115d1565b6001546103139073ffffffffffffffffffffffffffffffffffffffff1681565b610313611614565b610313611665565b6103c1610652366004612f2c565b6116a6565b6102ce610665366004612f47565b5f6020819052908152604090205460ff1681565b6103c16106873660046130fa565b61175d565b6003546103139073ffffffffffffffffffffffffffffffffffffffff1681565b6103c16106ba366004613153565b611a6e565b5f7fffffffff0000000000000000000000000000000000000000000000000000000082167f5a05180f000000000000000000000000000000000000000000000000000000001480610714575061071482611e5c565b92915050565b60605f6107467f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504161159a565b90505f8167ffffffffffffffff81111561076257610762613182565b60405190808252806020026020018201604052801561078b578160200160208202803683370190505b5090505f5b82811015610801576107c27f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504182610fbe565b8282815181106107d4576107d46131af565b73ffffffffffffffffffffffffffffffffffffffff90921660209283029190910190910152600101610790565b5092915050565b73ffffffffffffffffffffffffffffffffffffffff81165f9081527f18476f5b3d6d00091ddd56161ac5e9ba807d29b59f48f8df98938ee352a7cf23602052604081205460ff16610714565b600354604080517fd80a4c2800000000000000000000000000000000000000000000000000000000815290515f9273ffffffffffffffffffffffffffffffffffffffff169163d80a4c289160048083019260209291908290030181865afa1580156108c1573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906108e591906131dc565b905090565b5f8281527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800602052604090206001015461092381611ef2565b61092d8383611efc565b50505050565b60025473ffffffffffffffffffffffffffffffffffffffff828116911614610a12576002546109799073ffffffffffffffffffffffffffffffffffffffff166014611f51565b61099a8273ffffffffffffffffffffffffffffffffffffffff166014611f51565b6040516020016109ab92919061320e565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0818403018152908290527f08c379a0000000000000000000000000000000000000000000000000000000008252610a0991600401612f8c565b60405180910390fd5b50565b73ffffffffffffffffffffffffffffffffffffffff81163314610a64576040517f6697b23200000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b610a6e828261218e565b505050565b5f80610a9d7fb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d61035490565b905073ffffffffffffffffffffffffffffffffffffffff811615610ac057919050565b6040518060400160405280601a81526020017f4f564d5f4c3143726f7373446f6d61696e4d657373656e676572000000000000815250516002610b0391906132f1565b604080513060208201525f918101919091527f4f564d5f4c3143726f7373446f6d61696e4d657373656e6765720000000000009190911790610b5d906060015b604051602081830303815290604052805190602001205490565b14610b94576040517f54e433cd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b604080513060208201526001918101919091525f90610bb590606001610b43565b905073ffffffffffffffffffffffffffffffffffffffff811615610c47578073ffffffffffffffffffffffffffffffffffffffff16638da5cb5b6040518163ffffffff1660e01b8152600401602060405180830381865afa158015610c1c573d5f5f3e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610c4091906131dc565b9250505090565b6040517f332144db00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b5f6108e57f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a504161159a565b610cab6121da565b73ffffffffffffffffffffffffffffffffffffffff8116610d10576040517f8e4c8aa600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff82166004820152602401610a09565b6001805473ffffffffffffffffffffffffffffffffffffffff8381167fffffffffffffffffffffffff0000000000000000000000000000000000000000831681179093556040519116919082907f5186a10c46a3a9c7ec5470c24b80c6414eba1320cf76bf72ef5135773c7b3327905f90a35050565b610d8e6121da565b73ffffffffffffffffffffffffffffffffffffffff81165f9081527f18476f5b3d6d00091ddd56161ac5e9ba807d29b59f48f8df98938ee352a7cf23602052604090205460ff1615610a1257610e047f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a5041826115d1565b60405173ffffffffffffffffffffffffffffffffffffffff8216907fb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52905f90a250565b610e4f6121da565b610e585f612232565b565b3380610e64611665565b73ffffffffffffffffffffffffffffffffffffffff1614610ec9576040517f118cdaa700000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff82166004820152602401610a09565b610a1281612232565b610eda6121da565b73ffffffffffffffffffffffffffffffffffffffff8116610f3f576040517f8e4c8aa600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff82166004820152602401610a09565b6002805473ffffffffffffffffffffffffffffffffffffffff8381167fffffffffffffffffffffffff0000000000000000000000000000000000000000831681179093556040519116919082907fc85a6d3bc379dcb6b0bfec0a8d348be6dd937e2a34b2e2faaeb5762fc586aee5905f90a35050565b5f6108e5612278565b5f8281527fc1f6fe24621ce81ec5827caf0253cadb74709b061630e6b55e82371705932000602081905260408220610ff690846122a0565b949350505050565b60035474010000000000000000000000000000000000000000900460ff161561102c57610a6e838383611035565b610a6e83610933565b60015473ffffffffffffffffffffffffffffffffffffffff8481169116146110ad5760015461107b9073ffffffffffffffffffffffffffffffffffffffff166014611f51565b61109c8473ffffffffffffffffffffffffffffffffffffffff166014611f51565b6040516020016109ab929190613308565b5f49156111c8575f5b8049156110cf57806110c781613385565b9150506110b6565b5f6110db8260206132f1565b67ffffffffffffffff8111156110f3576110f3613182565b6040519080825280601f01601f19166020018201604052801561111d576020820181803683370190505b5090505f5b8281101561113d578049602080830284010152600101611122565b5080516020808301919091205f8181529182905260409091205460ff166111c0576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601260248201527f496e76616c696420626c6f6220626174636800000000000000000000000000006044820152606401610a09565b505050505050565b5f82826040516111d99291906133bc565b60408051918290039091205f8181526020819052919091205490915060ff1661092d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f496e76616c69642063616c6c64617461206261746368000000000000000000006044820152606401610a09565b5f8181527fc1f6fe24621ce81ec5827caf0253cadb74709b061630e6b55e82371705932000602081905260409091206060919061129a906122ab565b9392505050565b6112a96121da565b73ffffffffffffffffffffffffffffffffffffffff81166112f6576040517f1b08105400000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff81165f9081527f18476f5b3d6d00091ddd56161ac5e9ba807d29b59f48f8df98938ee352a7cf23602052604090205460ff16610a125761136b7f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a5041826108ea565b60405173ffffffffffffffffffffffffffffffffffffffff8216907f038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969905f90a250565b6003546040517f7f82ea6c00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff90911690637f82ea6c9061140f9087908790879087906001905f90600401613474565b5f604051808303815f87803b158015611426575f5ffd5b505af1158015611438573d5f5f3e3d5ffd5b50506040513392507f665b016a0ac50d1280744eaaff1cf21254d0fd30e4c3987d291913c32163416c91505f90a250505050565b335f9081527f18476f5b3d6d00091ddd56161ac5e9ba807d29b59f48f8df98938ee352a7cf23602052604090205460ff161580156114dd57506114ad610fb5565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614155b15611516576040517fd53780c4000000000000000000000000000000000000000000000000000000008152336004820152602401610a09565b6003805460ff7401000000000000000000000000000000000000000080830482161581027fffffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffff9093169290921792839055604051919092049091161515907fb957d7fc29e5974594db2f2e132076d52f42c0734eae05fd5ea080d1ba175ad3905f90a2565b5f8181527fc1f6fe24621ce81ec5827caf0253cadb74709b061630e6b55e8237170593200060208190526040822061129a906122b7565b5f8281527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800602052604090206001015461160a81611ef2565b61092d838361218e565b5f61161d610a73565b73ffffffffffffffffffffffffffffffffffffffff16638da5cb5b6040518163ffffffff1660e01b8152600401602060405180830381865afa1580156108c1573d5f5f3e3d5ffd5b5f807f237e158222e3e6968b72b9db0d8043aacf074ad9f650f0d1606b4d82ee432c005b5473ffffffffffffffffffffffffffffffffffffffff1692915050565b6116ae6121da565b7f237e158222e3e6968b72b9db0d8043aacf074ad9f650f0d1606b4d82ee432c0080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83169081178255611717610fb5565b73ffffffffffffffffffffffffffffffffffffffff167f38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e2270060405160405180910390a35050565b7f000000000000000000000000000000000000000000000000000000000000000060ff165f61178a6122c0565b805490915068010000000000000000900460ff16806117b75750805467ffffffffffffffff808416911610155b156117ee576040517ff92ee8a900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b80547fffffffffffffffffffffffffffffffffffffffffffffff0000000000000000001667ffffffffffffffff831617680100000000000000001781556118336122e8565b61183c83612369565b73ffffffffffffffffffffffffffffffffffffffff85166118a1576040517f8e4c8aa600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff86166004820152602401610a09565b73ffffffffffffffffffffffffffffffffffffffff8416611906576040517f8e4c8aa600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff85166004820152602401610a09565b73ffffffffffffffffffffffffffffffffffffffff861661196b576040517f8e4c8aa600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff87166004820152602401610a09565b600380546001805473ffffffffffffffffffffffffffffffffffffffff8981167fffffffffffffffffffffffff0000000000000000000000000000000000000000928316179092556002805489841692169190911790557fffffffffffffffffffffff000000000000000000000000000000000000000000909116908816177401000000000000000000000000000000000000000017905580547fffffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffff16815560405167ffffffffffffffff831681527fc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d29060200160405180910390a1505050505050565b5f82828080601f0160208091040260200160405190810160405280939291908181526020018383808284375f920191909152505082519293505060419091149050611b15576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601860248201527f496e76616c6964207369676e6174757265206c656e67746800000000000000006044820152606401610a09565b5f81604081518110611b2957611b296131af565b016020015160f81c9050801580611b4357508060ff166001145b15611b9b57611b53601b826134c6565b90508060f81b82604081518110611b6c57611b6c6131af565b60200101907effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690815f1a9053505b5f611ba68684612393565b905073ffffffffffffffffffffffffffffffffffffffff8116611c4b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602560248201527f426174636841757468656e74696361746f723a20696e76616c6964207369676e60448201527f61747572650000000000000000000000000000000000000000000000000000006064820152608401610a09565b60035f9054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663d80a4c286040518163ffffffff1660e01b8152600401602060405180830381865afa158015611cb5573d5f5f3e3d5ffd5b505050506040513d601f19601f82011682018060405250810190611cd991906131dc565b73ffffffffffffffffffffffffffffffffffffffff16636d8f5aa9825f6040518363ffffffff1660e01b8152600401611d139291906134df565b602060405180830381865afa158015611d2e573d5f5f3e3d5ffd5b505050506040513d601f19601f82011682018060405250810190611d529190613512565b611dde576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602260248201527f426174636841757468656e74696361746f723a20696e76616c6964207369676e60448201527f65720000000000000000000000000000000000000000000000000000000000006064820152608401610a09565b5f8681526020819052604080822080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660011790555173ffffffffffffffffffffffffffffffffffffffff83169188917f731978a77d438b0ea35a9034fb28d9cf9372e1649f18c213110adcfab65c5c5c9190a3505050505050565b5f7fffffffff0000000000000000000000000000000000000000000000000000000082167f7965db0b00000000000000000000000000000000000000000000000000000000148061071457507f01ffc9a7000000000000000000000000000000000000000000000000000000007fffffffff00000000000000000000000000000000000000000000000000000000831614610714565b610a1281336123b5565b5f7fc1f6fe24621ce81ec5827caf0253cadb74709b061630e6b55e8237170593200081611f29858561245f565b90508015610ff6575f858152602083905260409020611f48908561257d565b50949350505050565b60605f611f5f8360026132f1565b611f6a906002613531565b67ffffffffffffffff811115611f8257611f82613182565b6040519080825280601f01601f191660200182016040528015611fac576020820181803683370190505b5090507f3000000000000000000000000000000000000000000000000000000000000000815f81518110611fe257611fe26131af565b60200101907effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690815f1a9053507f780000000000000000000000000000000000000000000000000000000000000081600181518110612044576120446131af565b60200101907effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690815f1a9053505f61207e8460026132f1565b612089906001613531565b90505b6001811115612125577f303132333435363738396162636465660000000000000000000000000000000085600f16601081106120ca576120ca6131af565b1a60f81b8282815181106120e0576120e06131af565b60200101907effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff191690815f1a90535060049490941c9361211e81613544565b905061208c565b50831561129a576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820181905260248201527f537472696e67733a20686578206c656e67746820696e73756666696369656e746044820152606401610a09565b5f7fc1f6fe24621ce81ec5827caf0253cadb74709b061630e6b55e82371705932000816121bb858561259e565b90508015610ff6575f858152602083905260409020611f48908561267a565b336121e3610fb5565b73ffffffffffffffffffffffffffffffffffffffff1614610e58576040517f118cdaa7000000000000000000000000000000000000000000000000000000008152336004820152602401610a09565b5f61223b610fb5565b90506122468261269b565b73ffffffffffffffffffffffffffffffffffffffff81161561226e5761226c5f8261218e565b505b610a6e5f83611efc565b5f807f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300611689565b5f61129a83836126eb565b60605f61129a83612711565b5f610714825490565b5f807ff0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00610714565b336122f1610a73565b73ffffffffffffffffffffffffffffffffffffffff1614158015612332575033612319611614565b73ffffffffffffffffffffffffffffffffffffffff1614155b15610e58576040517fc4050a2600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b61237161276a565b61237a816127a8565b6123826127b9565b61238a6127b9565b610a12816127c1565b5f5f5f6123a085856127fe565b915091506123ad81612840565b509392505050565b5f8281527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b6268006020908152604080832073ffffffffffffffffffffffffffffffffffffffff8516845290915290205460ff1661245b576040517fe2517d3f00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff8216600482015260248101839052604401610a09565b5050565b5f8281527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b6268006020818152604080842073ffffffffffffffffffffffffffffffffffffffff8616855290915282205460ff16612574575f8481526020828152604080832073ffffffffffffffffffffffffffffffffffffffff87168452909152902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff001660011790556125103390565b73ffffffffffffffffffffffffffffffffffffffff168373ffffffffffffffffffffffffffffffffffffffff16857f2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d60405160405180910390a46001915050610714565b5f915050610714565b5f61129a8373ffffffffffffffffffffffffffffffffffffffff8416612a93565b5f8281527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b6268006020818152604080842073ffffffffffffffffffffffffffffffffffffffff8616855290915282205460ff1615612574575f8481526020828152604080832073ffffffffffffffffffffffffffffffffffffffff8716808552925280832080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016905551339287917ff6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b9190a46001915050610714565b5f61129a8373ffffffffffffffffffffffffffffffffffffffff8416612adf565b7f237e158222e3e6968b72b9db0d8043aacf074ad9f650f0d1606b4d82ee432c0080547fffffffffffffffffffffffff000000000000000000000000000000000000000016815561245b82612bb9565b5f825f018281548110612700576127006131af565b905f5260205f200154905092915050565b6060815f0180548060200260200160405190810160405280929190818152602001828054801561275e57602002820191905f5260205f20905b81548152602001906001019080831161274a575b50505050509050919050565b612772612c4e565b610e58576040517fd7e6bcf800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6127b061276a565b610a1281612c6c565b610e5861276a565b6127c961276a565b6127d35f82611efc565b50610a127f55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a50415f612cc3565b5f5f8251604103612832576020830151604084015160608501515f1a61282687828585612d64565b94509450505050612839565b505f905060025b9250929050565b5f81600481111561285357612853613412565b0361285b5750565b600181600481111561286f5761286f613412565b036128d6576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601860248201527f45434453413a20696e76616c6964207369676e617475726500000000000000006044820152606401610a09565b60028160048111156128ea576128ea613412565b03612951576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f45434453413a20696e76616c6964207369676e6174757265206c656e677468006044820152606401610a09565b600381600481111561296557612965613412565b036129f2576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602260248201527f45434453413a20696e76616c6964207369676e6174757265202773272076616c60448201527f75650000000000000000000000000000000000000000000000000000000000006064820152608401610a09565b6004816004811115612a0657612a06613412565b03610a12576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602260248201527f45434453413a20696e76616c6964207369676e6174757265202776272076616c60448201527f75650000000000000000000000000000000000000000000000000000000000006064820152608401610a09565b5f818152600183016020526040812054612ad857508154600181810184555f848152602080822090930184905584548482528286019093526040902091909155610714565b505f610714565b5f8181526001830160205260408120548015612574575f612b01600183613578565b85549091505f90612b1490600190613578565b9050808214612b73575f865f018281548110612b3257612b326131af565b905f5260205f200154905080875f018481548110612b5257612b526131af565b5f918252602080832090910192909255918252600188019052604090208390555b8554869080612b8457612b8461358b565b600190038181905f5260205f20015f90559055856001015f8681526020019081526020015f205f905560019350505050610714565b7f9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c19930080547fffffffffffffffffffffffff0000000000000000000000000000000000000000811673ffffffffffffffffffffffffffffffffffffffff848116918217845560405192169182907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a3505050565b5f612c576122c0565b5468010000000000000000900460ff16919050565b612c7461276a565b73ffffffffffffffffffffffffffffffffffffffff8116610ec9576040517f1e4fbdf70000000000000000000000000000000000000000000000000000000081525f6004820152602401610a09565b7f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b6268005f612d1c845f9081527f02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800602052604090206001015490565b5f85815260208490526040808220600101869055519192508491839187917fbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff9190a450505050565b5f807f7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0831115612d9957505f90506003612e6b565b8460ff16601b14158015612db157508460ff16601c14155b15612dc157505f90506004612e6b565b604080515f8082526020820180845289905260ff881692820192909252606081018690526080810185905260019060a0016020604051602081039080840390855afa158015612e12573d5f5f3e3d5ffd5b50506040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0015191505073ffffffffffffffffffffffffffffffffffffffff8116612e65575f60019250925050612e6b565b91505f90505b94509492505050565b5f60208284031215612e84575f5ffd5b81357fffffffff000000000000000000000000000000000000000000000000000000008116811461129a575f5ffd5b602080825282518282018190525f918401906040840190835b81811015612f0057835173ffffffffffffffffffffffffffffffffffffffff16835260209384019390920191600101612ecc565b509095945050505050565b73ffffffffffffffffffffffffffffffffffffffff81168114610a12575f5ffd5b5f60208284031215612f3c575f5ffd5b813561129a81612f0b565b5f60208284031215612f57575f5ffd5b5035919050565b5f5f60408385031215612f6f575f5ffd5b823591506020830135612f8181612f0b565b809150509250929050565b602081525f82518060208401528060208501604085015e5f6040828501015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011684010191505092915050565b5f5f60408385031215612ff0575f5ffd5b50508035926020909101359150565b5f5f83601f84011261300f575f5ffd5b50813567ffffffffffffffff811115613026575f5ffd5b602083019150836020828501011115612839575f5ffd5b5f5f5f6040848603121561304f575f5ffd5b833561305a81612f0b565b9250602084013567ffffffffffffffff811115613075575f5ffd5b61308186828701612fff565b9497909650939450505050565b5f5f5f5f604085870312156130a1575f5ffd5b843567ffffffffffffffff8111156130b7575f5ffd5b6130c387828801612fff565b909550935050602085013567ffffffffffffffff8111156130e2575f5ffd5b6130ee87828801612fff565b95989497509550505050565b5f5f5f5f6080858703121561310d575f5ffd5b843561311881612f0b565b9350602085013561312881612f0b565b9250604085013561313881612f0b565b9150606085013561314881612f0b565b939692955090935050565b5f5f5f60408486031215613165575f5ffd5b83359250602084013567ffffffffffffffff811115613075575f5ffd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603260045260245ffd5b5f602082840312156131ec575f5ffd5b815161129a81612f0b565b5f81518060208401855e5f93019283525090919050565b7f4261746368496e626f783a2062617463686572206e6f7420617574686f72697a81527f656420746f20706f737420696e2066616c6c6261636b206d6f64652e2045787060208201527f65637465643a200000000000000000000000000000000000000000000000000060408201525f61328b60478301856131f7565b7f2c2041637475616c3a200000000000000000000000000000000000000000000081526132bb600a8201856131f7565b95945050505050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b8082028115828204841417610714576107146132c4565b7f4261746368496e626f783a2062617463686572206e6f7420617574686f72697a81527f656420746f20706f737420696e20544545206d6f64652e20457870656374656460208201527f3a2000000000000000000000000000000000000000000000000000000000000060408201525f61328b60428301856131f7565b5f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82036133b5576133b56132c4565b5060010190565b818382375f9101908152919050565b81835281816020850137505f602082840101525f60207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f840116840101905092915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602160045260245ffd5b60028110610a12577f4e487b71000000000000000000000000000000000000000000000000000000005f52602160045260245ffd5b608081525f61348760808301888a6133cb565b828103602084015261349a8187896133cb565b9150506134a68461343f565b8360408301526134b58361343f565b826060830152979650505050505050565b60ff8181168382160190811115610714576107146132c4565b73ffffffffffffffffffffffffffffffffffffffff83168152604081016135058361343f565b8260208301529392505050565b5f60208284031215613522575f5ffd5b8151801515811461129a575f5ffd5b80820180821115610714576107146132c4565b5f81613552576135526132c4565b507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0190565b81810381811115610714576107146132c4565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603160045260245ffdfea164736f6c634300081d000a",
 }
 
 // BatchAuthenticatorABI is the input ABI used to generate the binding from.
@@ -44,7 +44,7 @@ var BatchAuthenticatorABI = BatchAuthenticatorMetaData.ABI
 var BatchAuthenticatorBin = BatchAuthenticatorMetaData.Bin
 
 // DeployBatchAuthenticator deploys a new Ethereum contract, binding an instance of BatchAuthenticator to it.
-func DeployBatchAuthenticator(auth *bind.TransactOpts, backend bind.ContractBackend, _espressoTEEVerifier common.Address, _teeBatcher common.Address, _nonTeeBatcher common.Address, _owner common.Address) (common.Address, *types.Transaction, *BatchAuthenticator, error) {
+func DeployBatchAuthenticator(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *BatchAuthenticator, error) {
 	parsed, err := BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -53,7 +53,7 @@ func DeployBatchAuthenticator(auth *bind.TransactOpts, backend bind.ContractBack
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(BatchAuthenticatorBin), backend, _espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(BatchAuthenticatorBin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -202,6 +202,68 @@ func (_BatchAuthenticator *BatchAuthenticatorTransactorRaw) Transact(opts *bind.
 	return _BatchAuthenticator.Contract.contract.Transact(opts, method, params...)
 }
 
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) DEFAULTADMINROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "DEFAULT_ADMIN_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorSession) DEFAULTADMINROLE() ([32]byte, error) {
+	return _BatchAuthenticator.Contract.DEFAULTADMINROLE(&_BatchAuthenticator.CallOpts)
+}
+
+// DEFAULTADMINROLE is a free data retrieval call binding the contract method 0xa217fddf.
+//
+// Solidity: function DEFAULT_ADMIN_ROLE() view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) DEFAULTADMINROLE() ([32]byte, error) {
+	return _BatchAuthenticator.Contract.DEFAULTADMINROLE(&_BatchAuthenticator.CallOpts)
+}
+
+// GUARDIANROLE is a free data retrieval call binding the contract method 0x24ea54f4.
+//
+// Solidity: function GUARDIAN_ROLE() view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GUARDIANROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "GUARDIAN_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GUARDIANROLE is a free data retrieval call binding the contract method 0x24ea54f4.
+//
+// Solidity: function GUARDIAN_ROLE() view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorSession) GUARDIANROLE() ([32]byte, error) {
+	return _BatchAuthenticator.Contract.GUARDIANROLE(&_BatchAuthenticator.CallOpts)
+}
+
+// GUARDIANROLE is a free data retrieval call binding the contract method 0x24ea54f4.
+//
+// Solidity: function GUARDIAN_ROLE() view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GUARDIANROLE() ([32]byte, error) {
+	return _BatchAuthenticator.Contract.GUARDIANROLE(&_BatchAuthenticator.CallOpts)
+}
+
 // ActiveIsTee is a free data retrieval call binding the contract method 0x7877a9ed.
 //
 // Solidity: function activeIsTee() view returns(bool)
@@ -262,6 +324,316 @@ func (_BatchAuthenticator *BatchAuthenticatorSession) EspressoTEEVerifier() (com
 // Solidity: function espressoTEEVerifier() view returns(address)
 func (_BatchAuthenticator *BatchAuthenticatorCallerSession) EspressoTEEVerifier() (common.Address, error) {
 	return _BatchAuthenticator.Contract.EspressoTEEVerifier(&_BatchAuthenticator.CallOpts)
+}
+
+// GetGuardians is a free data retrieval call binding the contract method 0x0665f04b.
+//
+// Solidity: function getGuardians() view returns(address[])
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GetGuardians(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "getGuardians")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetGuardians is a free data retrieval call binding the contract method 0x0665f04b.
+//
+// Solidity: function getGuardians() view returns(address[])
+func (_BatchAuthenticator *BatchAuthenticatorSession) GetGuardians() ([]common.Address, error) {
+	return _BatchAuthenticator.Contract.GetGuardians(&_BatchAuthenticator.CallOpts)
+}
+
+// GetGuardians is a free data retrieval call binding the contract method 0x0665f04b.
+//
+// Solidity: function getGuardians() view returns(address[])
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GetGuardians() ([]common.Address, error) {
+	return _BatchAuthenticator.Contract.GetGuardians(&_BatchAuthenticator.CallOpts)
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GetRoleAdmin(opts *bind.CallOpts, role [32]byte) ([32]byte, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "getRoleAdmin", role)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorSession) GetRoleAdmin(role [32]byte) ([32]byte, error) {
+	return _BatchAuthenticator.Contract.GetRoleAdmin(&_BatchAuthenticator.CallOpts, role)
+}
+
+// GetRoleAdmin is a free data retrieval call binding the contract method 0x248a9ca3.
+//
+// Solidity: function getRoleAdmin(bytes32 role) view returns(bytes32)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GetRoleAdmin(role [32]byte) ([32]byte, error) {
+	return _BatchAuthenticator.Contract.GetRoleAdmin(&_BatchAuthenticator.CallOpts, role)
+}
+
+// GetRoleMember is a free data retrieval call binding the contract method 0x9010d07c.
+//
+// Solidity: function getRoleMember(bytes32 role, uint256 index) view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GetRoleMember(opts *bind.CallOpts, role [32]byte, index *big.Int) (common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "getRoleMember", role, index)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetRoleMember is a free data retrieval call binding the contract method 0x9010d07c.
+//
+// Solidity: function getRoleMember(bytes32 role, uint256 index) view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorSession) GetRoleMember(role [32]byte, index *big.Int) (common.Address, error) {
+	return _BatchAuthenticator.Contract.GetRoleMember(&_BatchAuthenticator.CallOpts, role, index)
+}
+
+// GetRoleMember is a free data retrieval call binding the contract method 0x9010d07c.
+//
+// Solidity: function getRoleMember(bytes32 role, uint256 index) view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GetRoleMember(role [32]byte, index *big.Int) (common.Address, error) {
+	return _BatchAuthenticator.Contract.GetRoleMember(&_BatchAuthenticator.CallOpts, role, index)
+}
+
+// GetRoleMemberCount is a free data retrieval call binding the contract method 0xca15c873.
+//
+// Solidity: function getRoleMemberCount(bytes32 role) view returns(uint256)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GetRoleMemberCount(opts *bind.CallOpts, role [32]byte) (*big.Int, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "getRoleMemberCount", role)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetRoleMemberCount is a free data retrieval call binding the contract method 0xca15c873.
+//
+// Solidity: function getRoleMemberCount(bytes32 role) view returns(uint256)
+func (_BatchAuthenticator *BatchAuthenticatorSession) GetRoleMemberCount(role [32]byte) (*big.Int, error) {
+	return _BatchAuthenticator.Contract.GetRoleMemberCount(&_BatchAuthenticator.CallOpts, role)
+}
+
+// GetRoleMemberCount is a free data retrieval call binding the contract method 0xca15c873.
+//
+// Solidity: function getRoleMemberCount(bytes32 role) view returns(uint256)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GetRoleMemberCount(role [32]byte) (*big.Int, error) {
+	return _BatchAuthenticator.Contract.GetRoleMemberCount(&_BatchAuthenticator.CallOpts, role)
+}
+
+// GetRoleMembers is a free data retrieval call binding the contract method 0xa3246ad3.
+//
+// Solidity: function getRoleMembers(bytes32 role) view returns(address[])
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GetRoleMembers(opts *bind.CallOpts, role [32]byte) ([]common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "getRoleMembers", role)
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+// GetRoleMembers is a free data retrieval call binding the contract method 0xa3246ad3.
+//
+// Solidity: function getRoleMembers(bytes32 role) view returns(address[])
+func (_BatchAuthenticator *BatchAuthenticatorSession) GetRoleMembers(role [32]byte) ([]common.Address, error) {
+	return _BatchAuthenticator.Contract.GetRoleMembers(&_BatchAuthenticator.CallOpts, role)
+}
+
+// GetRoleMembers is a free data retrieval call binding the contract method 0xa3246ad3.
+//
+// Solidity: function getRoleMembers(bytes32 role) view returns(address[])
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GetRoleMembers(role [32]byte) ([]common.Address, error) {
+	return _BatchAuthenticator.Contract.GetRoleMembers(&_BatchAuthenticator.CallOpts, role)
+}
+
+// GuardianCount is a free data retrieval call binding the contract method 0x54387ad7.
+//
+// Solidity: function guardianCount() view returns(uint256)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) GuardianCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "guardianCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GuardianCount is a free data retrieval call binding the contract method 0x54387ad7.
+//
+// Solidity: function guardianCount() view returns(uint256)
+func (_BatchAuthenticator *BatchAuthenticatorSession) GuardianCount() (*big.Int, error) {
+	return _BatchAuthenticator.Contract.GuardianCount(&_BatchAuthenticator.CallOpts)
+}
+
+// GuardianCount is a free data retrieval call binding the contract method 0x54387ad7.
+//
+// Solidity: function guardianCount() view returns(uint256)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) GuardianCount() (*big.Int, error) {
+	return _BatchAuthenticator.Contract.GuardianCount(&_BatchAuthenticator.CallOpts)
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) HasRole(opts *bind.CallOpts, role [32]byte, account common.Address) (bool, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "hasRole", role, account)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorSession) HasRole(role [32]byte, account common.Address) (bool, error) {
+	return _BatchAuthenticator.Contract.HasRole(&_BatchAuthenticator.CallOpts, role, account)
+}
+
+// HasRole is a free data retrieval call binding the contract method 0x91d14854.
+//
+// Solidity: function hasRole(bytes32 role, address account) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) HasRole(role [32]byte, account common.Address) (bool, error) {
+	return _BatchAuthenticator.Contract.HasRole(&_BatchAuthenticator.CallOpts, role, account)
+}
+
+// InitVersion is a free data retrieval call binding the contract method 0x38d38c97.
+//
+// Solidity: function initVersion() view returns(uint8)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) InitVersion(opts *bind.CallOpts) (uint8, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "initVersion")
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+// InitVersion is a free data retrieval call binding the contract method 0x38d38c97.
+//
+// Solidity: function initVersion() view returns(uint8)
+func (_BatchAuthenticator *BatchAuthenticatorSession) InitVersion() (uint8, error) {
+	return _BatchAuthenticator.Contract.InitVersion(&_BatchAuthenticator.CallOpts)
+}
+
+// InitVersion is a free data retrieval call binding the contract method 0x38d38c97.
+//
+// Solidity: function initVersion() view returns(uint8)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) InitVersion() (uint8, error) {
+	return _BatchAuthenticator.Contract.InitVersion(&_BatchAuthenticator.CallOpts)
+}
+
+// IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
+//
+// Solidity: function isGuardian(address account) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) IsGuardian(opts *bind.CallOpts, account common.Address) (bool, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "isGuardian", account)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
+//
+// Solidity: function isGuardian(address account) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorSession) IsGuardian(account common.Address) (bool, error) {
+	return _BatchAuthenticator.Contract.IsGuardian(&_BatchAuthenticator.CallOpts, account)
+}
+
+// IsGuardian is a free data retrieval call binding the contract method 0x0c68ba21.
+//
+// Solidity: function isGuardian(address account) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) IsGuardian(account common.Address) (bool, error) {
+	return _BatchAuthenticator.Contract.IsGuardian(&_BatchAuthenticator.CallOpts, account)
+}
+
+// NitroValidator is a free data retrieval call binding the contract method 0x1b076a4c.
+//
+// Solidity: function nitroValidator() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) NitroValidator(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "nitroValidator")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// NitroValidator is a free data retrieval call binding the contract method 0x1b076a4c.
+//
+// Solidity: function nitroValidator() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorSession) NitroValidator() (common.Address, error) {
+	return _BatchAuthenticator.Contract.NitroValidator(&_BatchAuthenticator.CallOpts)
+}
+
+// NitroValidator is a free data retrieval call binding the contract method 0x1b076a4c.
+//
+// Solidity: function nitroValidator() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) NitroValidator() (common.Address, error) {
+	return _BatchAuthenticator.Contract.NitroValidator(&_BatchAuthenticator.CallOpts)
 }
 
 // NonTeeBatcher is a free data retrieval call binding the contract method 0xb1bd4285.
@@ -326,6 +698,130 @@ func (_BatchAuthenticator *BatchAuthenticatorCallerSession) Owner() (common.Addr
 	return _BatchAuthenticator.Contract.Owner(&_BatchAuthenticator.CallOpts)
 }
 
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) PendingOwner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "pendingOwner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorSession) PendingOwner() (common.Address, error) {
+	return _BatchAuthenticator.Contract.PendingOwner(&_BatchAuthenticator.CallOpts)
+}
+
+// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
+//
+// Solidity: function pendingOwner() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) PendingOwner() (common.Address, error) {
+	return _BatchAuthenticator.Contract.PendingOwner(&_BatchAuthenticator.CallOpts)
+}
+
+// ProxyAdmin is a free data retrieval call binding the contract method 0x3e47158c.
+//
+// Solidity: function proxyAdmin() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) ProxyAdmin(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "proxyAdmin")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// ProxyAdmin is a free data retrieval call binding the contract method 0x3e47158c.
+//
+// Solidity: function proxyAdmin() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorSession) ProxyAdmin() (common.Address, error) {
+	return _BatchAuthenticator.Contract.ProxyAdmin(&_BatchAuthenticator.CallOpts)
+}
+
+// ProxyAdmin is a free data retrieval call binding the contract method 0x3e47158c.
+//
+// Solidity: function proxyAdmin() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) ProxyAdmin() (common.Address, error) {
+	return _BatchAuthenticator.Contract.ProxyAdmin(&_BatchAuthenticator.CallOpts)
+}
+
+// ProxyAdminOwner is a free data retrieval call binding the contract method 0xdad544e0.
+//
+// Solidity: function proxyAdminOwner() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) ProxyAdminOwner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "proxyAdminOwner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// ProxyAdminOwner is a free data retrieval call binding the contract method 0xdad544e0.
+//
+// Solidity: function proxyAdminOwner() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorSession) ProxyAdminOwner() (common.Address, error) {
+	return _BatchAuthenticator.Contract.ProxyAdminOwner(&_BatchAuthenticator.CallOpts)
+}
+
+// ProxyAdminOwner is a free data retrieval call binding the contract method 0xdad544e0.
+//
+// Solidity: function proxyAdminOwner() view returns(address)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) ProxyAdminOwner() (common.Address, error) {
+	return _BatchAuthenticator.Contract.ProxyAdminOwner(&_BatchAuthenticator.CallOpts)
+}
+
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorCaller) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "supportsInterface", interfaceId)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
+	return _BatchAuthenticator.Contract.SupportsInterface(&_BatchAuthenticator.CallOpts, interfaceId)
+}
+
+// SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
+//
+// Solidity: function supportsInterface(bytes4 interfaceId) view returns(bool)
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) SupportsInterface(interfaceId [4]byte) (bool, error) {
+	return _BatchAuthenticator.Contract.SupportsInterface(&_BatchAuthenticator.CallOpts, interfaceId)
+}
+
 // TeeBatcher is a free data retrieval call binding the contract method 0xd909ba7c.
 //
 // Solidity: function teeBatcher() view returns(address)
@@ -388,6 +884,93 @@ func (_BatchAuthenticator *BatchAuthenticatorCallerSession) ValidBatchInfo(arg0 
 	return _BatchAuthenticator.Contract.ValidBatchInfo(&_BatchAuthenticator.CallOpts, arg0)
 }
 
+// ValidateBatch is a free data retrieval call binding the contract method 0x91a1a35d.
+//
+// Solidity: function validateBatch(address sender, bytes data) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorCaller) ValidateBatch(opts *bind.CallOpts, sender common.Address, data []byte) error {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "validateBatch", sender, data)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+// ValidateBatch is a free data retrieval call binding the contract method 0x91a1a35d.
+//
+// Solidity: function validateBatch(address sender, bytes data) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) ValidateBatch(sender common.Address, data []byte) error {
+	return _BatchAuthenticator.Contract.ValidateBatch(&_BatchAuthenticator.CallOpts, sender, data)
+}
+
+// ValidateBatch is a free data retrieval call binding the contract method 0x91a1a35d.
+//
+// Solidity: function validateBatch(address sender, bytes data) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) ValidateBatch(sender common.Address, data []byte) error {
+	return _BatchAuthenticator.Contract.ValidateBatch(&_BatchAuthenticator.CallOpts, sender, data)
+}
+
+// ValidateNonTeeBatch is a free data retrieval call binding the contract method 0x361d2d7b.
+//
+// Solidity: function validateNonTeeBatch(address sender) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorCaller) ValidateNonTeeBatch(opts *bind.CallOpts, sender common.Address) error {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "validateNonTeeBatch", sender)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+// ValidateNonTeeBatch is a free data retrieval call binding the contract method 0x361d2d7b.
+//
+// Solidity: function validateNonTeeBatch(address sender) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) ValidateNonTeeBatch(sender common.Address) error {
+	return _BatchAuthenticator.Contract.ValidateNonTeeBatch(&_BatchAuthenticator.CallOpts, sender)
+}
+
+// ValidateNonTeeBatch is a free data retrieval call binding the contract method 0x361d2d7b.
+//
+// Solidity: function validateNonTeeBatch(address sender) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) ValidateNonTeeBatch(sender common.Address) error {
+	return _BatchAuthenticator.Contract.ValidateNonTeeBatch(&_BatchAuthenticator.CallOpts, sender)
+}
+
+// ValidateTeeBatch is a free data retrieval call binding the contract method 0x995bd81e.
+//
+// Solidity: function validateTeeBatch(address sender, bytes data) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorCaller) ValidateTeeBatch(opts *bind.CallOpts, sender common.Address, data []byte) error {
+	var out []interface{}
+	err := _BatchAuthenticator.contract.Call(opts, &out, "validateTeeBatch", sender, data)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+// ValidateTeeBatch is a free data retrieval call binding the contract method 0x995bd81e.
+//
+// Solidity: function validateTeeBatch(address sender, bytes data) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) ValidateTeeBatch(sender common.Address, data []byte) error {
+	return _BatchAuthenticator.Contract.ValidateTeeBatch(&_BatchAuthenticator.CallOpts, sender, data)
+}
+
+// ValidateTeeBatch is a free data retrieval call binding the contract method 0x995bd81e.
+//
+// Solidity: function validateTeeBatch(address sender, bytes data) view returns()
+func (_BatchAuthenticator *BatchAuthenticatorCallerSession) ValidateTeeBatch(sender common.Address, data []byte) error {
+	return _BatchAuthenticator.Contract.ValidateTeeBatch(&_BatchAuthenticator.CallOpts, sender, data)
+}
+
 // Version is a free data retrieval call binding the contract method 0x54fd4d50.
 //
 // Solidity: function version() view returns(string)
@@ -419,6 +1002,48 @@ func (_BatchAuthenticator *BatchAuthenticatorCallerSession) Version() (string, e
 	return _BatchAuthenticator.Contract.Version(&_BatchAuthenticator.CallOpts)
 }
 
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+//
+// Solidity: function acceptOwnership() returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "acceptOwnership")
+}
+
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+//
+// Solidity: function acceptOwnership() returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.AcceptOwnership(&_BatchAuthenticator.TransactOpts)
+}
+
+// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+//
+// Solidity: function acceptOwnership() returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.AcceptOwnership(&_BatchAuthenticator.TransactOpts)
+}
+
+// AddGuardian is a paid mutator transaction binding the contract method 0xa526d83b.
+//
+// Solidity: function addGuardian(address guardian) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) AddGuardian(opts *bind.TransactOpts, guardian common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "addGuardian", guardian)
+}
+
+// AddGuardian is a paid mutator transaction binding the contract method 0xa526d83b.
+//
+// Solidity: function addGuardian(address guardian) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) AddGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.AddGuardian(&_BatchAuthenticator.TransactOpts, guardian)
+}
+
+// AddGuardian is a paid mutator transaction binding the contract method 0xa526d83b.
+//
+// Solidity: function addGuardian(address guardian) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) AddGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.AddGuardian(&_BatchAuthenticator.TransactOpts, guardian)
+}
+
 // AuthenticateBatchInfo is a paid mutator transaction binding the contract method 0xfc619e41.
 //
 // Solidity: function authenticateBatchInfo(bytes32 commitment, bytes _signature) returns()
@@ -438,6 +1063,48 @@ func (_BatchAuthenticator *BatchAuthenticatorSession) AuthenticateBatchInfo(comm
 // Solidity: function authenticateBatchInfo(bytes32 commitment, bytes _signature) returns()
 func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) AuthenticateBatchInfo(commitment [32]byte, _signature []byte) (*types.Transaction, error) {
 	return _BatchAuthenticator.Contract.AuthenticateBatchInfo(&_BatchAuthenticator.TransactOpts, commitment, _signature)
+}
+
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) GrantRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "grantRole", role, account)
+}
+
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) GrantRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.GrantRole(&_BatchAuthenticator.TransactOpts, role, account)
+}
+
+// GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
+//
+// Solidity: function grantRole(bytes32 role, address account) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) GrantRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.GrantRole(&_BatchAuthenticator.TransactOpts, role, account)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
+//
+// Solidity: function initialize(address _espressoTEEVerifier, address _teeBatcher, address _nonTeeBatcher, address _owner) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) Initialize(opts *bind.TransactOpts, _espressoTEEVerifier common.Address, _teeBatcher common.Address, _nonTeeBatcher common.Address, _owner common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "initialize", _espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
+//
+// Solidity: function initialize(address _espressoTEEVerifier, address _teeBatcher, address _nonTeeBatcher, address _owner) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) Initialize(_espressoTEEVerifier common.Address, _teeBatcher common.Address, _nonTeeBatcher common.Address, _owner common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.Initialize(&_BatchAuthenticator.TransactOpts, _espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
+}
+
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
+//
+// Solidity: function initialize(address _espressoTEEVerifier, address _teeBatcher, address _nonTeeBatcher, address _owner) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) Initialize(_espressoTEEVerifier common.Address, _teeBatcher common.Address, _nonTeeBatcher common.Address, _owner common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.Initialize(&_BatchAuthenticator.TransactOpts, _espressoTEEVerifier, _teeBatcher, _nonTeeBatcher, _owner)
 }
 
 // RegisterSigner is a paid mutator transaction binding the contract method 0xba58e82a.
@@ -461,6 +1128,27 @@ func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) RegisterSigner(a
 	return _BatchAuthenticator.Contract.RegisterSigner(&_BatchAuthenticator.TransactOpts, attestationTbs, signature)
 }
 
+// RemoveGuardian is a paid mutator transaction binding the contract method 0x71404156.
+//
+// Solidity: function removeGuardian(address guardian) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) RemoveGuardian(opts *bind.TransactOpts, guardian common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "removeGuardian", guardian)
+}
+
+// RemoveGuardian is a paid mutator transaction binding the contract method 0x71404156.
+//
+// Solidity: function removeGuardian(address guardian) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) RemoveGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.RemoveGuardian(&_BatchAuthenticator.TransactOpts, guardian)
+}
+
+// RemoveGuardian is a paid mutator transaction binding the contract method 0x71404156.
+//
+// Solidity: function removeGuardian(address guardian) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) RemoveGuardian(guardian common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.RemoveGuardian(&_BatchAuthenticator.TransactOpts, guardian)
+}
+
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
 // Solidity: function renounceOwnership() returns()
@@ -480,6 +1168,90 @@ func (_BatchAuthenticator *BatchAuthenticatorSession) RenounceOwnership() (*type
 // Solidity: function renounceOwnership() returns()
 func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) RenounceOwnership() (*types.Transaction, error) {
 	return _BatchAuthenticator.Contract.RenounceOwnership(&_BatchAuthenticator.TransactOpts)
+}
+
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) RenounceRole(opts *bind.TransactOpts, role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "renounceRole", role, callerConfirmation)
+}
+
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) RenounceRole(role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.RenounceRole(&_BatchAuthenticator.TransactOpts, role, callerConfirmation)
+}
+
+// RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
+//
+// Solidity: function renounceRole(bytes32 role, address callerConfirmation) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) RenounceRole(role [32]byte, callerConfirmation common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.RenounceRole(&_BatchAuthenticator.TransactOpts, role, callerConfirmation)
+}
+
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) RevokeRole(opts *bind.TransactOpts, role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "revokeRole", role, account)
+}
+
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) RevokeRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.RevokeRole(&_BatchAuthenticator.TransactOpts, role, account)
+}
+
+// RevokeRole is a paid mutator transaction binding the contract method 0xd547741f.
+//
+// Solidity: function revokeRole(bytes32 role, address account) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) RevokeRole(role [32]byte, account common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.RevokeRole(&_BatchAuthenticator.TransactOpts, role, account)
+}
+
+// SetNonTeeBatcher is a paid mutator transaction binding the contract method 0x8c8fc531.
+//
+// Solidity: function setNonTeeBatcher(address _newNonTeeBatcher) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) SetNonTeeBatcher(opts *bind.TransactOpts, _newNonTeeBatcher common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "setNonTeeBatcher", _newNonTeeBatcher)
+}
+
+// SetNonTeeBatcher is a paid mutator transaction binding the contract method 0x8c8fc531.
+//
+// Solidity: function setNonTeeBatcher(address _newNonTeeBatcher) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) SetNonTeeBatcher(_newNonTeeBatcher common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.SetNonTeeBatcher(&_BatchAuthenticator.TransactOpts, _newNonTeeBatcher)
+}
+
+// SetNonTeeBatcher is a paid mutator transaction binding the contract method 0x8c8fc531.
+//
+// Solidity: function setNonTeeBatcher(address _newNonTeeBatcher) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) SetNonTeeBatcher(_newNonTeeBatcher common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.SetNonTeeBatcher(&_BatchAuthenticator.TransactOpts, _newNonTeeBatcher)
+}
+
+// SetTeeBatcher is a paid mutator transaction binding the contract method 0x6f7eda47.
+//
+// Solidity: function setTeeBatcher(address _newTeeBatcher) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactor) SetTeeBatcher(opts *bind.TransactOpts, _newTeeBatcher common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.contract.Transact(opts, "setTeeBatcher", _newTeeBatcher)
+}
+
+// SetTeeBatcher is a paid mutator transaction binding the contract method 0x6f7eda47.
+//
+// Solidity: function setTeeBatcher(address _newTeeBatcher) returns()
+func (_BatchAuthenticator *BatchAuthenticatorSession) SetTeeBatcher(_newTeeBatcher common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.SetTeeBatcher(&_BatchAuthenticator.TransactOpts, _newTeeBatcher)
+}
+
+// SetTeeBatcher is a paid mutator transaction binding the contract method 0x6f7eda47.
+//
+// Solidity: function setTeeBatcher(address _newTeeBatcher) returns()
+func (_BatchAuthenticator *BatchAuthenticatorTransactorSession) SetTeeBatcher(_newTeeBatcher common.Address) (*types.Transaction, error) {
+	return _BatchAuthenticator.Contract.SetTeeBatcher(&_BatchAuthenticator.TransactOpts, _newTeeBatcher)
 }
 
 // SwitchBatcher is a paid mutator transaction binding the contract method 0xbc347f47.
@@ -677,6 +1449,878 @@ func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseBatchInfoAuthenticat
 	return event, nil
 }
 
+// BatchAuthenticatorBatcherSwitchedIterator is returned from FilterBatcherSwitched and is used to iterate over the raw logs and unpacked data for BatcherSwitched events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorBatcherSwitchedIterator struct {
+	Event *BatchAuthenticatorBatcherSwitched // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorBatcherSwitchedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorBatcherSwitched)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorBatcherSwitched)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorBatcherSwitchedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorBatcherSwitchedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorBatcherSwitched represents a BatcherSwitched event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorBatcherSwitched struct {
+	ActiveIsTee bool
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterBatcherSwitched is a free log retrieval operation binding the contract event 0xb957d7fc29e5974594db2f2e132076d52f42c0734eae05fd5ea080d1ba175ad3.
+//
+// Solidity: event BatcherSwitched(bool indexed activeIsTee)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterBatcherSwitched(opts *bind.FilterOpts, activeIsTee []bool) (*BatchAuthenticatorBatcherSwitchedIterator, error) {
+
+	var activeIsTeeRule []interface{}
+	for _, activeIsTeeItem := range activeIsTee {
+		activeIsTeeRule = append(activeIsTeeRule, activeIsTeeItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "BatcherSwitched", activeIsTeeRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorBatcherSwitchedIterator{contract: _BatchAuthenticator.contract, event: "BatcherSwitched", logs: logs, sub: sub}, nil
+}
+
+// WatchBatcherSwitched is a free log subscription operation binding the contract event 0xb957d7fc29e5974594db2f2e132076d52f42c0734eae05fd5ea080d1ba175ad3.
+//
+// Solidity: event BatcherSwitched(bool indexed activeIsTee)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchBatcherSwitched(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorBatcherSwitched, activeIsTee []bool) (event.Subscription, error) {
+
+	var activeIsTeeRule []interface{}
+	for _, activeIsTeeItem := range activeIsTee {
+		activeIsTeeRule = append(activeIsTeeRule, activeIsTeeItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "BatcherSwitched", activeIsTeeRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorBatcherSwitched)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "BatcherSwitched", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBatcherSwitched is a log parse operation binding the contract event 0xb957d7fc29e5974594db2f2e132076d52f42c0734eae05fd5ea080d1ba175ad3.
+//
+// Solidity: event BatcherSwitched(bool indexed activeIsTee)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseBatcherSwitched(log types.Log) (*BatchAuthenticatorBatcherSwitched, error) {
+	event := new(BatchAuthenticatorBatcherSwitched)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "BatcherSwitched", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorGuardianAddedIterator is returned from FilterGuardianAdded and is used to iterate over the raw logs and unpacked data for GuardianAdded events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorGuardianAddedIterator struct {
+	Event *BatchAuthenticatorGuardianAdded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorGuardianAddedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorGuardianAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorGuardianAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorGuardianAddedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorGuardianAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorGuardianAdded represents a GuardianAdded event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorGuardianAdded struct {
+	Guardian common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterGuardianAdded is a free log retrieval operation binding the contract event 0x038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969.
+//
+// Solidity: event GuardianAdded(address indexed guardian)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterGuardianAdded(opts *bind.FilterOpts, guardian []common.Address) (*BatchAuthenticatorGuardianAddedIterator, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "GuardianAdded", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorGuardianAddedIterator{contract: _BatchAuthenticator.contract, event: "GuardianAdded", logs: logs, sub: sub}, nil
+}
+
+// WatchGuardianAdded is a free log subscription operation binding the contract event 0x038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969.
+//
+// Solidity: event GuardianAdded(address indexed guardian)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchGuardianAdded(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorGuardianAdded, guardian []common.Address) (event.Subscription, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "GuardianAdded", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorGuardianAdded)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "GuardianAdded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseGuardianAdded is a log parse operation binding the contract event 0x038596bb31e2e7d3d9f184d4c98b310103f6d7f5830e5eec32bffe6f1728f969.
+//
+// Solidity: event GuardianAdded(address indexed guardian)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseGuardianAdded(log types.Log) (*BatchAuthenticatorGuardianAdded, error) {
+	event := new(BatchAuthenticatorGuardianAdded)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "GuardianAdded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorGuardianRemovedIterator is returned from FilterGuardianRemoved and is used to iterate over the raw logs and unpacked data for GuardianRemoved events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorGuardianRemovedIterator struct {
+	Event *BatchAuthenticatorGuardianRemoved // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorGuardianRemovedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorGuardianRemoved)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorGuardianRemoved)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorGuardianRemovedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorGuardianRemovedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorGuardianRemoved represents a GuardianRemoved event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorGuardianRemoved struct {
+	Guardian common.Address
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterGuardianRemoved is a free log retrieval operation binding the contract event 0xb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52.
+//
+// Solidity: event GuardianRemoved(address indexed guardian)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterGuardianRemoved(opts *bind.FilterOpts, guardian []common.Address) (*BatchAuthenticatorGuardianRemovedIterator, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "GuardianRemoved", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorGuardianRemovedIterator{contract: _BatchAuthenticator.contract, event: "GuardianRemoved", logs: logs, sub: sub}, nil
+}
+
+// WatchGuardianRemoved is a free log subscription operation binding the contract event 0xb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52.
+//
+// Solidity: event GuardianRemoved(address indexed guardian)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchGuardianRemoved(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorGuardianRemoved, guardian []common.Address) (event.Subscription, error) {
+
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "GuardianRemoved", guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorGuardianRemoved)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "GuardianRemoved", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseGuardianRemoved is a log parse operation binding the contract event 0xb8107d0c6b40be480ce3172ee66ba6d64b71f6b1685a851340036e6e2e3e3c52.
+//
+// Solidity: event GuardianRemoved(address indexed guardian)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseGuardianRemoved(log types.Log) (*BatchAuthenticatorGuardianRemoved, error) {
+	event := new(BatchAuthenticatorGuardianRemoved)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "GuardianRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorInitializedIterator struct {
+	Event *BatchAuthenticatorInitialized // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorInitializedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorInitialized)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorInitialized)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorInitializedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorInitializedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorInitialized represents a Initialized event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorInitialized struct {
+	Version uint64
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterInitialized is a free log retrieval operation binding the contract event 0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2.
+//
+// Solidity: event Initialized(uint64 version)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterInitialized(opts *bind.FilterOpts) (*BatchAuthenticatorInitializedIterator, error) {
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorInitializedIterator{contract: _BatchAuthenticator.contract, event: "Initialized", logs: logs, sub: sub}, nil
+}
+
+// WatchInitialized is a free log subscription operation binding the contract event 0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2.
+//
+// Solidity: event Initialized(uint64 version)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchInitialized(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorInitialized) (event.Subscription, error) {
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "Initialized")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorInitialized)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "Initialized", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseInitialized is a log parse operation binding the contract event 0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2.
+//
+// Solidity: event Initialized(uint64 version)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseInitialized(log types.Log) (*BatchAuthenticatorInitialized, error) {
+	event := new(BatchAuthenticatorInitialized)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "Initialized", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorNonTeeBatcherUpdatedIterator is returned from FilterNonTeeBatcherUpdated and is used to iterate over the raw logs and unpacked data for NonTeeBatcherUpdated events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorNonTeeBatcherUpdatedIterator struct {
+	Event *BatchAuthenticatorNonTeeBatcherUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorNonTeeBatcherUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorNonTeeBatcherUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorNonTeeBatcherUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorNonTeeBatcherUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorNonTeeBatcherUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorNonTeeBatcherUpdated represents a NonTeeBatcherUpdated event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorNonTeeBatcherUpdated struct {
+	OldNonTeeBatcher common.Address
+	NewNonTeeBatcher common.Address
+	Raw              types.Log // Blockchain specific contextual infos
+}
+
+// FilterNonTeeBatcherUpdated is a free log retrieval operation binding the contract event 0xc85a6d3bc379dcb6b0bfec0a8d348be6dd937e2a34b2e2faaeb5762fc586aee5.
+//
+// Solidity: event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterNonTeeBatcherUpdated(opts *bind.FilterOpts, oldNonTeeBatcher []common.Address, newNonTeeBatcher []common.Address) (*BatchAuthenticatorNonTeeBatcherUpdatedIterator, error) {
+
+	var oldNonTeeBatcherRule []interface{}
+	for _, oldNonTeeBatcherItem := range oldNonTeeBatcher {
+		oldNonTeeBatcherRule = append(oldNonTeeBatcherRule, oldNonTeeBatcherItem)
+	}
+	var newNonTeeBatcherRule []interface{}
+	for _, newNonTeeBatcherItem := range newNonTeeBatcher {
+		newNonTeeBatcherRule = append(newNonTeeBatcherRule, newNonTeeBatcherItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "NonTeeBatcherUpdated", oldNonTeeBatcherRule, newNonTeeBatcherRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorNonTeeBatcherUpdatedIterator{contract: _BatchAuthenticator.contract, event: "NonTeeBatcherUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchNonTeeBatcherUpdated is a free log subscription operation binding the contract event 0xc85a6d3bc379dcb6b0bfec0a8d348be6dd937e2a34b2e2faaeb5762fc586aee5.
+//
+// Solidity: event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchNonTeeBatcherUpdated(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorNonTeeBatcherUpdated, oldNonTeeBatcher []common.Address, newNonTeeBatcher []common.Address) (event.Subscription, error) {
+
+	var oldNonTeeBatcherRule []interface{}
+	for _, oldNonTeeBatcherItem := range oldNonTeeBatcher {
+		oldNonTeeBatcherRule = append(oldNonTeeBatcherRule, oldNonTeeBatcherItem)
+	}
+	var newNonTeeBatcherRule []interface{}
+	for _, newNonTeeBatcherItem := range newNonTeeBatcher {
+		newNonTeeBatcherRule = append(newNonTeeBatcherRule, newNonTeeBatcherItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "NonTeeBatcherUpdated", oldNonTeeBatcherRule, newNonTeeBatcherRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorNonTeeBatcherUpdated)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "NonTeeBatcherUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseNonTeeBatcherUpdated is a log parse operation binding the contract event 0xc85a6d3bc379dcb6b0bfec0a8d348be6dd937e2a34b2e2faaeb5762fc586aee5.
+//
+// Solidity: event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseNonTeeBatcherUpdated(log types.Log) (*BatchAuthenticatorNonTeeBatcherUpdated, error) {
+	event := new(BatchAuthenticatorNonTeeBatcherUpdated)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "NonTeeBatcherUpdated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorOwnershipTransferStartedIterator struct {
+	Event *BatchAuthenticatorOwnershipTransferStarted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorOwnershipTransferStartedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorOwnershipTransferStarted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorOwnershipTransferStarted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorOwnershipTransferStartedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorOwnershipTransferStartedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorOwnershipTransferStarted represents a OwnershipTransferStarted event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorOwnershipTransferStarted struct {
+	PreviousOwner common.Address
+	NewOwner      common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterOwnershipTransferStarted is a free log retrieval operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterOwnershipTransferStarted(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*BatchAuthenticatorOwnershipTransferStartedIterator, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorOwnershipTransferStartedIterator{contract: _BatchAuthenticator.contract, event: "OwnershipTransferStarted", logs: logs, sub: sub}, nil
+}
+
+// WatchOwnershipTransferStarted is a free log subscription operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorOwnershipTransferStarted, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+
+	var previousOwnerRule []interface{}
+	for _, previousOwnerItem := range previousOwner {
+		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	}
+	var newOwnerRule []interface{}
+	for _, newOwnerItem := range newOwner {
+		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorOwnershipTransferStarted)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOwnershipTransferStarted is a log parse operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+//
+// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseOwnershipTransferStarted(log types.Log) (*BatchAuthenticatorOwnershipTransferStarted, error) {
+	event := new(BatchAuthenticatorOwnershipTransferStarted)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // BatchAuthenticatorOwnershipTransferredIterator is returned from FilterOwnershipTransferred and is used to iterate over the raw logs and unpacked data for OwnershipTransferred events raised by the BatchAuthenticator contract.
 type BatchAuthenticatorOwnershipTransferredIterator struct {
 	Event *BatchAuthenticatorOwnershipTransferred // Event containing the contract specifics and raw log
@@ -830,6 +2474,492 @@ func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseOwnershipTransferred
 	return event, nil
 }
 
+// BatchAuthenticatorRoleAdminChangedIterator is returned from FilterRoleAdminChanged and is used to iterate over the raw logs and unpacked data for RoleAdminChanged events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorRoleAdminChangedIterator struct {
+	Event *BatchAuthenticatorRoleAdminChanged // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorRoleAdminChangedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorRoleAdminChanged)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorRoleAdminChanged)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorRoleAdminChangedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorRoleAdminChangedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorRoleAdminChanged represents a RoleAdminChanged event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorRoleAdminChanged struct {
+	Role              [32]byte
+	PreviousAdminRole [32]byte
+	NewAdminRole      [32]byte
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleAdminChanged is a free log retrieval operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterRoleAdminChanged(opts *bind.FilterOpts, role [][32]byte, previousAdminRole [][32]byte, newAdminRole [][32]byte) (*BatchAuthenticatorRoleAdminChangedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var previousAdminRoleRule []interface{}
+	for _, previousAdminRoleItem := range previousAdminRole {
+		previousAdminRoleRule = append(previousAdminRoleRule, previousAdminRoleItem)
+	}
+	var newAdminRoleRule []interface{}
+	for _, newAdminRoleItem := range newAdminRole {
+		newAdminRoleRule = append(newAdminRoleRule, newAdminRoleItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "RoleAdminChanged", roleRule, previousAdminRoleRule, newAdminRoleRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorRoleAdminChangedIterator{contract: _BatchAuthenticator.contract, event: "RoleAdminChanged", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleAdminChanged is a free log subscription operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchRoleAdminChanged(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorRoleAdminChanged, role [][32]byte, previousAdminRole [][32]byte, newAdminRole [][32]byte) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var previousAdminRoleRule []interface{}
+	for _, previousAdminRoleItem := range previousAdminRole {
+		previousAdminRoleRule = append(previousAdminRoleRule, previousAdminRoleItem)
+	}
+	var newAdminRoleRule []interface{}
+	for _, newAdminRoleItem := range newAdminRole {
+		newAdminRoleRule = append(newAdminRoleRule, newAdminRoleItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "RoleAdminChanged", roleRule, previousAdminRoleRule, newAdminRoleRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorRoleAdminChanged)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "RoleAdminChanged", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleAdminChanged is a log parse operation binding the contract event 0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff.
+//
+// Solidity: event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseRoleAdminChanged(log types.Log) (*BatchAuthenticatorRoleAdminChanged, error) {
+	event := new(BatchAuthenticatorRoleAdminChanged)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "RoleAdminChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorRoleGrantedIterator is returned from FilterRoleGranted and is used to iterate over the raw logs and unpacked data for RoleGranted events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorRoleGrantedIterator struct {
+	Event *BatchAuthenticatorRoleGranted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorRoleGrantedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorRoleGranted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorRoleGranted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorRoleGrantedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorRoleGrantedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorRoleGranted represents a RoleGranted event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorRoleGranted struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleGranted is a free log retrieval operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterRoleGranted(opts *bind.FilterOpts, role [][32]byte, account []common.Address, sender []common.Address) (*BatchAuthenticatorRoleGrantedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "RoleGranted", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorRoleGrantedIterator{contract: _BatchAuthenticator.contract, event: "RoleGranted", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleGranted is a free log subscription operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchRoleGranted(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorRoleGranted, role [][32]byte, account []common.Address, sender []common.Address) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "RoleGranted", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorRoleGranted)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "RoleGranted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleGranted is a log parse operation binding the contract event 0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d.
+//
+// Solidity: event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseRoleGranted(log types.Log) (*BatchAuthenticatorRoleGranted, error) {
+	event := new(BatchAuthenticatorRoleGranted)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "RoleGranted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorRoleRevokedIterator is returned from FilterRoleRevoked and is used to iterate over the raw logs and unpacked data for RoleRevoked events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorRoleRevokedIterator struct {
+	Event *BatchAuthenticatorRoleRevoked // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorRoleRevokedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorRoleRevoked)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorRoleRevoked)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorRoleRevokedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorRoleRevokedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorRoleRevoked represents a RoleRevoked event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorRoleRevoked struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterRoleRevoked is a free log retrieval operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterRoleRevoked(opts *bind.FilterOpts, role [][32]byte, account []common.Address, sender []common.Address) (*BatchAuthenticatorRoleRevokedIterator, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "RoleRevoked", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorRoleRevokedIterator{contract: _BatchAuthenticator.contract, event: "RoleRevoked", logs: logs, sub: sub}, nil
+}
+
+// WatchRoleRevoked is a free log subscription operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchRoleRevoked(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorRoleRevoked, role [][32]byte, account []common.Address, sender []common.Address) (event.Subscription, error) {
+
+	var roleRule []interface{}
+	for _, roleItem := range role {
+		roleRule = append(roleRule, roleItem)
+	}
+	var accountRule []interface{}
+	for _, accountItem := range account {
+		accountRule = append(accountRule, accountItem)
+	}
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "RoleRevoked", roleRule, accountRule, senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorRoleRevoked)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseRoleRevoked is a log parse operation binding the contract event 0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b.
+//
+// Solidity: event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseRoleRevoked(log types.Log) (*BatchAuthenticatorRoleRevoked, error) {
+	event := new(BatchAuthenticatorRoleRevoked)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "RoleRevoked", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // BatchAuthenticatorSignerRegistrationInitiatedIterator is returned from FilterSignerRegistrationInitiated and is used to iterate over the raw logs and unpacked data for SignerRegistrationInitiated events raised by the BatchAuthenticator contract.
 type BatchAuthenticatorSignerRegistrationInitiatedIterator struct {
 	Event *BatchAuthenticatorSignerRegistrationInitiated // Event containing the contract specifics and raw log
@@ -968,6 +3098,159 @@ func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchSignerRegistrationIn
 func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseSignerRegistrationInitiated(log types.Log) (*BatchAuthenticatorSignerRegistrationInitiated, error) {
 	event := new(BatchAuthenticatorSignerRegistrationInitiated)
 	if err := _BatchAuthenticator.contract.UnpackLog(event, "SignerRegistrationInitiated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BatchAuthenticatorTeeBatcherUpdatedIterator is returned from FilterTeeBatcherUpdated and is used to iterate over the raw logs and unpacked data for TeeBatcherUpdated events raised by the BatchAuthenticator contract.
+type BatchAuthenticatorTeeBatcherUpdatedIterator struct {
+	Event *BatchAuthenticatorTeeBatcherUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BatchAuthenticatorTeeBatcherUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BatchAuthenticatorTeeBatcherUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BatchAuthenticatorTeeBatcherUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BatchAuthenticatorTeeBatcherUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BatchAuthenticatorTeeBatcherUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BatchAuthenticatorTeeBatcherUpdated represents a TeeBatcherUpdated event raised by the BatchAuthenticator contract.
+type BatchAuthenticatorTeeBatcherUpdated struct {
+	OldTeeBatcher common.Address
+	NewTeeBatcher common.Address
+	Raw           types.Log // Blockchain specific contextual infos
+}
+
+// FilterTeeBatcherUpdated is a free log retrieval operation binding the contract event 0x5186a10c46a3a9c7ec5470c24b80c6414eba1320cf76bf72ef5135773c7b3327.
+//
+// Solidity: event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) FilterTeeBatcherUpdated(opts *bind.FilterOpts, oldTeeBatcher []common.Address, newTeeBatcher []common.Address) (*BatchAuthenticatorTeeBatcherUpdatedIterator, error) {
+
+	var oldTeeBatcherRule []interface{}
+	for _, oldTeeBatcherItem := range oldTeeBatcher {
+		oldTeeBatcherRule = append(oldTeeBatcherRule, oldTeeBatcherItem)
+	}
+	var newTeeBatcherRule []interface{}
+	for _, newTeeBatcherItem := range newTeeBatcher {
+		newTeeBatcherRule = append(newTeeBatcherRule, newTeeBatcherItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.FilterLogs(opts, "TeeBatcherUpdated", oldTeeBatcherRule, newTeeBatcherRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BatchAuthenticatorTeeBatcherUpdatedIterator{contract: _BatchAuthenticator.contract, event: "TeeBatcherUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchTeeBatcherUpdated is a free log subscription operation binding the contract event 0x5186a10c46a3a9c7ec5470c24b80c6414eba1320cf76bf72ef5135773c7b3327.
+//
+// Solidity: event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) WatchTeeBatcherUpdated(opts *bind.WatchOpts, sink chan<- *BatchAuthenticatorTeeBatcherUpdated, oldTeeBatcher []common.Address, newTeeBatcher []common.Address) (event.Subscription, error) {
+
+	var oldTeeBatcherRule []interface{}
+	for _, oldTeeBatcherItem := range oldTeeBatcher {
+		oldTeeBatcherRule = append(oldTeeBatcherRule, oldTeeBatcherItem)
+	}
+	var newTeeBatcherRule []interface{}
+	for _, newTeeBatcherItem := range newTeeBatcher {
+		newTeeBatcherRule = append(newTeeBatcherRule, newTeeBatcherItem)
+	}
+
+	logs, sub, err := _BatchAuthenticator.contract.WatchLogs(opts, "TeeBatcherUpdated", oldTeeBatcherRule, newTeeBatcherRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BatchAuthenticatorTeeBatcherUpdated)
+				if err := _BatchAuthenticator.contract.UnpackLog(event, "TeeBatcherUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseTeeBatcherUpdated is a log parse operation binding the contract event 0x5186a10c46a3a9c7ec5470c24b80c6414eba1320cf76bf72ef5135773c7b3327.
+//
+// Solidity: event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher)
+func (_BatchAuthenticator *BatchAuthenticatorFilterer) ParseTeeBatcherUpdated(log types.Log) (*BatchAuthenticatorTeeBatcherUpdated, error) {
+	event := new(BatchAuthenticatorTeeBatcherUpdated)
+	if err := _BatchAuthenticator.contract.UnpackLog(event, "TeeBatcherUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
