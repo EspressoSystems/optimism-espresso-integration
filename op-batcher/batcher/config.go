@@ -152,6 +152,9 @@ type CLIConfig struct {
 	PprofConfig   oppprof.CLIConfig
 	RPC           oprpc.CLIConfig
 	AltDA         altda.CLIConfig
+
+	EspressoUrl             string
+	EspressoLightClientAddr string
 }
 
 func (c *CLIConfig) Check() error {
@@ -264,5 +267,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 			PidOutputMax:        ctx.Float64(flags.ThrottlePidOutputMaxFlag.Name),
 			PidSampleTime:       ctx.Duration(flags.ThrottlePidSampleTimeFlag.Name),
 		},
+		EspressoUrl:             ctx.String(flags.EspressoUrlFlag.Name),
+		EspressoLightClientAddr: ctx.String(flags.EspressoLCAddrFlag.Name),
 	}
 }
