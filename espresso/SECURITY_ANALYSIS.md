@@ -303,7 +303,7 @@ The integration **adds** capabilities without **replacing** core functionality:
 |------------|-------------------|---------------------------|
 | L2 block production | ✅ Sequencer | ✅ Same sequencer |
 | Batch posting to L1 | ✅ Batcher → L1 | ✅ Same, plus optional Espresso |
-| Derivation from L1 | ✅ OP Node | ✅ Same OP Node derivation |
+| Derivation from L1 | ✅ OP Node | ✅ Slightly different derivation logic |
 | Fault proofs | ✅ Dispute game | ✅ Same dispute game |
 | Withdrawals | ✅ Standard bridge | ✅ Same bridge |
 | **Fast finality** | ❌ Not available | ✅ **New**: Caff Node + Espresso |
@@ -324,7 +324,7 @@ if (!activeIsTee) {
 The system:
 - Uses standard batcher (no TEE)
 - Posts only to L1 (no Espresso)
-- Derives blocks using standard OP Node
+- Derives blocks using standard OP Node (with slight change in derivation pipeline)
 - Processes transactions identically
 - Maintains same security guarantees
 
@@ -430,7 +430,6 @@ The test suite validates degradation behavior:
 References:
 - [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol) - Dual batcher support
 - [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol) - Mode switching
-- [Section 2.1: Fallback Mechanism](#21-fallback-mechanism)
 
 ## 3. Testing Strategy
 
