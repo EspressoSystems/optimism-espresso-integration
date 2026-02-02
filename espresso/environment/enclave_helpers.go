@@ -39,6 +39,11 @@ const (
 	ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
 	ENCLAVE_IMAGE_TAG              = "op-batcher-enclaver:tests"
 	ESPRESSO_ENABLE_ENCLAVE_TESTS  = "ESPRESSO_RUN_ENCLAVE_TESTS"
+
+	// TeeTypeNitro corresponds to IEspressoTEEVerifier.TeeType.NITRO enum value
+	TeeTypeNitro uint8 = 1
+	// ServiceTypeBatchPoster corresponds to ServiceType.BatchPoster enum value
+	ServiceTypeBatchPoster uint8 = 0
 )
 
 // Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
@@ -274,21 +279,15 @@ func RegisterEnclaveHash(ctx context.Context, sys *e2esys.System, pcr0Bytes []by
 		return fmt.Errorf("failed to create verifier: %w", err)
 	}
 
-	nitroVerifierAddress, err := verifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return fmt.Errorf("failed to get nitro verifier address: %w", err)
-	}
-
-	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifier(nitroVerifierAddress, l1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create nitro verifier: %w", err)
-	}
-
 	opts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Deployer, sys.Cfg.L1ChainIDBig())
 	if err != nil {
 		return fmt.Errorf("failed to create transactor: %w", err)
 	}
-	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true)
+
+	// SetEnclaveHash must be called through EspressoTEEVerifier wrapper because
+	// NitroTEEVerifier.setEnclaveHash has onlyTEEVerifier modifier, restricting calls
+	// to only the TEEVerifier contract. The wrapper has onlyGuardianOrOwner permissions.
+	registrationTx, err := verifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, TeeTypeNitro, ServiceTypeBatchPoster)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}
