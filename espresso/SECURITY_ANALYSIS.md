@@ -1,5 +1,12 @@
 # Security Analysis: Celo-Espresso Integration
 
+---
+
+**Document Date:** February 2, 2026
+**Version:** 1.0
+
+---
+
 ## Executive Summary
 
 This document provides a security analysis of the Celo-Espresso integration, which adds fast finality capabilities to the Optimism rollup stack while maintaining full compatibility with the standard OP Stack security model.
