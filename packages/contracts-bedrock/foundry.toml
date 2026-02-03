@@ -19,6 +19,7 @@ optimizer_runs = 999999
 additional_compiler_profiles = [
   { name = "dispute", optimizer_runs = 5000 },
   { name = "via-ir", via_ir = true },
+  { name = "via-ir-optimized", via_ir = true, optimizer = true },
 ]
 compilation_restrictions = [
   { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 5000 },
@@ -27,6 +28,7 @@ compilation_restrictions = [
   { paths = "src/L1/OPContractsManagerStandardValidator.sol", optimizer_runs = 5000 },
   { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
+  { paths = "lib/espresso-tee-contracts/scripts/**", via_ir = true, optimizer = true },
 ]
 
 extra_output = ['devdoc', 'userdoc', 'metadata', 'storageLayout']
@@ -169,6 +171,7 @@ optimizer_runs = 200
 additional_compiler_profiles = [
   { name = "dispute", optimizer_runs = 5000 },
   { name = "via-ir", via_ir = true },
+  { name = "via-ir-optimized", via_ir = true, optimizer = true },
 ]
 compilation_restrictions = [
   { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 5000 },
@@ -177,6 +180,7 @@ compilation_restrictions = [
   { paths = "src/L1/OPContractsManagerStandardValidator.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
   { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
+  { paths = "lib/espresso-tee-contracts/scripts/**", via_ir = true, optimizer = true },
 ]
 
 
