@@ -88,6 +88,10 @@ fs_permissions = [
 ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159]
 deny_warnings = true
 ffi = true
+skip = [
+  'lib/espresso-tee-contracts/lib/*/lib/**/*.sol',
+  'lib/espresso-tee-contracts/lib/openzeppelin-contracts*/**/*.sol'
+]
 
 # We set the gas limit to max int64 to avoid running out of gas during testing, since the default
 # gas limit is 1B and some of our tests require more gas than that, such as
