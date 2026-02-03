@@ -19,9 +19,9 @@ dep-status:
 forge-build *ARGS:
   forge build {{ARGS}}
 
-# Developer build command (uses espresso profile with via_ir for TEE contracts).
+# Developer build command (default profile with via_ir only for TEE scripts via compilation_restrictions).
 forge-build-dev *ARGS:
-  FOUNDRY_PROFILE=espresso forge build {{ARGS}}
+  forge build {{ARGS}}
 
 # Builds source contracts only.
 build-source:
