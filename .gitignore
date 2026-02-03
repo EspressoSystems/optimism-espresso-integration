@@ -17,6 +17,7 @@ yarn-error.log
 dist
 artifacts
 cache
+remappings.txt
 
 !op-chain-ops/foundry/testdata/srcmaps/cache
 !op-chain-ops/foundry/testdata/srcmaps/artifacts

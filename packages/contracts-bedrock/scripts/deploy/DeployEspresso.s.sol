@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";
@@ -136,11 +136,73 @@ contract DeployEspressoOutput is BaseDeployIO {
 }
 
 contract DeployEspresso is Script {
-    function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
+    /// @notice Internal state for key-based broadcasting
+    uint256 internal _broadcastKey;
+    bool internal _useBroadcastKey;
+
+    function runDeploy(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input, output, deployerAddress);
         IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
         deployBatchInbox(input, output, batchAuthenticator);
         checkOutput(input, output);
+    }
+
+    /// @notice Deploy with a specific private key for broadcasting
+    function runDeployWithKey(
+        DeployEspressoInput input,
+        DeployEspressoOutput output,
+        address deployerAddress,
+        uint256 key
+    )
+        public
+    {
+        _broadcastKey = key;
+        _useBroadcastKey = true;
+        runDeploy(input, output, deployerAddress);
+        _useBroadcastKey = false;
+        _broadcastKey = 0;
+    }
+
+    /// @notice Deploy only the Batch stack (BatchAuthenticator + BatchInbox) with an existing TEE verifier
+    function runDeployBatchStack(
+        DeployEspressoInput input,
+        DeployEspressoOutput output,
+        IEspressoTEEVerifier teeVerifier
+    )
+        public
+    {
+        IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
+        deployBatchInbox(input, output, batchAuthenticator);
+    }
+
+    /// @notice Deploy only the Batch stack with a specific private key
+    function runDeployBatchStackWithKey(
+        DeployEspressoInput input,
+        DeployEspressoOutput output,
+        IEspressoTEEVerifier teeVerifier,
+        uint256 key
+    )
+        public
+    {
+        _broadcastKey = key;
+        _useBroadcastKey = true;
+        runDeployBatchStack(input, output, teeVerifier);
+        _useBroadcastKey = false;
+        _broadcastKey = 0;
+    }
+
+    /// @notice Internal helper to start continuous broadcasting
+    function _startBroadcast() internal {
+        if (_useBroadcastKey) {
+            vm.startBroadcast(_broadcastKey);
+        } else {
+            vm.startBroadcast();
+        }
+    }
+
+    /// @notice Internal helper to stop broadcasting
+    function _stopBroadcast() internal {
+        vm.stopBroadcast();
     }
 
     function deployBatchAuthenticator(
@@ -155,55 +217,58 @@ contract DeployEspresso is Script {
         // We create ProxyAdmin with msg.sender as the owner to ensure broadcasts come from
         // the expected address, then transfer ownership to proxyAdminOwner afterward.
         // Use DeployUtils.create1 to ensure artifacts are available for vm.getCode calls.
-        vm.broadcast(msg.sender);
+        address broadcaster = _useBroadcastKey ? vm.addr(_broadcastKey) : msg.sender;
+
+        _startBroadcast();
         ProxyAdmin proxyAdmin = ProxyAdmin(
             payable(
                 DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+                    _name: "src/universal/ProxyAdmin.sol:ProxyAdmin",
+                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (broadcaster)))
                 })
             )
         );
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
-        vm.broadcast(msg.sender);
+
         Proxy proxy = Proxy(
             payable(
                 DeployUtils.create1({
-                    _name: "Proxy",
+                    _name: "src/universal/Proxy.sol:Proxy",
                     _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
                 })
             )
         );
         vm.label(address(proxy), "BatchAuthenticatorProxy");
-        vm.broadcast(msg.sender);
+
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
-        vm.broadcast(msg.sender);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
 
         // Determine the desired BatchAuthenticator owner
         address batchAuthenticatorOwner = input.proxyAdminOwner();
         if (batchAuthenticatorOwner == address(0)) {
-            batchAuthenticatorOwner = msg.sender;
+            batchAuthenticatorOwner = broadcaster;
         }
 
-        // Initialize the proxy with explicit owner parameter
-        bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize,
-            (teeVerifier, input.teeBatcher(), input.nonTeeBatcher(), batchAuthenticatorOwner)
+        // Initialize the proxy via upgradeAndCall
+        proxyAdmin.upgradeAndCall(
+            payable(address(proxy)),
+            address(impl),
+            abi.encodeCall(
+                BatchAuthenticator.initialize,
+                (teeVerifier, input.teeBatcher(), input.nonTeeBatcher(), batchAuthenticatorOwner)
+            )
         );
-        vm.broadcast(msg.sender);
-        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
 
-        // Transfer ProxyAdmin ownership to the desired proxyAdminOwner if different from msg.sender.
+        // Transfer ProxyAdmin ownership to the desired proxyAdminOwner if different from broadcaster.
         address proxyAdminOwner = input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) {
-            proxyAdminOwner = msg.sender;
+            proxyAdminOwner = broadcaster;
         }
-        if (proxyAdminOwner != msg.sender) {
-            vm.broadcast(msg.sender);
+        if (proxyAdminOwner != broadcaster) {
             proxyAdmin.transferOwnership(proxyAdminOwner);
         }
+        _stopBroadcast();
 
         // Return the proxied contract.
         IBatchAuthenticator batchAuthenticator = IBatchAuthenticator(address(proxy));
@@ -222,10 +287,11 @@ contract DeployEspresso is Script {
         IEspressoNitroTEEVerifier nitroTEEVerifier = IEspressoNitroTEEVerifier(input.nitroTEEVerifier());
         // OP only uses Nitro TEE, not SGX
         IEspressoSGXTEEVerifier sgxTEEVerifier = IEspressoSGXTEEVerifier(address(0));
+        address broadcaster = _useBroadcastKey ? vm.addr(_broadcastKey) : msg.sender;
 
         // Use mock if explicitly requested or if nitroTEEVerifier is not set
         if (input.useMockTEEVerifier() || address(nitroTEEVerifier) == address(0)) {
-            vm.broadcast(msg.sender);
+            _startBroadcast();
             MockEspressoTEEVerifier mockImpl = new MockEspressoTEEVerifier(nitroTEEVerifier);
             vm.label(address(mockImpl), "MockEspressoTEEVerifier");
 
@@ -234,13 +300,12 @@ contract DeployEspresso is Script {
             // the mock doesn't use it. This ensures checkOutput validation passes.
             address mockProxyAdminOwner = input.proxyAdminOwner();
             if (mockProxyAdminOwner == address(0)) {
-                mockProxyAdminOwner = msg.sender;
+                mockProxyAdminOwner = broadcaster;
             }
-            vm.broadcast(msg.sender);
             ProxyAdmin mockProxyAdmin = ProxyAdmin(
                 payable(
                     DeployUtils.create1({
-                        _name: "ProxyAdmin",
+                        _name: "src/universal/ProxyAdmin.sol:ProxyAdmin",
                         _args: DeployUtils.encodeConstructor(
                             abi.encodeCall(IProxyAdmin.__constructor__, (mockProxyAdminOwner))
                         )
@@ -248,6 +313,7 @@ contract DeployEspresso is Script {
                 )
             );
             vm.label(address(mockProxyAdmin), "MockTEEVerifierProxyAdmin");
+            _stopBroadcast();
 
             output.set(output.teeVerifierProxy.selector, address(mockImpl));
             output.set(output.teeVerifierImpl.selector, address(mockImpl));
@@ -256,25 +322,24 @@ contract DeployEspresso is Script {
         }
 
         // Production deployment: Proxy + ProxyAdmin pattern
+        _startBroadcast();
 
         // 1. Deploy the ProxyAdmin
-        vm.broadcast(msg.sender);
         ProxyAdmin proxyAdmin = ProxyAdmin(
             payable(
                 DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+                    _name: "src/universal/ProxyAdmin.sol:ProxyAdmin",
+                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (broadcaster)))
                 })
             )
         );
         vm.label(address(proxyAdmin), "TEEVerifierProxyAdmin");
 
         // 2. Deploy the Proxy
-        vm.broadcast(msg.sender);
         Proxy proxy = Proxy(
             payable(
                 DeployUtils.create1({
-                    _name: "Proxy",
+                    _name: "src/universal/Proxy.sol:Proxy",
                     _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
                 })
             )
@@ -282,30 +347,28 @@ contract DeployEspresso is Script {
         vm.label(address(proxy), "TEEVerifierProxy");
 
         // 3. Set proxy type
-        vm.broadcast(msg.sender);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         // 4. Deploy the EspressoTEEVerifier implementation
-        vm.broadcast(msg.sender);
         EspressoTEEVerifier impl = new EspressoTEEVerifier();
         vm.label(address(impl), "TEEVerifierImpl");
 
-        // 5. Initialize the proxy
-        // Note: EspressoTEEVerifier.initialize takes (owner, sgxVerifier, nitroVerifier)
-        bytes memory initData =
-            abi.encodeCall(EspressoTEEVerifier.initialize, (deployerAddress, sgxTEEVerifier, nitroTEEVerifier));
-        vm.broadcast(msg.sender);
-        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
+        // 5. Initialize the proxy via upgradeAndCall
+        proxyAdmin.upgradeAndCall(
+            payable(address(proxy)),
+            address(impl),
+            abi.encodeCall(EspressoTEEVerifier.initialize, (deployerAddress, sgxTEEVerifier, nitroTEEVerifier))
+        );
 
-        // 6. Transfer ownership to the desired proxyAdminOwner if different from msg.sender
+        // 6. Transfer ownership to the desired proxyAdminOwner if different from broadcaster
         address proxyAdminOwner = input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) {
-            proxyAdminOwner = msg.sender;
+            proxyAdminOwner = broadcaster;
         }
-        if (proxyAdminOwner != msg.sender) {
-            vm.broadcast(msg.sender);
+        if (proxyAdminOwner != broadcaster) {
             proxyAdmin.transferOwnership(proxyAdminOwner);
         }
+        _stopBroadcast();
 
         // 7. Set outputs
         output.set(output.teeVerifierProxy.selector, address(proxy));
@@ -323,7 +386,7 @@ contract DeployEspresso is Script {
         public
     {
         bytes32 salt = input.salt();
-        vm.broadcast(msg.sender);
+        _startBroadcast();
         IBatchInbox impl = IBatchInbox(
             DeployUtils.create2({
                 _name: "BatchInbox",
@@ -333,6 +396,7 @@ contract DeployEspresso is Script {
                 )
             })
         );
+        _stopBroadcast();
         vm.label(address(impl), "BatchInboxImpl");
         output.set(output.batchInboxAddress.selector, address(impl));
     }

@@ -33,28 +33,36 @@ extra_output = ['devdoc', 'userdoc', 'metadata', 'storageLayout']
 bytecode_hash = 'none'
 ast = true
 evm_version = 'cancun'
+libs = ['lib']
 
 remappings = [
-  # Espresso-tee-contracts context-specific remappings (must come before general @openzeppelin remappings)
-  'lib/espresso-tee-contracts/:@openzeppelin/contracts/=lib/espresso-tee-contracts/lib/openzeppelin-contracts/contracts',
-  'lib/espresso-tee-contracts/:@openzeppelin/contracts-upgradeable/=lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts',
-  'lib/espresso-tee-contracts/:solady/=lib/solady/src',
-  # General remappings
+  # --- Espresso TEE Submodule ---
+  '@espresso-tee/=lib/espresso-tee-contracts/src/',
+  '@espresso-tee-contracts/=lib/espresso-tee-contracts/src/',  # legacy alias
+  '@espresso-tee-scripts/=lib/espresso-tee-contracts/scripts/',
+  'lib/espresso-tee-contracts/:@openzeppelin/contracts/=lib/espresso-tee-contracts/lib/openzeppelin-contracts/contracts/',
+  'lib/espresso-tee-contracts/:@openzeppelin/contracts-upgradeable/=lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts/',
+  'lib/espresso-tee-contracts/:solady/=lib/espresso-tee-contracts/lib/automata-dcap-attestation/lib/automata-on-chain-pccs/lib/solady/src/',
+  '@automata-network/dcap-attestation/contracts/=lib/espresso-tee-contracts/lib/automata-dcap-attestation/contracts/',
+  '@automata-network/dcap-attestation/test/=lib/espresso-tee-contracts/lib/automata-dcap-attestation/forge-test/',
+  'safe-smart-account/=lib/espresso-tee-contracts/lib/safe-utils/lib/safe-smart-account/contracts/',
+  'aws-nitro-enclave-attestation/=lib/espresso-tee-contracts/lib/aws-nitro-enclave-attestation/contracts/src/',
+
+  # --- Standard Project Remappings ---
   '@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts',
-  '@espresso-tee-contracts/=lib/espresso-tee-contracts/src',
-  '@nitro-validator/=lib/espresso-tee-contracts/lib/nitro-validator/src',
-  'aws-nitro-enclave-attestation/=lib/espresso-tee-contracts/lib/aws-nitro-enclave-attestation/contracts/src',
   '@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts',
   '@openzeppelin/contracts-v5/=lib/openzeppelin-contracts-v5/contracts',
-  '@rari-capital/solmate/=lib/solmate',
+  '@rari-capital/solmate/=lib/solmate/',
   '@lib-keccak/=lib/lib-keccak/contracts/lib',
   '@solady/=lib/solady/src',
   '@solady-v0.0.245/=lib/solady-v0.0.245/src',
+
+  # --- Standard Libs ---
   'forge-std/=lib/forge-std/src',
   'ds-test/=lib/forge-std/lib/ds-test/src',
   'safe-contracts/=lib/safe-contracts/contracts',
   'kontrol-cheatcodes/=lib/kontrol-cheatcodes/src',
-  'interfaces/=interfaces',
+  'interfaces/=interfaces'
 ]
 
 fs_permissions = [
@@ -104,7 +112,8 @@ sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api
 # during verification. Run with: FOUNDRY_PROFILE=espresso forge script ...
 [profile.espresso]
 optimizer = true
-optimizer_runs = 999999
+optimizer_runs = 200
+via_ir = true
 additional_compiler_profiles = []
 compilation_restrictions = []
 
