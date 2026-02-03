@@ -19,9 +19,10 @@ dep-status:
 forge-build *ARGS:
   forge build {{ARGS}}
 
-# Developer build command (default profile with via_ir only for TEE scripts via compilation_restrictions).
+# Developer build command (skips files that require via_ir to compile).
+# Use FOUNDRY_PROFILE=espresso for full builds including TEE deployment scripts.
 forge-build-dev *ARGS:
-  forge build {{ARGS}}
+  forge build --skip "lib/espresso-tee-contracts/scripts/**" --skip "scripts/deploy/DeployEspressoManual.s.sol" {{ARGS}}
 
 # Builds source contracts only.
 build-source:
