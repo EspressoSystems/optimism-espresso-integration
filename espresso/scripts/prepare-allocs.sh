@@ -20,10 +20,11 @@ mkdir -p "${L1_CONFIG_DIR}"
 ANVIL_STATE_FILE="${DEPLOYMENT_DIR}/anvil_state.json"
 ARTIFACTS_PATH="${OP_ROOT}/packages/contracts-bedrock/forge-artifacts"
 ARTIFACTS_DIR="file:///${ARTIFACTS_PATH}"
+FOUNDRY_BUILD_PROFILE="${FOUNDRY_PROFILE:-default}"
 
 if [ ! -f "${ARTIFACTS_PATH}/OPContractsManager.sol/OPContractsManager.json" ]; then
-    echo "forge-artifacts missing; building contracts (espresso profile)."
-    (cd "${OP_ROOT}/packages/contracts-bedrock" && FOUNDRY_PROFILE=espresso forge build --skip "/**/test/**")
+    echo "forge-artifacts missing; building contracts (profile: ${FOUNDRY_BUILD_PROFILE})."
+    (cd "${OP_ROOT}/packages/contracts-bedrock" && FOUNDRY_PROFILE="${FOUNDRY_BUILD_PROFILE}" forge build --skip "/**/test/**")
     (cd "${OP_ROOT}/packages/contracts-bedrock" && just fix-proxy-artifact)
 fi
 

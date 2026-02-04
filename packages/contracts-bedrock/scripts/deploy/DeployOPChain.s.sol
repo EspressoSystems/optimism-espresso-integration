@@ -2,6 +2,7 @@
 pragma solidity 0.8.15;
 
 import { Script } from "forge-std/Script.sol";
+import { console2 as console } from "forge-std/console2.sol";
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -365,6 +366,21 @@ contract DeployOPChain is Script {
     function run(DeployOPChainInput _doi, DeployOPChainOutput _doo) public {
         IOPContractsManager opcm = _doi.opcm();
 
+        console.log("DeployOPChain: opcm=%s code=%s", address(opcm), address(opcm).code.length);
+        console.log("DeployOPChain: l2ChainId=%s", _doi.l2ChainId());
+        console.log("DeployOPChain: roles proxyAdminOwner=%s systemConfigOwner=%s", _doi.opChainProxyAdminOwner(), _doi.systemConfigOwner());
+        console.log("DeployOPChain: roles batcher=%s unsafeBlockSigner=%s", _doi.batcher(), _doi.unsafeBlockSigner());
+        console.log("DeployOPChain: roles proposer=%s challenger=%s", _doi.proposer(), _doi.challenger());
+        console.log("DeployOPChain: gasLimit=%s basefeeScalar=%s blobBasefeeScalar=%s", _doi.gasLimit(), _doi.basefeeScalar(), _doi.blobBaseFeeScalar());
+        console.log(
+            "DeployOPChain: dispute type=%s depth=%s split=%s clockExt=%s maxClock=%s",
+            GameType.unwrap(_doi.disputeGameType()),
+            _doi.disputeMaxGameDepth(),
+            _doi.disputeSplitDepth(),
+            Duration.unwrap(_doi.disputeClockExtension()),
+            Duration.unwrap(_doi.disputeMaxClockDuration())
+        );
+
         IOPContractsManager.Roles memory roles = IOPContractsManager.Roles({
             opChainProxyAdminOwner: _doi.opChainProxyAdminOwner(),
             systemConfigOwner: _doi.systemConfigOwner(),
@@ -390,7 +406,16 @@ contract DeployOPChain is Script {
         });
 
         vm.broadcast(msg.sender);
-        IOPContractsManager.DeployOutput memory deployOutput = opcm.deploy(deployInput);
+        IOPContractsManager.DeployOutput memory deployOutput;
+        try opcm.deploy(deployInput) returns (IOPContractsManager.DeployOutput memory output) {
+            deployOutput = output;
+        } catch (bytes memory err) {
+            console.log("DeployOPChain: opcm.deploy reverted");
+            console.logBytes(err);
+            assembly {
+                revert(add(err, 32), mload(err))
+            }
+        }
 
         vm.label(address(deployOutput.opChainProxyAdmin), "opChainProxyAdmin");
         vm.label(address(deployOutput.addressManager), "addressManager");
