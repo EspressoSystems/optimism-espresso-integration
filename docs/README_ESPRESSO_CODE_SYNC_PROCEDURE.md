@@ -1,4 +1,4 @@
-# Espresso Code Sync Procesure
+# Espresso Code Sync Procedure
 
 ## Schedule
 
@@ -34,7 +34,7 @@ git remote add kona-upstream https://github.com/celo-org/kona
 git fetch kona-upstream
 ```
 
-- If Celo’s [default Kona branch](https://github.com/celo-org/kona/tree/replace-max-sequencer-drift-v1.1.7) has no updates since our last code sync, proceed to [1-2 Sync Celo-Kona Fork Repo](#12-sync-celo-kona-fork-repo).
+- If Celo's [default Kona branch](https://github.com/celo-org/kona/tree/replace-max-sequencer-drift-v1.1.7) has no updates since our last code sync, proceed to [1.2 Sync Celo-Kona Fork Repo](#12-sync-celo-kona-fork-repo).
     - Note: The default upstream branch is `replace-max-sequencer-drift-v1.1.7` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1765799738195899?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Kona branch.
 
@@ -57,7 +57,7 @@ git cherry-pick espresso-integration-x ^kona-upstream/replace-max-sequencer-drif
 git push -u origin espresso-integration-y
 ```
 
-- Set the new branch as the default branch.
+- Set the new branch as the default branch in GitHub repository settings.
 
 ### 1.2 Sync Celo-Kona Fork Repo
 
@@ -68,7 +68,7 @@ git remote add celo-kona-upstream https://github.com/celo-org/celo-kona
 git fetch celo-kona-upstream
 ```
 
-- If Celo’s [Celo-Kona release](https://github.com/celo-org/celo-kona/releases) has no updates since our last code sync and Celo has not informed us of a new version, proceed to [1-3 Sync Succinct Repo](#13-sync-succinct-repo).
+- If Celo's [Celo-Kona release](https://github.com/celo-org/celo-kona/releases) has no updates since our last code sync and Celo has not informed us of a new version, proceed to [1.3 Sync Succinct Repo](#13-sync-succinct-repo).
   - Note: The release we should use is `v1.0.0` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1769002077899559?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
 - Otherwise, create a sync branch `espresso-integration-y` where `y` is new version on Celo’s Celo-Kona branch.
 
@@ -124,7 +124,7 @@ git cherry-pick espresso-integration-x ^succinct-upstream/develop
 git push -u origin espresso-integration-y
 ```
 
-- Set the new branch as the default branch.
+- Set the new branch as the default branch in GitHub repository settings.
 
 - Start the [Build & push Celo fault-proof images](https://github.com/EspressoSystems/op-succinct/actions/workflows/fault-proof-celo-docker-build.yaml) CI workflow.
   - Make sure to use the link above since there is another CI workflow with the same name.
@@ -179,16 +179,20 @@ git push -u origin espresso-integration-y
     # --prune if you have any local setting
     ```
 
-    - Create a new Celo integration branch `celo-integration-rebase-x'-y'` where `x` and `y` are consistent with the tip branch created in the previous step.
+    - Create a new Celo integration branch `celo-integration-rebase-X.Y` matching the new tip branch created in the previous step.
+        - Example: If you created tip branch `celo-tip-rebase-14.3`, create integration branch `celo-integration-rebase-14.3`
 
     ```bash
-    git checkout -b celo-integration-rebase-x'-y' celo-tip-rebase-x'-y'
+    # Replace X.Y with the version matching your new tip branch
+    git checkout -b celo-integration-rebase-X.Y celo-tip-rebase-X.Y
     ```
 
     - Cherry-pick commits from the original Celo integration branch onto the tip branch.
 
     ```bash
-    git cherry-pick celo-integration-rebase-x-y ^celo-tip-rebase-x'-y'
+    # Replace x.y with old version (e.g., 14.2) and X.Y with new version (e.g., 14.3)
+    # This cherry-picks all Espresso-specific commits onto the new base
+    git cherry-pick celo-tip-rebase-x.y..celo-integration-rebase-x.y
     ```
 
     - Follow the prompt to fix any cherry-pick issues.
@@ -198,12 +202,13 @@ git push -u origin espresso-integration-y
     - Push the new branch *directly*. Add `--force` if needed.
 
     ```bash
-    git push -u origin celo-integration-rebase-x'-y'
+    # Replace X.Y with your new branch version
+    git push -u origin celo-integration-rebase-X.Y
     ```
 
 ### 2.2 Update Images in Celo Integration Repo
 
-- If the Succinct images were not updated in [1-3 Sync Succinct Repo](#13-sync-succinct-repo), get the latest commit on the default branch and proceed to [2-3 Update Images in Terraform Repo](#23-update-images-in-terraform-repo).
+- If the Succinct images were not updated in [1.3 Sync Succinct Repo](#13-sync-succinct-repo), get the latest commit on the default branch and proceed to [2.3 Update Images in Terraform Repo](#23-update-images-in-terraform-repo).
 - Otherwise, replace the image SHA of the `succinct-proposer` and `succinct-challenger` services in `docker-compose.yml`.
 - Push the change to the new default branch, or if there is no such branch, create a PR and push to the original default branch.
 - Get the latest commit on the default branch.
