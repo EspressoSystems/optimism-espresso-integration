@@ -400,6 +400,21 @@ contract DeployOPChain is Script {
         console.logUint(Duration.unwrap(_doi.disputeClockExtension()));
         console.log("DeployOPChain: disputeMaxClockDuration");
         console.logUint(Duration.unwrap(_doi.disputeMaxClockDuration()));
+        bytes memory startingRoot = _doi.startingAnchorRoot();
+        console.log("DeployOPChain: startingAnchorRoot length");
+        console.logUint(startingRoot.length);
+        if (startingRoot.length > 0) {
+            console.log("DeployOPChain: startingAnchorRoot first 32 bytes");
+            bytes32 firstBytes;
+            assembly {
+                firstBytes := mload(add(startingRoot, 32))
+            }
+            console.logBytes32(firstBytes);
+        }
+        console.log("DeployOPChain: saltMixer");
+        console.logString(_doi.saltMixer());
+        console.log("DeployOPChain: block.chainid");
+        console.logUint(block.chainid);
 
         IOPContractsManager.Roles memory roles = IOPContractsManager.Roles({
             opChainProxyAdminOwner: _doi.opChainProxyAdminOwner(),
@@ -431,7 +446,14 @@ contract DeployOPChain is Script {
             deployOutput = output;
         } catch (bytes memory err) {
             console.log("DeployOPChain: opcm.deploy reverted");
+            console.log("DeployOPChain: revert data length");
+            console.logUint(err.length);
             console.logBytes(err);
+            if (err.length >= 4) {
+                bytes4 selector = bytes4(err);
+                console.log("DeployOPChain: error selector");
+                console.logBytes4(selector);
+            }
             assembly {
                 revert(add(err, 32), mload(err))
             }

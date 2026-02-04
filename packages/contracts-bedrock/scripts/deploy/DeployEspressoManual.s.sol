@@ -20,7 +20,8 @@ import { DeployAllTEEVerifiers } from "@espresso-tee-scripts/DeployAllTEEVerifie
 ///      - ENCLAVE_HASH: Enclave hash for Espresso Nitro TEE Verifier (bytes32, cannot be zero).
 ///
 ///      OPTIONAL Environment Variables:
-///      - BATCH_DEPLOYER_KEY: Private key for deploying Batch contracts (uses TEE_DEPLOYER_KEY or default signer if not set).
+///      - BATCH_DEPLOYER_KEY: Private key for deploying Batch contracts (uses TEE_DEPLOYER_KEY or default signer if not
+///        set).
 ///      - TEE_DEPLOYER_KEY: Private key for deploying TEE contracts (uses default signer if not set).
 ///                          Note: This is used by the submodule script via the --private-key flag,
 ///                          but you can also set it here to inform the deployment summary.
@@ -77,7 +78,8 @@ contract DeployEspressoManual is DeployEspresso {
     /// @notice Load deployer keys from environment.
     /// @return batchKey The private key for batch deployments (0 if using default signer).
     /// @return batchAddr The address that will deploy batch contracts.
-    /// @return teeAddr The address that will deploy TEE contracts (always msg.sender, as it uses forge's --private-key).
+    /// @return teeAddr The address that will deploy TEE contracts (always msg.sender, as it uses forge's
+    /// --private-key).
     function _loadDeployerKeys() internal view returns (uint256 batchKey, address batchAddr, address teeAddr) {
         // TEE contracts use the key passed to forge script (msg.sender)
         teeAddr = msg.sender;
@@ -116,9 +118,8 @@ contract DeployEspressoManual is DeployEspresso {
 
     /// @notice Load the deployed TEE Verifier proxy address from the deployment artifact.
     function _loadDeployedTEEVerifier() internal view returns (address) {
-        string memory path = string.concat(
-            vm.projectRoot(), "/deployments/", vm.toString(block.chainid), "-espresso-tee-verifier.json"
-        );
+        string memory path =
+            string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), "-espresso-tee-verifier.json");
         return vm.parseJsonAddress(vm.readFile(path), ".proxy");
     }
 }
