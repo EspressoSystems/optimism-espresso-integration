@@ -18,7 +18,14 @@ mkdir -p "${DEPLOYER_DIR}"
 mkdir -p "${L1_CONFIG_DIR}"
 
 ANVIL_STATE_FILE="${DEPLOYMENT_DIR}/anvil_state.json"
-ARTIFACTS_DIR="file:///${OP_ROOT}/packages/contracts-bedrock/forge-artifacts"
+ARTIFACTS_PATH="${OP_ROOT}/packages/contracts-bedrock/forge-artifacts"
+ARTIFACTS_DIR="file:///${ARTIFACTS_PATH}"
+
+if [ ! -f "${ARTIFACTS_PATH}/OPContractsManager.sol/OPContractsManager.json" ]; then
+    echo "forge-artifacts missing; building contracts (espresso profile)."
+    (cd "${OP_ROOT}/packages/contracts-bedrock" && FOUNDRY_PROFILE=espresso forge build --skip "/**/test/**")
+    (cd "${OP_ROOT}/packages/contracts-bedrock" && just fix-proxy-artifact)
+fi
 
 # Start anvil in dev mode and save PID to kill later
 anvil --port $ANVIL_PORT --chain-id "${L1_CHAIN_ID}" --disable-gas-limit --disable-code-size-limit --dump-state "${ANVIL_STATE_FILE}" &
