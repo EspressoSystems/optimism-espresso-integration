@@ -366,20 +366,40 @@ contract DeployOPChain is Script {
     function run(DeployOPChainInput _doi, DeployOPChainOutput _doo) public {
         IOPContractsManager opcm = _doi.opcm();
 
-        console.log("DeployOPChain: opcm=%s code=%s", address(opcm), address(opcm).code.length);
-        console.log("DeployOPChain: l2ChainId=%s", _doi.l2ChainId());
-        console.log("DeployOPChain: roles proxyAdminOwner=%s systemConfigOwner=%s", _doi.opChainProxyAdminOwner(), _doi.systemConfigOwner());
-        console.log("DeployOPChain: roles batcher=%s unsafeBlockSigner=%s", _doi.batcher(), _doi.unsafeBlockSigner());
-        console.log("DeployOPChain: roles proposer=%s challenger=%s", _doi.proposer(), _doi.challenger());
-        console.log("DeployOPChain: gasLimit=%s basefeeScalar=%s blobBasefeeScalar=%s", _doi.gasLimit(), _doi.basefeeScalar(), _doi.blobBaseFeeScalar());
-        console.log(
-            "DeployOPChain: dispute type=%s depth=%s split=%s clockExt=%s maxClock=%s",
-            GameType.unwrap(_doi.disputeGameType()),
-            _doi.disputeMaxGameDepth(),
-            _doi.disputeSplitDepth(),
-            Duration.unwrap(_doi.disputeClockExtension()),
-            Duration.unwrap(_doi.disputeMaxClockDuration())
-        );
+        console.log("DeployOPChain: opcm address");
+        console.logAddress(address(opcm));
+        console.log("DeployOPChain: opcm code length");
+        console.logUint(address(opcm).code.length);
+        console.log("DeployOPChain: l2ChainId");
+        console.logUint(_doi.l2ChainId());
+        console.log("DeployOPChain: proxyAdminOwner");
+        console.logAddress(_doi.opChainProxyAdminOwner());
+        console.log("DeployOPChain: systemConfigOwner");
+        console.logAddress(_doi.systemConfigOwner());
+        console.log("DeployOPChain: batcher");
+        console.logAddress(_doi.batcher());
+        console.log("DeployOPChain: unsafeBlockSigner");
+        console.logAddress(_doi.unsafeBlockSigner());
+        console.log("DeployOPChain: proposer");
+        console.logAddress(_doi.proposer());
+        console.log("DeployOPChain: challenger");
+        console.logAddress(_doi.challenger());
+        console.log("DeployOPChain: gasLimit");
+        console.logUint(_doi.gasLimit());
+        console.log("DeployOPChain: basefeeScalar");
+        console.logUint(_doi.basefeeScalar());
+        console.log("DeployOPChain: blobBasefeeScalar");
+        console.logUint(_doi.blobBaseFeeScalar());
+        console.log("DeployOPChain: disputeGameType");
+        console.logUint(GameType.unwrap(_doi.disputeGameType()));
+        console.log("DeployOPChain: disputeMaxGameDepth");
+        console.logUint(_doi.disputeMaxGameDepth());
+        console.log("DeployOPChain: disputeSplitDepth");
+        console.logUint(_doi.disputeSplitDepth());
+        console.log("DeployOPChain: disputeClockExtension");
+        console.logUint(Duration.unwrap(_doi.disputeClockExtension()));
+        console.log("DeployOPChain: disputeMaxClockDuration");
+        console.logUint(Duration.unwrap(_doi.disputeMaxClockDuration()));
 
         IOPContractsManager.Roles memory roles = IOPContractsManager.Roles({
             opChainProxyAdminOwner: _doi.opChainProxyAdminOwner(),
