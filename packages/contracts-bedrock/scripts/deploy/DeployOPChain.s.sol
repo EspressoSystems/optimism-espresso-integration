@@ -2,7 +2,6 @@
 pragma solidity 0.8.15;
 
 import { Script } from "forge-std/Script.sol";
-import { console2 as console } from "forge-std/console2.sol";
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -366,56 +365,6 @@ contract DeployOPChain is Script {
     function run(DeployOPChainInput _doi, DeployOPChainOutput _doo) public {
         IOPContractsManager opcm = _doi.opcm();
 
-        console.log("DeployOPChain: opcm address");
-        console.logAddress(address(opcm));
-        console.log("DeployOPChain: opcm code length");
-        console.logUint(address(opcm).code.length);
-        console.log("DeployOPChain: l2ChainId");
-        console.logUint(_doi.l2ChainId());
-        console.log("DeployOPChain: proxyAdminOwner");
-        console.logAddress(_doi.opChainProxyAdminOwner());
-        console.log("DeployOPChain: systemConfigOwner");
-        console.logAddress(_doi.systemConfigOwner());
-        console.log("DeployOPChain: batcher");
-        console.logAddress(_doi.batcher());
-        console.log("DeployOPChain: unsafeBlockSigner");
-        console.logAddress(_doi.unsafeBlockSigner());
-        console.log("DeployOPChain: proposer");
-        console.logAddress(_doi.proposer());
-        console.log("DeployOPChain: challenger");
-        console.logAddress(_doi.challenger());
-        console.log("DeployOPChain: gasLimit");
-        console.logUint(_doi.gasLimit());
-        console.log("DeployOPChain: basefeeScalar");
-        console.logUint(_doi.basefeeScalar());
-        console.log("DeployOPChain: blobBasefeeScalar");
-        console.logUint(_doi.blobBaseFeeScalar());
-        console.log("DeployOPChain: disputeGameType");
-        console.logUint(GameType.unwrap(_doi.disputeGameType()));
-        console.log("DeployOPChain: disputeMaxGameDepth");
-        console.logUint(_doi.disputeMaxGameDepth());
-        console.log("DeployOPChain: disputeSplitDepth");
-        console.logUint(_doi.disputeSplitDepth());
-        console.log("DeployOPChain: disputeClockExtension");
-        console.logUint(Duration.unwrap(_doi.disputeClockExtension()));
-        console.log("DeployOPChain: disputeMaxClockDuration");
-        console.logUint(Duration.unwrap(_doi.disputeMaxClockDuration()));
-        bytes memory startingRoot = _doi.startingAnchorRoot();
-        console.log("DeployOPChain: startingAnchorRoot length");
-        console.logUint(startingRoot.length);
-        if (startingRoot.length > 0) {
-            console.log("DeployOPChain: startingAnchorRoot first 32 bytes");
-            bytes32 firstBytes;
-            assembly {
-                firstBytes := mload(add(startingRoot, 32))
-            }
-            console.logBytes32(firstBytes);
-        }
-        console.log("DeployOPChain: saltMixer");
-        console.logString(_doi.saltMixer());
-        console.log("DeployOPChain: block.chainid");
-        console.logUint(block.chainid);
-
         IOPContractsManager.Roles memory roles = IOPContractsManager.Roles({
             opChainProxyAdminOwner: _doi.opChainProxyAdminOwner(),
             systemConfigOwner: _doi.systemConfigOwner(),
@@ -441,23 +390,7 @@ contract DeployOPChain is Script {
         });
 
         vm.broadcast(msg.sender);
-        IOPContractsManager.DeployOutput memory deployOutput;
-        try opcm.deploy(deployInput) returns (IOPContractsManager.DeployOutput memory output) {
-            deployOutput = output;
-        } catch (bytes memory err) {
-            console.log("DeployOPChain: opcm.deploy reverted");
-            console.log("DeployOPChain: revert data length");
-            console.logUint(err.length);
-            console.logBytes(err);
-            if (err.length >= 4) {
-                bytes4 selector = bytes4(err);
-                console.log("DeployOPChain: error selector");
-                console.logBytes4(selector);
-            }
-            assembly {
-                revert(add(err, 32), mload(err))
-            }
-        }
+        IOPContractsManager.DeployOutput memory deployOutput = opcm.deploy(deployInput);
 
         vm.label(address(deployOutput.opChainProxyAdmin), "opChainProxyAdmin");
         vm.label(address(deployOutput.addressManager), "addressManager");
