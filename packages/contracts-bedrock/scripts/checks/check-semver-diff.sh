@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Celo: contract changes are handled differently, skip semver check for now.
+# shellcheck disable=SC2317 # diable 'Command appears to be unreachable' errors since now everything below is unreachable
 exit 0
 
 # Grab the directory of the contracts-bedrock package.
