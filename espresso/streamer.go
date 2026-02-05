@@ -96,7 +96,7 @@ type BatchStreamer[B Batch] struct {
 	FinalizedL1 eth.L1BlockRef
 	// If the batch buffer is full, but we don't yet have the next batch,
 	// we will start skipping other batches until we encounter the missing batch.
-	// This position will be used to record such a situation occuring, when
+	// This position will be used to record such a situation occurring, when
 	// we find the target batch HotShot position will be reset to this.
 	skipPos   uint64
 	headBatch *B
