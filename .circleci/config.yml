@@ -392,7 +392,7 @@ jobs:
         default: 30m
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -502,7 +502,7 @@ jobs:
   cannon-go-lint-and-test:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     parameters:
       skip_slow_tests:
         type: boolean
@@ -613,7 +613,7 @@ jobs:
   check-kontrol-build:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -970,7 +970,7 @@ jobs:
     circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: full
@@ -1272,7 +1272,7 @@ jobs:
   contracts-bedrock-checks:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1373,7 +1373,7 @@ jobs:
         default: false
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -1594,7 +1594,7 @@ jobs:
         description: L2 CL Sync mode - can be EL Sync or CL Sync
         type: string
         default: ""
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
     circleci_ip_ranges: true
@@ -1799,7 +1799,7 @@ jobs:
         default: "flake-shake"
     machine:
       image: ubuntu-2404:current
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     parallelism: << pipeline.parameters.flake-shake-workers >>
     steps:
       - utils/checkout-with-mise:
@@ -2017,7 +2017,7 @@ jobs:
   cannon-prestate-quick:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -2118,7 +2118,7 @@ jobs:
   rust-binary-build:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     parameters:
       directory:
         description: "Directory containing the Cargo workspace"
@@ -2330,7 +2330,7 @@ jobs:
       SEMGREP_COMMIT: << pipeline.git.revision >>
     docker:
       - image: returntocorp/semgrep
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - checkout # no need to use mise here since the docker image contains the only dependency
       - unless:
@@ -2369,7 +2369,7 @@ jobs:
   analyze-op-program-client:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -2437,7 +2437,7 @@ jobs:
   kontrol-tests:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: celo-org/xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
