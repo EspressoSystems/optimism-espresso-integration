@@ -437,38 +437,42 @@ func (s *BatchStreamer[B]) Next(ctx context.Context) *B {
 
 // HasNext implements EspressoStreamerIFace
 func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
-	if s.headBatch == nil {
-		nextBuffered := s.BatchBuffer.Peek()
-		if nextBuffered != nil && (*nextBuffered).Number() == s.BatchPos {
-			s.headBatch = nextBuffered
-			s.BatchBuffer.Pop()
-		} else {
-			return false
+	for {
+		if s.headBatch == nil {
+			nextBuffered := s.BatchBuffer.Peek()
+			if nextBuffered != nil && (*nextBuffered).Number() == s.BatchPos {
+				s.headBatch = nextBuffered
+				s.BatchBuffer.Pop()
+			} else {
+				return false
+			}
 		}
-	}
 
-	validity := s.CheckBatch(ctx, *s.headBatch)
-	switch validity {
-	case BatchAccept:
-		// Batch is fine, we can give it out
-		return true
-	case BatchUndecided:
-		// We need to wait for our view of
-		// L1 to update before we can make a
-		// decision
+		validity := s.CheckBatch(ctx, *s.headBatch)
+		switch validity {
+		case BatchAccept:
+			// Batch is fine, we can give it out
+			return true
+		case BatchUndecided:
+			// We need to wait for our view of
+			// L1 to update before we can make a
+			// decision
+			return false
+		case BatchDrop:
+			// This was an undecided batch and looks like
+			// an L1 reorg happened that invalidated it.
+			// We drop it and check the next
+			s.headBatch = nil
+			continue
+		case BatchPast:
+			// This was probably a duplicate batch, skip it
+			// and check the next
+			s.headBatch = nil
+			continue
+		}
+
 		return false
-	case BatchDrop:
-		// This was an undecided batch and looks like
-		// an L1 reorg happened that invalidated it.
-		// We drop it.
-		s.headBatch = nil
-		return s.HasNext(ctx)
-	case BatchPast:
-		// This was probably a duplicate batch, skip it
-		s.headBatch = nil
-		return s.HasNext(ctx)
 	}
-	return false
 }
 
 // This function allows to "pin" the Espresso block height that is guaranteed not to contain
