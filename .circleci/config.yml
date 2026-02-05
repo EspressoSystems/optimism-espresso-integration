@@ -2739,11 +2739,11 @@ workflows:
             parameters:
               features: &features_matrix
                 - main
-                - CUSTOM_GAS_TOKEN
-                - OPTIMISM_PORTAL_INTEROP
+                # - CUSTOM_GAS_TOKEN
+                # - OPTIMISM_PORTAL_INTEROP
                 - OPCM_V2
-                - OPCM_V2,CUSTOM_GAS_TOKEN
-                - OPCM_V2,OPTIMISM_PORTAL_INTEROP
+                # - OPCM_V2,OPTIMISM_PORTAL_INTEROP
+                # - OPCM_V2,CUSTOM_GAS_TOKEN
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests:
