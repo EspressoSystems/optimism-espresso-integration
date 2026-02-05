@@ -105,9 +105,6 @@ type BatchStreamer[B Batch] struct {
 	// any out of order.
 	BatchBuffer BatchBuffer[B]
 
-	// Manage the batches which origin is unfinalized
-	RemainingBatches map[common.Hash]B
-
 	unmarshalBatch func([]byte) (*B, error)
 }
 

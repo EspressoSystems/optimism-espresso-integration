@@ -57,7 +57,7 @@ func (b *BatchBuffer[B]) Clear() {
 }
 
 func (b *BatchBuffer[B]) Insert(batch B) error {
-	if b.Len() >= int(b.capacity) {
+if uint64(b.Len()) >= b.capacity {
 		return ErrAtCapacity
 	}
 
