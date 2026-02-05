@@ -2,7 +2,9 @@ package espresso
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -14,6 +16,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
+
+const BatchBufferCapacity uint64 = 1024
 
 // Espresso light client bindings don't have an explicit name for this struct,
 // so we define it here to avoid spelling it out every time
@@ -90,6 +94,12 @@ type BatchStreamer[B Batch] struct {
 	originHotShotPos uint64
 	// Latest finalized block on the L1.
 	FinalizedL1 eth.L1BlockRef
+	// If the batch buffer is full, but we don't yet have the next batch,
+	// we will start skipping other batches until we encounter the missing batch.
+	// This position will be used to record such a situation occuring, when
+	// we find the target batch HotShot position will be reset to this.
+	skipPos   uint64
+	headBatch *B
 
 	// Maintained in sorted order, but may be missing batches if we receive
 	// any out of order.
@@ -127,13 +137,13 @@ func NewEspressoStreamer[B Batch](
 		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
 		BatchPos:                      originBatchPos + 1,
 		fallbackBatchPos:              originBatchPos + 1,
-		BatchBuffer:                   NewBatchBuffer[B](),
+		BatchBuffer:                   NewBatchBuffer[B](BatchBufferCapacity),
 		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
-		RemainingBatches:              make(map[common.Hash]B),
 		unmarshalBatch:                unmarshalBatch,
 		originHotShotPos:              originHotShotPos,
 		fallbackHotShotPos:            originHotShotPos,
 		hotShotPos:                    originHotShotPos,
+		skipPos:                       math.MaxUint64,
 	}
 }
 
@@ -181,47 +191,39 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 
 // CheckBatch checks the validity of the given batch against the finalized L1
 // block and the safe L1 origin.
-func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) (BatchValidity, int) {
+func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidity {
 
 	// Make sure the finalized L1 block is initialized before checking the block number.
 	if s.FinalizedL1 == (eth.L1BlockRef{}) {
 		s.Log.Error("Finalized L1 block not initialized")
-		return BatchUndecided, 0
+		return BatchUndecided
 	}
 	origin := (batch).L1Origin()
 
 	if origin.Number > s.FinalizedL1.Number {
 		// Signal to resync to wait for the L1 finality.
 		s.Log.Warn("L1 origin not finalized, pending resync", "finalized L1 block number", s.FinalizedL1.Number, "origin number", origin.Number)
-		return BatchUndecided, 0
+		return BatchUndecided
 	}
 
 	l1headerHash, err := s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
 	if err != nil {
 		// Signal to resync to be able to fetch the L1 header.
 		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-		return BatchUndecided, 0
+		return BatchUndecided
 	} else {
 		if l1headerHash != origin.Hash {
 			s.Log.Warn("Dropping batch with invalid L1 origin hash")
-			return BatchDrop, 0
+			return BatchDrop
 		}
 	}
-	// Find a slot to insert the batch
-	i, batchRecorded := s.BatchBuffer.TryInsert(batch)
-
 	// Batch already buffered/finalized
 	if batch.Number() < s.BatchPos {
 		s.Log.Warn("Batch is older than current batchPos, skipping", "batchNr", batch.Number(), "batchPos", s.BatchPos)
-		return BatchPast, 0
+		return BatchPast
 	}
 
-	if batchRecorded {
-		// Duplicate batch found, skip it
-		return BatchPast, i
-	}
-
-	return BatchAccept, i
+	return BatchAccept
 }
 
 // HOTSHOT_BLOCK_STREAM_LIMIT is the maximum number of blocks to attempt to
@@ -298,9 +300,6 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 			break
 		}
 
-		// Process the remaining batches
-		s.processRemainingBatches(ctx)
-
 		s.Log.Debug("Fetching hotshot blocks", "from", start, "upTo", finish)
 
 		// Process the new batches fetched from Espresso
@@ -342,6 +341,9 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 	}
 
 	s.Log.Info("Fetched HotShot block range", "start", start, "finish", finish, "numNamespaceTransactions", len(namespaceRangeTransactions))
+	if len(namespaceRangeTransactions) == 0 {
+		s.Log.Trace("No transactions in hotshot block range", "start", start, "finish", finish)
+	}
 
 	// We want to keep track of the latest block we have processed.
 	// This is essential for ensuring we don't unnecessarily keep
@@ -349,106 +351,71 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 	// This should ensure that we keep moving forward and consuming
 	// from the Espresso Blocks without missing any blocks.
 	s.hotShotPos = finish - 1
-	if len(namespaceRangeTransactions) == 0 {
-		s.Log.Trace("No transactions in hotshot block range", "start", start, "finish", finish)
-	}
 
 	for _, namespaceTransaction := range namespaceRangeTransactions {
 		for _, txn := range namespaceTransaction.Transactions {
-			s.processEspressoTransaction(ctx, txn.Payload)
+			err := s.processEspressoTransaction(ctx, txn.Payload)
+			if errors.Is(err, ErrAtCapacity) {
+				s.skipPos = start
+			}
 		}
 	}
 
 	return nil
 }
 
-// processRemainingBatches is a helper method that checks the remaining batches
-// and prunes or adds them to the batch buffer as appropriate.
-func (s *BatchStreamer[B]) processRemainingBatches(ctx context.Context) {
-	// Collect keys to delete, without modifying the batch list during iteration.
-	var keysToDelete []common.Hash
-
-	// Process the remaining batches
-	for k, batch := range s.RemainingBatches {
-		validity, pos := s.CheckBatch(ctx, batch)
-
-		switch validity {
-		case BatchDrop:
-			s.Log.Warn("Dropping batch", "batch", batch)
-			keysToDelete = append(keysToDelete, k)
-			continue
-
-		case BatchPast:
-			s.Log.Warn("Batch already processed. Skipping", "batch", batch)
-			keysToDelete = append(keysToDelete, k)
-			continue
-
-		case BatchUndecided:
-			s.Log.Warn("Batch is still undecided, keeping it in the remaining list", "batch", batch)
-			continue
-
-		case BatchAccept:
-			s.Log.Info("Remaining list", "Recovered batch, inserting batch", batch)
-
-		case BatchFuture:
-			// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
-			s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
-			continue
-		}
-
-		header := batch.Header()
-		s.Log.Trace("Remaining list", "Inserting batch into buffer",
-			"parentHash", header.ParentHash,
-			"epochNum", header.Number,
-			"timestamp", header.Time)
-		s.BatchBuffer.Insert(batch, pos)
-		keysToDelete = append(keysToDelete, k)
-	}
-
-	// Delete keys all at once.
-	for _, k := range keysToDelete {
-		delete(s.RemainingBatches, k)
-	}
-}
-
 // processEspressoTransaction is a helper method that encapsulates the logic of
 // processing batches from the transactions in a block fetched from Espresso.
-func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, transaction espressoCommon.Bytes) {
+// It will return an error if the transaction contains a valid batch, but the buffer is full.
+func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, transaction espressoCommon.Bytes) error {
 	batch, err := s.UnmarshalBatch(transaction)
 	if err != nil {
 		s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
-		return
+		return nil
 	}
 
-	validity, pos := s.CheckBatch(ctx, *batch)
+	validity := s.CheckBatch(ctx, *batch)
 
 	switch validity {
 	case BatchDrop:
 		s.Log.Info("Dropping batch", batch)
+		return nil
 
 	case BatchPast:
 		s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
+		return nil
 
 	case BatchUndecided:
-		hash := (*batch).Hash()
-		if existingBatch, ok := s.RemainingBatches[hash]; ok {
-			s.Log.Warn("Batch already in buffer", "batch", existingBatch)
-		}
-		s.RemainingBatches[hash] = *batch
+		s.Log.Warn("Inserting undecided batch", "batch", (*batch).Hash())
 
 	case BatchAccept:
-		header := (*batch).Header()
-		s.Log.Info("Inserting batch into buffer",
+	}
+
+	header := (*batch).Header()
+
+	// If this is the batch we're supposed to give out next and we don't
+	// have any other candidates, put it in as the head batch
+	if (*batch).Number() == s.BatchPos && s.headBatch == nil {
+		s.Log.Info("Setting batch as the head batch",
+			"hash", (*batch).Hash(),
 			"parentHash", header.ParentHash,
 			"epochNum", header.Number,
 			"timestamp", header.Time)
-		s.BatchBuffer.Insert(*batch, pos)
-
-	case BatchFuture:
-		// The function CheckBatch is not expected to return BatchFuture so if we enter this case there is a problem.
-		s.Log.Error("Remaining list", "BatchFuture validity not expected for batch", batch)
+		s.headBatch = batch
+	} else {
+		// Otherwise, try to buffer it. If the buffer is full, forward the error up to record
+		// that we're skipping batches and will need to revisit when the buffer drains
+		s.Log.Info("Inserting batch into buffer",
+			"hash", (*batch).Hash(),
+			"parentHash", header.ParentHash,
+			"epochNum", header.Number,
+			"timestamp", header.Time)
+		if err := s.BatchBuffer.Insert(*batch); errors.Is(err, ErrAtCapacity) {
+			return err
+		}
 	}
 
+	return nil
 }
 
 // UnmarshalBatch implements EspressoStreamerIFace
@@ -457,7 +424,15 @@ func (s *BatchStreamer[B]) Next(ctx context.Context) *B {
 	if s.HasNext(ctx) {
 		// Current batch is going to be processed, update fallback batch position
 		s.BatchPos += 1
-		return s.BatchBuffer.Pop()
+		head := s.headBatch
+		s.headBatch = nil
+		// If we have been skipping batches, now is the time
+		// to rewind and start considering batches again: we've made more space
+		if s.skipPos != math.MaxUint64 {
+			s.hotShotPos = s.skipPos
+			s.skipPos = math.MaxUint64
+		}
+		return head
 	}
 
 	return nil
@@ -465,10 +440,37 @@ func (s *BatchStreamer[B]) Next(ctx context.Context) *B {
 
 // HasNext implements EspressoStreamerIFace
 func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
-	if s.BatchBuffer.Len() > 0 {
-		return (*s.BatchBuffer.Peek()).Number() == s.BatchPos
+	if s.headBatch == nil {
+		nextBuffered := s.BatchBuffer.Peek()
+		if nextBuffered != nil && (*nextBuffered).Number() == s.BatchPos {
+			s.headBatch = nextBuffered
+			s.BatchBuffer.Pop()
+		} else {
+			return false
+		}
 	}
 
+	validity := s.CheckBatch(ctx, *s.headBatch)
+	switch validity {
+	case BatchAccept:
+		// Batch is fine, we can give it out
+		return true
+	case BatchUndecided:
+		// We need to wait for our view of
+		// L1 to update before we can make a
+		// decision
+		return false
+	case BatchDrop:
+		// This was an undecided batch and looks like
+		// an L1 reorg happened that invalidated it.
+		// We drop it.
+		s.headBatch = nil
+		return s.HasNext(ctx)
+	case BatchPast:
+		// This was probably a duplicate batch, skip it
+		s.headBatch = nil
+		return s.HasNext(ctx)
+	}
 	return false
 }
 

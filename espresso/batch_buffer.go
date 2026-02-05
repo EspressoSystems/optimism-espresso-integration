@@ -1,7 +1,7 @@
 package espresso
 
 import (
-	"cmp"
+	"errors"
 	"slices"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -18,12 +18,12 @@ const (
 	BatchAccept
 	// BatchUndecided indicates we are lacking L1 information until we can proceed batch filtering
 	BatchUndecided
-	// BatchFuture indicates that the batch may be valid, but cannot be processed yet and should be checked again later
-	BatchFuture
 	// BatchPast indicates that the batch is from the past, i.e. its timestamp is smaller or equal
 	// to the safe head's timestamp.
 	BatchPast
 )
+
+var ErrAtCapacity = errors.New("batch buffer at capacity")
 
 type Batch interface {
 	Number() uint64
@@ -33,13 +33,19 @@ type Batch interface {
 }
 
 type BatchBuffer[B Batch] struct {
-	batches []B
+	batches  []B
+	capacity uint64
 }
 
-func NewBatchBuffer[B Batch]() BatchBuffer[B] {
+func NewBatchBuffer[B Batch](capacity uint64) BatchBuffer[B] {
 	return BatchBuffer[B]{
-		batches: []B{},
+		capacity: capacity,
+		batches:  []B{},
 	}
+}
+
+func (b BatchBuffer[B]) Capacity() uint64 {
+	return b.capacity
 }
 
 func (b BatchBuffer[B]) Len() int {
@@ -50,17 +56,28 @@ func (b *BatchBuffer[B]) Clear() {
 	b.batches = nil
 }
 
-func (b *BatchBuffer[B]) Insert(batch B, i int) {
-	b.batches = slices.Insert(b.batches, i, batch)
-}
+func (b *BatchBuffer[B]) Insert(batch B) error {
+	if b.Len() >= int(b.capacity) {
+		return ErrAtCapacity
+	}
 
-func (b *BatchBuffer[B]) TryInsert(batch B) (int, bool) {
-	pos, batchIsRecorded := slices.BinarySearchFunc(b.batches, batch, func(x, y B) int {
-		return cmp.Compare(x.Number(), y.Number())
+	pos, alreadyExists := slices.BinarySearchFunc(b.batches, batch, func(a, t B) int {
+		// Note: we use a custom comparison function that returns 0 only if the batches are actually
+		// the same to ensure that newer batches with the same number are stored later in the buffer
+		if a.Number() > t.Number() {
+			return 1
+		} else if a.Number() == t.Number() && a.Hash() == t.Hash() {
+			return 0
+		} else {
+			return -1
+		}
 	})
 
-	return pos, batchIsRecorded
+	if !alreadyExists {
+		b.batches = slices.Insert(b.batches, pos, batch)
+	}
 
+	return nil
 }
 
 func (b *BatchBuffer[B]) Get(i int) *B {
