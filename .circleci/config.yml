@@ -392,7 +392,7 @@ jobs:
         default: 30m
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -613,7 +613,7 @@ jobs:
   check-kontrol-build:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -2377,7 +2377,7 @@ jobs:
   analyze-op-program-client:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -2445,7 +2445,7 @@ jobs:
   kontrol-tests:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
