@@ -39,7 +39,7 @@ var excludedFiles = []string{
 	"src/periphery/Transactor.sol",
 	"src/periphery/monitoring/DisputeMonitorHelper.sol",
 	"src/universal/SafeSend.sol",
-	"src/celo/*.sol",
+	"src/celo/**/*.sol",
 }
 
 func main() {
