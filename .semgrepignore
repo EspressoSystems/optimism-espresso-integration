@@ -22,3 +22,7 @@ rust/op-alloy/book/
 
 # Op-reth test contracts (not production Solidity code)
 rust/op-reth/crates/tests/
+
+# Celo contracts follow different conventions
+packages/contracts-bedrock/src/celo/
+op-e2e/celo/
