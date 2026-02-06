@@ -410,15 +410,6 @@ func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*Moc
 	return state, streamer
 }
 
-// createSingularBatch creates a mock SingularBatch for testing purposes
-// containing the provided number of transactions.
-// It is generated using a random number generator to create the transactions
-// contained within.  Everything else is derived from the provided parameters
-// for repeatability. Uses m.FinalizedL1 as the L1 origin.
-func (m *MockStreamerSource) createSingularBatch(rng *rand.Rand, txCount int, chainID *big.Int, l2Height uint64) *derive.SingularBatch {
-	return m.createSingularBatchWithL1Origin(rng, txCount, chainID, l2Height, m.FinalizedL1.Number, m.FinalizedL1.Hash)
-}
-
 // createEspressoBatch creates a mock EspressoBatch for testing purposes
 // containing the provided SingularBatch.
 func createEspressoBatch(batch *derive.SingularBatch) *derive.EspressoBatch {
@@ -781,9 +772,9 @@ func TestEspressoStreamerDuplicationHandling(t *testing.T) {
 	require.Equal(t, len(state.EspTransactionData), 2*N)
 }
 
-// createSingularBatchWithL1Origin creates a mock SingularBatch for testing purposes
+// createSingularBatch creates a mock SingularBatch for testing purposes
 // with a specific L1 origin (epoch number and hash).
-func (m *MockStreamerSource) createSingularBatchWithL1Origin(rng *rand.Rand, txCount int, chainID *big.Int, l2Height uint64, epochNum uint64, epochHash common.Hash) *derive.SingularBatch {
+func (m *MockStreamerSource) createSingularBatch(rng *rand.Rand, txCount int, chainID *big.Int, l2Height uint64, epochNum uint64, epochHash common.Hash) *derive.SingularBatch {
 	signer := geth_types.NewLondonSigner(chainID)
 	baseFee := big.NewInt(rng.Int63n(300_000_000_000))
 	txsEncoded := make([]hexutil.Bytes, 0, txCount)
@@ -818,7 +809,7 @@ func (m *MockStreamerSource) CreateEspressoTxnDataWithL1Origin(
 	epochHash common.Hash,
 ) (*derive.SingularBatch, *derive.EspressoBatch, *espressoCommon.Transaction, espressoClient.TransactionsInBlock) {
 	txCount := rng.Intn(10)
-	batch := m.createSingularBatchWithL1Origin(rng, txCount, chainID, l2Height, epochNum, epochHash)
+	batch := m.createSingularBatch(rng, txCount, chainID, l2Height, epochNum, epochHash)
 	espBatch := createEspressoBatch(batch)
 	espTxn := createEspressoTransaction(ctx, espBatch, namespace, chainSigner)
 	espTxnInBlock := createTransactionsInBlock(espTxn)
