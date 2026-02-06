@@ -16,3 +16,7 @@ vendor/
 
 # Test contracts the scripts folder
 op-chain-ops/script/testdata/scripts/
+
+# Celo contracts follow different conventions
+packages/contracts-bedrock/src/celo/
+op-e2e/celo/
