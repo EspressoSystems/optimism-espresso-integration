@@ -252,11 +252,11 @@
     "sourceCodeHash": "0xd6683fe9be4019d34249ada5a4de3e597f1bd9cd473a89f6eff8f749a0b0e978"
   },
   "src/universal/OptimismMintableERC20.sol:OptimismMintableERC20": {
-    "initCodeHash": "0x3c85eed0d017dca8eda6396aa842ddc12492587b061e8c756a8d32c4610a9658",
+    "initCodeHash": "0xaf7cae0640afd83c1550523cd8ec27377c45b1ba2e91b89fd86d1a1c82815340",
     "sourceCodeHash": "0x049c3daecf4ce6429b9863033defcc37966f3e72a0833712e20297662431045a"
   },
   "src/universal/OptimismMintableERC20Factory.sol:OptimismMintableERC20Factory": {
-    "initCodeHash": "0x747baf403205b900e1144038f2b807c84059229aedda8c91936798e1403eda39",
+    "initCodeHash": "0x8f9dfb302ec091803f4cd83609dace502b306f5384d6448cc27750b143ad70ee",
     "sourceCodeHash": "0xf71e16aaad1ec2459040ab8c93b7188b2c04c671c21b4d43fba75cab80ed1b21"
   },
   "src/universal/StorageSetter.sol:StorageSetter": {
