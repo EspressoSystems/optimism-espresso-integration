@@ -177,7 +177,7 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 	shouldReset := safeBatchNumber < s.fallbackBatchPos
 
 	// We should jump ahead if fallback position is higher than what we're currently reading from
-	shouldReset = shouldReset && (s.fallbackBatchPos > s.hotShotPos)
+	shouldReset = shouldReset && (s.fallbackHotShotPos > s.hotShotPos)
 
 	s.fallbackBatchPos = safeBatchNumber
 	if shouldReset {
