@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 
 	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
@@ -105,6 +106,9 @@ type BatchStreamer[B Batch] struct {
 	// any out of order.
 	BatchBuffer BatchBuffer[B]
 
+	// Cache for finalized L1 block hashes, keyed by block number.
+	finalizedL1HashCache *simplelru.LRU[uint64, common.Hash]
+
 	unmarshalBatch func([]byte) (*B, error)
 }
 
@@ -124,6 +128,8 @@ func NewEspressoStreamer[B Batch](
 	originHotShotPos uint64,
 	originBatchPos uint64,
 ) *BatchStreamer[B] {
+	finalizedL1HashCache, _ := simplelru.NewLRU[uint64, common.Hash](1000, nil)
+
 	return &BatchStreamer[B]{
 		L1Client:            l1Client,
 		RollupL1Client:      rollupL1Client,
@@ -136,6 +142,7 @@ func NewEspressoStreamer[B Batch](
 		fallbackBatchPos:       originBatchPos + 1,
 		BatchBuffer:            NewBatchBuffer[B](BatchBufferCapacity),
 		HotShotPollingInterval: hotShotPollingInterval,
+		finalizedL1HashCache:   finalizedL1HashCache,
 		unmarshalBatch:         unmarshalBatch,
 		originHotShotPos:       originHotShotPos,
 		fallbackHotShotPos:     originHotShotPos,
@@ -203,16 +210,20 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidit
 		return BatchUndecided
 	}
 
-	l1headerHash, err := s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-	if err != nil {
-		// Signal to resync to be able to fetch the L1 header.
-		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-		return BatchUndecided
-	} else {
-		if l1headerHash != origin.Hash {
-			s.Log.Warn("Dropping batch with invalid L1 origin hash")
-			return BatchDrop
+	l1headerHash, ok := s.finalizedL1HashCache.Get(origin.Number)
+	if !ok {
+		var err error
+		l1headerHash, err = s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+		if err != nil {
+			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+			return BatchUndecided
 		}
+		s.finalizedL1HashCache.Add(origin.Number, l1headerHash)
+	}
+
+	if l1headerHash != origin.Hash {
+		s.Log.Warn("Dropping batch with invalid L1 origin hash")
+		return BatchDrop
 	}
 	// Batch already buffered/finalized
 	if batch.Number() < s.BatchPos {
