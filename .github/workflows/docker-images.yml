@@ -41,6 +41,9 @@ jobs:
           sudo chmod +x /usr/local/bin/dasel
           dasel --version
 
+      - name: Ensure go module checksums
+        run: go mod download github.com/consensys/bavard && go list -m all >/dev/null
+
       - name: Build op-deployer
         run: |
           cd op-deployer
