@@ -40,12 +40,6 @@ sleep 1
 cast rpc anvil_setBalance "${OPERATOR_ADDRESS}" 0x100000000000000000000000000000000000 --rpc-url "${ANVIL_URL}"
 cast rpc anvil_setBalance "${PROPOSER_ADDRESS}" 0x100000000000000000000000000000000000 --rpc-url "${ANVIL_URL}"
 
-op-deployer bootstrap proxy \
-                      --l1-rpc-url="${ANVIL_URL}" \
-                      --private-key="${OPERATOR_PRIVATE_KEY}" \
-                      --artifacts-locator="${ARTIFACTS_DIR}" \
-                      --proxy-owner="${OPERATOR_ADDRESS}"
-
 export LOG_LEVEL=debug
 
 op-deployer bootstrap superchain \
