@@ -223,12 +223,6 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidit
 	return BatchAccept
 }
 
-// HOTSHOT_BLOCK_STREAM_LIMIT is the maximum number of blocks to attempt to
-// load from Espresso in a single process using streaming API.
-// This helps to limit our block polling to a limited number of blocks within
-// a single batched attempt.
-const HOTSHOT_BLOCK_STREAM_LIMIT = 500
-
 // HOTSHOT_BLOCK_FETCH_LIMIT is the maximum number of blocks to attempt to
 // load from Espresso in a single process using fetch API.
 // This helps to limit our block polling to a limited number of blocks within
