@@ -75,12 +75,12 @@ type BatchStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
-	L1Client                      L1Client
-	RollupL1Client                L1Client
-	EspressoClient                EspressoClient
-	EspressoLightClient           LightClientCallerInterface
-	Log                           log.Logger
-	PollingHotShotPollingInterval time.Duration
+	L1Client               L1Client
+	RollupL1Client         L1Client
+	EspressoClient         EspressoClient
+	EspressoLightClient    LightClientCallerInterface
+	Log                    log.Logger
+	HotShotPollingInterval time.Duration
 
 	// Batch number we're to give out next
 	BatchPos uint64
@@ -120,7 +120,7 @@ func NewEspressoStreamer[B Batch](
 	lightClient LightClientCallerInterface,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
-	pollingHotShotPollingInterval time.Duration,
+	hotShotPollingInterval time.Duration,
 	originHotShotPos uint64,
 	originBatchPos uint64,
 ) *BatchStreamer[B] {
@@ -132,15 +132,15 @@ func NewEspressoStreamer[B Batch](
 		Log:                 log,
 		Namespace:           namespace,
 		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
-		BatchPos:                      originBatchPos + 1,
-		fallbackBatchPos:              originBatchPos + 1,
-		BatchBuffer:                   NewBatchBuffer[B](BatchBufferCapacity),
-		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
-		unmarshalBatch:                unmarshalBatch,
-		originHotShotPos:              originHotShotPos,
-		fallbackHotShotPos:            originHotShotPos,
-		hotShotPos:                    originHotShotPos,
-		skipPos:                       math.MaxUint64,
+		BatchPos:               originBatchPos + 1,
+		fallbackBatchPos:       originBatchPos + 1,
+		BatchBuffer:            NewBatchBuffer[B](BatchBufferCapacity),
+		HotShotPollingInterval: hotShotPollingInterval,
+		unmarshalBatch:         unmarshalBatch,
+		originHotShotPos:       originHotShotPos,
+		fallbackHotShotPos:     originHotShotPos,
+		hotShotPos:             originHotShotPos,
+		skipPos:                math.MaxUint64,
 	}
 }
 
