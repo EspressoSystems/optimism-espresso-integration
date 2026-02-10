@@ -57,7 +57,9 @@ jobs:
 
       - name: Compile contracts
         working-directory: packages/contracts-bedrock
-        run: just build
+        env:
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: 1
+        run: forge build --skip "/**/test/**" --threads 1
 
       - name: Load environment variables
         run: |
