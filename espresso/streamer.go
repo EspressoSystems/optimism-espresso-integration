@@ -291,8 +291,6 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 			break
 		}
 
-		s.Log.Debug("Fetching hotshot blocks", "from", start, "upTo", finish)
-
 		// Process the new batches fetched from Espresso
 		if err := s.fetchHotShotRange(ctx, start, finish); err != nil {
 			return fmt.Errorf("failed to process hotshot range: %w", err)
