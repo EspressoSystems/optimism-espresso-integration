@@ -233,7 +233,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
 
 		/* Optional Flags */
-<<<<<<< HEAD
 		MaxPendingTransactions:       ctx.Uint64(flags.MaxPendingTransactionsFlag.Name),
 		MaxChannelDuration:           ctx.Uint64(flags.MaxChannelDurationFlag.Name),
 		MaxL1TxSize:                  ctx.Uint64(flags.MaxL1TxSizeBytesFlag.Name),
@@ -271,7 +270,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 			PidSampleTime:       ctx.Duration(flags.ThrottlePidSampleTimeFlag.Name),
 		},
 		EspressoUrl:             ctx.String(flags.EspressoUrlFlag.Name),
->>>>>>> f54ce8211b (6.2 Batcher tests in enclave (#144))
+		EspressoLightClientAddr: ctx.String(flags.EspressoLCAddrFlag.Name),
 		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
 		EspressoPollInterval:             ctx.Duration(flags.EspressoPollIntervalFlag.Name),
 	}
