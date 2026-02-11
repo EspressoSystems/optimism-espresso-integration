@@ -101,14 +101,10 @@ FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/c
 FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/cannon:v1.6.0 AS cannon-builder-v1-6-0
 
 # We don't use the golang image for batcher & op-node because it doesn't play well with CGO
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS op-cgo-builder
+FROM --platform=$BUILDPLATFORM golang:1.24.10-alpine3.21 AS op-cgo-builder
 ARG OP_BATCHER_VERSION=v0.0.0
-# Install dependencies
-RUN apk add  musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
-# Install just from mise (alpine's outdated and incompatible)
-COPY ./mise.toml .
-RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
-  tar xz -C /usr/local/bin just
+# Install dependencies (match builder stage: yq-go, just from apk)
+RUN apk add --no-cache musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq-go just
 # Go sources
 COPY ./go.mod /app/go.mod
 COPY ./go.sum /app/go.sum
