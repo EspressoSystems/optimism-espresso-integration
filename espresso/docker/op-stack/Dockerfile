@@ -59,9 +59,9 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-node && make op-node \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
+  cd /app/op-node && make op-node
 
 # Build op-batcher
 FROM builder AS op-batcher-builder
@@ -71,8 +71,7 @@ ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_BATCHER_VERSION=v0.0.0
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-batcher && make op-batcher
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd /app/op-batcher && make op-batcher
 
 # Build enclave-tools
 FROM builder AS enclave-tools-builder
@@ -111,7 +110,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # Final runtime images
 FROM $TARGET_BASE_IMAGE AS op-node-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 
@@ -125,7 +124,7 @@ CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
@@ -142,7 +141,7 @@ COPY espresso/deployment/ /source/espresso/deployment/
 # Copy the run-enclave.sh script
 COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
 RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
-ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/
 CMD ["enclave-tools"]
@@ -153,7 +152,7 @@ COPY espresso/docker/op-stack/entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
 COPY --from=op-proposer-builder /app/espresso/deployment/deployer /deployer
-ENV ENV_PREFIX OP_PROPOSER
+ENV ENV_PREFIX=OP_PROPOSER
 ENTRYPOINT [ "/bin/entrypoint.sh" ]
 CMD ["op-proposer"]
 
@@ -171,7 +170,7 @@ COPY --from=op-proposer-builder /app/op-challenger/bin/op-challenger /usr/local/
 # ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
 # ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
 # ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
-ENV ENV_PREFIX OP_CHALLENGER
+ENV ENV_PREFIX=OP_CHALLENGER
 
 ENTRYPOINT [ "/bin/entrypoint.sh" ]
 CMD ["op-challenger"]
