@@ -32,9 +32,10 @@ jobs:
         uses: nicknovitski/nix-develop@v1
 
       - name: Set up Go
+        id: go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Ensure go module checksums
         run: go mod download github.com/consensys/bavard && go list -m all >/dev/null
@@ -59,6 +60,8 @@ jobs:
 
       - name: Generate test slice
         id: test_split
+        env:
+          PATH: ${{ env.GOROOT }}/bin:${{ env.PATH }}
         uses: hashicorp-forge/go-test-split-action@v1
         with:
           index: ${{ matrix.group }}
@@ -66,6 +69,8 @@ jobs:
           packages: "./espresso/..."
           working-directory: .
       - name: Run Go tests for group ${{ matrix.group }}
+        env:
+          PATH: ${{ env.GOROOT }}/bin:${{ env.PATH }}
         run: |
           go test -short -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
 
