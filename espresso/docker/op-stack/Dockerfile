@@ -6,7 +6,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 # Base builder image
-FROM golang:1.23.8-alpine3.20 AS builder
+FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \

@@ -7,7 +7,7 @@ ARG GIT_COMMIT
 ARG GIT_DATE
 
 # CGO builder for components that need Espresso crypto linking
-FROM golang:1.23.8-alpine3.20 AS op-cgo-builder
+FROM golang:1.24-alpine AS op-cgo-builder
 # Install dependencies
 RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
 # Install just from mise
