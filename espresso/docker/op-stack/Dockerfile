@@ -52,7 +52,7 @@ COPY . /app
 ARG GIT_COMMIT
 ARG GIT_DATE
 
-# Build op-node
+# Build op-node (direct go build to avoid make/just and CGO in Docker)
 FROM builder AS op-node-builder
 ARG TARGETOS
 ARG TARGETARCH
@@ -61,9 +61,9 @@ ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-node && make op-node
+  cd /app/op-node && CGO_ENABLED=0 go build -v -ldflags "-X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X github.com/ethereum-optimism/optimism/op-node/version.Version=$VERSION -X github.com/ethereum-optimism/optimism/op-node/version.Meta=" -o ./bin/op-node ./cmd
 
-# Build op-batcher
+# Build op-batcher (direct go build to avoid make/just and CGO in Docker)
 FROM builder AS op-batcher-builder
 ARG TARGETOS
 ARG TARGETARCH
@@ -71,9 +71,10 @@ ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_BATCHER_VERSION=v0.0.0
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd /app/op-batcher && make op-batcher
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  cd /app/op-batcher && CGO_ENABLED=0 go build -v -ldflags "-X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X main.Version=$VERSION" -o ./bin/op-batcher ./cmd
 
-# Build enclave-tools
+# Build enclave-tools (direct go build to avoid make/just and CGO in Docker)
 FROM builder AS enclave-tools-builder
 ARG TARGETOS
 ARG TARGETARCH
@@ -82,7 +83,7 @@ ARG GIT_DATE
 ARG ENCLAVE_TOOLS_VERSION=v0.0.0
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-batcher && just enclave-tools
+  cd /app/op-batcher && CGO_ENABLED=0 go build -v -o ./bin/enclave-tools ./enclave-tools/cmd
 
 # Build op-proposer
 FROM builder AS op-proposer-builder
