@@ -54,11 +54,12 @@ ARG GIT_DATE
 FROM builder AS op-node-builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-node && \
-  CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-  go build -a -ldflags '-extldflags "-static"' \
-  -o bin/op-node ./cmd/main.go
+WORKDIR /app/op-node
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-node
 
 # Build op-batcher
 FROM builder AS op-batcher-builder
