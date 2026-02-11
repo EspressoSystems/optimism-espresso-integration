@@ -52,6 +52,8 @@ ARG GIT_DATE
 
 # Build op-node
 FROM builder AS op-node-builder
+ARG TARGETOS
+ARG TARGETARCH
 ARG OP_NODE_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-node && \
   CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
@@ -60,6 +62,10 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Build op-batcher
 FROM builder AS op-batcher-builder
+ARG TARGETOS
+ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
 ARG OP_BATCHER_VERSION=v0.0.0
 WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
@@ -67,6 +73,10 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Build enclave-tools
 FROM builder AS enclave-tools-builder
+ARG TARGETOS
+ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
 ARG ENCLAVE_TOOLS_VERSION=v0.0.0
 WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
@@ -74,6 +84,10 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Build op-proposer
 FROM builder AS op-proposer-builder
+ARG TARGETOS
+ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
 ARG OP_PROPOSER_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-proposer && make op-proposer  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
@@ -82,7 +96,11 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Build op-deployer
 FROM builder AS op-deployer-builder
-ARG OP_DEPLOER_VERSION=v0.0.0
+ARG TARGETOS
+ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
+ARG OP_DEPLOYER_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION" just
 
