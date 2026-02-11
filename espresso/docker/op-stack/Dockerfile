@@ -57,20 +57,20 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
-WORKDIR /app/op-node
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-node
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  cd /app/op-node && make op-node \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
 
-# Build op-batcher
+# Build op-batcher (use make so GOOS/GOARCH/GITCOMMIT/GITDATE/VERSION become JUSTFLAGS like op-node)
 FROM builder AS op-batcher-builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_BATCHER_VERSION=v0.0.0
-WORKDIR /app/op-batcher
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  cd /app/op-batcher && make op-batcher \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
 
 # Build enclave-tools
 FROM builder AS enclave-tools-builder
@@ -79,9 +79,9 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG ENCLAVE_TOOLS_VERSION=v0.0.0
-WORKDIR /app/op-batcher
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just enclave-tools
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  cd /app/op-batcher && just enclave-tools \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
 
 # Build op-proposer
 FROM builder AS op-proposer-builder
@@ -102,8 +102,9 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_DEPLOYER_VERSION=v0.0.0
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION" just
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  cd /app/op-deployer && just build-go \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
 
 
 # Final runtime images
