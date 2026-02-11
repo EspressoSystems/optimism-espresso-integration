@@ -36,6 +36,8 @@ RUN case "$TARGETARCH" in \
 COPY ./mise.toml .
 RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
 
+# Ensure just and other tools are on PATH for all FROM builder stages
+ENV PATH="/usr/local/bin:$PATH"
 
 # Copy and download Go dependencies
 COPY ./go.mod /app/go.mod
@@ -61,16 +63,16 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   cd /app/op-node && make op-node \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
 
-# Build op-batcher (use make so GOOS/GOARCH/GITCOMMIT/GITDATE/VERSION become JUSTFLAGS like op-node)
+# Build op-batcher
 FROM builder AS op-batcher-builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_BATCHER_VERSION=v0.0.0
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-batcher && make op-batcher \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
+  cd /app/op-batcher && make op-batcher
 
 # Build enclave-tools
 FROM builder AS enclave-tools-builder
@@ -79,9 +81,9 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG ENCLAVE_TOOLS_VERSION=v0.0.0
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-batcher && just enclave-tools \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
+  cd /app/op-batcher && just enclave-tools
 
 # Build op-proposer
 FROM builder AS op-proposer-builder
@@ -90,10 +92,9 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_PROPOSER_VERSION=v0.0.0
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-proposer && make op-proposer  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-challenger && make op-challenger  \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd /app/op-proposer && make op-proposer
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd /app/op-challenger && make op-challenger
 
 # Build op-deployer
 FROM builder AS op-deployer-builder
@@ -102,9 +103,9 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 ARG OP_DEPLOYER_VERSION=v0.0.0
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-deployer && just build-go \
-  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
+  cd /app/op-deployer && just build-go
 
 
 # Final runtime images
