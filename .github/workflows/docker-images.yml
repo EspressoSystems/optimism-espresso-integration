@@ -14,7 +14,6 @@ env:
 jobs:
   prepare-deployment:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     outputs:
       deployment-hash: ${{ steps.hash.outputs.hash }}
     steps:
@@ -42,9 +41,6 @@ jobs:
           sudo chmod +x /usr/local/bin/dasel
           dasel --version
 
-      - name: Ensure go module checksums
-        run: go mod download github.com/consensys/bavard && go list -m all >/dev/null
-
       - name: Build op-deployer
         run: |
           cd op-deployer
@@ -52,10 +48,7 @@ jobs:
           echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Compile contracts
-        env:
-          FOUNDRY_DISABLE_NIGHTLY_WARNING: 1
-        run: cd packages/contracts-bedrock && just build-no-tests
-        timeout-minutes: 20
+        run: cd packages/contracts-bedrock && just build
 
       - name: Fix Proxy artifact bytecode
         run: cd packages/contracts-bedrock && just fix-proxy-artifact

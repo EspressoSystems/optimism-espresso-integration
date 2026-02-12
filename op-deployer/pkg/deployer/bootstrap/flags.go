@@ -169,6 +169,11 @@ var (
 		Usage:   "Path to a JSON file",
 		EnvVars: deployer.PrefixEnvVar("CONFIG"),
 	}
+	ChallengerFlag = &cli.StringFlag{
+		Name:    "challenger",
+		Usage:   "Challenger.",
+		EnvVars: deployer.PrefixEnvVar("CHALLENGER"),
+	}
 )
 
 var ImplementationsFlags = []cli.Flag{

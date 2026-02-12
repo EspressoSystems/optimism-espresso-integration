@@ -31,9 +31,6 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Ensure go module checksums
-        run: go mod download github.com/consensys/bavard && go list -m all >/dev/null
-
       - name: Install dependencies
         working-directory: packages/contracts-bedrock
         run: just install

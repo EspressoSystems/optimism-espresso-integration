@@ -31,14 +31,8 @@ jobs:
       - name: Set up Nix environment
         uses: nicknovitski/nix-develop@v1
 
-      - name: Set up Go
-        id: go
+      - name: Cache Go modules
         uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-
-      - name: Ensure go module checksums
-        run: go mod download github.com/consensys/bavard && go list -m all >/dev/null
 
       - name: Compile contracts
         run: just compile-contracts
@@ -60,16 +54,12 @@ jobs:
 
       - name: Generate test slice
         id: test_split
-        env:
-          PATH: ${{ env.GOROOT }}/bin:${{ env.PATH }}
-        run: |
-          TOTAL=4
-          INDEX=${{ matrix.group }}
-          RUN=$(go test ./espresso/... -list . 2>&1 | grep -E '^Test' | awk -v total=$TOTAL -v idx=$INDEX '(NR-1)%total==idx {print}' | paste -sd'|' -)
-          echo "run=${RUN}" >> $GITHUB_OUTPUT
+        uses: hashicorp-forge/go-test-split-action@v1
+        with:
+          index: ${{ matrix.group }}
+          total: 4
+          packages: "./espresso/..."
       - name: Run Go tests for group ${{ matrix.group }}
-        env:
-          PATH: ${{ env.GOROOT }}/bin:${{ env.PATH }}
         run: |
           go test -short -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
 
