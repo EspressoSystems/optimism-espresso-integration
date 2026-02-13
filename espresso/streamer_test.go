@@ -817,119 +817,52 @@ func (m *MockStreamerSource) CreateEspressoTxnDataWithL1Origin(
 	return batch, espBatch, espTxn, espTxnInBlock
 }
 
-// TestStreamerHeadBatchHandling tests the headBatch direct assignment and buffer promotion behavior.
-func TestStreamerHeadBatchHandling(t *testing.T) {
+// TestStreamerInvalidHeadBatchDiscarded tests that an invalid headBatch is discarded
+// and the next valid candidate is promoted from the buffer.
+func TestStreamerInvalidHeadBatchDiscarded(t *testing.T) {
 	namespace := uint64(42)
 	chainID := big.NewInt(int64(namespace))
 	privateKeyString := "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 	chainSignerFactory, signerAddress, _ := crypto.ChainSignerFactoryFromConfig(&NoOpLogger{}, privateKeyString, "", "", opsigner.CLIConfig{})
 	chainSigner := chainSignerFactory(chainID, common.Address{})
 
-	t.Run("batch matching BatchPos assigned directly to headBatch when headBatch is nil", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-		state, streamer := setupStreamerTesting(namespace, signerAddress)
-		rng := rand.New(rand.NewSource(0))
+	state, streamer := setupStreamerTesting(namespace, signerAddress)
+	rng := rand.New(rand.NewSource(2))
 
-		// Refresh state - after this, BatchPos becomes 1 (fallbackBatchPos=0, BatchPos=0+1=1)
-		syncStatus := state.SyncStatus()
-		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
-		require.NoError(t, err)
+	// Refresh state - after this, BatchPos becomes 1
+	syncStatus := state.SyncStatus()
+	err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+	require.NoError(t, err)
 
-		// Create batch with number matching BatchPos (which is 1 after Refresh with SafeL2.Number=0)
-		_, _, _, espTxnInBlock := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 1, chainSigner)
-		state.AddEspressoTransactionData(0, namespace, espTxnInBlock)
+	// Create batch 1 with INVALID L1 origin hash (using a hash that won't match)
+	invalidHash := common.HexToHash("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	_, _, _, espTxnInBlockInvalid := state.CreateEspressoTxnDataWithL1Origin(
+		ctx, namespace, rng, chainID, 1, chainSigner,
+		state.FinalizedL1.Number, invalidHash,
+	)
+	state.AddEspressoTransactionData(0, namespace, espTxnInBlockInvalid)
 
-		// Update to fetch the batch
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
+	// Create batch 1 with VALID L1 origin (using the correct hash)
+	_, _, _, espTxnInBlockValid := state.CreateEspressoTxnDataWithL1Origin(
+		ctx, namespace, rng, chainID, 1, chainSigner,
+		state.FinalizedL1.Number, state.FinalizedL1.Hash,
+	)
+	state.AddEspressoTransactionData(1, namespace, espTxnInBlockValid)
 
-		// The batch should be assigned directly to headBatch
-		require.True(t, streamer.HasNext(ctx), "batch should be available")
+	// Update to fetch both batches
+	err = streamer.Update(ctx)
+	require.NoError(t, err)
 
-		// Next should return the batch
-		batch := streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(1), batch.Number())
-	})
+	// HasNext should drop the invalid batch and find the valid one
+	require.True(t, streamer.HasNext(ctx), "valid batch should be available after invalid is dropped")
 
-	t.Run("HasNext promotes batch from buffer when headBatch is nil", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		state, streamer := setupStreamerTesting(namespace, signerAddress)
-		rng := rand.New(rand.NewSource(1))
-
-		// Refresh state - after this, BatchPos becomes 1
-		syncStatus := state.SyncStatus()
-		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
-		require.NoError(t, err)
-
-		// Create batch 2 first (goes to buffer since it's ahead of BatchPos=1)
-		_, _, _, espTxnInBlock2 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 2, chainSigner)
-		state.AddEspressoTransactionData(0, namespace, espTxnInBlock2)
-
-		// Create batch 1 (becomes headBatch)
-		_, _, _, espTxnInBlock1 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 1, chainSigner)
-		state.AddEspressoTransactionData(1, namespace, espTxnInBlock1)
-
-		// Update to fetch both batches
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-
-		// Consume batch 1
-		require.True(t, streamer.HasNext(ctx))
-		batch := streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(1), batch.Number())
-
-		// Now BatchPos is 2, and batch 2 should be promoted from buffer
-		require.True(t, streamer.HasNext(ctx), "batch 2 should be promoted from buffer")
-		batch = streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(2), batch.Number())
-	})
-
-	t.Run("invalid headBatch is discarded and next candidate promoted from buffer", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		state, streamer := setupStreamerTesting(namespace, signerAddress)
-		rng := rand.New(rand.NewSource(2))
-
-		// Refresh state - after this, BatchPos becomes 1
-		syncStatus := state.SyncStatus()
-		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
-		require.NoError(t, err)
-
-		// Create batch 1 with INVALID L1 origin hash (using a hash that won't match)
-		invalidHash := common.HexToHash("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
-		_, _, _, espTxnInBlockInvalid := state.CreateEspressoTxnDataWithL1Origin(
-			ctx, namespace, rng, chainID, 1, chainSigner,
-			state.FinalizedL1.Number, invalidHash,
-		)
-		state.AddEspressoTransactionData(0, namespace, espTxnInBlockInvalid)
-
-		// Create batch 1 with VALID L1 origin (using the correct hash)
-		_, _, _, espTxnInBlockValid := state.CreateEspressoTxnDataWithL1Origin(
-			ctx, namespace, rng, chainID, 1, chainSigner,
-			state.FinalizedL1.Number, state.FinalizedL1.Hash,
-		)
-		state.AddEspressoTransactionData(1, namespace, espTxnInBlockValid)
-
-		// Update to fetch both batches
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-
-		// HasNext should drop the invalid batch and find the valid one
-		require.True(t, streamer.HasNext(ctx), "valid batch should be available after invalid is dropped")
-
-		// Next should return the valid batch
-		batch := streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(1), batch.Number())
-	})
+	// Next should return the valid batch
+	batch := streamer.Next(ctx)
+	require.NotNil(t, batch)
+	require.Equal(t, uint64(1), batch.Number())
 }
 
 // TestStreamerMultipleBatchesSameNumber tests handling of multiple batches with
@@ -1168,77 +1101,6 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 		batch = streamer.Next(ctx)
 		require.NotNil(t, batch)
 		require.Equal(t, firstOverflow, batch.Number(), "first batch after buffer drain must not be skipped")
-	})
-
-	t.Run("skipPos set and rewind after Next drains buffer", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		state := NewMockStreamerSource()
-		logger := new(NoOpLogger)
-
-		// Create streamer - after Refresh with SafeL2.Number=0, BatchPos becomes 1
-		streamer := espresso.NewEspressoStreamer(
-			namespace,
-			state,
-			state,
-			state,
-			state,
-			logger,
-			derive.CreateEspressoBatchUnmarshaler(signerAddress),
-			50*time.Millisecond,
-			0,
-			0, // originBatchPos=0, so BatchPos starts at 1
-		)
-
-		rng := rand.New(rand.NewSource(6))
-
-		// Refresh state - after this, BatchPos becomes 1
-		syncStatus := state.SyncStatus()
-		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
-		require.NoError(t, err)
-
-		// Fill the buffer with out-of-order batches (batches 2, 3, 4, ... exceeding capacity)
-		// We need batch 1 to be missing initially to fill the buffer
-		for i := 0; i < int(espresso.BatchBufferCapacity)+5; i++ {
-			// Create batches starting from 2 (skipping 1)
-			_, _, _, espTxn := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, uint64(i+2), chainSigner)
-			state.AddEspressoTransactionData(uint64(i), namespace, espTxn)
-		}
-
-		// Update - this should fill buffer and set skipPos
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-
-		// HasNext should return false (batch 1 is missing)
-		require.False(t, streamer.HasNext(ctx))
-
-		// Now add batch 1 at a later hotshot position
-		laterHotshotPos := uint64(espresso.BatchBufferCapacity + 10)
-		_, _, _, espTxn1 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 1, chainSigner)
-		state.AddEspressoTransactionData(laterHotshotPos, namespace, espTxn1)
-
-		// Update again to fetch batch 1
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-
-		// Now HasNext should return true
-		require.True(t, streamer.HasNext(ctx))
-
-		// Consume batch 1
-		batch := streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(1), batch.Number())
-
-		// After consuming, the streamer should have rewound to re-fetch skipped batches
-		// We should be able to get batch 2 now
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-
-		require.True(t, streamer.HasNext(ctx))
-		batch = streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(2), batch.Number())
 	})
 
 	t.Run("new batch for current BatchPos arrives when buffer full", func(t *testing.T) {

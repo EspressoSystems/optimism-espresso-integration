@@ -39,8 +39,8 @@ type BatchBuffer[B Batch] struct {
 
 func NewBatchBuffer[B Batch](capacity uint64) BatchBuffer[B] {
 	return BatchBuffer[B]{
-		capacity: capacity,
 		batches:  []B{},
+		capacity: capacity,
 	}
 }
 
@@ -64,10 +64,12 @@ func (b *BatchBuffer[B]) Insert(batch B) error {
 	pos, alreadyExists := slices.BinarySearchFunc(b.batches, batch, func(a, t B) int {
 		// Note: we use a custom comparison function that returns 0 only if the batches are actually
 		// the same to ensure that newer batches with the same number are stored later in the buffer
+		if a.Hash() == t.Hash() {
+			return 0
+		}
+
 		if a.Number() > t.Number() {
 			return 1
-		} else if a.Number() == t.Number() && a.Hash() == t.Hash() {
-			return 0
 		} else {
 			return -1
 		}
