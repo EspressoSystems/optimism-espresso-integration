@@ -39,6 +39,8 @@ else
     fi
 fi
 
+export BATCH_AUTHENTICATOR_ADDRESS
+
 echo "=== Enclave Batcher Configuration ==="
 echo "Deployment Mode: $DEPLOYMENT_MODE"
 echo "L1 RPC URL: $L1_RPC_URL"
@@ -117,23 +119,32 @@ PCR0="$(grep -m1 -oE 'PCR0[=:][[:space:]]*(0x)?[[:xdigit:]]{64,}' /tmp/build_out
 
 # Register PCR0 if all required values are present
 if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PRIVATE_KEY" ]; then
-    echo "Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
-    enclave-tools register \
-        --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
-        --l1-url "$L1_RPC_URL" \
-        --private-key "$OPERATOR_PRIVATE_KEY" \
-        --pcr0 "$PCR0"
+    echo "Checking if PCR0 is already registered..."
 
-    if [ $? -ne 0 ]; then
-        echo "WARNING: Failed to register PCR0, continuing anyway..."
+    SIGNER_ADDRESS=$(cast call "$BATCH_AUTHENTICATOR_ADDRESS" "getEnclaveAddress(bytes32)(address)" "$PCR0" --rpc-url "$L1_RPC_URL" 2>/dev/null || echo "")
+
+    if [ -n "$SIGNER_ADDRESS" ] && [ "$SIGNER_ADDRESS" != "0x0000000000000000000000000000000000000000" ]; then
+        echo "PCR0 already registered with signer address: $SIGNER_ADDRESS"
+        echo "Skipping registration..."
     else
-        echo "PCR0 registration successful"
+        echo "PCR0 not registered. Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
+        enclave-tools register \
+            --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
+            --l1-url "$L1_RPC_URL" \
+            --private-key "$OPERATOR_PRIVATE_KEY" \
+            --pcr0 "$PCR0"
+
+        if [ $? -ne 0 ]; then
+            echo "WARNING: Failed to register PCR0, continuing anyway..."
+        else
+            echo "PCR0 registration successful"
+        fi
     fi
 else
     echo "Skipping PCR0 registration - missing required values:"
     echo "  PCR0: ${PCR0:-[missing]}"
     echo "  BATCH_AUTHENTICATOR_ADDRESS: ${BATCH_AUTHENTICATOR_ADDRESS:-[missing]}"
-    echo "  OPERATOR_PRIVATE_KEY: 0x...}"
+    echo "  OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY:+[set]}"
 fi
 
 # Setup tracking files for local deployment
