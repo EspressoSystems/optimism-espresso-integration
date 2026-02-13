@@ -1080,6 +1080,96 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 	chainSignerFactory, signerAddress, _ := crypto.ChainSignerFactoryFromConfig(&NoOpLogger{}, privateKeyString, "", "", opsigner.CLIConfig{})
 	chainSigner := chainSignerFactory(chainID, common.Address{})
 
+	t.Run("skipPos not overwritten across multiple fetch ranges", func(t *testing.T) {
+		// Regression test: when the Update loop iterates through multiple
+		// HotShot block ranges, hitting ErrAtCapacity in a later range must
+		// NOT overwrite skipPos set by an earlier range. Otherwise the rewind
+		// skips the earlier range's batches permanently.
+		//
+		// Scenario:
+		//   - Enough batches (starting from 2, skipping 1) are placed to fill
+		//     the buffer, plus an extra fetch range worth of batches beyond it.
+		//   - The extra batches are dropped because the buffer is full.
+		//     skipPos should record the earliest range where capacity was hit.
+		//   - Batch 1 is injected later, consumed, and triggers a rewind.
+		//   - After draining the buffer, the next batch must come from the
+		//     re-fetched overflow. If skipPos was overwritten to a later range
+		//     start, the rewind won't go far enough and those batches are lost.
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		state := NewMockStreamerSource()
+		logger := new(NoOpLogger)
+
+		streamer := espresso.NewEspressoStreamer(
+			namespace,
+			state,
+			state,
+			state,
+			state,
+			logger,
+			derive.CreateEspressoBatchUnmarshaler(signerAddress),
+			50*time.Millisecond,
+			0,
+			0, // originBatchPos=0, so BatchPos starts at 1
+		)
+
+		rng := rand.New(rand.NewSource(99))
+
+		syncStatus := state.SyncStatus()
+		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+		require.NoError(t, err)
+
+		// Place enough batches to fill the buffer and overflow by one full
+		// fetch range. Batch 1 is intentionally missing so HasNext stays
+		// false, forcing the Update loop to keep iterating across ranges.
+		totalBatches := int(espresso.BatchBufferCapacity) + int(espresso.HOTSHOT_BLOCK_FETCH_LIMIT)
+		for i := 0; i < totalBatches; i++ {
+			_, _, _, espTxn := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, uint64(i+2), chainSigner)
+			state.AddEspressoTransactionData(uint64(i), namespace, espTxn)
+		}
+
+		// Update processes all ranges. The buffer fills up partway through,
+		// and all subsequent batches are dropped with ErrAtCapacity.
+		err = streamer.Update(ctx)
+		require.NoError(t, err)
+		require.False(t, streamer.HasNext(ctx))
+
+		// Inject batch 1 beyond all existing data.
+		batch1Pos := uint64(totalBatches + 10)
+		_, _, _, espTxn1 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 1, chainSigner)
+		state.AddEspressoTransactionData(batch1Pos, namespace, espTxn1)
+
+		// Fetch and consume batch 1 — triggers the rewind via skipPos.
+		err = streamer.Update(ctx)
+		require.NoError(t, err)
+		require.True(t, streamer.HasNext(ctx))
+		batch := streamer.Next(ctx)
+		require.NotNil(t, batch)
+		require.Equal(t, uint64(1), batch.Number())
+
+		// Drain the entire buffer of previously-buffered batches.
+		firstOverflow := uint64(espresso.BatchBufferCapacity) + 2
+		for expectedNum := uint64(2); expectedNum < firstOverflow; expectedNum++ {
+			err = streamer.Update(ctx)
+			require.NoError(t, err)
+			require.True(t, streamer.HasNext(ctx), "expected batch %d to be available", expectedNum)
+			batch = streamer.Next(ctx)
+			require.NotNil(t, batch)
+			require.Equal(t, expectedNum, batch.Number())
+		}
+
+		// The first batch that was dropped due to capacity must now be
+		// recoverable via the rewind. If skipPos was overwritten to a later
+		// range, this batch is permanently lost.
+		err = streamer.Update(ctx)
+		require.NoError(t, err)
+		require.True(t, streamer.HasNext(ctx), "first overflow batch must be available after rewind — skipPos must preserve the earliest range")
+		batch = streamer.Next(ctx)
+		require.NotNil(t, batch)
+		require.Equal(t, firstOverflow, batch.Number(), "first batch after buffer drain must not be skipped")
+	})
+
 	t.Run("skipPos set and rewind after Next drains buffer", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

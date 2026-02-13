@@ -353,7 +353,7 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 		for _, txn := range namespaceTransaction.Transactions {
 			err := s.processEspressoTransaction(ctx, txn.Payload)
 			if errors.Is(err, ErrAtCapacity) {
-				s.skipPos = start
+				s.skipPos = min(s.skipPos, start)
 			}
 		}
 	}
