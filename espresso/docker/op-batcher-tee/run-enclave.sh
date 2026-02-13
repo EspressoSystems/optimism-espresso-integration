@@ -121,10 +121,10 @@ PCR0="$(grep -m1 -oE 'PCR0[=:][[:space:]]*(0x)?[[:xdigit:]]{64,}' /tmp/build_out
 if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PRIVATE_KEY" ]; then
     echo "Checking if PCR0 is already registered..."
 
-    SIGNER_ADDRESS=$(cast call "$BATCH_AUTHENTICATOR_ADDRESS" "getEnclaveAddress(bytes32)(address)" "$PCR0" --rpc-url "$L1_RPC_URL" 2>/dev/null || echo "")
+    IS_REGISTERED=$(cast call "$BATCH_AUTHENTICATOR_ADDRESS" "registeredEnclaveHash(bytes32,uint8)(bool)" "$PCR0" "0" --rpc-url "$L1_RPC_URL" 2>/dev/null || echo "false")
 
-    if [ -n "$SIGNER_ADDRESS" ] && [ "$SIGNER_ADDRESS" != "0x0000000000000000000000000000000000000000" ]; then
-        echo "PCR0 already registered with signer address: $SIGNER_ADDRESS"
+    if [ "$IS_REGISTERED" = "true" ]; then
+        echo "PCR0 already registered: $PCR0"
         echo "Skipping registration..."
     else
         echo "PCR0 not registered. Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
