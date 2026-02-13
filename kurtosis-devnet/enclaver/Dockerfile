@@ -17,7 +17,7 @@ ARG UBUNTU_TARGET_BASE_IMAGE=ubuntu:22.04
 ARG KONA_VERSION="kona-client-v0.1.0-beta.5"
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
-FROM --platform=$BUILDPLATFORM golang:1.23.8-alpine3.20 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 
 
 RUN apk add --no-cache curl tar gzip make gcc musl-dev linux-headers git jq bash
@@ -77,7 +77,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 
 # We don't use the golang image for batcher because it doesn't play well with CGO
-FROM --platform=$BUILDPLATFORM golang:1.23.8-alpine3.20 AS op-batcher-builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS op-batcher-builder
 ARG OP_BATCHER_VERSION=v0.0.0
 # Install dependencies
 RUN apk add  musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq

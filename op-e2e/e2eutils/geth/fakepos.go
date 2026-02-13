@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -54,6 +56,8 @@ type FakePoS struct {
 type Backend interface {
 	// HeaderByNumber is assumed to behave the same as go-ethereum/ethclient.Client.HeaderByNumber.
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	TxPool() *txpool.TxPool
+	BlockChain() *core.BlockChain
 }
 
 type EngineAPI interface {

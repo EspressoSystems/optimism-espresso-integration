@@ -271,10 +271,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 			PidOutputMax:        ctx.Float64(flags.ThrottlePidOutputMaxFlag.Name),
 			PidSampleTime:       ctx.Duration(flags.ThrottlePidSampleTimeFlag.Name),
 		},
-		EspressoUrl:             ctx.String(flags.EspressoUrlFlag.Name),
-		EspressoLightClientAddr: ctx.String(flags.EspressoLCAddrFlag.Name),
-		TestingEspressoBatcherPrivateKey: ctx.String(flags.TestingEspressoBatcherPrivateKeyFlag.Name),
-		EspressoPollInterval:             ctx.Duration(flags.EspressoPollIntervalFlag.Name),
-		PreferLocalSafeL2:                ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
+		Espresso:       espresso.ReadCLIConfig(ctx),
+		PreferLocalSafeL2: ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
 	}
 }

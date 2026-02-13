@@ -90,6 +90,7 @@ type L1Source interface {
 	L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error)
 	L1BlockRefByNumber(ctx context.Context, num uint64) (eth.L1BlockRef, error)
 	L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L1BlockRef, error)
+	L1FinalizedBlock() (eth.L1BlockRef, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	ReadStorageAt(ctx context.Context, address common.Address, storageSlot common.Hash, blockHash common.Hash) (common.Hash, error)
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
