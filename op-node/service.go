@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/cliiface"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/urfave/cli/v2"
 	opflags "github.com/ethereum-optimism/optimism/op-service/flags"
 	"github.com/ethereum-optimism/optimism/op-service/jsonutil"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
@@ -260,7 +261,9 @@ func NewRollupConfigFromCLI(log log.Logger, ctx cliiface.Context) (*rollup.Confi
 	applyCeloHardforks(rollupConfig)
 	applyOverrides(ctx, rollupConfig)
 
-	rollupConfig.CaffNodeConfig = espresso.ReadCLIConfig(ctx)
+	if cliCtx, ok := ctx.(*cli.Context); ok {
+		rollupConfig.CaffNodeConfig = espresso.ReadCLIConfig(cliCtx)
+	}
 
 	return rollupConfig, nil
 }

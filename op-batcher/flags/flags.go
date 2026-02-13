@@ -214,7 +214,6 @@ var optionalFlags = []cli.Flag{
 	CompressionAlgoFlag,
 	EspressoUrlFlag,
 	EspressoLCAddrFlag,
-	EspressoPollIntervalFlag,
 	TestingEspressoBatcherPrivateKeyFlag,
 	PreferLocalSafeL2Flag,
 }
