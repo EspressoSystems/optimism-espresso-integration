@@ -8,6 +8,7 @@ import (
 	"math/big"
 	_ "net/http/pprof"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -21,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
@@ -91,6 +93,19 @@ type AltDAClient interface {
 	SetInput(ctx context.Context, data []byte) (altda.CommitmentData, error)
 }
 
+// batcherL1Adapter wraps the batcher's L1Client to implement espresso.L1Client (HeaderHashByNumber).
+type batcherL1Adapter struct {
+	L1Client L1Client
+}
+
+func (a *batcherL1Adapter) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
+	h, err := a.L1Client.HeaderByNumber(ctx, number)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return h.Hash(), nil
+}
+
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
 	closeApp            context.CancelCauseFunc
@@ -109,7 +124,7 @@ type DriverSetup struct {
 	EspressoLightClient *espressoLightClient.LightclientCaller
 	ChainSigner         opcrypto.ChainSigner
 	SequencerAddress    common.Address
-	Attestation         *nitrite.Result
+	Attestation         []byte
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -161,10 +176,12 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		panic(err)
 	}
 
+	l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
 	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(
 		espresso.NewEspressoStreamer(
 			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-			NewAdaptL1BlockRefClient(batchSubmitter.L1Client),
+			l1Adapter,
+			l1Adapter,
 			batchSubmitter.Espresso,
 			batchSubmitter.EspressoLightClient,
 			batchSubmitter.Log,
@@ -172,11 +189,17 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
 			},
 			2*time.Second,
+			0, 0, // originHotShotPos, originBatchPos
 		),
 	)
 	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 
 	return batchSubmitter
+}
+
+// EspressoStreamer returns the Espresso batch streamer for use by the service and tests.
+func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
+	return l.espressoStreamer
 }
 
 func (l *BatchSubmitter) StartBatchSubmitting() error {
@@ -233,7 +256,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.espressoSubmitter = NewEspressoTransactionSubmitter(
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
-			WithEspressoClient(l.EspressoClient),
+			WithEspressoClient(l.Espresso),
 		)
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
@@ -901,7 +924,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
 			if l.Config.UseEspresso {
-				l.EspressoStreamer.Reset()
+				l.EspressoStreamer().Reset()
 			}
 			return true
 		}

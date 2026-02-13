@@ -60,7 +60,7 @@ type DerivationPipeline interface {
 	Origin() eth.L1BlockRef
 	DerivationReady() bool
 	ConfirmEngineReset()
-	EspressoStreamer() *espresso.EspressoStreamer
+	EspressoStreamer() *espresso.BatchStreamer[derive.EspressoBatch]
 }
 
 type AttributesHandler interface {

@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"strings"
 	"sync/atomic"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/hf/nitrite"
@@ -105,11 +106,11 @@ type BatcherService struct {
 	oracleStopCh  chan struct{}
 
 	opcrypto.ChainSigner
-	Attestation *nitrite.Result
+	Attestation []byte
 }
 
-func (bs *BatcherService) EspressoStreamer() *espressoLocal.EspressoStreamer[derive.EspressoBatch] {
-	return &bs.driver.espressoStreamer
+func (bs *BatcherService) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
+	return bs.driver.espressoStreamer
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -745,24 +746,15 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 
-	urlZero := cfg.Espresso.QueryServiceURLs[0]
-	espressoClient := espressoClient.NewClient(urlZero)
-
-	bs.EspressoClient = espressoClient
+	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
+	if err != nil {
+		return fmt.Errorf("failed to create Espresso client: %w", err)
+	}
+	bs.Espresso = client
 
 	if err := bs.initKeyPair(); err != nil {
 		return fmt.Errorf("failed to create key pair for batcher: %w", err)
 	}
-
-	unbufferedStreamer, err := espresso.BatchStreamerFromCLIConfig(cfg.Espresso, bs.Log, func(data []byte) (*derive.EspressoBatch, error) {
-		return derive.UnmarshalEspressoTransaction(data, bs.TxManager.From())
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create unbuffered Espresso streamer: %w", err)
-	}
-
-	// We wrap the streamer in a BufferedStreamer to reduce impact of streamer resets
-	bs.EspressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
 
 	// try to generate attestationBytes on public key when start batcher
 	attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
