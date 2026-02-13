@@ -123,7 +123,7 @@ else
     echo "Skipping PCR0 registration - missing required values:"
     echo "  PCR0: ${PCR0:-[missing]}"
     echo "  BATCH_AUTHENTICATOR_ADDRESS: ${BATCH_AUTHENTICATOR_ADDRESS:-[missing]}"
-    echo "  OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY:+[set]}"
+    echo "  OPERATOR_PRIVATE_KEY: 0x...}"
 fi
 
 # Setup tracking files for local deployment
@@ -176,8 +176,7 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
 fi
 
 # Run the enclave
-echo "Starting enclave with command:"
-echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
+echo "Starting enclave with image: $TAG (args contain sensitive data and are not logged)"
 
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!
