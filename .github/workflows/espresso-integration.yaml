@@ -31,8 +31,15 @@ jobs:
       - name: Set up Nix environment
         uses: nicknovitski/nix-develop@v1
 
-      - name: Cache Go modules
+      - name: Set up Go and cache modules
         uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download Go modules
+        run: go mod download && go list -deps ./espresso/... > /dev/null
 
       - name: Compile contracts
         run: just compile-contracts
