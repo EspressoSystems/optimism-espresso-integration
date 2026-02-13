@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/config"
+	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -138,7 +139,7 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 	l := system.Cfg.Loggers[RoleCaffNode]
 
 	var opNodeError error
-	caffNode, err := opnode.NewOpnode(l, &caffNodeConfig, func(e error) {
+	caffNode, err := opnode.NewOpnode(l, &caffNodeConfig, clock.SystemClock, func(e error) {
 		opNodeError = e
 	})
 	if have, want := err, error(nil); have != want {

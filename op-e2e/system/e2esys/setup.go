@@ -601,7 +601,7 @@ func WithBatcherCompressionAlgo(ca derive.CompressionAlgo) StartOption {
 
 func WithBatcherThrottling(interval time.Duration, threshold, txSize, blockSize uint64) StartOption {
 	return StartOption{
-		BatcherMod: func(cfg *bss.CLIConfig) {
+		BatcherMod: func(cfg *bss.CLIConfig, _ *System) {
 			cfg.ThrottleConfig.LowerThreshold = threshold
 			cfg.ThrottleConfig.ControllerType = batcherCfg.StepControllerType
 			cfg.ThrottleConfig.TxSizeLowerLimit = txSize
@@ -756,8 +756,6 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 				EIP1559Denominator:       cfg.DeployConfig.EIP1559Denominator,
 				EIP1559DenominatorCanyon: &cfg.DeployConfig.EIP1559DenominatorCanyon,
 			},
-
-			BatchAuthenticatorAddress: cfg.DeployConfig.BatchAuthenticatorAddress,
 		}
 	}
 	defaultConfig := makeRollupConfig()
@@ -1085,7 +1083,12 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		fallbackBatcherCliConfig.Stopped = true
 		fallbackBatcherCliConfig.Espresso.Enabled = false
 		fallbackBatcherCliConfig.TxMgrConfig = setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), fallbackBatcherKey)
-		fallbackBatcher, err := bss.BatcherServiceFromCLIConfig(context.Background(), "0.0.1", fallbackBatcherCliConfig, sys.Cfg.Loggers["batcher"])
+		fallbackBatcherCtx, fallbackBatcherCancel := context.WithCancel(context.Background())
+		fallbackCloseAppFn := func(cause error) {
+			t.Fatalf("fallback closeAppFn called: %v", cause)
+			fallbackBatcherCancel()
+		}
+		fallbackBatcher, err := bss.BatcherServiceFromCLIConfig(fallbackBatcherCtx, fallbackCloseAppFn, "0.0.1", fallbackBatcherCliConfig, sys.Cfg.Loggers["batcher"])
 		if err != nil {
 			return nil, fmt.Errorf("failed to setup fallback batch submitter: %w", err)
 		}

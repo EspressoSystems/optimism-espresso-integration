@@ -28,6 +28,16 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
+// EspressoOnchainProof is the proof structure returned by the attestation service for onchain verification.
+type EspressoOnchainProof struct {
+	Proof        json.RawMessage `json:"proof,omitempty"`
+	Data         json.RawMessage `json:"data,omitempty"`
+	RawProof     struct {
+		Journal string `json:"journal"`
+	} `json:"raw_proof"`
+	OnchainProof string `json:"onchain_proof"`
+}
+
 // espressoSubmitTransactionJob is a struct that holds the state required to
 // submit a transaction to Espresso.
 // It contains the transaction to be submitted itself, and a number to
@@ -637,16 +647,6 @@ func (s *espressoTransactionSubmitter) Start() {
 	go s.handleVerifyReceiptJobResponse()
 }
 
-func (bs *BatcherService) initKeyPair() error {
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
-	}
-	bs.BatcherPrivateKey = key
-	bs.BatcherPublicKey = &key.PublicKey
-	return nil
-}
-
 // Converts a block to an EspressoBatch and starts a goroutine that publishes it to Espresso
 // Returns error only if batch conversion fails, otherwise it is infallible, as the goroutine
 // will retry publishing until successful.
@@ -688,7 +688,7 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		l.EspressoStreamer.Reset()
+		l.EspressoStreamer().Reset()
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
@@ -696,7 +696,7 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 }
 
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
-func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan struct{}) {
+func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan pubInfo) {
 	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
 
 	defer wg.Done()
@@ -715,13 +715,13 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
-			err = l.EspressoStreamer.Update(ctx)
+			err = l.EspressoStreamer().Update(ctx)
 
 			var batch *derive.EspressoBatch
 
 			for {
 
-				batch = l.EspressoStreamer.Next(ctx)
+				batch = l.EspressoStreamer().Next(ctx)
 
 				if batch == nil {
 					break
@@ -749,13 +749,13 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
-					l.EspressoStreamer.Reset()
+					l.EspressoStreamer().Reset()
 				}
 
 				l.Log.Info("Added L2 block to channel manager")
 			}
 
-			trySignal(publishSignal)
+			l.tryPublishSignal(publishSignal, pubInfo{})
 
 			// A failure in the streamer Update can happen after the buffer has been partially filled
 			if err != nil {
@@ -959,8 +959,8 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 }
 
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
-	if l.Attestation == nil {
-		l.Log.Warn("Attestation is nil, skipping registration")
+	if len(l.Attestation) == 0 {
+		l.Log.Warn("Attestation is empty, skipping registration")
 		return nil
 	}
 
