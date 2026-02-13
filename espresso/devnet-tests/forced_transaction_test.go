@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-core/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
-	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -73,7 +73,7 @@ func TestForcedTransaction(t *testing.T) {
 	// Forced transaction via L1 deposit
 	tx, err := portal.DepositTransaction(
 		opts,
-		common.HexToAddress(predeploys.L2ToL1MessagePasser),
+		predeploys.L2ToL1MessagePasserAddr,
 		withdrawalAmount,
 		uint64(100_000), // L2 gas limit - reduced since we just need the deposit to go through
 		false,
