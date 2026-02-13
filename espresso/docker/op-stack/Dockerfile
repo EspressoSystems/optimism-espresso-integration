@@ -37,7 +37,7 @@ ARG TARGETARCH
 RUN case "$TARGETARCH" in \
   "amd64") JUST_ARCH="x86_64-unknown-linux-musl" ;; \
   "arm64") JUST_ARCH="aarch64-unknown-linux-musl" ;; \
-  *) JUST_ARCH="x86_64-unknown-linux-musl" ;; \
+  *) echo "Unsupported architecture for just: $TARGETARCH" >&2; exit 1 ;; \
   esac && \
   wget -q "https://github.com/casey/just/releases/download/1.37.0/just-1.37.0-${JUST_ARCH}.tar.gz" -O /tmp/just.tar.gz && \
   tar -xzf /tmp/just.tar.gz -C /usr/local/bin just && rm /tmp/just.tar.gz && just --version
