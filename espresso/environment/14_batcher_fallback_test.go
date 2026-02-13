@@ -135,9 +135,11 @@ func TestBatcherSwitching(t *testing.T) {
 	// Start a new "TEE" batcher
 	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
 	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
-	newBatcher, err := batcher.BatcherServiceFromCLIConfig(ctx, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
+	batcherCtx, cancelBatcher := context.WithCancelCause(ctx)
+	defer cancelBatcher(nil)
+	newBatcher, err := batcher.BatcherServiceFromCLIConfig(batcherCtx, cancelBatcher, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
 	require.NoError(t, err)
-	err = newBatcher.Start(ctx)
+	err = newBatcher.Start(batcherCtx)
 	require.NoError(t, err)
 
 	// Everything should still work
