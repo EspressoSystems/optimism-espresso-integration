@@ -26,6 +26,21 @@ CPU_COUNT="${ENCLAVE_CPU_COUNT:-2}"
 # Deployment mode detection
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-aws}"  # 'local' or 'aws'
 
+# Get batch authenticator address from env var or deployment state
+if [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ]; then
+    echo "Using BATCH_AUTHENTICATOR_ADDRESS from environment variable"
+else
+    BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null || echo "")
+    if [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ "$BATCH_AUTHENTICATOR_ADDRESS" != "null" ]; then
+        echo "Using BATCH_AUTHENTICATOR_ADDRESS from state.json"
+    else
+        echo "WARNING: BATCH_AUTHENTICATOR_ADDRESS not found in environment or state.json"
+        BATCH_AUTHENTICATOR_ADDRESS=""
+    fi
+fi
+
+export BATCH_AUTHENTICATOR_ADDRESS
+
 echo "=== Enclave Batcher Configuration ==="
 echo "Deployment Mode: $DEPLOYMENT_MODE"
 echo "L1 RPC URL: $L1_RPC_URL"
@@ -34,6 +49,7 @@ echo "Rollup RPC URL: $ROLLUP_RPC_URL"
 echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
 echo "Attestation service url: $ESPRESSO_ATTESTATION_SERVICE_URL"
 echo "EigenDA Proxy URL: $EIGENDA_PROXY_URL"
+echo "Batch Authenticator Address: ${BATCH_AUTHENTICATOR_ADDRESS:-[not set]}"
 echo "Espresso Origin Height: $ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
 echo "L2 Origin Height: $ESPRESSO_ORIGIN_HEIGHT_L2"
 echo "Debug Mode: $ENCLAVE_DEBUG"
@@ -101,23 +117,28 @@ echo "Build completed successfully"
 PCR0="$(grep -m1 -oE 'PCR0[=:][[:space:]]*(0x)?[[:xdigit:]]{64,}' /tmp/build_output.log \
        | sed -E 's/^PCR0[=:][[:space:]]*(0x)?//')"
 
-
-# Get batch authenticator address from deployment state
-BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null || echo "")
-
 # Register PCR0 if all required values are present
 if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PRIVATE_KEY" ]; then
-    echo "Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
-    enclave-tools register \
-        --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
-        --l1-url "$L1_RPC_URL" \
-        --private-key "$OPERATOR_PRIVATE_KEY" \
-        --pcr0 "$PCR0"
+    echo "Checking if PCR0 is already registered..."
 
-    if [ $? -ne 0 ]; then
-        echo "WARNING: Failed to register PCR0, continuing anyway..."
+    SIGNER_ADDRESS=$(cast call "$BATCH_AUTHENTICATOR_ADDRESS" "getEnclaveAddress(bytes32)(address)" "$PCR0" --rpc-url "$L1_RPC_URL" 2>/dev/null || echo "")
+
+    if [ -n "$SIGNER_ADDRESS" ] && [ "$SIGNER_ADDRESS" != "0x0000000000000000000000000000000000000000" ]; then
+        echo "PCR0 already registered with signer address: $SIGNER_ADDRESS"
+        echo "Skipping registration..."
     else
-        echo "PCR0 registration successful"
+        echo "PCR0 not registered. Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
+        enclave-tools register \
+            --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
+            --l1-url "$L1_RPC_URL" \
+            --private-key "$OPERATOR_PRIVATE_KEY" \
+            --pcr0 "$PCR0"
+
+        if [ $? -ne 0 ]; then
+            echo "WARNING: Failed to register PCR0, continuing anyway..."
+        else
+            echo "PCR0 registration successful"
+        fi
     fi
 else
     echo "Skipping PCR0 registration - missing required values:"
@@ -176,8 +197,7 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
 fi
 
 # Run the enclave
-echo "Starting enclave with command:"
-echo "  enclave-tools run --image \"$TAG\" --args \"$BATCHER_ARGS\""
+echo "Starting enclave with image: $TAG (args contain sensitive data and are not logged)"
 
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!
