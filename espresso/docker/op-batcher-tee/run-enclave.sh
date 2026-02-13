@@ -30,8 +30,9 @@ DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-aws}"  # 'local' or 'aws'
 if [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ]; then
     echo "Using BATCH_AUTHENTICATOR_ADDRESS from environment variable"
 else
-    BATCH_AUTHENTICATOR_ADDRESS=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null || echo "")
-    if [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ "$BATCH_AUTHENTICATOR_ADDRESS" != "null" ]; then
+    address_from_state=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null)
+    if [ -n "$address_from_state" ] && [ "$address_from_state" != "null" ]; then
+        BATCH_AUTHENTICATOR_ADDRESS="$address_from_state"
         echo "Using BATCH_AUTHENTICATOR_ADDRESS from state.json"
     else
         echo "WARNING: BATCH_AUTHENTICATOR_ADDRESS not found in environment or state.json"
