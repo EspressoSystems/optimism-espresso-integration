@@ -752,6 +752,12 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	}
 	bs.Espresso = client
 
+	lightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create Espresso light client: %w", err)
+	}
+	bs.EspressoLightClient = lightClient
+
 	if err := bs.initKeyPair(); err != nil {
 		return fmt.Errorf("failed to create key pair for batcher: %w", err)
 	}
