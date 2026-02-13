@@ -522,6 +522,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         rootClaim_ = Claim.wrap(_getArgBytes32(0x14));
     }
 
+    /// @notice Getter for the root claim for a given L2 chain ID (IDisputeGame interface; this game has a single root).
+    function rootClaimByChainId(uint256) public pure returns (Claim rootClaim_) {
+        rootClaim_ = rootClaim();
+    }
+
     /// @notice Getter for the parent hash of the L1 block when the dispute game was created.
     function l1Head() public pure returns (Hash l1Head_) {
         l1Head_ = Hash.wrap(_getArgBytes32(0x34));

@@ -40,12 +40,6 @@ sleep 1
 cast rpc anvil_setBalance "${OPERATOR_ADDRESS}" 0x100000000000000000000000000000000000 --rpc-url "${ANVIL_URL}"
 cast rpc anvil_setBalance "${PROPOSER_ADDRESS}" 0x100000000000000000000000000000000000 --rpc-url "${ANVIL_URL}"
 
-op-deployer bootstrap proxy \
-                      --l1-rpc-url="${ANVIL_URL}" \
-                      --private-key="${OPERATOR_PRIVATE_KEY}" \
-                      --artifacts-locator="${ARTIFACTS_DIR}" \
-                      --proxy-owner="${OPERATOR_ADDRESS}"
-
 export LOG_LEVEL=debug
 
 op-deployer bootstrap superchain \
@@ -97,6 +91,8 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.disputeGame
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].baseFeeVaultRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].l1FeeVaultRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].sequencerFeeVaultRecipient -v "${OPERATOR_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].operatorFeeVaultRecipient -v "${OPERATOR_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].chainFeesRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.systemConfigOwner -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.unsafeBlockSigner -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.batcher -v "${OPERATOR_ADDRESS}"
