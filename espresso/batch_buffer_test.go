@@ -135,9 +135,9 @@ func TestBatchBufferInsertDuplicateHandling(t *testing.T) {
 	require.Equal(t, 1, buffer.Len())
 
 	// Insert the exact same batch again (same number N, same hash H1)
-	// This should NOT create a duplicate
+	// This should return ErrDuplicateBatch and not create a duplicate
 	err = buffer.Insert(batchH1)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrDuplicateBatch)
 	require.Equal(t, 1, buffer.Len(), "duplicate batch with same number and hash should not be inserted")
 
 	// Create a different batch with same number N but different hash H2

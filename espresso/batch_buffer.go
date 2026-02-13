@@ -24,6 +24,7 @@ const (
 )
 
 var ErrAtCapacity = errors.New("batch buffer at capacity")
+var ErrDuplicateBatch = errors.New("duplicate batch")
 
 type Batch interface {
 	Number() uint64
@@ -75,10 +76,11 @@ func (b *BatchBuffer[B]) Insert(batch B) error {
 		}
 	})
 
-	if !alreadyExists {
-		b.batches = slices.Insert(b.batches, pos, batch)
+	if alreadyExists {
+		return ErrDuplicateBatch
 	}
 
+	b.batches = slices.Insert(b.batches, pos, batch)
 	return nil
 }
 

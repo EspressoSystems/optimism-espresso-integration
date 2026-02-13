@@ -407,7 +407,11 @@ func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, trans
 			"parentHash", header.ParentHash,
 			"epochNum", header.Number,
 			"timestamp", header.Time)
-		if err := s.BatchBuffer.Insert(*batch); errors.Is(err, ErrAtCapacity) {
+		err := s.BatchBuffer.Insert(*batch)
+		if errors.Is(err, ErrDuplicateBatch) {
+			s.Log.Warn("Dropping batch with duplicate hash")
+		}
+		if errors.Is(err, ErrAtCapacity) {
 			return err
 		}
 	}
