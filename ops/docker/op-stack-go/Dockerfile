@@ -101,7 +101,7 @@ FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/c
 FROM --platform=$BUILDPLATFORM us-docker.pkg.dev/oplabs-tools-artifacts/images/cannon:v1.6.0 AS cannon-builder-v1-6-0
 
 # We don't use the golang image for batcher & op-node because it doesn't play well with CGO
-FROM --platform=$BUILDPLATFORM golang:1.23.8-alpine3.20 AS op-cgo-builder
+FROM --platform=$BUILDPLATFORM golang:1.24.10-alpine3.21 AS op-cgo-builder
 ARG OP_BATCHER_VERSION=v0.0.0
 # Install dependencies
 RUN apk add  musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
