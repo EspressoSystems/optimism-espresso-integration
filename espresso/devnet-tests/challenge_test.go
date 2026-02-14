@@ -15,7 +15,7 @@ import (
 // and that games can be queried from the DisputeGameFactory contract.
 // The succinct proposer needs finalized L2 blocks before creating games.
 func TestChallengeGame(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)

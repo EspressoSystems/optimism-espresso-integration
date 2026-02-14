@@ -3,13 +3,15 @@ package devnet_tests
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBatcherRestart(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	// Use a timeout so the test fails with a clear error before the runner's 30m limit.
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)

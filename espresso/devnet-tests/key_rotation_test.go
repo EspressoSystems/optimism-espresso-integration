@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	e2ebindings "github.com/ethereum-optimism/optimism/op-e2e/bindings"
@@ -20,11 +21,10 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	err := LoadDevnetEnv()
 	require.NoError(t, err, "Failed to load .env file")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-
 	require.NoError(t, d.Up(NON_TEE))
 	defer func() {
 		require.NoError(t, d.Down())

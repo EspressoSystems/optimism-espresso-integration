@@ -175,30 +175,82 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		}()
 	}
 
-	// Open RPC clients for the different nodes.
-	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
-	if err != nil {
-		return err
-	}
-	d.L2SeqRollup, err = d.rollupClient("op-node-sequencer", 9545)
-	if err != nil {
-		return err
-	}
-	d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
-	if err != nil {
-		return err
-	}
-	d.L2VerifRollup, err = d.rollupClient("op-node-verifier", 9546)
-	if err != nil {
+	// Open RPC clients for the different nodes. Retry until containers are up and listening.
+	if err := d.connectClientsWithRetry(); err != nil {
 		return err
 	}
 
-	d.L1, err = d.serviceClient("l1-geth", 8545)
-	if err != nil {
-		return err
+	// Wait for nodes to respond to RPC so we don't return and then hang on first test RPC.
+	// Use a bounded timeout so a bad rebase or broken devnet fails fast instead of timing out the test.
+	waitCtx, waitCancel := context.WithTimeout(d.ctx, 5*time.Minute)
+	defer waitCancel()
+	if err := wait.ForNodeUp(waitCtx, d.L1, log.Root()); err != nil {
+		return fmt.Errorf("L1 not ready: %w", err)
+	}
+	if err := wait.ForNodeUp(waitCtx, d.L2Seq, log.Root()); err != nil {
+		return fmt.Errorf("L2 sequencer not ready: %w", err)
+	}
+	if err := wait.ForNodeUp(waitCtx, d.L2Verif, log.Root()); err != nil {
+		return fmt.Errorf("L2 verifier not ready: %w", err)
 	}
 
 	return nil
+}
+
+// connectClientsWithRetry opens RPC clients, retrying until containers are up or timeout.
+func (d *Devnet) connectClientsWithRetry() error {
+	const retryInterval = 5 * time.Second
+	const retryTimeout = 2 * time.Minute
+	deadline := time.Now().Add(retryTimeout)
+	var err error
+	for time.Now().Before(deadline) {
+		d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
+		if err != nil {
+			log.Debug("waiting for op-geth-sequencer", "err", err)
+			time.Sleep(retryInterval)
+			continue
+		}
+		d.L2SeqRollup, err = d.rollupClient("op-node-sequencer", 9545)
+		if err != nil {
+			d.L2Seq.Close()
+			d.L2Seq = nil
+			log.Debug("waiting for op-node-sequencer", "err", err)
+			time.Sleep(retryInterval)
+			continue
+		}
+		d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
+		if err != nil {
+			d.L2Seq.Close()
+			d.L2SeqRollup.Close()
+			d.L2Seq, d.L2SeqRollup = nil, nil
+			log.Debug("waiting for op-geth-verifier", "err", err)
+			time.Sleep(retryInterval)
+			continue
+		}
+		d.L2VerifRollup, err = d.rollupClient("op-node-verifier", 9546)
+		if err != nil {
+			d.L2Verif.Close()
+			d.L2Seq.Close()
+			d.L2SeqRollup.Close()
+			d.L2Verif, d.L2Seq, d.L2SeqRollup = nil, nil, nil
+			log.Debug("waiting for op-node-verifier", "err", err)
+			time.Sleep(retryInterval)
+			continue
+		}
+		d.L1, err = d.serviceClient("l1-geth", 8545)
+		if err != nil {
+			d.L2VerifRollup.Close()
+			d.L2Verif.Close()
+			d.L2Seq.Close()
+			d.L2SeqRollup.Close()
+			d.L2VerifRollup, d.L2Verif, d.L2Seq, d.L2SeqRollup = nil, nil, nil, nil
+			log.Debug("waiting for l1-geth", "err", err)
+			time.Sleep(retryInterval)
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("devnet services did not become reachable within %v (last err: %w)", retryTimeout, err)
 }
 
 func (d *Devnet) ServiceUp(service string) error {
@@ -348,12 +400,10 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
+	timeout := 2 * time.Minute
 	// Use longer timeout in CI environments due to Espresso processing delays
-	timeout := 5 * time.Minute
-
-	// Check if running in CI environment
 	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		timeout = 5 * time.Minute
+		timeout = 3 * time.Minute
 		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
 	}
 
