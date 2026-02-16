@@ -105,11 +105,11 @@ See `espresso/SECURITY_ANALYSIS.md` for the full security model.
 
 ## Key Documentation
 
-- `README_ESPRESSO.md` — Dev environment, devnet guide, enclave setup, OP Succinct dependencies
-- `docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md` — Biweekly sync procedure for all forked repos
-- `docs/README_ESPRESSO_DEPLOY_CONFIG.md` — Deployment configuration parameters
-- `espresso/SECURITY_ANALYSIS.md` — Security analysis (3-layer model, degradation behavior)
-- `espresso/docs/metrics.md` — Monitoring metrics for batcher, caff node, verifier, sequencer
+- [`README_ESPRESSO.md`](README_ESPRESSO.md) — Dev environment, devnet guide, enclave setup, OP Succinct dependencies
+- [`docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md`](docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md) — Biweekly sync procedure for all forked repos
+- [`docs/README_ESPRESSO_DEPLOY_CONFIG.md`](docs/README_ESPRESSO_DEPLOY_CONFIG.md) — Deployment configuration parameters
+- [`espresso/SECURITY_ANALYSIS.md`](espresso/SECURITY_ANALYSIS.md) — Security analysis (3-layer model, degradation behavior)
+- [`espresso/docs/metrics.md`](espresso/docs/metrics.md) — Monitoring metrics for batcher, caff node, verifier, sequencer
 
 ## Configuration Flags
 
