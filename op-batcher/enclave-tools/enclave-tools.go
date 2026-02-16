@@ -111,3 +111,43 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 
 	return nil
 }
+
+// IsEnclaveHashRegistered checks if the given PCR0 hash is already registered with the EspressoNitroTEEVerifier
+func IsEnclaveHashRegistered(ctx context.Context, authenticatorAddress common.Address, L1Url string, pcr0Bytes []byte) (bool, error) {
+	l1Client, err := ethclient.DialContext(ctx, L1Url)
+	if err != nil {
+		return false, fmt.Errorf("failed to connect to L1 client: %w", err)
+	}
+
+	authenticator, err := bindings.NewBatchAuthenticator(authenticatorAddress, l1Client)
+	if err != nil {
+		return false, fmt.Errorf("failed to create batch authenticator: %w", err)
+	}
+
+	verifierAddress, err := authenticator.EspressoTEEVerifier(&bind.CallOpts{})
+	if err != nil {
+		return false, fmt.Errorf("failed to get verifier address: %w", err)
+	}
+
+	verifier, err := bindings.NewEspressoTEEVerifier(verifierAddress, l1Client)
+	if err != nil {
+		return false, fmt.Errorf("failed to create verifier: %w", err)
+	}
+
+	nitroVerifierAddress, err := verifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
+	if err != nil {
+		return false, fmt.Errorf("failed to get nitro verifier address: %w", err)
+	}
+
+	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifier(nitroVerifierAddress, l1Client)
+	if err != nil {
+		return false, fmt.Errorf("failed to create nitro verifier: %w", err)
+	}
+
+	isRegisteredTx, err := nitroVerifier.RegisteredEnclaveHash(&bind.CallOpts{}, crypto.Keccak256Hash(pcr0Bytes))
+	if err != nil {
+		return false, fmt.Errorf("failed to call registeredEnclaveHash function: %w", err)
+	}
+
+	return isRegisteredTx, nil
+}

@@ -122,24 +122,23 @@ PCR0="$(grep -m1 -oE 'PCR0[=:][[:space:]]*(0x)?[[:xdigit:]]{64,}' /tmp/build_out
 if [ -n "$PCR0" ] && [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ] && [ -n "$OPERATOR_PRIVATE_KEY" ]; then
     echo "Checking if PCR0 is already registered..."
 
-    IS_REGISTERED=$(cast call "$BATCH_AUTHENTICATOR_ADDRESS" "registeredEnclaveHash(bytes32,uint8)(bool)" "$PCR0" "0" --rpc-url "$L1_RPC_URL" 2>/dev/null || echo "false")
-
-    if [ "$IS_REGISTERED" = "true" ]; then
+    if enclave-tools is-registered \
+        --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
+        --l1-url "$L1_RPC_URL" \
+        --pcr0 "$PCR0" >/dev/null 2>&1; then
         echo "PCR0 already registered: $PCR0"
         echo "Skipping registration..."
     else
         echo "PCR0 not registered. Registering PCR0: $PCR0 with authenticator: $BATCH_AUTHENTICATOR_ADDRESS"
-        enclave-tools register \
+        if ! enclave-tools register \
             --authenticator "$BATCH_AUTHENTICATOR_ADDRESS" \
             --l1-url "$L1_RPC_URL" \
             --private-key "$OPERATOR_PRIVATE_KEY" \
-            --pcr0 "$PCR0"
-
-        if [ $? -ne 0 ]; then
-            echo "WARNING: Failed to register PCR0, continuing anyway..."
-        else
-            echo "PCR0 registration successful"
+            --pcr0 "$PCR0"; then
+            echo "ERROR: Failed to register PCR0. Cannot continue without valid registration."
+            exit 1
         fi
+        echo "PCR0 registration successful"
     fi
 else
     echo "Skipping PCR0 registration - missing required values:"
