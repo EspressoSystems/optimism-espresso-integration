@@ -68,7 +68,7 @@ Requires Nix (`nix develop .`). Integration and devnet tests also require Docker
 ```bash
 just smoke-tests              # Fast smoke tests
 just espresso-tests           # Full integration tests (~30 min)
-just devnet-tests             # Docker Compose-based devnet tests (slow, requires just build-devnet first)
+just devnet-tests             # Docker Compose-based devnet tests (slow, as it runs build-devnet first)
 just tests                    # Standard OP stack tests (no Espresso)
 just fast-tests               # Fast subset of OP stack tests
 just golint                   # Go linter
