@@ -419,25 +419,39 @@ library ChainAssertions {
         IOPContractsManager.Blueprints memory blueprints = _opcm.blueprints();
         Blueprint.Preamble memory addressManagerPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.addressManager).code);
-        require(keccak256(addressManagerPreamble.initcode) == keccak256(vm.getCode("legacy/AddressManager.sol:AddressManager")), "CHECK-OPCM-160");
+        require(
+            keccak256(addressManagerPreamble.initcode)
+                == keccak256(vm.getCode("legacy/AddressManager.sol:AddressManager")),
+            "CHECK-OPCM-160"
+        );
 
         Blueprint.Preamble memory proxyPreamble = Blueprint.parseBlueprintPreamble(address(blueprints.proxy).code);
-        require(keccak256(proxyPreamble.initcode) == keccak256(vm.getCode("universal/Proxy.sol:Proxy")), "CHECK-OPCM-170");
+        require(
+            keccak256(proxyPreamble.initcode) == keccak256(vm.getCode("universal/Proxy.sol:Proxy")), "CHECK-OPCM-170"
+        );
 
         Blueprint.Preamble memory proxyAdminPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.proxyAdmin).code);
-        require(keccak256(proxyAdminPreamble.initcode) == keccak256(vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin")), "CHECK-OPCM-180");
+        require(
+            keccak256(proxyAdminPreamble.initcode) == keccak256(vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin")),
+            "CHECK-OPCM-180"
+        );
 
         Blueprint.Preamble memory l1ChugSplashProxyPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.l1ChugSplashProxy).code);
         require(
-            keccak256(l1ChugSplashProxyPreamble.initcode) == keccak256(vm.getCode("legacy/L1ChugSplashProxy.sol:L1ChugSplashProxy")),
+            keccak256(l1ChugSplashProxyPreamble.initcode)
+                == keccak256(vm.getCode("legacy/L1ChugSplashProxy.sol:L1ChugSplashProxy")),
             "CHECK-OPCM-190"
         );
 
         Blueprint.Preamble memory rdProxyPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.resolvedDelegateProxy).code);
-        require(keccak256(rdProxyPreamble.initcode) == keccak256(vm.getCode("legacy/ResolvedDelegateProxy.sol:ResolvedDelegateProxy")), "CHECK-OPCM-200");
+        require(
+            keccak256(rdProxyPreamble.initcode)
+                == keccak256(vm.getCode("legacy/ResolvedDelegateProxy.sol:ResolvedDelegateProxy")),
+            "CHECK-OPCM-200"
+        );
     }
 
     function checkAnchorStateRegistryProxy(IAnchorStateRegistry _anchorStateRegistryProxy, bool _isProxy) internal {
