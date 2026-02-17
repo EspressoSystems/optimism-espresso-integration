@@ -115,9 +115,11 @@ func RunSimpleL2BurnWithTimeout(ctx context.Context, t *testing.T, system *e2esy
 	initialBurnAddressBalance, err := l2Seq.BalanceAt(ctx, burnAddress, nil)
 	require.NoError(t, err, "failed to get initial balance for burn address %s", burnAddress)
 
-	_ = helpers.SendL2Tx(
+	// Use SendL2TxWithContext so the full timeout applies to the verifier wait.
+	_ = helpers.SendL2TxWithContext(
+		ctx,
 		t,
-		system.Cfg,
+		system.Cfg.L2ChainIDBig(),
 		l2Seq,
 		senderKey,
 		L2TxWithOptions(
