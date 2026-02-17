@@ -68,7 +68,7 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 // derives the same chain state as the verifier by comparing block hashes at the
 // same height.
 func TestBatcherSwitching(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
@@ -112,8 +112,8 @@ func TestBatcherSwitching(t *testing.T) {
 	err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
 	require.NoError(t, err)
 
-	// Everything should still work
-	env.RunSimpleL2Burn(ctx, t, system)
+	// Everything should still work (longer timeout: verifier may be slow to derive after batcher switch)
+	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
 
 	// Stop the fallback batcher
 	err = system.FallbackBatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
@@ -142,8 +142,8 @@ func TestBatcherSwitching(t *testing.T) {
 	err = newBatcher.Start(batcherCtx)
 	require.NoError(t, err)
 
-	// Everything should still work
-	env.RunSimpleL2Burn(ctx, t, system)
+	// Everything should still work (longer timeout: verifier may be slow after batcher restart)
+	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
 
 	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
 		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight

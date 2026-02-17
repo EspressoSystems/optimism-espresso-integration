@@ -88,10 +88,17 @@ func RunSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 	cancel()
 }
 
-// runSimpleL2Burn runs a simple L2 burn transaction and verifies it on the
-// L2 Verifier.
+// RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the
+// L2 Verifier with a 2-minute timeout.
 func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	RunSimpleL2BurnWithTimeout(ctx, t, system, 2*time.Minute)
+}
+
+// RunSimpleL2BurnWithTimeout runs a simple L2 burn and verifies on the verifier,
+// using the given timeout for the overall operation. Use a longer timeout (e.g. 5*time.Minute)
+// when the verifier may be slow to derive, e.g. after a batcher switch.
+func RunSimpleL2BurnWithTimeout(ctx context.Context, t *testing.T, system *e2esys.System, timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
