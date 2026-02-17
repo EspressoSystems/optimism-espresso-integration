@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 
 	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
@@ -75,12 +76,12 @@ type BatchStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
-	L1Client                      L1Client
-	RollupL1Client                L1Client
-	EspressoClient                EspressoClient
-	EspressoLightClient           LightClientCallerInterface
-	Log                           log.Logger
-	PollingHotShotPollingInterval time.Duration
+	L1Client               L1Client
+	RollupL1Client         L1Client
+	EspressoClient         EspressoClient
+	EspressoLightClient    LightClientCallerInterface
+	Log                    log.Logger
+	HotShotPollingInterval time.Duration
 
 	// Batch number we're to give out next
 	BatchPos uint64
@@ -105,6 +106,9 @@ type BatchStreamer[B Batch] struct {
 	// any out of order.
 	BatchBuffer BatchBuffer[B]
 
+	// Cache for finalized L1 block hashes, keyed by block number.
+	finalizedL1HashCache *simplelru.LRU[uint64, common.Hash]
+
 	unmarshalBatch func([]byte) (*B, error)
 }
 
@@ -120,10 +124,12 @@ func NewEspressoStreamer[B Batch](
 	lightClient LightClientCallerInterface,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
-	pollingHotShotPollingInterval time.Duration,
+	hotShotPollingInterval time.Duration,
 	originHotShotPos uint64,
 	originBatchPos uint64,
 ) *BatchStreamer[B] {
+	finalizedL1HashCache, _ := simplelru.NewLRU[uint64, common.Hash](1000, nil)
+
 	return &BatchStreamer[B]{
 		L1Client:            l1Client,
 		RollupL1Client:      rollupL1Client,
@@ -132,15 +138,16 @@ func NewEspressoStreamer[B Batch](
 		Log:                 log,
 		Namespace:           namespace,
 		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
-		BatchPos:                      originBatchPos + 1,
-		fallbackBatchPos:              originBatchPos + 1,
-		BatchBuffer:                   NewBatchBuffer[B](BatchBufferCapacity),
-		PollingHotShotPollingInterval: pollingHotShotPollingInterval,
-		unmarshalBatch:                unmarshalBatch,
-		originHotShotPos:              originHotShotPos,
-		fallbackHotShotPos:            originHotShotPos,
-		hotShotPos:                    originHotShotPos,
-		skipPos:                       math.MaxUint64,
+		BatchPos:               originBatchPos + 1,
+		fallbackBatchPos:       originBatchPos + 1,
+		BatchBuffer:            NewBatchBuffer[B](BatchBufferCapacity),
+		HotShotPollingInterval: hotShotPollingInterval,
+		finalizedL1HashCache:   finalizedL1HashCache,
+		unmarshalBatch:         unmarshalBatch,
+		originHotShotPos:       originHotShotPos,
+		fallbackHotShotPos:     originHotShotPos,
+		hotShotPos:             originHotShotPos,
+		skipPos:                math.MaxUint64,
 	}
 }
 
@@ -149,6 +156,8 @@ func (s *BatchStreamer[B]) Reset() {
 	s.Log.Info("reset espresso streamer", "hotshot pos", s.fallbackHotShotPos, "batch pos", s.fallbackBatchPos)
 	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
+	s.headBatch = nil
+	s.skipPos = math.MaxUint64
 	s.BatchBuffer.Clear()
 }
 
@@ -176,8 +185,8 @@ func (s *BatchStreamer[B]) Refresh(ctx context.Context, finalizedL1 eth.L1BlockR
 
 	shouldReset := safeBatchNumber < s.fallbackBatchPos
 
-	// We should jump ahead if fallback position is higher than what we're currently reading from
-	shouldReset = shouldReset && (s.fallbackBatchPos > s.hotShotPos)
+	// We should also reset if fallback position is higher than what we're currently reading from
+	shouldReset = shouldReset || (s.fallbackHotShotPos > s.hotShotPos)
 
 	s.fallbackBatchPos = safeBatchNumber
 	if shouldReset {
@@ -203,16 +212,20 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidit
 		return BatchUndecided
 	}
 
-	l1headerHash, err := s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
-	if err != nil {
-		// Signal to resync to be able to fetch the L1 header.
-		s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
-		return BatchUndecided
-	} else {
-		if l1headerHash != origin.Hash {
-			s.Log.Warn("Dropping batch with invalid L1 origin hash")
-			return BatchDrop
+	l1headerHash, ok := s.finalizedL1HashCache.Get(origin.Number)
+	if !ok {
+		var err error
+		l1headerHash, err = s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+		if err != nil {
+			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
+			return BatchUndecided
 		}
+		s.finalizedL1HashCache.Add(origin.Number, l1headerHash)
+	}
+
+	if l1headerHash != origin.Hash {
+		s.Log.Warn("Dropping batch with invalid L1 origin hash")
+		return BatchDrop
 	}
 	// Batch already buffered/finalized
 	if batch.Number() < s.BatchPos {
@@ -222,12 +235,6 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidit
 
 	return BatchAccept
 }
-
-// HOTSHOT_BLOCK_STREAM_LIMIT is the maximum number of blocks to attempt to
-// load from Espresso in a single process using streaming API.
-// This helps to limit our block polling to a limited number of blocks within
-// a single batched attempt.
-const HOTSHOT_BLOCK_STREAM_LIMIT = 500
 
 // HOTSHOT_BLOCK_FETCH_LIMIT is the maximum number of blocks to attempt to
 // load from Espresso in a single process using fetch API.
@@ -296,8 +303,6 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 			// an initial iteration.
 			break
 		}
-
-		s.Log.Debug("Fetching hotshot blocks", "from", start, "upTo", finish)
 
 		// Process the new batches fetched from Espresso
 		if err := s.fetchHotShotRange(ctx, start, finish); err != nil {
