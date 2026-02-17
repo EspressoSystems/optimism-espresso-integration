@@ -7,7 +7,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-contracts:
+    uses: ./.github/workflows/compile-contracts.yaml
+
   test:
+    needs: build-contracts
     runs-on: ubuntu-24.04-8core
     strategy:
       fail-fast: false
@@ -34,11 +38,11 @@ jobs:
       - name: Cache Go modules
         uses: actions/setup-go@v5
 
-      - name: Compile contracts
-        run: just compile-contracts
-
-      - name: Fix Proxy artifact bytecode
-        run: cd packages/contracts-bedrock && just fix-proxy-artifact
+      - name: Download forge-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-artifacts
+          path: packages/contracts-bedrock/forge-artifacts/
 
       - name: Load environment variables
         run: |

@@ -1,0 +1,31 @@
+name: "Cache submodules"
+description: "Restores git submodules from cache, falling back to git clone on miss. Must run after actions/checkout."
+
+outputs:
+  cache-hit:
+    description: "Whether the submodule cache was hit"
+    value: ${{ steps.submodule-cache.outputs.cache-hit }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get submodule cache key
+      id: submodule-hash
+      shell: bash
+      run: echo "hash=$(git submodule status --recursive | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache submodules
+      id: submodule-cache
+      uses: actions/cache@v4
+      with:
+        path: packages/contracts-bedrock/lib
+        key: submodules-${{ steps.submodule-hash.outputs.hash }}
+
+    - name: Initialize submodules
+      if: steps.submodule-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: git submodule update --init --recursive
+
+    - name: Strip submodule .git pointers
+      shell: bash
+      run: find packages/contracts-bedrock/lib -name .git -type f -delete
