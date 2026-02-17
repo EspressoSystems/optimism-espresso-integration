@@ -18,8 +18,8 @@ func TestChallengeGame(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	d := NewDevnet(ctx, t, ComposeProfileNonTee)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()

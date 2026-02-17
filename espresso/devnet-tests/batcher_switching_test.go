@@ -22,8 +22,8 @@ func TestBatcherSwitching(t *testing.T) {
 	defer cancel()
 
 	// Initialize devnet with NON_TEE profile (starts both batchers)
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	d := NewDevnet(ctx, t, ComposeProfileNonTee)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -53,7 +53,7 @@ func TestBatcherSwitching(t *testing.T) {
 	t.Logf("Before switch: activeIsTee = %v", activeIsTee)
 
 	// Stop the primary "TEE" batcher (op-batcher with Espresso enabled)
-	require.NoError(t, d.StopBatcherSubmitting("op-batcher"))
+	require.NoError(t, d.StopBatcherSubmitting(ComposeServiceBatcher))
 	t.Logf("Stopped op-batcher batch submission")
 
 	// Switch active batcher via BatchAuthenticator contract
@@ -73,7 +73,7 @@ func TestBatcherSwitching(t *testing.T) {
 	t.Logf("After switch: activeIsTee = %v", activeIsTeeAfter)
 
 	// Start the fallback batcher
-	require.NoError(t, d.StartBatcherSubmitting("op-batcher-fallback"))
+	require.NoError(t, d.StartBatcherSubmitting(ComposeServiceBatcherFallback))
 	t.Logf("Started op-batcher-fallback batch submission")
 
 	// Verify everything still works with the fallback batcher

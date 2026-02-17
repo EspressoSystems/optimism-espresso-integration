@@ -34,7 +34,53 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/config/secrets"
 )
 
+// The setting for `COMPOSE_PROFILES` when running the Docker Compose.
+type ComposeProfile uint8
+
+const (
+	ComposeProfileTee ComposeProfile = iota
+	ComposeProfileNonTee
+)
+
+func (p ComposeProfile) String() string {
+	switch p {
+	case ComposeProfileTee:
+		return "tee"
+	case ComposeProfileNonTee:
+		return "default"
+	default:
+		panic(fmt.Sprintf("unknown ComposeProfile: %d", p))
+	}
+}
+
+type ComposeService struct {
+	nameDefault string
+	nameTee     string
+}
+
+func (c ComposeService) Name(p ComposeProfile) string {
+	switch p {
+	case ComposeProfileTee:
+		return c.nameTee
+	case ComposeProfileNonTee:
+		return c.nameDefault
+	default:
+		panic(fmt.Sprintf("unknown ComposeProfile: %d", p))
+	}
+}
+
+var (
+	ComposeServiceL1Geth          = ComposeService{nameDefault: "l1-geth", nameTee: "l1-geth"}
+	ComposeServiceOpGethSequencer = ComposeService{nameDefault: "op-geth-sequencer", nameTee: "op-geth-sequencer"}
+	ComposeServiceOpGethVerifier  = ComposeService{nameDefault: "op-geth-verifier", nameTee: "op-geth-verifier"}
+	ComposeServiceOpNodeSequencer = ComposeService{nameDefault: "op-node-sequencer", nameTee: "op-node-sequencer"}
+	ComposeServiceOpNodeVerifier  = ComposeService{nameDefault: "op-node-verifier", nameTee: "op-node-verifier"}
+	ComposeServiceBatcher         = ComposeService{nameDefault: "op-batcher", nameTee: "op-batcher-tee"}
+	ComposeServiceBatcherFallback = ComposeService{nameDefault: "op-batcher-fallback", nameTee: "op-batcher-fallback"}
+)
+
 type Devnet struct {
+	profile       ComposeProfile
 	ctx           context.Context
 	secrets       secrets.Secrets
 	outageTime    time.Duration
@@ -58,14 +104,15 @@ func LoadDevnetEnv() error {
 	return LoadEnvFile(envPath)
 }
 
-func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
-
+func NewDevnet(ctx context.Context, t *testing.T, profile ComposeProfile) *Devnet {
 	if testing.Short() {
 		t.Skip("skipping devnet test in short mode")
 	}
 
-	d := new(Devnet)
-	d.ctx = ctx
+	d := Devnet{
+		profile: profile,
+		ctx:     ctx,
+	}
 
 	mnemonics := *secrets.DefaultMnemonicConfig
 	mnemonics.Batcher = "m/44'/60'/0'/0/0"
@@ -92,15 +139,25 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 		d.successTime = 10 * time.Second
 	}
 
-	return d
+	return &d
 
 }
 
-func (d *Devnet) isRunning() bool {
+func (d *Devnet) composeCommand(args ...string) *exec.Cmd {
+	args = append([]string{"compose"}, args...)
 	cmd := exec.CommandContext(
 		d.ctx,
-		"docker", "compose", "ps", "-q",
+		"docker", args...,
 	)
+	cmd.Env = append(os.Environ(),
+		"COMPOSE_PROFILES="+d.profile.String(),
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+	)
+	return cmd
+}
+
+func (d *Devnet) isRunning() bool {
+	cmd := d.composeCommand("ps", "-q")
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	if err := cmd.Run(); err != nil {
@@ -111,15 +168,7 @@ func (d *Devnet) isRunning() bool {
 	return len(out) > 0
 }
 
-// The setting for `COMPOES_PROFILES` when running the Docker Compose.
-type ComposeProfile string
-
-const (
-	TEE     ComposeProfile = "tee"
-	NON_TEE ComposeProfile = "default"
-)
-
-func (d *Devnet) Up(profile ComposeProfile) (err error) {
+func (d *Devnet) Up() (err error) {
 	if d.isRunning() {
 		if err := d.Down(); err != nil {
 			return err
@@ -129,15 +178,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
 	}
 
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "up", "-d",
-	)
-	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-	)
+	cmd := d.composeCommand("up", "-d")
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
@@ -167,7 +208,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
 		// the context is cancelled.
 		go func() {
-			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
+			cmd = d.composeCommand("logs", "-f")
 			cmd.Stdout = os.Stdout
 			// We don't care about the error return of this command, since it's always going to be
 			// killed by the context cancellation.
@@ -176,24 +217,24 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	}
 
 	// Open RPC clients for the different nodes.
-	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
+	d.L2Seq, err = d.serviceClient(ComposeServiceOpGethSequencer, 8546)
 	if err != nil {
 		return err
 	}
-	d.L2SeqRollup, err = d.rollupClient("op-node-sequencer", 9545)
+	d.L2SeqRollup, err = d.rollupClient(ComposeServiceOpNodeSequencer, 9545)
 	if err != nil {
 		return err
 	}
-	d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
+	d.L2Verif, err = d.serviceClient(ComposeServiceOpGethVerifier, 8546)
 	if err != nil {
 		return err
 	}
-	d.L2VerifRollup, err = d.rollupClient("op-node-verifier", 9546)
+	d.L2VerifRollup, err = d.rollupClient(ComposeServiceOpNodeVerifier, 9546)
 	if err != nil {
 		return err
 	}
 
-	d.L1, err = d.serviceClient("l1-geth", 8545)
+	d.L1, err = d.serviceClient(ComposeServiceL1Geth, 8545)
 	if err != nil {
 		return err
 	}
@@ -201,25 +242,21 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	return nil
 }
 
-func (d *Devnet) ServiceUp(service string) error {
-	log.Info("bringing up service", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "up", "-d", service,
-	)
+func (d *Devnet) ServiceUp(service ComposeService) error {
+	name := service.Name(d.profile)
+	log.Info("bringing up service", "service", name)
+	cmd := d.composeCommand("up", "-d", name)
 	return cmd.Run()
 }
 
-func (d *Devnet) ServiceDown(service string) error {
-	log.Info("shutting down service", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "down", service,
-	)
+func (d *Devnet) ServiceDown(service ComposeService) error {
+	name := service.Name(d.profile)
+	log.Info("shutting down service", "service", name)
+	cmd := d.composeCommand("down", name)
 	return cmd.Run()
 }
 
-func (d *Devnet) ServiceRestart(service string) error {
+func (d *Devnet) ServiceRestart(service ComposeService) error {
 	if err := d.ServiceDown(service); err != nil {
 		return err
 	}
@@ -230,10 +267,9 @@ func (d *Devnet) ServiceRestart(service string) error {
 }
 
 // callBatcherRPC calls a batcher RPC method on a running batcher service
-func (d *Devnet) callBatcherRPC(service, method string) error {
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "exec", "-T", service,
+func (d *Devnet) callBatcherRPC(service ComposeService, method string) error {
+	name := service.Name(d.profile)
+	cmd := d.composeCommand("exec", "-T", name,
 		"sh", "-c",
 		fmt.Sprintf("wget -q -O- --header='Content-Type: application/json' --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":[],\"id\":1}' http://localhost:8545", method),
 	)
@@ -243,19 +279,19 @@ func (d *Devnet) callBatcherRPC(service, method string) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to call %s (%w): %s", method, err, buf.String())
 	}
-	log.Info("RPC call successful", "service", service, "method", method, "response", buf.String())
+	log.Info("RPC call successful", "service", name, "method", method, "response", buf.String())
 	return nil
 }
 
 // StartBatcherSubmitting starts batch submission on a running batcher service
-func (d *Devnet) StartBatcherSubmitting(service string) error {
-	log.Info("starting batch submission", "service", service)
+func (d *Devnet) StartBatcherSubmitting(service ComposeService) error {
+	log.Info("starting batch submission", "service", service.Name(d.profile))
 	return d.callBatcherRPC(service, "admin_startBatcher")
 }
 
 // StopBatcherSubmitting stops batch submission on a running batcher service
-func (d *Devnet) StopBatcherSubmitting(service string) error {
-	log.Info("stopping batch submission", "service", service)
+func (d *Devnet) StopBatcherSubmitting(service ComposeService) error {
+	log.Info("stopping batch submission", "service", service.Name(d.profile))
 	return d.callBatcherRPC(service, "admin_stopBatcher")
 }
 
@@ -482,10 +518,7 @@ func (d *Devnet) Down() error {
 	}
 
 	// Use timeout flag for faster Docker shutdown
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
-	)
+	cmd := d.composeCommand("down", "-v", "--remove-orphans", "--timeout", "10")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to shut down docker: %w", err)
 	}
@@ -712,10 +745,8 @@ func (d *Devnet) OpChallengerOutput(opts ...string) (string, error) {
 }
 
 func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
-	opts = append([]string{"compose", "exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker",
+	opts = append([]string{"exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
+	cmd := d.composeCommand(
 		opts...,
 	)
 	if testing.Verbose() {
@@ -727,13 +758,11 @@ func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
 }
 
 // Get the host port mapped to `privatePort` for the given Docker service.
-func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
+func (d *Devnet) hostPort(service ComposeService, privatePort uint16) (uint16, error) {
+	name := service.Name(d.profile)
 	buf := new(bytes.Buffer)
 	errBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "port", service, fmt.Sprint(privatePort),
-	)
+	cmd := d.composeCommand("port", name, fmt.Sprint(privatePort))
 	cmd.Stdout = buf
 	cmd.Stderr = errBuf
 
@@ -754,26 +783,28 @@ func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
 }
 
 // Open an Ethereum RPC client for a Docker service running an RPC server on the given port.
-func (d *Devnet) serviceClient(service string, port uint16) (*ethclient.Client, error) {
+func (d *Devnet) serviceClient(service ComposeService, port uint16) (*ethclient.Client, error) {
+	name := service.Name(d.profile)
 	port, err := d.hostPort(service, port)
 	if err != nil {
-		return nil, fmt.Errorf("could not get %s port: %w", service, err)
+		return nil, fmt.Errorf("could not get %s port: %w", name, err)
 	}
 	client, err := ethclient.DialContext(d.ctx, fmt.Sprintf("http://127.0.0.1:%d", port))
 	if err != nil {
-		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
+		return nil, fmt.Errorf("could not open %s RPC client: %w", name, err)
 	}
 	return client, nil
 }
 
-func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClient, error) {
+func (d *Devnet) rollupClient(service ComposeService, port uint16) (*sources.RollupClient, error) {
+	name := service.Name(d.profile)
 	port, err := d.hostPort(service, port)
 	if err != nil {
-		return nil, fmt.Errorf("could not get %s port: %w", service, err)
+		return nil, fmt.Errorf("could not get %s port: %w", name, err)
 	}
 	rpc, err := opclient.NewRPC(d.ctx, log.Root(), fmt.Sprintf("http://127.0.0.1:%d", port), opclient.WithDialAttempts(10))
 	if err != nil {
-		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
+		return nil, fmt.Errorf("could not open %s RPC client: %w", name, err)
 	}
 
 	client := sources.NewRollupClient(rpc)

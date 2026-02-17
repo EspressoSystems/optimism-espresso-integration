@@ -23,9 +23,9 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
+	d := NewDevnet(ctx, t, ComposeProfileNonTee)
 
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()

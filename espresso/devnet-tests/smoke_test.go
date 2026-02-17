@@ -12,8 +12,8 @@ func TestSmokeWithoutTEE(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	d := NewDevnet(ctx, t, ComposeProfileNonTee)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -26,8 +26,8 @@ func TestSmokeWithTEE(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(TEE))
+	d := NewDevnet(ctx, t, ComposeProfileTee)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()

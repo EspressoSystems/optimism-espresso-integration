@@ -26,8 +26,8 @@ func TestForcedTransaction(t *testing.T) {
 	defer cancel()
 
 	// Launch docker compose devnet
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	d := NewDevnet(ctx, t, ComposeProfileNonTee)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -53,7 +53,7 @@ func TestForcedTransaction(t *testing.T) {
 	// Stop the sequencer to force inclusion via L1 deposits
 	// This is required to test the forced transaction mechanism
 	t.Log("Stopping sequencer to test forced inclusion...")
-	err = d.ServiceDown("op-node-sequencer")
+	err = d.ServiceDown(ComposeServiceOpNodeSequencer)
 	require.NoError(t, err, "Failed to stop sequencer")
 
 	portal, err := bindings.NewOptimismPortal(optimismPortalAddr, l1Client)

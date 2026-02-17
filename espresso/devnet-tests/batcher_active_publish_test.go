@@ -49,8 +49,8 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	defer cancel()
 
 	// Initialize devnet with NON_TEE profile (starts both batchers)
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	d := NewDevnet(ctx, t, ComposeProfileNonTee)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
