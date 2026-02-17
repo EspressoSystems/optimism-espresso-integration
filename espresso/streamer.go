@@ -156,6 +156,8 @@ func (s *BatchStreamer[B]) Reset() {
 	s.Log.Info("reset espresso streamer", "hotshot pos", s.fallbackHotShotPos, "batch pos", s.fallbackBatchPos)
 	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
+	s.headBatch = nil
+	s.skipPos = math.MaxUint64
 	s.BatchBuffer.Clear()
 }
 
