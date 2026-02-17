@@ -120,13 +120,23 @@ const (
 )
 
 func (d *Devnet) Up(profile ComposeProfile) (err error) {
+	// If devnet is already running (e.g. leftover from a previous test in the same process,
+	// or CI run), tear it down and then start fresh so this test can proceed.
 	if d.isRunning() {
+		log.Info("devnet already running, tearing down before starting fresh")
 		if err := d.Down(); err != nil {
-			return err
+			return fmt.Errorf("tearing down existing devnet: %w", err)
 		}
-		// Let's shutdown the devnet before returning an error, just to clean
-		// up any existing state.
-		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
+		// Brief wait so docker compose has released resources before we start again.
+		for i := 0; i < 30; i++ {
+			if !d.isRunning() {
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		if d.isRunning() {
+			return fmt.Errorf("devnet still running after Down(), shut it down manually")
+		}
 	}
 
 	cmd := exec.CommandContext(
