@@ -25,6 +25,7 @@ func main() {
 		Commands: []*cli.Command{
 			buildCommand(),
 			registerCommand(),
+			isRegisteredCommand(),
 			runCommand(),
 		},
 	}
@@ -89,6 +90,33 @@ This allows the enclave to be trusted by the verification system.`,
 			},
 		},
 		Action: registerAction,
+	}
+}
+
+func isRegisteredCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "is-registered",
+		Usage: "Check if enclave PCR is already registered",
+		Description: `Check if the enclave's PCR0 measurement is already registered with the
+EspressoNitroTEEVerifier contract. Exits with code 0 if registered, 1 if not.`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "authenticator",
+				Usage:    "BatchAuthenticator contract address",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "l1-url",
+				Usage:    "L1 RPC URL",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "pcr0",
+				Usage:    "PCR0 value in hex format",
+				Required: true,
+			},
+		},
+		Action: isRegisteredAction,
 	}
 }
 
@@ -172,6 +200,42 @@ func registerAction(c *cli.Context) error {
 
 	slog.Info("Enclave hash registered successfully!")
 	return nil
+}
+
+func isRegisteredAction(c *cli.Context) error {
+	authenticatorAddr := c.String("authenticator")
+	l1URL := c.String("l1-url")
+	pcr0 := c.String("pcr0")
+
+	// Parse authenticator address
+	authAddr := common.HexToAddress(authenticatorAddr)
+	if authAddr == (common.Address{}) {
+		return fmt.Errorf("invalid authenticator address")
+	}
+
+	// Parse PCR0
+	pcr0Bytes, err := hex.DecodeString(strings.TrimPrefix(pcr0, "0x"))
+	if err != nil {
+		return fmt.Errorf("failed to parse PCR0: %w", err)
+	}
+
+	ctx := context.Background()
+	slog.Info("Checking if enclave hash is registered...")
+	isRegistered, err := enclave_tools.IsEnclaveHashRegistered(ctx, authAddr, l1URL, pcr0Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to check registration: %w", err)
+	}
+
+	if isRegistered {
+		slog.Info("Enclave hash is registered")
+		fmt.Println("true")
+		return nil
+	} else {
+		slog.Info("Enclave hash is NOT registered")
+		fmt.Println("false")
+		os.Exit(1)
+		return nil
+	}
 }
 
 func runAction(c *cli.Context) error {
