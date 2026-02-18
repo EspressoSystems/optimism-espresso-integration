@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
+	espressobindings "github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
-	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 )
@@ -59,8 +60,8 @@ func TestChallengeGame(t *testing.T) {
 	// Verify the game has at least 1 claim (the root claim from proposer)
 	require.GreaterOrEqual(t, games[0].Claims, uint64(1), "Game should have at least 1 claim")
 
-	// Bind the dispute game contract and log its initial status.
-	disputeGame, err := bindings.NewFaultDisputeGame(games[0].Address, d.L1)
+	// Bind to OPSuccinctFaultDisputeGame so we can call Resolve() once the game is over.
+	disputeGame, err := espressobindings.NewOPSuccinctFaultDisputeGame(games[0].Address, d.L1)
 	require.NoError(t, err)
 	statusRaw, err := disputeGame.Status(&bind.CallOpts{})
 	require.NoError(t, err)
@@ -69,34 +70,64 @@ func TestChallengeGame(t *testing.T) {
 	t.Logf("dispute game initial status: %s (%d)", gameStatus.String(), statusRaw)
 	require.Equal(t, types.GameStatusInProgress, gameStatus, "Dispute game should start InProgress")
 
-	// Observe the dispute game for a limited time to see if it resolves.
+	l1ChainID, err := d.L1.ChainID(ctx)
+	require.NoError(t, err, "failed to get L1 chain ID")
+	l1Transactor := func() *bind.TransactOpts {
+		opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
+		require.NoError(t, err, "failed to create L1 transactor")
+		return opts
+	}
+
+	// Wait for game to be resolvable and then call Resolve().
 	maxObservation := 15 * time.Minute
 	pollInterval := 10 * time.Second
 	waitStart := time.Now()
 	finalStatus := gameStatus
 	finalStatusRaw := statusRaw
 
-	t.Logf("Observing dispute game %s for up to %s to see if it resolves...", games[0].Address.Hex(), maxObservation)
+	t.Logf("Observing dispute game %s for up to %s; will call Resolve() when game is over...", games[0].Address.Hex(), maxObservation)
 
 	for time.Since(waitStart) < maxObservation {
 		statusRaw, err := disputeGame.Status(&bind.CallOpts{})
 		require.NoError(t, err)
 		status, err := types.GameStatusFromUint8(statusRaw)
 		require.NoError(t, err)
-
 		finalStatus = status
 		finalStatusRaw = statusRaw
 
 		if status != types.GameStatusInProgress {
-			t.Logf("dispute game resolved during observation window: %s (%d)", status.String(), statusRaw)
+			t.Logf("dispute game resolved: %s (%d)", status.String(), statusRaw)
 			require.Equal(t, types.GameStatusDefenderWon, status, "Expected honest proposer/defender to win succinct dispute game")
 			break
 		}
 
+		// Try to resolve; succeeds when gameOver().
+		resolveTx, err := disputeGame.Resolve(l1Transactor())
+		if err != nil {
+			t.Logf("Resolve() not yet possible (expected until game over): %v", err)
+			time.Sleep(pollInterval)
+			continue
+		}
+		_, err = wait.ForReceiptOK(ctx, d.L1, resolveTx.Hash())
+		if err != nil {
+			t.Logf("Resolve tx failed: %v", err)
+			time.Sleep(pollInterval)
+			continue
+		}
+		// Recheck status after resolve tx.
+		statusRaw, err = disputeGame.Status(&bind.CallOpts{})
+		require.NoError(t, err)
+		finalStatus, _ = types.GameStatusFromUint8(statusRaw)
+		finalStatusRaw = statusRaw
+		if finalStatus != types.GameStatusInProgress {
+			t.Logf("dispute game resolved after Resolve(): %s (%d)", finalStatus.String(), finalStatusRaw)
+			require.Equal(t, types.GameStatusDefenderWon, finalStatus, "Expected DefenderWon after resolve")
+			break
+		}
 		time.Sleep(pollInterval)
 	}
 
-	t.Logf("dispute game observed final status after %s: %s (%d)", time.Since(waitStart), finalStatus.String(), finalStatusRaw)
+	t.Logf("dispute game final status after %s: %s (%d)", time.Since(waitStart), finalStatus.String(), finalStatusRaw)
 	require.Equal(t, finalStatus, types.GameStatusDefenderWon,
 		"succinct dispute game final status must be DefenderWon, got %s (%d)",
 		finalStatus.String(), finalStatusRaw,
