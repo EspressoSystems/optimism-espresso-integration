@@ -1,0 +1,57 @@
+name: Compile Contracts
+
+on:
+  workflow_call:
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04-8core
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache submodules
+        uses: ./.github/actions/cache-submodules
+
+      - name: Restore forge-artifacts cache
+        id: forge-cache
+        uses: actions/cache@v4
+        with:
+          path: packages/contracts-bedrock/forge-artifacts
+          key: forge-artifacts-dev-${{ hashFiles('packages/contracts-bedrock/foundry.toml', 'packages/contracts-bedrock/src/**/*.sol', 'packages/contracts-bedrock/scripts/**/*.sol', 'packages/contracts-bedrock/interfaces/**/*.sol', 'packages/contracts-bedrock/test/**/*.sol', '.gitmodules', 'flake.lock') }}
+
+      - name: Install Nix
+        if: steps.forge-cache.outputs.cache-hit != 'true'
+        uses: nixbuild/nix-quick-install-action@v30
+        with:
+          nix_conf: |
+            keep-env-derivations = true
+            keep-outputs = true
+
+      - name: Restore Nix cache
+        if: steps.forge-cache.outputs.cache-hit != 'true'
+        id: cache-nix-restore
+        uses: nix-community/cache-nix-action/restore@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+
+      - name: Set up Nix environment
+        if: steps.forge-cache.outputs.cache-hit != 'true'
+        uses: nicknovitski/nix-develop@v1
+
+      - name: Compile contracts (build-dev)
+        if: steps.forge-cache.outputs.cache-hit != 'true'
+        run: just compile-contracts
+
+      - name: Save Nix cache
+        if: always() && steps.forge-cache.outputs.cache-hit != 'true' && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
+        uses: nix-community/cache-nix-action/save@v6
+        with:
+          primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
+
+      - name: Upload forge-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-artifacts
+          path: packages/contracts-bedrock/forge-artifacts/
+          retention-days: 1
