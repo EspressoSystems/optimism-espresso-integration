@@ -38,7 +38,7 @@ import (
 const (
 	ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
 	ENCLAVE_IMAGE_TAG              = "op-batcher-enclaver:tests"
-	ESPRESSO_ENABLE_ENCLAVE_TESTS  = "ESPRESSO_RUN_ENCLAVE_TESTS"
+	ESPRESSO_RUN_ENCLAVE_TESTS     = "ESPRESSO_RUN_ENCLAVE_TESTS"
 
 	// TeeTypeNitro corresponds to IEspressoTEEVerifier.TeeType.NITRO enum value
 	TeeTypeNitro uint8 = 1
@@ -48,7 +48,7 @@ const (
 
 // Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
 func RunOnlyWithEnclave(t *testing.T) {
-	_, doRun := os.LookupEnv(ESPRESSO_ENABLE_ENCLAVE_TESTS)
+	_, doRun := os.LookupEnv(ESPRESSO_RUN_ENCLAVE_TESTS)
 	if !doRun {
 		t.SkipNow()
 	}
