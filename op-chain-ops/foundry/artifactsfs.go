@@ -106,11 +106,20 @@ func (af *ArtifactsFS) ListContracts(name string) ([]string, error) {
 // The contract name may be suffixed by a solidity compiler version, e.g. "Owned.0.8.25".
 // The contract name does not include ".json", this is a detail internal to the artifacts.
 // The name of the artifact is the source-file name, this must include the suffix such as ".sol".
+// If name contains a path (e.g. "legacy/AddressManager.sol"), the full path is tried first;
+// if that fails, a fallback to the base name (e.g. "AddressManager.sol") is tried for flat artifact layouts.
 func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, error) {
 	artifactPath := path.Join(name, contract+".json")
 	f, err := af.FS.Open(artifactPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
+		// Fallback for flat artifact bundles that only have File.sol/Contract.json (no subdirs)
+		if base := path.Base(name); base != name {
+			artifactPath = path.Join(base, contract+".json")
+			f, err = af.FS.Open(artifactPath)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
+		}
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
