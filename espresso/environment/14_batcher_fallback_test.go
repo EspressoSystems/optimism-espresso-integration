@@ -76,7 +76,11 @@ func TestBatcherSwitching(t *testing.T) {
 	// We will need this config to start a new instance of "TEE" batcher
 	// with parameters tweaked.
 	batcherConfig := &batcher.CLIConfig{}
-	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithSequencerUseFinalized(true), env.GetBatcherConfig(batcherConfig))
+	// L1FinalizedDistance(0) to avoid long delays after batcher switch.
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t,
+		env.WithL1FinalizedDistance(0),
+		env.WithSequencerUseFinalized(true),
+		env.GetBatcherConfig(batcherConfig))
 	require.NoError(t, err)
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
@@ -112,8 +116,8 @@ func TestBatcherSwitching(t *testing.T) {
 	err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
 	require.NoError(t, err)
 
-	// Everything should still work (longer timeout: verifier may be slow to derive after batcher switch)
-	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
+	// Everything should still work (verifier derives quickly with L1FinalizedDistance(0))
+	env.RunSimpleL2Burn(ctx, t, system)
 
 	// Stop the fallback batcher
 	err = system.FallbackBatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
@@ -142,8 +146,8 @@ func TestBatcherSwitching(t *testing.T) {
 	err = newBatcher.Start(batcherCtx)
 	require.NoError(t, err)
 
-	// Everything should still work (longer timeout: verifier may be slow after batcher restart)
-	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
+	// Everything should still work (verifier derives quickly with L1FinalizedDistance(0))
+	env.RunSimpleL2Burn(ctx, t, system)
 
 	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
 		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight
