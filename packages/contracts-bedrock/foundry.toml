@@ -152,6 +152,7 @@ timeout = 300
 [profile.lite]
 optimizer = false
 optimizer_runs = 0
+use_literal_content = false
 
 [profile.lite.fuzz]
 runs = 8
