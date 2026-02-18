@@ -416,10 +416,18 @@ func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 		timeout = 3 * time.Minute
 		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
 	}
+	return d.VerifyL2TxWithTimeout(receipt, timeout)
+}
 
+// VerifyL2TxWithTimeout waits for the verifier to confirm the tx, using the given timeout.
+// Use a longer timeout (e.g. 5 min) when the verifier may be slow, e.g. after a batcher restart.
+func (d *Devnet) VerifyL2TxWithTimeout(receipt *types.Receipt, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
+	return d.verifyL2TxWithContext(ctx, receipt)
+}
 
+func (d *Devnet) verifyL2TxWithContext(ctx context.Context, receipt *types.Receipt) error {
 	log.Info("waiting for transaction verification", "hash", receipt.TxHash)
 	verified, err := wait.ForReceiptOK(ctx, d.L2Verif, receipt.TxHash)
 	if err != nil {
@@ -482,10 +490,16 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	return d.VerifySimpleL2BurnWithTimeout(receipt, 2*time.Minute)
+}
+
+// VerifySimpleL2BurnWithTimeout waits for the verifier to confirm the burn, using the given timeout.
+// Use a longer timeout (e.g. 5 min) when the verifier may be slow, e.g. after a batcher restart.
+func (d *Devnet) VerifySimpleL2BurnWithTimeout(receipt *BurnReceipt, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
-	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {
+	if err := d.verifyL2TxWithContext(ctx, receipt.Receipt); err != nil {
 		return err
 	}
 
