@@ -137,6 +137,7 @@ depth = 1
 [profile.ciheavy]
 optimizer = false
 optimizer_runs = 0
+use_literal_content = false
 
 # IMPORTANT:
 # See the info in the "DEFAULT" profile to understand this section.

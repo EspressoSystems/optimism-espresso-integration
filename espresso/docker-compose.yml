@@ -709,7 +709,7 @@ services:
     env_file:
       - ./.env
     environment:
-      RUST_LOG: info
+      RUST_LOG: warn
       ESPRESSO_DEV_NODE_L1_DEPLOYMENT: skip
       RUST_BACKTRACE: 1
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
