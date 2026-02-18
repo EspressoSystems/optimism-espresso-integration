@@ -7,7 +7,77 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-contracts:
+    uses: ./.github/workflows/compile-contracts.yaml
+
+  prepare:
+    needs: build-contracts
+    runs-on: ubuntu-24.04-8core
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache submodules
+        uses: ./.github/actions/cache-submodules
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v30
+        with:
+          nix_conf: |
+            keep-env-derivations = true
+            keep-outputs = true
+      - name: Restore Nix cache
+        id: cache-nix-restore
+        uses: nix-community/cache-nix-action/restore@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+      - name: Set up Nix environment
+        uses: nicknovitski/nix-develop@v1
+
+      - name: Cache Go modules
+        uses: actions/setup-go@v5
+
+      - name: Download forge-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-artifacts
+          path: packages/contracts-bedrock/forge-artifacts/
+
+      - name: Load environment variables
+        run: |
+          while IFS= read -r line; do
+            # Skip comments and empty lines
+            if [[ ! "$line" =~ ^#.* ]] && [[ -n "$line" ]]; then
+              # Remove quotes from values
+              line=$(echo "$line" | sed 's/"\(.*\)"/\1/')
+              echo "$line" >> $GITHUB_ENV
+            fi
+          done < ./espresso/.env
+        shell: bash
+
+      - name: Build op-deployer and prepare allocs
+        run: |
+          cd op-deployer
+          just
+          export PATH=$PATH:$PWD/bin
+          cd ../espresso
+          ./scripts/prepare-allocs.sh
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-deployment
+          path: espresso/deployment/
+          retention-days: 1
+
+      - name: Save Nix cache
+        uses: nix-community/cache-nix-action/save@v6
+        if: always() && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
+        with:
+          primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
+
   devnet-test:
+    needs: prepare
     runs-on: ubuntu-24.04-8core
     strategy:
       fail-fast: false
@@ -35,8 +105,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: "recursive"
+
+      - name: Cache submodules
+        uses: ./.github/actions/cache-submodules
 
       - name: Install Nix
         uses: nixbuild/nix-quick-install-action@v30
@@ -55,42 +126,35 @@ jobs:
       - name: Cache Go modules
         uses: actions/setup-go@v5
 
-      - name: Compile contracts
-        working-directory: packages/contracts-bedrock
-        run: just build
+      - name: Download forge-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-artifacts
+          path: packages/contracts-bedrock/forge-artifacts/
 
-      - name: Load environment variables
-        run: |
-          while IFS= read -r line; do
-            # Skip comments and empty lines
-            if [[ ! "$line" =~ ^#.* ]] && [[ -n "$line" ]]; then
-              # Remove quotes from values
-              line=$(echo "$line" | sed 's/"\(.*\)"/\1/')
-              echo "$line" >> $GITHUB_ENV
-            fi
-          done < ./espresso/.env
-        shell: bash
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: devnet-deployment
+          path: espresso/deployment/
 
-      - name: Build Devnet without TEE
+      - name: Build Docker images
         run: |
-          cd op-deployer
-          just
-          export PATH=$PATH:$PWD/bin
-          cd ../packages/contracts-bedrock
-          just fix-proxy-artifact
-          cd ../../espresso
-          ./scripts/prepare-allocs.sh
+          cd espresso
           docker compose build
           docker compose pull l1-validator espresso-dev-node l1-data-init
 
-      - name: Build Devnet with TEE
+      - name: Build Docker images with TEE
         if: matrix.tee
         run: |
           cd espresso
           COMPOSE_PROFILES=tee docker compose build
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Run tests for group ${{ matrix.group }}
-        run: go test -timeout 30m -p 1 -count 1 -run '${{ matrix.tests }}' -v ./espresso/devnet-tests/...
+        run: gotestsum --format github-actions -- -timeout 30m -p 1 -count 1 -run '${{ matrix.tests }}' ./espresso/devnet-tests/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
