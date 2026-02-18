@@ -2734,7 +2734,10 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
       - check-kontrol-build:
           # celo disable unwanted jobs/workflows
-          when: false
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           requires:
             - contracts-bedrock-build
           context:
@@ -2781,7 +2784,10 @@ workflows:
       # Upgrade tests fork OP mainnet and are not relevant for Celo.
       - contracts-bedrock-tests-upgrade:
           # celo disable unwanted jobs/workflows
-          when: false
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           name: contracts-bedrock-tests-upgrade op-mainnet <<matrix.features>>
           fork_op_chain: op
           fork_base_chain: mainnet
@@ -2794,7 +2800,10 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests-upgrade:
           # celo disable unwanted jobs/workflows
-          when: false
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           name: contracts-bedrock-tests-upgrade <<matrix.fork_op_chain>>-mainnet
           fork_op_chain: <<matrix.fork_op_chain>>
           fork_base_chain: mainnet
