@@ -138,17 +138,16 @@ services:
     depends_on:
       op-geth-image:
         condition: service_completed_successfully
-    environment:
-      - MODE=rollup
-      - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
-      - OP_RPC=http://op-geth-sequencer:${OP_HTTP_PORT:?err}
-    depends_on:
       l1-geth:
         condition: service_healthy
       l1-genesis:
         condition: service_completed_successfully
       op-geth-sequencer:
         condition: service_healthy
+    environment:
+      - MODE=rollup
+      - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
+      - OP_RPC=http://op-geth-sequencer:${OP_HTTP_PORT:?err}
     volumes:
       - ./deployment/l2-config:/config
       - ./deployment/deployer:/deployer:ro
