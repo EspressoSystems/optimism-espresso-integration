@@ -123,12 +123,21 @@ services:
       - "${L1_HTTP_PORT}:${L1_HTTP_PORT}" # L1 RPC
       - "${L1_ENGINE_PORT}:${L1_ENGINE_PORT}" # L1 Engine
 
-  l2-rollup:
-    restart: on-failure
+  # Single build target for op-geth:espresso to avoid buildx "image already exists" when
+  # multiple services build the same image (l2-rollup, l2-genesis, op-geth).
+  op-geth-image:
     build:
       context: ../
       dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
+    command: ["true"]
+
+  l2-rollup:
+    restart: on-failure
+    image: op-geth:espresso
+    depends_on:
+      op-geth-image:
+        condition: service_completed_successfully
     environment:
       - MODE=rollup
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
@@ -147,15 +156,14 @@ services:
   l2-genesis:
     user: "${U_ID:-1000}:${GID:-1000}"
     restart: on-failure
+    image: op-geth:espresso
     depends_on:
+      op-geth-image:
+        condition: service_completed_successfully
       l1-data-init:
         condition: service_completed_successfully
       l1-geth:
         condition: service_healthy
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-geth/Dockerfile
-    image: op-geth:espresso
     environment:
       - MODE=genesis
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
