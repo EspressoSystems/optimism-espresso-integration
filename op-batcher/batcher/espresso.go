@@ -1032,7 +1032,7 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 
 	request.Header.Set("Content-Type", "application/octet-stream")
 	client := http.Client{
-		Timeout: 2 * time.Minute,
+		Timeout: 3 * time.Minute,
 	}
 	res, err := client.Do(request)
 	if err != nil {
