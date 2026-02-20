@@ -54,6 +54,7 @@ func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher,
 		batchInboxAddress:         cfg.BatchInboxAddress,
 		altDAEnabled:              cfg.AltDAEnabled(),
 		batchAuthenticatorAddress: cfg.BatchAuthenticatorAddress,
+		fallbackBatcherAddress:    cfg.FallbackBatcherAddress,
 	}
 	return &DataSourceFactory{
 		log:          log,
@@ -94,6 +95,11 @@ type DataSourceConfig struct {
 	// When non-zero, event-based batch authentication is used instead of sender verification.
 	// When zero, legacy sender-based authentication is used.
 	batchAuthenticatorAddress common.Address
+	// fallbackBatcherAddress is the address of the fallback (non-TEE) batcher.
+	// When batch auth is enabled, the fallback batcher is authorized via sender verification
+	// instead of event-based authentication, allowing it to post batches without calling
+	// authenticateBatchInfo on L1.
+	fallbackBatcherAddress common.Address
 }
 
 // BatchAuthEnabled returns true if event-based batch authentication is configured.
@@ -141,6 +147,14 @@ func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batch
 // verification. For event-based auth, batchHash must be the precomputed hash of the
 // batch content (calldata or blob hashes). The authenticatedHashes set is obtained
 // once per L1 block via CollectAuthenticatedBatches.
+//
+// When batch auth is enabled, there are two authorization paths:
+//  1. TEE batcher: must have a matching BatchInfoAuthenticated event (event-based auth)
+//  2. Fallback batcher: authorized via sender verification against fallbackBatcherAddress
+//
+// This dual-mode approach allows the fallback (non-TEE) batcher to post batches without
+// calling authenticateBatchInfo on L1, while still requiring the TEE batcher to authenticate
+// its batches via on-chain events.
 func isBatchTxAuthorized(
 	tx *types.Transaction,
 	dsCfg DataSourceConfig,
@@ -150,12 +164,19 @@ func isBatchTxAuthorized(
 	logger log.Logger,
 ) bool {
 	if authenticatedHashes != nil {
-		// Event-based authentication
-		if !authenticatedHashes[batchHash] {
-			logger.Warn("batch not authenticated via event", "txHash", tx.Hash(), "batchHash", batchHash)
-			return false
+		// Event-based authentication: TEE batcher must have an auth event
+		if authenticatedHashes[batchHash] {
+			return true
 		}
-		return true
+		// Fallback batcher: accept via sender verification
+		if dsCfg.fallbackBatcherAddress != (common.Address{}) {
+			if isAuthorizedBatchSender(tx, dsCfg.l1Signer, dsCfg.fallbackBatcherAddress, logger) {
+				return true
+			}
+		}
+		logger.Warn("batch not authenticated via event or fallback sender",
+			"txHash", tx.Hash(), "batchHash", batchHash)
+		return false
 	}
 	// Legacy mode: verify sender
 	return isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger)
