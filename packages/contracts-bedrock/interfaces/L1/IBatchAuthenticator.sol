@@ -57,6 +57,4 @@ interface IBatchAuthenticator {
     function setTeeBatcher(address _newTeeBatcher) external;
 
     function setNonTeeBatcher(address _newNonTeeBatcher) external;
-
-    function validateBatch(address sender, bytes calldata data) external view;
 }

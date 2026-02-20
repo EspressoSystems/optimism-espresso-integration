@@ -3,8 +3,6 @@ package derive
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
-	"io"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -12,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -51,6 +48,194 @@ func (tx *testTx) Create(t *testing.T, signer types.Signer, rng *rand.Rand) *typ
 type calldataTest struct {
 	name string
 	txs  []testTx
+}
+
+// mockAuthEvents sets up L1 mock expectations for CollectAuthenticatedBatches to find auth events
+// for the given batch hashes at the given ref's block number. Auth events for batch hashes in
+// `authenticated` are placed in the ref block's receipts; all other blocks in the lookback
+// window have empty receipts. CollectAuthenticatedBatches always scans the full window, so
+// expectations are set up for every block in the range.
+func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1BlockRef, authenticatorAddr common.Address, authenticated []common.Hash) {
+	startBlock := ref.Number
+	if startBlock > BatchAuthLookbackWindow {
+		startBlock = ref.Number - BatchAuthLookbackWindow
+	} else {
+		startBlock = 0
+	}
+
+	// Build the auth receipts for the ref block
+	var authLogs []*types.Log
+	for _, bh := range authenticated {
+		authLogs = append(authLogs, &types.Log{
+			Address: authenticatorAddr,
+			Topics: []common.Hash{
+				BatchInfoAuthenticatedABIHash,
+				bh,
+				common.BytesToHash(common.HexToAddress("0xbatcher").Bytes()),
+			},
+		})
+	}
+	authReceipts := types.Receipts{}
+	if len(authLogs) > 0 {
+		authReceipts = types.Receipts{{Status: types.ReceiptStatusSuccessful, Logs: authLogs}}
+	}
+
+	for blockNum := startBlock; blockNum <= ref.Number; blockNum++ {
+		var blockRef eth.L1BlockRef
+		if blockNum == ref.Number {
+			blockRef = ref
+		} else {
+			blockRef = eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
+		}
+		l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
+		if blockNum == ref.Number {
+			l1F.ExpectFetchReceipts(blockRef.Hash, nil, authReceipts, nil)
+		} else {
+			l1F.ExpectFetchReceipts(blockRef.Hash, nil, types.Receipts{}, nil)
+		}
+	}
+}
+
+// TestDataFromEVMTransactionsEventAuth tests event-based batch authentication
+// where a BatchInfoAuthenticated event in the lookback window authorizes a batch.
+func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	batcherPriv := testutils.RandomKey()
+	altAuthor := testutils.RandomKey()
+	batchInboxAddr := testutils.RandomAddress(rng)
+	authenticatorAddr := testutils.RandomAddress(rng)
+	batcherAddr := crypto.PubkeyToAddress(batcherPriv.PublicKey)
+	signer := types.NewCancunSigner(big.NewInt(100))
+
+	dsCfg := DataSourceConfig{
+		l1Signer:                  signer,
+		batchInboxAddress:         batchInboxAddr,
+		batchAuthenticatorAddress: authenticatorAddr,
+	}
+	require.True(t, dsCfg.BatchAuthEnabled())
+
+	ctx := context.Background()
+	logger := testlog.Logger(t, log.LevelDebug)
+
+	t.Run("authenticated tx accepted", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := testutils.RandomData(rng, 100)
+		tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
+			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,
+			GasTipCap: big.NewInt(2 * params.GWei), GasFeeCap: big.NewInt(30 * params.GWei),
+			To: &batchInboxAddr, Data: txData,
+		})
+		require.NoError(t, err)
+
+		// Use block number 1 so lookback window is [0, 1] — only 2 blocks to mock
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		batchHash := ComputeCalldataBatchHash(txData)
+		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Len(t, out, 1)
+		require.Equal(t, eth.Data(txData), out[0])
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("unauthenticated tx rejected", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := testutils.RandomData(rng, 100)
+		tx, err := types.SignNewTx(altAuthor, signer, &types.DynamicFeeTx{
+			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,
+			GasTipCap: big.NewInt(2 * params.GWei), GasFeeCap: big.NewInt(30 * params.GWei),
+			To: &batchInboxAddr, Data: txData,
+		})
+		require.NoError(t, err)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		// No auth events — empty authenticated list
+		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
+
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Len(t, out, 0)
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("wrong inbox address rejected without auth check", func(t *testing.T) {
+		// Tx to wrong address should be filtered by isValidBatchTx.
+		// CollectAuthenticatedBatches still runs (it's a block-level operation),
+		// but no tx passes the inbox address check.
+		l1F := &testutils.MockL1Source{}
+		wrongAddr := testutils.RandomAddress(rng)
+		txData := testutils.RandomData(rng, 100)
+		tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
+			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,
+			GasTipCap: big.NewInt(2 * params.GWei), GasFeeCap: big.NewInt(30 * params.GWei),
+			To: &wrongAddr, Data: txData,
+		})
+		require.NoError(t, err)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		// Mock the lookback window scan (returns no authenticated hashes)
+		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
+
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Len(t, out, 0)
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("mixed: one authenticated one not", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData1 := testutils.RandomData(rng, 100)
+		tx1, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
+			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,
+			GasTipCap: big.NewInt(2 * params.GWei), GasFeeCap: big.NewInt(30 * params.GWei),
+			To: &batchInboxAddr, Data: txData1,
+		})
+		require.NoError(t, err)
+
+		txData2 := testutils.RandomData(rng, 100)
+		tx2, err := types.SignNewTx(altAuthor, signer, &types.DynamicFeeTx{
+			ChainID: big.NewInt(100), Nonce: 1, Gas: 100_000,
+			GasTipCap: big.NewInt(2 * params.GWei), GasFeeCap: big.NewInt(30 * params.GWei),
+			To: &batchInboxAddr, Data: txData2,
+		})
+		require.NoError(t, err)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		batchHash1 := ComputeCalldataBatchHash(txData1)
+		// Only tx1 is authenticated. CollectAuthenticatedBatches scans the lookback
+		// window once and returns a set of all authenticated hashes. Each tx is then
+		// checked against that set — no repeated window scans.
+		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash1})
+
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx1, tx2}, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Len(t, out, 1)
+		require.Equal(t, eth.Data(txData1), out[0])
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("sender doesn't matter with event auth", func(t *testing.T) {
+		// In event-based mode, any sender is accepted if the auth event exists
+		l1F := &testutils.MockL1Source{}
+		txData := testutils.RandomData(rng, 100)
+		tx, err := types.SignNewTx(altAuthor, signer, &types.DynamicFeeTx{
+			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,
+			GasTipCap: big.NewInt(2 * params.GWei), GasFeeCap: big.NewInt(30 * params.GWei),
+			To: &batchInboxAddr, Data: txData,
+		})
+		require.NoError(t, err)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		batchHash := ComputeCalldataBatchHash(txData)
+		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Len(t, out, 1)
+		require.Equal(t, eth.Data(txData), out[0])
+		l1F.AssertExpectations(t)
+	})
 }
 
 // TestDataFromEVMTransactions creates some transactions from a specified template and asserts
@@ -118,125 +303,24 @@ func TestDataFromEVMTransactions(t *testing.T) {
 
 		var expectedData []eth.Data
 		var txs []*types.Transaction
-		var receipts []*types.Receipt
 		for i, tx := range tc.txs {
 			transaction := tx.Create(t, signer, rng)
 			txs = append(txs, transaction)
-			receipts = append(receipts, &types.Receipt{
-				Status: types.ReceiptStatusSuccessful,
-				TxHash: transaction.Hash(),
-			})
 
 			if tx.good {
 				expectedData = append(expectedData, txs[i].Data())
 			}
 		}
 
-		out := DataFromEVMTransactions(DataSourceConfig{cfg.L1Signer(), cfg.BatchInboxAddress, false}, batcherAddr, txs, receipts, testlog.Logger(t, log.LevelCrit))
+		// Legacy mode (no batch authenticator) — uses sender-based auth
+		dsCfg := DataSourceConfig{
+			l1Signer:          cfg.L1Signer(),
+			batchInboxAddress: cfg.BatchInboxAddress,
+		}
+		ref := eth.L1BlockRef{Number: 1}
+		// In legacy mode, no L1Fetcher calls are needed for auth (sender check is local)
+		out, err := DataFromEVMTransactions(context.Background(), dsCfg, batcherAddr, txs, nil, ref, testlog.Logger(t, log.LevelCrit))
+		require.NoError(t, err)
 		require.ElementsMatch(t, expectedData, out)
 	}
-
-}
-
-// TestAltDADataSourceL1FetcherErrors tests that the pipeline handles intermittent errors in
-// L1Source correctly.
-func TestCallDataSourceL1FetcherErrors(t *testing.T) {
-	logger := testlog.Logger(t, log.LevelDebug)
-	ctx := context.Background()
-
-	rng := rand.New(rand.NewSource(1234))
-
-	l1F := &testutils.MockL1Source{}
-
-	// Create rollup genesis and config
-	l1Time := uint64(2)
-	refA := testutils.RandomBlockRef(rng)
-	refA.Number = 1
-	l1Refs := []eth.L1BlockRef{refA}
-	refA0 := eth.L2BlockRef{
-		Hash:           testutils.RandomHash(rng),
-		Number:         0,
-		ParentHash:     common.Hash{},
-		Time:           refA.Time,
-		L1Origin:       refA.ID(),
-		SequenceNumber: 0,
-	}
-	batcherPriv := testutils.RandomKey()
-	batcherAddr := crypto.PubkeyToAddress(batcherPriv.PublicKey)
-	batcherInbox := common.Address{42}
-	cfg := &rollup.Config{
-		Genesis: rollup.Genesis{
-			L1:     refA.ID(),
-			L2:     refA0.ID(),
-			L2Time: refA0.Time,
-		},
-		L1ChainID:         big.NewInt(1),
-		BlockTime:         1,
-		SeqWindowSize:     20,
-		BatchInboxAddress: batcherInbox,
-	}
-
-	signer := cfg.L1Signer()
-
-	factory := NewDataSourceFactory(logger, cfg, l1F, nil, nil)
-
-	parent := l1Refs[0]
-	// create a new mock l1 ref
-	ref := eth.L1BlockRef{
-		Hash:       testutils.RandomHash(rng),
-		Number:     parent.Number + 1,
-		ParentHash: parent.Hash,
-		Time:       parent.Time + l1Time,
-	}
-
-	input := testutils.RandomData(rng, 200)
-	tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
-		ChainID:   signer.ChainID(),
-		Nonce:     0,
-		GasTipCap: big.NewInt(2 * params.GWei),
-		GasFeeCap: big.NewInt(30 * params.GWei),
-		Gas:       100_000,
-		To:        &batcherInbox,
-		Value:     big.NewInt(int64(0)),
-		Data:      input,
-	})
-	require.NoError(t, err)
-
-	txs := []*types.Transaction{tx}
-	receipts := types.Receipts{&types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful}}
-
-	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-
-	src, err := factory.OpenData(ctx, ref, batcherAddr)
-	require.IsType(t, &CalldataSource{}, src, src)
-	// Data source should still be opened correctly and attempt to fetch receipts
-	require.NoError(t, err)
-
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
-
-	// Should fail because receipts are still not delivered
-	_, err = src.Next(ctx)
-	require.Error(t, err)
-
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
-
-	// Should fail because receipts do not match the transactions
-	_, err = src.Next(ctx)
-	require.Error(t, err)
-
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
-
-	// regular input is passed through
-	data, err := src.Next(ctx)
-	require.NoError(t, err)
-	require.Equal(t, hexutil.Bytes(input), data)
-
-	_, err = src.Next(ctx)
-	require.ErrorIs(t, err, io.EOF)
-
-	l1F.AssertExpectations(t)
 }

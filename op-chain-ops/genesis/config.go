@@ -1187,7 +1187,6 @@ type L1Deployments struct {
 	DataAvailabilityChallenge         common.Address `json:"DataAvailabilityChallenge"`
 	DataAvailabilityChallengeProxy    common.Address `json:"DataAvailabilityChallengeProxy"`
 
-	BatchInbox         common.Address `json:"BatchInbox"`
 	BatchAuthenticator common.Address `json:"BatchAuthenticator"`
 }
 
@@ -1241,7 +1240,7 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	}
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
-		if name == "BatchInbox" || name == "BatchAuthenticator" {
+		if name == "BatchAuthenticator" {
 			continue
 		}
 		if !deployConfig.UseFaultProofs &&

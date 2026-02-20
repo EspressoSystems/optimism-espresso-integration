@@ -474,7 +474,7 @@ These tests run against a full Docker-based devnet with real Espresso nodes:
 | `TestForcedTransaction` | Force inclusion via L1 | Censorship resistance |
 | `TestWithdrawal` | L2→L1 withdrawals | Bridge security |
 | `TestChallengeGame` | Fault proof challenges | Dispute resolution |
-| `TestChangeBatchInboxOwner` | Ownership transfer | Access control |
+| `TestChangeBatchAuthenticatorOwner` | Ownership transfer | Access control |
 
 #### Critical Test Deep Dive: Stateless Batcher (Test 7)
 

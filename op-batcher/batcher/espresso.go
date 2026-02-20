@@ -1011,13 +1011,13 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		To:     &l.RollupConfig.BatchAuthenticatorAddress,
 	}
 
-	l.Log.Info("Registering batcher with the batch inbox contract")
+	l.Log.Info("Registering batcher with the BatchAuthenticator contract")
 	_, err = l.Txmgr.Send(ctx, candidate)
 	if err != nil {
 		return fmt.Errorf("failed to send registerBatcher transaction: %w", err)
 	}
 
-	l.Log.Info("Registered batcher with the batch inbox contract")
+	l.Log.Info("Registered batcher with the BatchAuthenticator contract")
 
 	return nil
 }

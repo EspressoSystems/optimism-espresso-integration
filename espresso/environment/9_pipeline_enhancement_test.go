@@ -22,16 +22,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPipelineEnhancement is a test that ensures the derivation pipeline does not include batches from reverted L1 transactions submitted to the inbox contract.
-// Attempt to post a batch that fails in the batch inbox contract. The revert transactions should not be included by the derivation pipeline.
-//		Arrange:
-//			Running Sequencer, Batcher in Espresso mode
-//		Act:
-//			Send a transaction not signed by the batcher (which means it will revert) to the inbox contract with a specific sequence of bytes e.g. 0x42424242424242424242
-//          Fetch N, the block number where the transaction was included (even though it is reverted)
-//		Assert:
-//			Instantiate a CalldataSource object with block N. CalldataSource is the object that reads the calldata from the inbox contract and filters it using the isValidBatchTx function.
-//			Verify that the concatenated bytes of all batch transactions does not include 0x42424242424242424242
+// TestPipelineEnhancement ensures the derivation pipeline does not include batches that lack
+// a BatchInfoAuthenticated event from the BatchAuthenticator contract.
+//
+// When batch authentication is enabled (BatchAuthenticatorAddress is set), the pipeline uses
+// event-based authentication: it scans L1 receipts in a lookback window for a
+// BatchInfoAuthenticated event matching the batch hash. Transactions without a corresponding
+// auth event are filtered out, regardless of sender or receipt status.
+//
+//	Arrange:
+//		Running Sequencer, Batcher in Espresso mode (with BatchAuthenticator deployed)
+//	Act:
+//		Send a transaction from a non-batcher account to the batch inbox contract
+//		with a specific payload (0x42424242424242424242).
+//		Fetch N, the block number where the transaction was included.
+//	Assert:
+//		Instantiate a data source with block N via the DataSourceFactory.
+//		Verify that the pipeline returns no data, because the transaction has no
+//		corresponding BatchInfoAuthenticated event.
 
 func TestPipelineEnhancement(t *testing.T) {
 
@@ -53,8 +61,8 @@ func TestPipelineEnhancement(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	// Send a transaction not signed by the batcher to the inbox contract
-	// Create the transaction
+	// Send a transaction from a non-batcher account to the BatchInbox EOA.
+	// This tx will not have a BatchInfoAuthenticated event, so the pipeline should reject it.
 	txData := []byte("42424242424242424242")
 
 	tx := gethTypes.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &gethTypes.DynamicFeeTx{
@@ -72,8 +80,9 @@ func TestPipelineEnhancement(t *testing.T) {
 	err = l1Client.SendTransaction(ctx, tx)
 	require.NoError(t, err)
 
-	receipt, err := wait.ForReceiptFail(ctx, l1Client, tx.Hash())
-	require.Equal(t, receipt.Status, gethTypes.ReceiptStatusFailed)
+	// BatchInbox is an EOA, so the tx succeeds on L1. The pipeline rejects it because
+	// there is no matching BatchInfoAuthenticated event.
+	receipt, err := wait.ForReceiptMaybe(ctx, l1Client, tx.Hash(), gethTypes.ReceiptStatusSuccessful, true)
 	require.NoError(t, err, "Waiting for receipt on transaction", tx)
 
 	l1ClientFetching, err := client.NewRPC(ctx, nil, system.NodeEndpoint(e2esys.RoleL1).RPC())
@@ -102,7 +111,7 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	data, err := datas.Next(ctx)
 
-	// The L1 data collected by the derivation pipeline is empty because the batch information has been discarded
+	// The pipeline returns no data because the tx has no matching BatchInfoAuthenticated event
 	require.Equal(t, data, eth.Data(nil))
 	require.Equal(t, err, io.EOF)
 }

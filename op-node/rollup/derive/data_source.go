@@ -50,9 +50,10 @@ type DataSourceFactory struct {
 
 func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, altDAFetcher AltDAInputFetcher) *DataSourceFactory {
 	config := DataSourceConfig{
-		l1Signer:          cfg.L1Signer(),
-		batchInboxAddress: cfg.BatchInboxAddress,
-		altDAEnabled:      cfg.AltDAEnabled(),
+		l1Signer:                  cfg.L1Signer(),
+		batchInboxAddress:         cfg.BatchInboxAddress,
+		altDAEnabled:              cfg.AltDAEnabled(),
+		batchAuthenticatorAddress: cfg.BatchAuthenticatorAddress,
 	}
 	return &DataSourceFactory{
 		log:          log,
@@ -89,13 +90,24 @@ type DataSourceConfig struct {
 	l1Signer          types.Signer
 	batchInboxAddress common.Address
 	altDAEnabled      bool
+	// batchAuthenticatorAddress is the L1 address of the BatchAuthenticator contract.
+	// When non-zero, event-based batch authentication is used instead of sender verification.
+	// When zero, legacy sender-based authentication is used.
+	batchAuthenticatorAddress common.Address
 }
 
-// isValidBatchTx returns true if:
-//  1. the transaction is not reverted
-//  2. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
-//  3. the transaction has a To() address that matches the batch inbox address
-func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, _ types.Signer, batchInboxAddr, batcherAddr common.Address, logger log.Logger) bool {
+// BatchAuthEnabled returns true if event-based batch authentication is configured.
+func (c DataSourceConfig) BatchAuthEnabled() bool {
+	return c.batchAuthenticatorAddress != (common.Address{})
+}
+
+// isValidBatchTx checks basic transaction validity for batch submission:
+//  1. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
+//  2. the transaction has a To() address that matches the batch inbox address
+//
+// It does NOT check authentication (sender or event-based) — that is handled separately
+// by the caller based on whether batch authenticator is configured.
+func isValidBatchTx(tx *types.Transaction, batchInboxAddr common.Address, logger log.Logger) bool {
 	// For now, we want to disallow the SetCodeTx type or any future types.
 	if tx.Type() > types.BlobTxType && tx.Type() != types.DepositTxType {
 		return false
@@ -106,16 +118,45 @@ func isValidBatchTx(tx *types.Transaction, receipt *types.Receipt, _ types.Signe
 		return false
 	}
 
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		logger.Warn("tx in inbox with invalid status", "hash", tx.Hash(), "status", receipt.Status)
+	return true
+}
+
+// isAuthorizedBatchSender checks that the transaction sender matches the expected batcher address.
+// Used in legacy mode when batch authenticator is not configured.
+func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batcherAddr common.Address, logger log.Logger) bool {
+	sender, err := l1Signer.Sender(tx)
+	if err != nil {
+		logger.Warn("tx in inbox with invalid signature", "hash", tx.Hash(), "err", err)
 		return false
 	}
-
-	// NOTE: contrary to a standard OP batcher, we can safely skip any verification related
-	// to the sender of the transaction. Indeed the Batch Inbox contract takes care of
-	// ensuring the sender of the batch information is a legitimate batcher.
-	// Thus the parameters l1Signer is not used anymore.
-	// However, it is kept for compatibility with upstream code.
-
+	if sender != batcherAddr {
+		logger.Warn("tx in inbox with unauthorized submitter", "addr", sender, "hash", tx.Hash())
+		return false
+	}
 	return true
+}
+
+// isBatchTxAuthorized checks whether a batch transaction is authorized, using either
+// event-based authentication (when authenticatedHashes is non-nil) or legacy sender
+// verification. For event-based auth, batchHash must be the precomputed hash of the
+// batch content (calldata or blob hashes). The authenticatedHashes set is obtained
+// once per L1 block via CollectAuthenticatedBatches.
+func isBatchTxAuthorized(
+	tx *types.Transaction,
+	dsCfg DataSourceConfig,
+	batcherAddr common.Address,
+	batchHash common.Hash,
+	authenticatedHashes map[common.Hash]bool,
+	logger log.Logger,
+) bool {
+	if authenticatedHashes != nil {
+		// Event-based authentication
+		if !authenticatedHashes[batchHash] {
+			logger.Warn("batch not authenticated via event", "txHash", tx.Hash(), "batchHash", batchHash)
+			return false
+		}
+		return true
+	}
+	// Legacy mode: verify sender
+	return isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger)
 }

@@ -643,31 +643,29 @@ func TestAltDADataSourceL1FetcherErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	txs := []*types.Transaction{tx}
-	receipts := types.Receipts{&types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful}}
 
-	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
+	// First attempt: InfoAndTxsByHash fails, so CalldataSource opens in closed state.
+	// Note: the mock panics on nil interface type-assert, so we pass a dummy BlockInfo even for error cases.
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), nil, errors.New("Intermittent error"))
 
 	src, err := factory.OpenData(ctx, ref, batcherAddr)
-	// Data source should still be opened correctly and attempt to fetch receipts
+	// Data source should still be opened correctly (error is deferred)
 	require.NoError(t, err)
 
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
+	// On Next(), AltDA calls AdvanceL1Origin which fetches receipts for challenge events,
+	// then the inner CalldataSource retries InfoAndTxsByHash.
 
-	// Should fail because receipts are still not delivered
+	// Second attempt: AdvanceL1Origin needs receipts, then InfoAndTxsByHash fails again.
+	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
+	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), nil, errors.New("Intermittent error"))
+
+	// Should fail because InfoAndTxsByHash still returns error
 	_, err = src.Next(ctx)
 	require.Error(t, err)
 
+	// Third attempt: InfoAndTxsByHash succeeds, data is returned.
+	// AltDA AdvanceL1Origin is a no-op since the origin was already advanced.
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
-
-	// Should fail because receipts do not match the transactions
-	_, err = src.Next(ctx)
-	require.Error(t, err)
-
-	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
 
 	// regular input is passed through
 	data, err := src.Next(ctx)

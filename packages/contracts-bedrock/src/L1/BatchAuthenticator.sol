@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { OwnableUpgradeable } from
     "lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
@@ -125,79 +124,8 @@ contract BatchAuthenticator is
         return address(espressoTEEVerifier.espressoNitroTEEVerifier());
     }
 
-    /// @notice Validates a batch submission in TEE mode.
-    /// @param sender The address attempting to submit the batch.
-    /// @param data The batch data being submitted.
-    /// @dev Checks sender is teeBatcher and batch is authenticated.
-    ///      Handles both blob and calldata batches.
-    function validateTeeBatch(address sender, bytes calldata data) public view {
-        // Check sender authorization
-        if (sender != teeBatcher) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "BatchInbox: batcher not authorized to post in TEE mode. Expected: ",
-                        Strings.toHexString(uint160(teeBatcher), 20),
-                        ", Actual: ",
-                        Strings.toHexString(uint160(sender), 20)
-                    )
-                )
-            );
-        }
-
-        // Check batch authentication
-        if (blobhash(0) != 0) {
-            // Blob batch: concatenate all blob hashes
-            uint256 numBlobs = 0;
-            while (blobhash(numBlobs) != 0) {
-                numBlobs++;
-            }
-            bytes memory concatenatedHashes = new bytes(32 * numBlobs);
-            for (uint256 i = 0; i < numBlobs; i++) {
-                assembly {
-                    mstore(add(concatenatedHashes, add(0x20, mul(i, 32))), blobhash(i))
-                }
-            }
-            bytes32 hash = keccak256(concatenatedHashes);
-            if (!validBatchInfo[hash]) {
-                revert("Invalid blob batch");
-            }
-        } else {
-            // Calldata batch
-            bytes32 hash = keccak256(data);
-            if (!validBatchInfo[hash]) {
-                revert("Invalid calldata batch");
-            }
-        }
-    }
-
-    /// @notice Validates a batch submission in non-TEE (fallback) mode.
-    /// @param sender The address attempting to submit the batch.
-    /// @dev Only checks sender is nonTeeBatcher. No batch authentication required.
-    function validateNonTeeBatch(address sender) public view {
-        if (sender != nonTeeBatcher) {
-            revert(
-                string(
-                    abi.encodePacked(
-                        "BatchInbox: batcher not authorized to post in fallback mode. Expected: ",
-                        Strings.toHexString(uint160(nonTeeBatcher), 20),
-                        ", Actual: ",
-                        Strings.toHexString(uint160(sender), 20)
-                    )
-                )
-            );
-        }
-    }
-
-    /// @notice Validates a batch submission based on current batcher mode.
-    /// @param sender The address attempting to submit the batch.
-    /// @param data The batch data being submitted.
-    /// @dev Routes to validateTeeBatch or validateNonTeeBatch based on activeIsTee.
-    function validateBatch(address sender, bytes calldata data) external view {
-        if (activeIsTee) {
-            validateTeeBatch(sender, data);
-        } else {
-            validateNonTeeBatch(sender);
-        }
-    }
+    // NOTE: This contract only provides authenticateBatchInfo (which emits BatchInfoAuthenticated events)
+    // and signer management. Batch authentication is performed off-chain by the derivation pipeline,
+    // which scans L1 receipts for BatchInfoAuthenticated events in a lookback window.
+    // Batch data is sent as plain transactions to the BatchInbox EOA address.
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChangeBatchInboxOwner(t *testing.T) {
+func TestChangeBatchAuthenticatorOwner(t *testing.T) {
 	// Load environment variables from .env file
 	err := LoadDevnetEnv()
 	require.NoError(t, err, "Failed to load .env file")

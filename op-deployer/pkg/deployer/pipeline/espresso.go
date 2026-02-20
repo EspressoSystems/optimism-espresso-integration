@@ -23,7 +23,7 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	if !chainIntent.EspressoEnabled {
-		lgr.Info("espresso batch inbox contract deployment not needed")
+		lgr.Info("espresso not enabled, skipping BatchAuthenticator deployment")
 		return nil
 	}
 
@@ -72,8 +72,7 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)
 	}
 
-	chainState.BatchInboxAddress = eo.BatchInboxAddress
 	chainState.BatchAuthenticatorAddress = eo.BatchAuthenticatorAddress
-	lgr.Info("Espresso batch inbox contract deployed at", "address", eo.BatchInboxAddress)
+	lgr.Info("Espresso BatchAuthenticator deployed at", "address", eo.BatchAuthenticatorAddress)
 	return nil
 }

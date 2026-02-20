@@ -216,7 +216,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
-			return fmt.Errorf("could not register with batch inbox contract: %w", err)
+			return fmt.Errorf("could not register with BatchAuthenticator contract: %w", err)
 		}
 
 		l.espressoSubmitter = NewEspressoTransactionSubmitter(
