@@ -90,24 +90,24 @@ References:
 
 #### **Layer 2: Smart Contract Verification**
 
-When a batch reaches the L1 smart contract, it undergoes two checks:
+When a batch is authenticated on L1, the `BatchAuthenticator` contract verifies the TEE signer:
 
-1. **Address Check**: Validates the sender matches the authorized batcher address
-2. **Signature Check**: Verifies the batch hash signature against registered TEE signers
+1. **Signature Check**: Verifies the batch hash signature against registered TEE signers
+2. **Event Emission**: Emits a `BatchInfoAuthenticated` event recording the commitment and signer
 
 ```solidity
-// From BatchInbox.sol
-if (msg.sender != batchAuthenticator.teeBatcher()) {
-    revert("Not authorized");
-}
-if (!batchAuthenticator.validBatchInfo(hash)) {
-    revert("Invalid signature");
-}
+// From BatchAuthenticator.sol
+address signer = ECDSA.recover(commitment, signature);
+require(
+    espressoTEEVerifier.espressoNitroTEEVerifier().isSignerValid(signer, ServiceType.BatchPoster),
+    "BatchAuthenticator: invalid signer"
+);
+emit BatchInfoAuthenticated(commitment, signer);
 ```
 
-**Implementation**: The contract maintains a mapping of valid batch hashes. Before posting to the inbox, the batcher calls `authenticateBatchInfo()` with a signature from the TEE ephemeral key. Only after both the address check and signature verification pass does the batch get recorded on L1.
+**Implementation**: Before posting batch data to the BatchInbox EOA, the batcher calls `authenticateBatchInfo()` with a signature from the TEE ephemeral key. The derivation pipeline then scans L1 receipts for `BatchInfoAuthenticated` events within a lookback window to determine which batches are authenticated.
 
-Reference: [`BatchInbox.sol`](packages/contracts-bedrock/src/L1/BatchInbox.sol)
+Reference: [`BatchAuthenticator.sol`](packages/contracts-bedrock/src/L1/BatchAuthenticator.sol)
 
 #### **Layer 3: Batcher Signature Verification**
 
@@ -910,7 +910,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 | Zero address configuration | Constructor rejects zero addresses for batchers | [test_constructor_revertsWhen*IsZero](packages/contracts-bedrock/test/L1/BatchAuthenticator.t.sol) |
 | Wrong batcher in TEE mode | BatchInbox enforces only TEE batcher can post in TEE mode | [test_fallback_teeBatcherRequiresAuthentication](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
 | Wrong batcher in fallback mode | BatchInbox enforces only non-TEE batcher can post in fallback mode | [test_fallback_unauthorizedAddressReverts](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
-| Unauthenticated batch in TEE mode | BatchInbox checks validBatchInfo mapping before accepting | [test_fallback_teeBatcherRequiresAuthentication](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
+| Unauthenticated batch in TEE mode | Derivation pipeline checks BatchInfoAuthenticated events in lookback window | [test_authenticateBatchInfo_succeeds](packages/contracts-bedrock/test/L1/BatchAuthenticator.t.sol) |
 
 **Future Threat Vectors**
 

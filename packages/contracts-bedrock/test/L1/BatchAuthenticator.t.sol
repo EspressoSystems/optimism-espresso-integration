@@ -243,8 +243,6 @@ contract BatchAuthenticator_Test is Test {
         emit BatchInfoAuthenticated(commitment);
 
         authenticator.authenticateBatchInfo(commitment, signature);
-
-        assertTrue(authenticator.validBatchInfo(commitment));
     }
 
     /// @notice Test that authenticateBatchInfo reverts for unregistered signers.
@@ -263,9 +261,6 @@ contract BatchAuthenticator_Test is Test {
         // Should revert because signer is not registered.
         vm.expectRevert(abi.encodeWithSelector(IEspressoTEEVerifier.InvalidSignature.selector));
         authenticator.authenticateBatchInfo(commitment, signature);
-
-        // Verify commitment was NOT marked as valid
-        assertFalse(authenticator.validBatchInfo(commitment));
     }
 
     /// @notice Test that authenticateBatchInfo reverts for invalid signature (zero address recovery).
@@ -373,7 +368,6 @@ contract BatchAuthenticator_Test is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
-        assertTrue(authenticator.validBatchInfo(commitment));
 
         // Switch batcher to test boolean flag preservation.
         vm.prank(proxyAdminOwner);
@@ -393,7 +387,6 @@ contract BatchAuthenticator_Test is Test {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
         assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
-        assertTrue(authenticator.validBatchInfo(commitment));
         assertFalse(authenticator.activeIsTee());
     }
 
@@ -490,7 +483,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(authenticator.teeBatcher(), teeBatcher);
         assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
         assertTrue(authenticator.activeIsTee());
-        assertEq(authenticator.version(), "1.0.0");
+        assertEq(authenticator.version(), "1.1.0");
 
         // Verify proxy admin.
         address admin = EIP1967Helper.getAdmin(address(proxy));
@@ -529,8 +522,6 @@ contract BatchAuthenticator_Fork_Test is Test {
         vm.expectEmit(true, false, false, false);
         emit BatchInfoAuthenticated(commitment);
         authenticator.authenticateBatchInfo(commitment, signature);
-
-        assertTrue(authenticator.validBatchInfo(commitment));
     }
 
     /// @notice Test upgrade on Sepolia fork.
@@ -545,7 +536,6 @@ contract BatchAuthenticator_Fork_Test is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
-        assertTrue(authenticator.validBatchInfo(commitment));
 
         // Switch batcher
         vm.prank(proxyAdminOwner);
@@ -558,7 +548,6 @@ contract BatchAuthenticator_Fork_Test is Test {
         proxyAdmin.upgrade(payable(address(proxy)), address(newImpl));
 
         // Verify state is preserved.
-        assertTrue(authenticator.validBatchInfo(commitment));
         assertFalse(authenticator.activeIsTee());
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
@@ -571,7 +560,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(block.chainid, Chains.Sepolia);
 
         // Verify contract is functional.
-        assertEq(authenticator.version(), "1.0.0");
+        assertEq(authenticator.version(), "1.1.0");
         assertTrue(authenticator.activeIsTee());
 
         // Verify the fork is working by testing that we can read the block number.

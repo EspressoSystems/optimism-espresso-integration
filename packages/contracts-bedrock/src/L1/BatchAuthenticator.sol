@@ -23,11 +23,8 @@ contract BatchAuthenticator is
     ReinitializableBase
 {
     /// @notice Semantic version.
-    /// @custom:semver 1.0.0
-    string public constant version = "1.0.0";
-
-    /// @notice Mapping of batches verified by this contract
-    mapping(bytes32 => bool) public validBatchInfo;
+    /// @custom:semver 1.1.0
+    string public constant version = "1.1.0";
 
     /// @notice Address of the TEE batcher whose signatures may authenticate batches.
     address public teeBatcher;
@@ -108,7 +105,6 @@ contract BatchAuthenticator is
         // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
         espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
 
-        validBatchInfo[commitment] = true;
         emit BatchInfoAuthenticated(commitment);
     }
 

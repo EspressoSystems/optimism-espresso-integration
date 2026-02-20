@@ -48,8 +48,6 @@ interface IBatchAuthenticator {
         bytes memory signature
     ) external;
 
-    function validBatchInfo(bytes32) external view returns (bool);
-
     function activeIsTee() external view returns (bool);
 
     function switchBatcher() external;
