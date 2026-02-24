@@ -12,11 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// sleepOrDone sleeps for d or until ctx is cancelled.
+func sleepOrDone(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return
+	case <-t.C:
+		return
+	}
+}
+
 // TestChallengeGame verifies that the succinct proposer creates dispute games
 // and that games can be queried from the DisputeGameFactory contract.
 // The succinct proposer needs finalized L2 blocks before creating games.
 func TestChallengeGame(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
@@ -40,12 +52,15 @@ func TestChallengeGame(t *testing.T) {
 	gameWaitStart := time.Now()
 
 	for len(games) == 0 {
+		if ctx.Err() != nil {
+			t.Fatalf("context cancelled while waiting for dispute game: %v", ctx.Err())
+		}
 		if time.Since(gameWaitStart) > maxGameWait {
 			t.Fatalf("timeout waiting for dispute game to be created (waited %v)", maxGameWait)
 		}
 
 		t.Logf("waiting for a challenge game to be created by succinct-proposer...")
-		time.Sleep(5 * time.Second)
+		sleepOrDone(ctx, 5*time.Second)
 
 		var err error
 		games, err = d.ListChallengeGames()
@@ -79,8 +94,9 @@ func TestChallengeGame(t *testing.T) {
 	}
 
 	// Wait for game to be resolvable and then call Resolve().
-	maxObservation := 15 * time.Minute
-	pollInterval := 10 * time.Second
+	// Devnet uses MAX_CHALLENGE_DURATION=10s, so game is resolvable shortly after creation.
+	maxObservation := 5 * time.Minute
+	pollInterval := 5 * time.Second
 	waitStart := time.Now()
 	finalStatus := gameStatus
 	finalStatusRaw := statusRaw
@@ -88,6 +104,12 @@ func TestChallengeGame(t *testing.T) {
 	t.Logf("Observing dispute game %s for up to %s; will call Resolve() when game is over...", games[0].Address.Hex(), maxObservation)
 
 	for time.Since(waitStart) < maxObservation {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("context cancelled while waiting for game resolution: %v", ctx.Err())
+		default:
+		}
+
 		statusRaw, err := disputeGame.Status(&bind.CallOpts{})
 		require.NoError(t, err)
 		status, err := types.GameStatusFromUint8(statusRaw)
@@ -105,13 +127,16 @@ func TestChallengeGame(t *testing.T) {
 		resolveTx, err := disputeGame.Resolve(l1Transactor())
 		if err != nil {
 			t.Logf("Resolve() not yet possible (expected until game over): %v", err)
-			time.Sleep(pollInterval)
+			sleepOrDone(ctx, pollInterval)
 			continue
 		}
 		_, err = wait.ForReceiptOK(ctx, d.L1, resolveTx.Hash())
 		if err != nil {
+			if ctx.Err() != nil {
+				t.Fatalf("context cancelled during Resolve tx: %v", ctx.Err())
+			}
 			t.Logf("Resolve tx failed: %v", err)
-			time.Sleep(pollInterval)
+			sleepOrDone(ctx, pollInterval)
 			continue
 		}
 		// Recheck status after resolve tx.
@@ -124,7 +149,7 @@ func TestChallengeGame(t *testing.T) {
 			require.Equal(t, types.GameStatusDefenderWon, finalStatus, "Expected DefenderWon after resolve")
 			break
 		}
-		time.Sleep(pollInterval)
+		sleepOrDone(ctx, pollInterval)
 	}
 
 	t.Logf("dispute game final status after %s: %s (%d)", time.Since(waitStart), finalStatus.String(), finalStatusRaw)

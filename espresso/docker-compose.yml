@@ -21,7 +21,7 @@ services:
       - ./deployment:/deployment
       - l1-data:/data
 
-  # Single build target for l1-geth:espresso to avoid buildx "image already exists".
+  # Single build target for l1-geth:espresso.
   l1-geth-image:
     build:
       context: ../

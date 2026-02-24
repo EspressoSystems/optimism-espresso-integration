@@ -129,10 +129,13 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		}
 		// Brief wait so docker compose has released resources before we start again.
 		for i := 0; i < 30; i++ {
+			if d.ctx.Err() != nil {
+				return fmt.Errorf("context cancelled while waiting for devnet to stop: %w", d.ctx.Err())
+			}
 			if !d.isRunning() {
 				break
 			}
-			time.Sleep(time.Second)
+			sleepContext(d.ctx, time.Second)
 		}
 		if d.isRunning() {
 			return fmt.Errorf("devnet still running after Down(), shut it down manually")
@@ -207,17 +210,20 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	return nil
 }
 
-// connectClientsWithRetry opens RPC clients, retrying until containers are up or timeout.
+// connectClientsWithRetry opens RPC clients, retrying until containers are up or timeout/context cancel.
 func (d *Devnet) connectClientsWithRetry() error {
 	const retryInterval = 5 * time.Second
 	const retryTimeout = 2 * time.Minute
 	deadline := time.Now().Add(retryTimeout)
 	var err error
 	for time.Now().Before(deadline) {
+		if d.ctx.Err() != nil {
+			return fmt.Errorf("context cancelled while connecting to devnet: %w", d.ctx.Err())
+		}
 		d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
 		if err != nil {
 			log.Debug("waiting for op-geth-sequencer", "err", err)
-			time.Sleep(retryInterval)
+			sleepContext(d.ctx, retryInterval)
 			continue
 		}
 		d.L2SeqRollup, err = d.rollupClient("op-node-sequencer", 9545)
@@ -225,7 +231,7 @@ func (d *Devnet) connectClientsWithRetry() error {
 			d.L2Seq.Close()
 			d.L2Seq = nil
 			log.Debug("waiting for op-node-sequencer", "err", err)
-			time.Sleep(retryInterval)
+			sleepContext(d.ctx, retryInterval)
 			continue
 		}
 		d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
@@ -234,7 +240,7 @@ func (d *Devnet) connectClientsWithRetry() error {
 			d.L2SeqRollup.Close()
 			d.L2Seq, d.L2SeqRollup = nil, nil
 			log.Debug("waiting for op-geth-verifier", "err", err)
-			time.Sleep(retryInterval)
+			sleepContext(d.ctx, retryInterval)
 			continue
 		}
 		d.L2VerifRollup, err = d.rollupClient("op-node-verifier", 9546)
@@ -244,7 +250,7 @@ func (d *Devnet) connectClientsWithRetry() error {
 			d.L2SeqRollup.Close()
 			d.L2Verif, d.L2Seq, d.L2SeqRollup = nil, nil, nil
 			log.Debug("waiting for op-node-verifier", "err", err)
-			time.Sleep(retryInterval)
+			sleepContext(d.ctx, retryInterval)
 			continue
 		}
 		d.L1, err = d.serviceClient("l1-geth", 8545)
@@ -255,12 +261,24 @@ func (d *Devnet) connectClientsWithRetry() error {
 			d.L2SeqRollup.Close()
 			d.L2VerifRollup, d.L2Verif, d.L2Seq, d.L2SeqRollup = nil, nil, nil, nil
 			log.Debug("waiting for l1-geth", "err", err)
-			time.Sleep(retryInterval)
+			sleepContext(d.ctx, retryInterval)
 			continue
 		}
 		return nil
 	}
 	return fmt.Errorf("devnet services did not become reachable within %v (last err: %w)", retryTimeout, err)
+}
+
+// sleepContext sleeps for d or until ctx is cancelled.
+func sleepContext(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return
+	case <-t.C:
+		return
+	}
 }
 
 func (d *Devnet) ServiceUp(service string) error {
@@ -420,7 +438,6 @@ func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 }
 
 // VerifyL2TxWithTimeout waits for the verifier to confirm the tx, using the given timeout.
-// Use a longer timeout (e.g. 5 min) when the verifier may be slow, e.g. after a batcher restart.
 func (d *Devnet) VerifyL2TxWithTimeout(receipt *types.Receipt, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
@@ -494,7 +511,6 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
 }
 
 // VerifySimpleL2BurnWithTimeout waits for the verifier to confirm the burn, using the given timeout.
-// Use a longer timeout (e.g. 5 min) when the verifier may be slow, e.g. after a batcher restart.
 func (d *Devnet) VerifySimpleL2BurnWithTimeout(receipt *BurnReceipt, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()

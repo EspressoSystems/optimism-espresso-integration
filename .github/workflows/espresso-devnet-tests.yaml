@@ -97,6 +97,7 @@ jobs:
           echo "ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD=30s" >> $GITHUB_ENV
 
       - name: Run tests for group ${{ matrix.group }}
+        timeout-minutes: 35
         run: go test -timeout 30m -p 1 -count 1 -run '${{ matrix.tests }}' -v ./espresso/devnet-tests/...
 
       - name: Save Nix cache
