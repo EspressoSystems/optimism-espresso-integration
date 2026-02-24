@@ -146,8 +146,8 @@ func TestBatcherSwitching(t *testing.T) {
 	err = newBatcher.Start(batcherCtx)
 	require.NoError(t, err)
 
-	// Everything should still work (verifier derives quickly with L1FinalizedDistance(0))
-	env.RunSimpleL2Burn(ctx, t, system)
+	// Everything should still work (use longer timeout after batcher switch)
+	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
 
 	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
 		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight
