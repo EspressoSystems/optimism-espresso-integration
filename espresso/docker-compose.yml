@@ -545,7 +545,8 @@ services:
     volumes:
       - ./deployment/deployer:/deployer:ro
     env_file:
-      - ./deployment/deployer/succinct.env
+      - path: ./deployment/deployer/succinct.env
+        required: false
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       L1_BEACON_RPC: http://l1-beacon:${L1_BEACON_PORT}
@@ -642,7 +643,8 @@ services:
     volumes:
       - ./deployment/deployer:/deployer:ro
     env_file:
-      - ./deployment/deployer/succinct.env
+      - path: ./deployment/deployer/succinct.env
+        required: false
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       L1_BEACON_RPC: http://l1-beacon:${L1_BEACON_PORT}

@@ -146,9 +146,8 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		d.ctx,
 		"docker", "compose", "up", "-d",
 	)
-	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
-	cmd.Env = append(
-		os.Environ(),
+	cmd.Env = append(os.Environ(),
+		"COMPOSE_PROFILES="+string(profile),
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
 	)
 	buf := new(bytes.Buffer)
