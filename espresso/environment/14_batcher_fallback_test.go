@@ -137,6 +137,10 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start a new "TEE" batcher
+	// Reset channel settings to defaults so the new batcher submits batches promptly.
+	batcherConfig.MaxChannelDuration = 1
+	batcherConfig.TargetNumFrames = 1
+	batcherConfig.MaxL1TxSize = 120_000
 	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
 	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
 	batcherCtx, cancelBatcher := context.WithCancelCause(ctx)

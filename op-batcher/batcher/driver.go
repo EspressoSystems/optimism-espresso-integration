@@ -189,7 +189,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
 			},
 			2*time.Second,
-			0, 0, // originHotShotPos, originBatchPos
+			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
 		),
 	)
 	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)

@@ -68,6 +68,10 @@ type BatcherConfig struct {
 	// public key and private key of the batcher
 	BatcherPublicKey  *ecdsa.PublicKey
 	BatcherPrivateKey *ecdsa.PrivateKey
+
+	// Starting position for the Espresso streamer.
+	CaffeinationHeightEspresso uint64
+	CaffeinationHeightL2       uint64
 }
 
 // BatcherService represents a full batch-submitter instance and its resources,
@@ -745,6 +749,8 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
+	bs.CaffeinationHeightEspresso = cfg.Espresso.CaffeinationHeightEspresso
+	bs.CaffeinationHeightL2 = cfg.Espresso.CaffeinationHeightL2
 
 	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
 	if err != nil {
