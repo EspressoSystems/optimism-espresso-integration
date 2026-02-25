@@ -9,7 +9,7 @@ import { Config } from "scripts/libraries/Config.sol";
 import { Artifacts } from "scripts/Artifacts.s.sol";
 import { PeripheryDeployConfig } from "scripts/periphery/deploy/PeripheryDeployConfig.s.sol";
 
-import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { Proxy } from "src/universal/Proxy.sol";
 import { Faucet } from "src/periphery/faucet/Faucet.sol";
 import { Drippie } from "src/periphery/drippie/Drippie.sol";
@@ -85,11 +85,11 @@ contract DeployPeriphery is Script {
     function deployProxyAdmin() public broadcast returns (address addr_) {
         addr_ = _deployCreate2({
             _name: "ProxyAdmin",
-            _creationCode: type(ProxyAdmin).creationCode,
+            _creationCode: vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin"),
             _constructorParams: abi.encode(msg.sender)
         });
 
-        ProxyAdmin admin = ProxyAdmin(addr_);
+        IProxyAdmin admin = IProxyAdmin(addr_);
         require(admin.owner() == msg.sender, "DeployPeriphery: ProxyAdmin owner mismatch");
     }
 
@@ -201,7 +201,7 @@ contract DeployPeriphery is Script {
 
     /// @notice Initialize the Faucet.
     function initializeFaucet() public broadcast {
-        ProxyAdmin proxyAdmin = ProxyAdmin(artifacts.mustGetAddress("ProxyAdmin"));
+        IProxyAdmin proxyAdmin = IProxyAdmin(artifacts.mustGetAddress("ProxyAdmin"));
         address faucetProxy = artifacts.mustGetAddress("FaucetProxy");
         address faucet = artifacts.mustGetAddress("Faucet");
         address implementationAddress = proxyAdmin.getProxyImplementation(faucetProxy);

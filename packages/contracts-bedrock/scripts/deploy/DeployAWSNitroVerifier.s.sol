@@ -10,7 +10,6 @@ import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
-import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { Proxy } from "src/universal/Proxy.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
@@ -88,7 +87,7 @@ contract DeployAWSNitroVerifierOutput is BaseDeployIO {
 
 contract DeployAWSNitroVerifier is Script {
     struct ProxyDeployment {
-        ProxyAdmin proxyAdmin;
+        IProxyAdmin proxyAdmin;
         Proxy proxy;
     }
 
@@ -105,13 +104,11 @@ contract DeployAWSNitroVerifier is Script {
         returns (ProxyDeployment memory deployment)
     {
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin = ProxyAdmin(
-            payable(
-                DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-                })
-            )
+        deployment.proxyAdmin = IProxyAdmin(
+            DeployUtils.create1({
+                _name: "ProxyAdmin",
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+            })
         );
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
@@ -129,7 +126,7 @@ contract DeployAWSNitroVerifier is Script {
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin.setProxyType(address(deployment.proxy), ProxyAdmin.ProxyType.ERC1967);
+        deployment.proxyAdmin.setProxyType(address(deployment.proxy), IProxyAdmin.ProxyType.ERC1967);
     }
 
     function deployNitroTEEVerifier(
