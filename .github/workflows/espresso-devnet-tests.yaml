@@ -81,7 +81,7 @@ jobs:
           cd ../../espresso
           ./scripts/prepare-allocs.sh
           docker compose build
-          docker compose pull l1-validator espresso-dev-node l1-data-init eigenda-proxy
+          COMPOSE_PROFILES=default docker compose pull
 
       - name: Build Devnet with TEE
         if: matrix.tee
