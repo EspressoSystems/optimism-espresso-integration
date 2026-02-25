@@ -145,6 +145,11 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "up", "-d",
+		// Blockscout is a heavy monitoring stack not needed for devnet tests.
+		// Scaling it to 0 reduces memory pressure and avoids OOM kills.
+		"--scale", "blockscout=0",
+		"--scale", "blockscout-frontend=0",
+		"--scale", "blockscout-db=0",
 	)
 	cmd.Env = append(os.Environ(),
 		"COMPOSE_PROFILES="+string(profile),
