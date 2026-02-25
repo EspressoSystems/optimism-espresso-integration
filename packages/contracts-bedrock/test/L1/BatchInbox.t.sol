@@ -49,7 +49,9 @@ contract BatchInbox_Test is Test {
             bytes memory args = abi.encode(deployer);
             bytes memory initCode = abi.encodePacked(code, args);
             address addr;
-            assembly { addr := create(0, add(initCode, 0x20), mload(initCode)) }
+            assembly {
+                addr := create(0, add(initCode, 0x20), mload(initCode))
+            }
             proxyAdmin = IProxyAdmin(addr);
         }
         proxy = new Proxy(address(proxyAdmin));
