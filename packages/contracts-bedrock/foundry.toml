@@ -86,7 +86,8 @@ fs_permissions = [
 
 # 5159 error code is selfdestruct error code
 # 2424 is the deprecated memory-safe-assembly natspec annotation in forge-std/safeconsole.sol (harmless, removed in newer forge-std)
-ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159, 2424]
+# 8429 is the deprecated virtual modifier warning in lib/solmate (harmless, third-party library)
+ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159, 2424, 8429]
 deny_warnings = true
 ffi = true
 
