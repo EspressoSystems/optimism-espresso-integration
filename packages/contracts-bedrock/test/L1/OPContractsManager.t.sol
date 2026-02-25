@@ -154,9 +154,7 @@ contract OPContractsManager_Upgrade_Harness is CommonTest, DisputeGames {
 
         opChainConfigs.push(
             IOPContractsManager.OpChainConfig({
-                systemConfigProxy: systemConfig,
-                cannonPrestate: cannonPrestate,
-                cannonKonaPrestate: cannonKonaPrestate
+                systemConfigProxy: systemConfig, cannonPrestate: cannonPrestate, cannonKonaPrestate: cannonKonaPrestate
             })
         );
 
@@ -176,8 +174,8 @@ contract OPContractsManager_Upgrade_Harness is CommonTest, DisputeGames {
             cannonAbsolutePrestate: IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON)))
                 .absolutePrestate(),
             permissionedAbsolutePrestate: IPermissionedDisputeGame(
-                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-            ).absolutePrestate(),
+                    address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+                ).absolutePrestate(),
             permissionlessWethProxy: delayedWeth,
             permissionedCannonWethProxy: delayedWETHPermissionedGameProxy
         });
@@ -267,10 +265,9 @@ contract OPContractsManager_Upgrade_Harness is CommonTest, DisputeGames {
 
         // Create validationOverrides
         IOPContractsManagerStandardValidator.ValidationOverrides memory validationOverrides =
-        IOPContractsManagerStandardValidator.ValidationOverrides({
-            l1PAOMultisig: opChainConfigs[0].systemConfigProxy.proxyAdmin().owner(),
-            challenger: initialChallenger
-        });
+            IOPContractsManagerStandardValidator.ValidationOverrides({
+                l1PAOMultisig: opChainConfigs[0].systemConfigProxy.proxyAdmin().owner(), challenger: initialChallenger
+            });
 
         // Grab the validator before we do the error assertion because otherwise the assertion will
         // try to apply to this function call instead.
@@ -773,10 +770,11 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
                 _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(this))))
             })
         );
-        IProxy(payable(address(delayedWETH))).upgradeToAndCall(
-            address(opcm.implementations().delayedWETHImpl),
-            abi.encodeCall(IDelayedWETH.initialize, (chainDeployOutput1.systemConfigProxy))
-        );
+        IProxy(payable(address(delayedWETH)))
+            .upgradeToAndCall(
+                address(opcm.implementations().delayedWETHImpl),
+                abi.encodeCall(IDelayedWETH.initialize, (chainDeployOutput1.systemConfigProxy))
+            );
         IOPContractsManager.AddGameInput memory input = newGameInputFactory(GameTypes.CANNON);
         input.delayedWETH = delayedWETH;
         IOPContractsManager.AddGameOutput memory output = addGameType(input);
@@ -851,9 +849,9 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
             extraData = abi.encode(uint256(123)); // l2BlockNumber
         }
         IFaultDisputeGame game = IFaultDisputeGame(
-            payable(
-                createGame(chainDeployOutput1.disputeGameFactoryProxy, agi.disputeGameType, proposer, claim, extraData)
-            )
+            payable(createGame(
+                    chainDeployOutput1.disputeGameFactoryProxy, agi.disputeGameType, proposer, claim, extraData
+                ))
         );
 
         // Verify immutable fields on the game proxy
@@ -1011,9 +1009,8 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
             IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory()).gameImpls(GameTypes.CANNON)
         ) != address(0);
         bool expectCannonKonaUpdated = address(
-            IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory()).gameImpls(
-                GameTypes.CANNON_KONA
-            )
+            IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory())
+                .gameImpls(GameTypes.CANNON_KONA)
         ) != address(0);
 
         // Retrieve current game args before updatePrestate
@@ -1152,9 +1149,8 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
         // Clear out the PermissionedDisputeGame implementation.
         address owner = chainDeployOutput1.disputeGameFactoryProxy.owner();
         vm.prank(owner);
-        chainDeployOutput1.disputeGameFactoryProxy.setImplementation(
-            GameTypes.PERMISSIONED_CANNON, IDisputeGame(payable(address(0)))
-        );
+        chainDeployOutput1.disputeGameFactoryProxy
+            .setImplementation(GameTypes.PERMISSIONED_CANNON, IDisputeGame(payable(address(0))));
 
         // Create the input for the function call.
         Claim prestate = Claim.wrap(bytes32(hex"ABBA"));
@@ -1171,14 +1167,12 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
         assertTrue(success, "updatePrestate failed");
 
         LibGameArgs.GameArgs memory permissionedGameArgs = LibGameArgs.decode(
-            IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory()).gameArgs(
-                GameTypes.SUPER_PERMISSIONED_CANNON
-            )
+            IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory())
+                .gameArgs(GameTypes.SUPER_PERMISSIONED_CANNON)
         );
         LibGameArgs.GameArgs memory cannonGameArgs = LibGameArgs.decode(
-            IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory()).gameArgs(
-                GameTypes.SUPER_CANNON
-            )
+            IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory())
+                .gameArgs(GameTypes.SUPER_CANNON)
         );
 
         // Check the prestate values.
@@ -1275,9 +1269,8 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
         // Clear out the PermissionedDisputeGame implementation.
         address owner = chainDeployOutput1.disputeGameFactoryProxy.owner();
         vm.prank(owner);
-        chainDeployOutput1.disputeGameFactoryProxy.setImplementation(
-            GameTypes.PERMISSIONED_CANNON, IDisputeGame(payable(address(0)))
-        );
+        chainDeployOutput1.disputeGameFactoryProxy
+            .setImplementation(GameTypes.PERMISSIONED_CANNON, IDisputeGame(payable(address(0))));
 
         // Create the input for the function call.
         Claim cannonPrestate = Claim.wrap(bytes32(hex"ABBA"));
@@ -1296,8 +1289,9 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
             address(prestateUpdater).delegatecall(abi.encodeCall(IOPContractsManager.updatePrestate, (inputs)));
         assertTrue(success, "updatePrestate failed");
 
-        LibGameArgs.GameArgs memory permissionedGameArgs =
-            LibGameArgs.decode(chainDeployOutput1.disputeGameFactoryProxy.gameArgs(GameTypes.SUPER_PERMISSIONED_CANNON));
+        LibGameArgs.GameArgs memory permissionedGameArgs = LibGameArgs.decode(
+            chainDeployOutput1.disputeGameFactoryProxy.gameArgs(GameTypes.SUPER_PERMISSIONED_CANNON)
+        );
         LibGameArgs.GameArgs memory cannonGameArgs =
             LibGameArgs.decode(chainDeployOutput1.disputeGameFactoryProxy.gameArgs(GameTypes.SUPER_CANNON));
         LibGameArgs.GameArgs memory cannonKonaGameArgs =
@@ -1442,8 +1436,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_absolutePrestateOverride_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-        ).absolutePrestate();
+                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+            ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1479,8 +1473,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_absolutePrestateNotSet_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-        ).absolutePrestate();
+                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+            ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1513,8 +1507,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_cannonPrestateNotSet_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-        ).absolutePrestate();
+                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+            ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1548,8 +1542,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_cannonKonaPrestateNotSet_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-        ).absolutePrestate();
+                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+            ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1717,16 +1711,16 @@ contract OPContractsManager_Migrate_Test is OPContractsManager_TestInit {
 
     /// @notice Helper function to create the default migration input.
     function _getDefaultInput() internal view returns (IOPContractsManagerInteropMigrator.MigrateInput memory) {
-        IOPContractsManagerInteropMigrator.GameParameters memory gameParameters = IOPContractsManagerInteropMigrator
-            .GameParameters({
-            proposer: address(1234),
-            challenger: address(5678),
-            maxGameDepth: 73,
-            splitDepth: 30,
-            initBond: 1 ether,
-            clockExtension: Duration.wrap(10800),
-            maxClockDuration: Duration.wrap(302400)
-        });
+        IOPContractsManagerInteropMigrator.GameParameters memory gameParameters =
+            IOPContractsManagerInteropMigrator.GameParameters({
+                proposer: address(1234),
+                challenger: address(5678),
+                maxGameDepth: 73,
+                splitDepth: 30,
+                initBond: 1 ether,
+                clockExtension: Duration.wrap(10800),
+                maxClockDuration: Duration.wrap(302400)
+            });
 
         IOPContractsManager.OpChainConfig[] memory opChainConfigs = new IOPContractsManager.OpChainConfig[](2);
         opChainConfigs[0] = IOPContractsManager.OpChainConfig(
@@ -2323,15 +2317,13 @@ contract OPContractsManager_Deploy_Test is DeployOPChain_TestBase, DisputeGames 
         Claim claim = Claim.wrap(bytes32(uint256(9876)));
         uint256 l2BlockNumber = uint256(123);
         IPermissionedDisputeGame pdg = IPermissionedDisputeGame(
-            payable(
-                createGame(
+            payable(createGame(
                     opcmOutput.disputeGameFactoryProxy,
                     GameTypes.PERMISSIONED_CANNON,
                     opcmInput.roles.proposer,
                     claim,
                     l2BlockNumber
-                )
-            )
+                ))
         );
 
         // Verify immutable fields on the game proxy

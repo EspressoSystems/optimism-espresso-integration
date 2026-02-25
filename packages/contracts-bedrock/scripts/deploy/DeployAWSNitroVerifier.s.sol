@@ -98,10 +98,7 @@ contract DeployAWSNitroVerifier is Script {
     /// @notice Deploys ProxyAdmin and Proxy contracts
     /// @param labelPrefix Prefix for vm.label (e.g., "Mock" or "")
     /// @return deployment Struct containing the deployed ProxyAdmin and Proxy
-    function deployProxyInfrastructure(string memory labelPrefix)
-        internal
-        returns (ProxyDeployment memory deployment)
-    {
+    function deployProxyInfrastructure(string memory labelPrefix) internal returns (ProxyDeployment memory deployment) {
         vm.broadcast(msg.sender);
         deployment.proxyAdmin = IProxyAdmin(
             DeployUtils.create1({
@@ -112,14 +109,12 @@ contract DeployAWSNitroVerifier is Script {
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
         vm.broadcast(msg.sender);
-        deployment.proxy = payable(
-            DeployUtils.create1({
+        deployment.proxy = payable(DeployUtils.create1({
                 _name: "src/universal/Proxy.sol:Proxy",
                 _args: DeployUtils.encodeConstructor(
                     abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
                 )
-            })
-        );
+            }));
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 
         vm.broadcast(msg.sender);
