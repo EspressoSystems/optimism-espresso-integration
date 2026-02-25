@@ -398,11 +398,14 @@ contract L1ERC721Bridge_Uncategorized_Test is L1ERC721Bridge_TestInit {
         vm.expectEmit(true, true, true, true);
         emit ERC721BridgeInitiated(address(localToken), address(remoteToken), alice, alice, tokenId, hex"5678");
 
-        // Set alice to have 7702 code.
+        // Set alice to have 7702 code. In forge 1.2.3+, vm.etch with EF0100-prefix triggers EIP-7702
+        // semantics where extcodesize returns the delegate's code size (0 for address(0)) rather than
+        // the 23-byte designation length. A 7702 EOA calling a contract directly always has
+        // msg.sender == tx.origin, so prank both to match real-world behavior.
         vm.etch(alice, abi.encodePacked(hex"EF0100", address(0)));
 
         // Bridge the token.
-        vm.prank(alice);
+        vm.prank(alice, alice);
         l1ERC721Bridge.bridgeERC721(address(localToken), address(remoteToken), tokenId, 1234, hex"5678");
 
         // Token is locked in the bridge.
