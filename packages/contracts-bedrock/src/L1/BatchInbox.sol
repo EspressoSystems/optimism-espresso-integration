@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.15;
 
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 

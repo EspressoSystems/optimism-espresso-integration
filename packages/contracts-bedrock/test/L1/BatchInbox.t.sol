@@ -8,7 +8,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
-import { Proxy } from "src/universal/Proxy.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
@@ -29,7 +28,7 @@ contract TestBatchAuthenticator is BatchAuthenticator {
 contract BatchInbox_Test is Test {
     BatchInbox public inbox;
     TestBatchAuthenticator public authenticator;
-    Proxy public proxy;
+    address payable public proxy;
     IProxyAdmin public proxyAdmin;
 
     MockEspressoTEEVerifier public teeVerifier;
@@ -54,7 +53,16 @@ contract BatchInbox_Test is Test {
             }
             proxyAdmin = IProxyAdmin(addr);
         }
-        proxy = new Proxy(address(proxyAdmin));
+        {
+            bytes memory proxyCode = vm.getCode("src/universal/Proxy.sol:Proxy");
+            bytes memory proxyArgs = abi.encode(address(proxyAdmin));
+            bytes memory proxyInitCode = abi.encodePacked(proxyCode, proxyArgs);
+            address proxyAddr;
+            assembly {
+                proxyAddr := create(0, add(proxyInitCode, 0x20), mload(proxyInitCode))
+            }
+            proxy = payable(proxyAddr);
+        }
         vm.prank(deployer);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
         bytes memory initData = abi.encodeCall(

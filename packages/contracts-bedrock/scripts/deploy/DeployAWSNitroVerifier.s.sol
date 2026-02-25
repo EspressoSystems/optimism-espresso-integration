@@ -10,7 +10,6 @@ import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
-import { Proxy } from "src/universal/Proxy.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 contract DeployAWSNitroVerifierInput is BaseDeployIO {
@@ -88,7 +87,7 @@ contract DeployAWSNitroVerifierOutput is BaseDeployIO {
 contract DeployAWSNitroVerifier is Script {
     struct ProxyDeployment {
         IProxyAdmin proxyAdmin;
-        Proxy proxy;
+        address payable proxy;
     }
 
     function run(DeployAWSNitroVerifierInput input, DeployAWSNitroVerifierOutput output) public {
@@ -113,15 +112,13 @@ contract DeployAWSNitroVerifier is Script {
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
         vm.broadcast(msg.sender);
-        deployment.proxy = Proxy(
-            payable(
-                DeployUtils.create1({
-                    _name: "Proxy",
-                    _args: DeployUtils.encodeConstructor(
-                        abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
-                    )
-                })
-            )
+        deployment.proxy = payable(
+            DeployUtils.create1({
+                _name: "src/universal/Proxy.sol:Proxy",
+                _args: DeployUtils.encodeConstructor(
+                    abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
+                )
+            })
         );
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 

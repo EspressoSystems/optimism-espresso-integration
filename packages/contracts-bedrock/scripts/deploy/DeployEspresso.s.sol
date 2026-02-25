@@ -13,7 +13,6 @@ import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspress
 import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
-import { Proxy } from "src/universal/Proxy.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
@@ -165,13 +164,11 @@ contract DeployEspresso is Script {
         );
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         vm.broadcast(msg.sender);
-        Proxy proxy = Proxy(
-            payable(
-                DeployUtils.create1({
-                    _name: "Proxy",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
-                })
-            )
+        address payable proxy = payable(
+            DeployUtils.create1({
+                _name: "src/universal/Proxy.sol:Proxy",
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
+            })
         );
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
@@ -270,13 +267,11 @@ contract DeployEspresso is Script {
 
         // 2. Deploy the Proxy
         vm.broadcast(msg.sender);
-        Proxy proxy = Proxy(
-            payable(
-                DeployUtils.create1({
-                    _name: "Proxy",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
-                })
-            )
+        address payable proxy = payable(
+            DeployUtils.create1({
+                _name: "src/universal/Proxy.sol:Proxy",
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
+            })
         );
         vm.label(address(proxy), "TEEVerifierProxy");
 
