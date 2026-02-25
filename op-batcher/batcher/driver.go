@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	config "github.com/ethereum-optimism/optimism/op-batcher/config"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -879,9 +880,36 @@ func (l *BatchSubmitter) waitNodeSync() error {
 	return dial.WaitRollupSync(l.shutdownCtx, l.Log, rollupClient, l1TargetBlock, time.Second*12)
 }
 
+// isActiveBatcher returns true if this batcher is currently the active one according to
+// the BatchAuthenticator contract. If the contract address is not set or the query fails,
+// it returns true (fail-open so the batcher continues publishing).
+func (l *BatchSubmitter) isActiveBatcher(ctx context.Context) bool {
+	batchAuthAddr := l.RollupConfig.BatchAuthenticatorAddress
+	if batchAuthAddr == (common.Address{}) {
+		return true
+	}
+	caller, err := bindings.NewBatchAuthenticatorCaller(batchAuthAddr, l.L1Client)
+	if err != nil {
+		l.Log.Warn("Failed to create BatchAuthenticator caller, assuming active", "err", err)
+		return true
+	}
+	cCtx, cancel := context.WithTimeout(ctx, l.Config.NetworkTimeout)
+	defer cancel()
+	activeIsTee, err := caller.ActiveIsTee(&bind.CallOpts{Context: cCtx})
+	if err != nil {
+		l.Log.Warn("Failed to query BatchAuthenticator.activeIsTee, assuming active", "err", err)
+		return true
+	}
+	return activeIsTee == l.Config.UseEspresso
+}
+
 // publishStateToL1 queues up all pending TxData to be published to the L1, returning when there is no more data to
 // queue for publishing or if there was an error queuing the data.
 func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], daGroup *errgroup.Group, pi pubInfo) {
+	if !l.isActiveBatcher(ctx) {
+		l.Log.Debug("Not the active batcher per BatchAuthenticator, skipping publish")
+		return
+	}
 	for {
 		select {
 		case <-ctx.Done():
