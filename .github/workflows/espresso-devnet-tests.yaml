@@ -33,6 +33,16 @@ jobs:
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
     steps:
+      - name: Free disk space
+        run: |
+          # Remove pre-installed software that is not needed for this workflow.
+          # The ubuntu-24.04 runner ships with Android SDK, .NET, Haskell, etc.
+          # that together consume 20+ GB of disk space.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+                      "$AGENT_TOOLSDIRECTORY"
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -91,6 +101,14 @@ jobs:
         run: |
           cd espresso
           COMPOSE_PROFILES=tee docker compose build
+
+      - name: Prune Docker build cache
+        run: |
+          # Free up disk space used by the Docker build cache and dangling images
+          # so that docker compose up has enough room to create container layers.
+          docker builder prune -f
+          docker image prune -f
+          df -h
 
       # Shorter outage/liveness for group 1 (TestSmokeWithoutTEE, TestBatcherRestart) to stay under 30m timeout
       - name: Set shorter periods for group 1
