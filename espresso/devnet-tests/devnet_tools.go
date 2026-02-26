@@ -103,8 +103,8 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 }
 
 // resolveComposeDir returns the absolute path to the directory containing
-// docker-compose.yml (espresso/). CI runs "go test" from repo root, so we must
-// run "docker compose" from espresso/ or it will not find the file.
+// docker-compose.yml (espresso/). Tries multiple locations: repo root when
+// cwd is repo root, or parent of cwd when cwd is espresso/devnet-tests/ (e.g. in CI).
 func resolveComposeDir() (string, error) {
 	if dir := os.Getenv("ESPRESSO_DEVNET_COMPOSE_DIR"); dir != "" {
 		abs, err := filepath.Abs(dir)
@@ -117,15 +117,26 @@ func resolveComposeDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("getwd: %w", err)
 	}
+	// 1) cwd is repo root: espresso/docker-compose.yml
 	composePath := filepath.Join(cwd, "espresso", "docker-compose.yml")
 	if _, err := os.Stat(composePath); err == nil {
 		return filepath.Join(cwd, "espresso"), nil
 	}
-	// Fallback: we might be running from espresso/ (e.g. "cd espresso && go test ./devnet-tests/")
-	if _, err := os.Stat("docker-compose.yml"); err == nil {
+	// 2) cwd is espresso/: docker-compose.yml
+	if _, err := os.Stat(filepath.Join(cwd, "docker-compose.yml")); err == nil {
 		return cwd, nil
 	}
-	return "", fmt.Errorf("espresso docker-compose not found (looked for %s and ./docker-compose.yml); run tests from repo root or set ESPRESSO_DEVNET_COMPOSE_DIR", composePath)
+	// 3) cwd is espresso/devnet-tests/: ../docker-compose.yml (common in CI)
+	parentCompose := filepath.Join(cwd, "..", "docker-compose.yml")
+	if _, err := os.Stat(parentCompose); err == nil {
+		abs, err := filepath.Abs(filepath.Join(cwd, ".."))
+		if err != nil {
+			return "", fmt.Errorf("resolve parent dir: %w", err)
+		}
+		return abs, nil
+	}
+	return "", fmt.Errorf("espresso docker-compose not found (looked for %s, %s, %s); run tests from repo root or set ESPRESSO_DEVNET_COMPOSE_DIR",
+		composePath, filepath.Join(cwd, "docker-compose.yml"), parentCompose)
 }
 
 // composeCmd returns an exec.Cmd for "docker compose" with Dir set to the compose directory.
