@@ -142,18 +142,39 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		}
 	}
 
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "up", "-d",
-	)
-	cmd.Env = append(os.Environ(),
-		"COMPOSE_PROFILES="+string(profile),
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-	)
-	buf := new(bytes.Buffer)
-	cmd.Stderr = buf
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to start docker compose (%w): %s", err, buf.String())
+	// docker compose up can be killed by the OOM killer if the runner is under
+	// memory pressure (e.g. shared CI host). Retry once after a brief pause to
+	// let the system recover before giving up.
+	var upErr error
+	var upStderr string
+	for attempt := 1; attempt <= 2; attempt++ {
+		if d.ctx.Err() != nil {
+			return fmt.Errorf("context cancelled before docker compose up: %w", d.ctx.Err())
+		}
+		if attempt > 1 {
+			log.Info("retrying docker compose up after failure", "attempt", attempt, "prev_error", upErr)
+			sleepContext(d.ctx, 10*time.Second)
+			// Clean up any partial network/container state from the failed attempt.
+			cleanCmd := exec.Command("docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10")
+			cleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+			_ = cleanCmd.Run()
+		}
+		cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d")
+		cmd.Env = append(os.Environ(),
+			"COMPOSE_PROFILES="+string(profile),
+			fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+		)
+		buf := new(bytes.Buffer)
+		cmd.Stderr = buf
+		upErr = cmd.Run()
+		upStderr = buf.String()
+		if upErr == nil {
+			break
+		}
+		log.Info("docker compose up attempt failed", "attempt", attempt, "error", upErr)
+	}
+	if upErr != nil {
+		return fmt.Errorf("failed to start docker compose (%w): %s", upErr, upStderr)
 	}
 
 	// Shut down the now-running devnet if we exit this function with an error (in which case the
@@ -179,7 +200,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
 		// the context is cancelled.
 		go func() {
-			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
+			cmd := exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
 			cmd.Stdout = os.Stdout
 			// We don't care about the error return of this command, since it's always going to be
 			// killed by the context cancellation.

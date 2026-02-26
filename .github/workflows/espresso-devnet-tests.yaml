@@ -43,6 +43,16 @@ jobs:
                       "$AGENT_TOOLSDIRECTORY"
           df -h
 
+      - name: Set up swap space
+        run: |
+          # Add 8 GB of swap so that Docker container creation doesn't OOM-kill
+          # docker compose when the runner is under memory pressure.
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
