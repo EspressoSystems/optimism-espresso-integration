@@ -41,7 +41,7 @@ devnet-batcher-active-publish-only-test: build-devnet
 build-devnet: stop-containers compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)
-  (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
+  (cd espresso && ./scripts/prepare-allocs.sh && COMPOSE_PROFILES=default docker compose build)
 
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...

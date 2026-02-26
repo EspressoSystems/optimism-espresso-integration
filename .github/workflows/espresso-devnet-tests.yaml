@@ -100,7 +100,7 @@ jobs:
           just fix-proxy-artifact
           cd ../../espresso
           ./scripts/prepare-allocs.sh
-          docker compose build
+          COMPOSE_PROFILES=default docker compose build
           docker compose pull \
             l1-data-init l1-validator l1-beacon \
             eigenda-proxy succinct-proposer succinct-challenger \
