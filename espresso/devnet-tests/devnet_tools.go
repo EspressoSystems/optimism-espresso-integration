@@ -142,18 +142,10 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		}
 	}
 
-	upArgs := []string{"compose", "up", "-d"}
-	if profile == NON_TEE {
-		// Blockscout is a heavy monitoring stack not needed for devnet tests.
-		// It only exists in the "default" profile; scaling it to 0 reduces
-		// memory pressure and avoids OOM kills during test startup.
-		upArgs = append(upArgs,
-			"--scale", "blockscout=0",
-			"--scale", "blockscout-frontend=0",
-			"--scale", "blockscout-db=0",
-		)
-	}
-	cmd := exec.CommandContext(d.ctx, "docker", upArgs...)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "up", "-d",
+	)
 	cmd.Env = append(os.Environ(),
 		"COMPOSE_PROFILES="+string(profile),
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),

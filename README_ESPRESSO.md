@@ -417,6 +417,12 @@ For a selection of important metrics to monitor for and corresponding log lines 
 
 Blockscout is a block explorer that reads from the sequencer node. It can be accessed at `http://localhost:3000`.
 
+Blockscout is part of the `monitoring` compose profile. To start it alongside the rest of the devnet:
+
+```console
+COMPOSE_PROFILES=default,monitoring docker compose up --build -d
+```
+
 ## Continuous Integration environment
 
 ### Running enclave tests in EC2
