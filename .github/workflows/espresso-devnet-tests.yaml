@@ -77,7 +77,10 @@ jobs:
 
       - name: Compile contracts
         working-directory: packages/contracts-bedrock
-        run: just build
+        run: |
+          # Retry once on failure: forge/SVM occasionally hits ETXTBSY (os error 26)
+          # when solc is still being written to the cache by a concurrent process.
+          just build || (sleep 5 && just build)
 
       - name: Load environment variables
         run: |

@@ -27,7 +27,7 @@ services:
       context: ../
       dockerfile: espresso/docker/l1-geth/Dockerfile
     image: l1-geth:espresso
-    command: ["true"]
+    entrypoint: ["true"]
 
   l1-genesis:
     user: ${U_ID:-1000}:${GID:-1000}
@@ -134,7 +134,7 @@ services:
       context: ../
       dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
-    command: ["true"]
+    entrypoint: ["true"]
 
   l2-rollup:
     restart: on-failure
@@ -170,6 +170,7 @@ services:
     environment:
       - MODE=genesis
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
+      - HOME=/tmp
     volumes:
       - ./deployment/l2-config:/config
       - ./deployment/deployer:/deployer:ro
