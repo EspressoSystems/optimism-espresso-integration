@@ -159,15 +159,17 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 			cleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
 			_ = cleanCmd.Run()
 		}
-		cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d")
+		cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d", "--pull=never")
 		cmd.Env = append(os.Environ(),
 			"COMPOSE_PROFILES="+string(profile),
 			fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
 		)
-		buf := new(bytes.Buffer)
-		cmd.Stderr = buf
+		outBuf := new(bytes.Buffer)
+		errBuf := new(bytes.Buffer)
+		cmd.Stdout = outBuf
+		cmd.Stderr = errBuf
 		upErr = cmd.Run()
-		upStderr = buf.String()
+		upStderr = fmt.Sprintf("stdout: %s\nstderr: %s", outBuf.String(), errBuf.String())
 		if upErr == nil {
 			break
 		}
