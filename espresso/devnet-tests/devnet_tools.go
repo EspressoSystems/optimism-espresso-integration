@@ -145,8 +145,13 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	// docker compose up can be killed by the OOM killer if the runner is under
 	// memory pressure (e.g. shared CI host). Retry once after a brief pause to
 	// let the system recover before giving up.
+	//
+	// Use an independent 10-minute sub-context so that a stuck "docker compose up"
+	// (e.g. a service health-check cycling forever) is killed and its partial
+	// output is captured before the outer test context expires and swallows the
+	// diagnostic information.
 	var upErr error
-	var upStderr string
+	var upOutput string
 	for attempt := 1; attempt <= 2; attempt++ {
 		if d.ctx.Err() != nil {
 			return fmt.Errorf("context cancelled before docker compose up: %w", d.ctx.Err())
@@ -159,24 +164,28 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 			cleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
 			_ = cleanCmd.Run()
 		}
-		cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d", "--pull=never")
+		upCtx, upCancel := context.WithTimeout(d.ctx, 10*time.Minute)
+		cmd := exec.CommandContext(upCtx, "docker", "compose", "up", "-d", "--pull=never")
 		cmd.Env = append(os.Environ(),
 			"COMPOSE_PROFILES="+string(profile),
 			fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
 		)
+		// Stream output in real-time so CI logs show progress, and also capture
+		// it for the error message if the command fails.
 		outBuf := new(bytes.Buffer)
 		errBuf := new(bytes.Buffer)
-		cmd.Stdout = outBuf
-		cmd.Stderr = errBuf
+		cmd.Stdout = io.MultiWriter(os.Stdout, outBuf)
+		cmd.Stderr = io.MultiWriter(os.Stderr, errBuf)
 		upErr = cmd.Run()
-		upStderr = fmt.Sprintf("stdout: %s\nstderr: %s", outBuf.String(), errBuf.String())
+		upCancel()
+		upOutput = fmt.Sprintf("stdout: %s\nstderr: %s", outBuf.String(), errBuf.String())
 		if upErr == nil {
 			break
 		}
-		log.Info("docker compose up attempt failed", "attempt", attempt, "error", upErr)
+		log.Info("docker compose up attempt failed", "attempt", attempt, "error", upErr, "output", upOutput)
 	}
 	if upErr != nil {
-		return fmt.Errorf("failed to start docker compose (%w): %s", upErr, upStderr)
+		return fmt.Errorf("failed to start docker compose (%w): %s", upErr, upOutput)
 	}
 
 	// Shut down the now-running devnet if we exit this function with an error (in which case the
