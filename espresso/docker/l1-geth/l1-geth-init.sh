@@ -27,18 +27,36 @@ if [[ "$MODE" == "genesis" ]]; then
       fi
   fi
 
-  echo "Updating genesis timestamp..."
-  dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+  # eth-beacon-genesis devnet is very slow (10+ min on CI) because it must
+  # compute the full EL state trie from the large op-deployer genesis.json.
+  # The CI pre-generates genesis.ssz before running tests; skip this step
+  # when the file already exists. On fresh environments the slow path runs.
+  if [[ ! -f "/config/genesis.ssz" ]]; then
+    echo "Updating genesis timestamp..."
+    dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
 
-  echo "Generating consensus layer genesis..."
-  eth-beacon-genesis devnet \
-                    --quiet \
-                    --eth1-config "/config/genesis.json" \
-                    --config "/templates/beacon-config.yaml" \
-                    --mnemonics "/templates/mnemonics.yaml" \
-                    --state-output "/config/genesis.ssz"
-  cp -r /templates/beacon-config.yaml /config/config.yaml
+    echo "Generating consensus layer genesis..."
+    eth-beacon-genesis devnet \
+                      --quiet \
+                      --eth1-config "/config/genesis.json" \
+                      --config "/templates/beacon-config.yaml" \
+                      --mnemonics "/templates/mnemonics.yaml" \
+                      --state-output "/config/genesis.ssz"
+    cp -r /templates/beacon-config.yaml /config/config.yaml
 
+    if [[ ! -f "/config/jwt.txt" ]]; then
+      echo "Generating JWT secret..."
+      openssl rand -hex 32 > "/config/jwt.txt"
+    fi
+
+    echo "0" > /config/deposit_contract_block.txt
+    echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
+  else
+    echo "Beacon genesis already exists, skipping slow generation..."
+  fi
+
+  # Validator keystores must always be regenerated: they are copied to the
+  # l1-data Docker volume (/data) which is cleared on every `docker compose down -v`.
   echo "Generating validator keys..."
   rm -rf /config/keystore && \
   eth2-val-tools keystores --out-loc /config/keystore \
@@ -49,14 +67,6 @@ if [[ "$MODE" == "genesis" ]]; then
   mkdir -p /data/lighthouse-validator/validators
   cp -r /config/keystore/keys/* /data/lighthouse-validator/validators/
   cp -r /config/keystore/secrets/ /data/lighthouse-validator/
-
-  if [[ ! -f "/config/jwt.txt" ]]; then
-      echo "Generating JWT secret..."
-      openssl rand -hex 32 > "/config/jwt.txt"
-  fi
-
-  echo "0" > /config/deposit_contract_block.txt
-  echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
 
   echo "Genesis initialization complete"
   exit 0

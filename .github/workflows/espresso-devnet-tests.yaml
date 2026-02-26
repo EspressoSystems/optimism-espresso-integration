@@ -112,6 +112,28 @@ jobs:
           cd espresso
           COMPOSE_PROFILES=tee docker compose build
 
+      - name: Pre-generate L1 beacon genesis
+        working-directory: espresso
+        run: |
+          # eth-beacon-genesis devnet computes the full EL state trie from the
+          # large op-deployer genesis.json (all OP Stack + Espresso contracts).
+          # On CI this takes 10+ minutes inside the l1-genesis container.
+          # Pre-generate genesis.ssz here using the Nix-provided tools so that
+          # l1-genesis skips this slow step and starts in seconds during tests.
+          dasel put -f deployment/l1-config/genesis.json -s .timestamp \
+            -v $(printf '0x%x' $(date +%s))
+          eth-beacon-genesis devnet \
+            --quiet \
+            --eth1-config deployment/l1-config/genesis.json \
+            --config docker/l1-geth/beacon-config.yaml \
+            --mnemonics docker/l1-geth/mnemonics.yaml \
+            --state-output deployment/l1-config/genesis.ssz
+          cp docker/l1-geth/beacon-config.yaml deployment/l1-config/config.yaml
+          openssl rand -hex 32 > deployment/l1-config/jwt.txt
+          echo 0 > deployment/l1-config/deposit_contract_block.txt
+          echo 0x00000000219ab540356cBB839Cbe05303d7705Fa \
+            > deployment/l1-config/deposit_contract.txt
+
       - name: Prune Docker build cache
         run: |
           # Free up disk space used by the Docker build cache and dangling images
