@@ -206,8 +206,12 @@ func init() {
 	// which reduces CI performance.
 	oplog.SetGlobalLogHandler(errHandler)
 
-	for _, allocType := range allocTypes {
-		initAllocType(root, allocType)
+	// Skip alloc generation when only running espresso devnet tests (they use docker devnet
+	// and do not use L1Allocs/L2Allocs/DeployConfig). Set OP_E2E_SKIP_ALLOC_GEN=1 to enable.
+	if os.Getenv("OP_E2E_SKIP_ALLOC_GEN") != "1" {
+		for _, allocType := range allocTypes {
+			initAllocType(root, allocType)
+		}
 	}
 
 	// Use regular level going forward.

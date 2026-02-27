@@ -21,7 +21,8 @@ func TestChangeBatchInboxOwner(t *testing.T) {
 	err := LoadDevnetEnv()
 	require.NoError(t, err, "Failed to load .env file")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	// 25 min: group 0 runs after TestChallengeGame; devnet bring-up can be slow under CI load.
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)

@@ -108,6 +108,8 @@ func (af *ArtifactsFS) ListContracts(name string) ([]string, error) {
 // The name of the artifact is the source-file name, this must include the suffix such as ".sol".
 // If name contains a path (e.g. "legacy/AddressManager.sol"), the full path is tried first;
 // if that fails, a fallback to the base name (e.g. "AddressManager.sol") is tried for flat artifact layouts.
+// If that also fails, the FS is walked to find any path ending with name/contract.json (for nested layouts
+// e.g. scripts/deploy/DeployAlphabetVM.s.sol/DeployAlphabetVM.json).
 func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, error) {
 	artifactPath := path.Join(name, contract+".json")
 	f, err := af.FS.Open(artifactPath)
@@ -118,7 +120,15 @@ func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, er
 			f, err = af.FS.Open(artifactPath)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
+			// Fallback for nested layouts (e.g. embedded: scripts/deploy/DeployAlphabetVM.s.sol/DeployAlphabetVM.json)
+			artifactPath, err = af.findArtifactPath(name, contract+".json")
+			if err != nil {
+				return nil, fmt.Errorf("failed to open artifact %s/%s: %w", name, contract, err)
+			}
+			f, err = af.FS.Open(artifactPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
+			}
 		}
 	}
 	defer f.Close()
@@ -128,4 +138,42 @@ func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, er
 		return nil, fmt.Errorf("failed to decode artifact %q: %w", name, err)
 	}
 	return &out, nil
+}
+
+// findArtifactPath walks the FS to find a path ending with artifactName/contractFile (e.g. DeployAlphabetVM.s.sol/DeployAlphabetVM.json).
+// Supports both flat layout (File.s.sol/Contract.json at root) and nested (e.g. scripts/deploy/File.s.sol/Contract.json).
+func (af *ArtifactsFS) findArtifactPath(artifactName, contractFile string) (string, error) {
+	target := path.Join(artifactName, contractFile)
+	var found string
+	err := fs.WalkDir(af.FS, ".", func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		// Normalize: fs paths use "/" but path.Dir/Base handle both
+		clean := path.Clean(p)
+		if clean != p {
+			p = clean
+		}
+		// Exact match or path ending with artifactName/contractFile
+		if p == target || strings.HasSuffix(p, "/"+target) {
+			found = p
+			return fs.SkipAll
+		}
+		// Nested layout: .../artifactName/contractFile (e.g. scripts/deploy/DeployAlphabetVM.s.sol/DeployAlphabetVM.json)
+		if strings.HasSuffix(p, "/"+contractFile) && path.Base(path.Dir(p)) == artifactName {
+			found = p
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if err != nil && err != fs.SkipAll {
+		return "", err
+	}
+	if found == "" {
+		return "", fmt.Errorf("no path ending with %s", target)
+	}
+	return found, nil
 }

@@ -179,6 +179,9 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    restart: on-failure
+    hostname: op-geth-sequencer
+    container_name: op-geth-sequencer
     volumes:
       - op-data-seq:/data
     ports:
@@ -189,6 +192,9 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    restart: on-failure
+    hostname: op-geth-verifier
+    container_name: op-geth-verifier
     volumes:
       - op-data-verifier:/data
     ports:
@@ -199,6 +205,7 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    restart: on-failure
     volumes:
       - op-data-caff-node:/data
     ports:
@@ -210,6 +217,7 @@ services:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
+    restart: on-failure
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:${ROLLUP_PORT}" ]
       interval: 3s
@@ -231,7 +239,7 @@ services:
       OP_NODE_L2_ENGINE_RPC: http://op-geth-sequencer:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${ROLLUP_PORT}
       OP_NODE_SAFEDB_PATH: /data/safedb
-      OP_NODE_ALTDA_ENABLED: "true"
+      OP_NODE_ALTDA_ENABLED: "false"
       OP_NODE_ALTDA_DA_SERVICE: "true"
       OP_NODE_ALTDA_VERIFY_ON_READ: "false"
       OP_NODE_ALTDA_DA_SERVER: http://eigenda-proxy:3100
@@ -251,6 +259,7 @@ services:
       - --sequencer.enabled=true
       - --sequencer.use-finalized=true
       - --rpc.addr=0.0.0.0
+      - --l1.trustrpc=true
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
@@ -260,6 +269,7 @@ services:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
+    restart: on-failure
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:${VERIFIER_PORT}" ]
       interval: 3s
@@ -281,7 +291,7 @@ services:
       OP_NODE_L1_BEACON: http://l1-beacon:${L1_BEACON_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-verifier:${OP_ENGINE_PORT}
       OP_NODE_RPC_PORT: ${VERIFIER_PORT}
-      OP_NODE_ALTDA_ENABLED: "true"
+      OP_NODE_ALTDA_ENABLED: "false"
       OP_NODE_ALTDA_DA_SERVICE: "true"
       OP_NODE_ALTDA_VERIFY_ON_READ: "false"
       OP_NODE_ALTDA_DA_SERVER: http://eigenda-proxy:3100
@@ -297,6 +307,7 @@ services:
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
       - --rpc.addr=0.0.0.0
+      - --l1.trustrpc=true
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
       - --p2p.disable=true
