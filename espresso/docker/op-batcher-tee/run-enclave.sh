@@ -42,6 +42,13 @@ fi
 
 export BATCH_AUTHENTICATOR_ADDRESS
 
+# Get light client address from env var
+if [ -n "$ESPRESSO_LIGHT_CLIENT_ADDR" ]; then
+    echo "Using ESPRESSO_LIGHT_CLIENT_ADDR from environment variable"
+else
+    echo "ESPRESSO_LIGHT_CLIENT_ADDR not set, using default"
+fi
+
 echo "=== Enclave Batcher Configuration ==="
 echo "Deployment Mode: $DEPLOYMENT_MODE"
 echo "L1 RPC URL: $L1_RPC_URL"
@@ -51,6 +58,7 @@ echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
 echo "Attestation service url: $ESPRESSO_ATTESTATION_SERVICE_URL"
 echo "EigenDA Proxy URL: $EIGENDA_PROXY_URL"
 echo "Batch Authenticator Address: ${BATCH_AUTHENTICATOR_ADDRESS:-[not set]}"
+echo "Light Client Address: ${ESPRESSO_LIGHT_CLIENT_ADDR:-0x303872bb82a191771321d4828888920100d0b3e4 (default)}"
 echo "Espresso Origin Height: $ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
 echo "L2 Origin Height: $ESPRESSO_ORIGIN_HEIGHT_L2"
 echo "Debug Mode: $ENCLAVE_DEBUG"
@@ -84,7 +92,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--throttle-threshold=0"
 BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=2"
 BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
 BATCHER_ARGS="$BATCHER_ARGS,--max-pending-tx=32"
-BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=${ESPRESSO_LIGHT_CLIENT_ADDR:-0x303872bb82a191771321d4828888920100d0b3e4}"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-server=$EIGENDA_PROXY_URL"
