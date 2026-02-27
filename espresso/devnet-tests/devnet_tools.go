@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opclient "github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -183,26 +184,14 @@ const (
 
 func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	d.composeProfile = profile
-	// If devnet is already running (e.g. leftover from a previous test in the same process,
-	// or CI run), tear it down and then start fresh so this test can proceed.
-	if d.isRunning() {
-		log.Info("devnet already running, tearing down before starting fresh")
-		if err := d.Down(); err != nil {
-			return fmt.Errorf("tearing down existing devnet: %w", err)
-		}
-		// Brief wait so docker compose has released resources before we start again.
-		for i := 0; i < 30; i++ {
-			if d.ctx.Err() != nil {
-				return fmt.Errorf("context cancelled while waiting for devnet to stop: %w", d.ctx.Err())
-			}
-			if !d.isRunning() {
-				break
-			}
-			sleepContext(d.ctx, time.Second)
-		}
-		if d.isRunning() {
-			return fmt.Errorf("devnet still running after Down(), shut it down manually")
-		}
+	// Always start from a clean compose state. If volumes persist while services are down,
+	// op-node may keep a stale safe head hash that op-geth does not have, leading to
+	// repeated "could not get payload: not found" loops.
+	log.Info("ensuring clean devnet state before startup")
+	cleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
+	cleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+	if cleanErr := cleanCmd.Run(); cleanErr != nil {
+		log.Warn("pre-up cleanup failed; continuing with startup", "err", cleanErr)
 	}
 
 	// docker compose up can be killed by the OOM killer if the runner is under
@@ -229,9 +218,9 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 			log.Info("retrying docker compose up after failure", "attempt", attempt, "prev_error", upErr)
 			sleepContext(d.ctx, 10*time.Second)
 			// Clean up any partial network/container state from the failed attempt.
-			cleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
-			cleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
-			_ = cleanCmd.Run()
+			retryCleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
+			retryCleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+			_ = retryCleanCmd.Run()
 		}
 		upCtx, upCancel := context.WithTimeout(d.ctx, upTimeout)
 		cmd := d.composeCmd(upCtx, "up", "-d", "--pull=never")
@@ -591,7 +580,7 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 		return nil, fmt.Errorf("sending L2 tx: %w", err)
 	}
 
-	receipt, err := wait.ForReceiptOK(ctx, d.L2Seq, tx.Hash())
+	receipt, err := d.waitForL2ReceiptOK(ctx, tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("waiting for L2 tx: %w", err)
 	}
@@ -602,6 +591,43 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 	log.Info("submitted transaction to sequencer", "hash", tx.Hash(), "receipt", receipt)
 
 	return receipt, nil
+}
+
+// waitForL2ReceiptOK polls for receipt availability and tolerates transient RPC transport
+// errors (e.g. connection reset) that can happen during short container restarts.
+func (d *Devnet) waitForL2ReceiptOK(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		receipt, err := d.L2Seq.TransactionReceipt(callCtx, txHash)
+		cancel()
+		if err == nil {
+			return receipt, nil
+		}
+
+		if errors.Is(err, ethereum.NotFound) || isTransientReceiptError(err) {
+			sleepContext(ctx, time.Second)
+			continue
+		}
+		return nil, err
+	}
+}
+
+func isTransientReceiptError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "transaction indexing is in progress") ||
+		strings.Contains(errStr, "connection reset by peer") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "eof") ||
+		strings.Contains(errStr, "timeout")
 }
 
 // Waits for a previously submitted transaction to be confirmed by the verifier.
