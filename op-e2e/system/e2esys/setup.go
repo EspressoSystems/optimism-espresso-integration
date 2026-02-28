@@ -1047,6 +1047,17 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		AltDA:                 altDACLIConfig,
 
 		Espresso: espressoCfg,
+
+		// Default throttle config so batcher (including in-enclave) never gets invalid lower/upper (0,0).
+		ThrottleConfig: bss.ThrottleConfig{
+			ControllerType:      batcherCfg.ThrottleControllerType(batcherFlags.DefaultThrottleControllerType),
+			LowerThreshold:      batcherFlags.DefaultThrottleLowerThreshold,
+			UpperThreshold:      batcherFlags.DefaultThrottleUpperThreshold,
+			TxSizeLowerLimit:    batcherFlags.DefaultThrottleTxSizeLowerLimit,
+			TxSizeUpperLimit:    batcherFlags.DefaultThrottleTxSizeUpperLimit,
+			BlockSizeLowerLimit: batcherFlags.DefaultThrottleBlockSizeLowerLimit,
+			BlockSizeUpperLimit: batcherFlags.DefaultThrottleBlockSizeUpperLimit,
+		},
 	}
 
 	// Apply batcher cli modifications
