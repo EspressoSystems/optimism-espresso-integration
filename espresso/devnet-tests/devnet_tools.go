@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -12,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,7 +22,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	opclient "github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -42,8 +39,6 @@ type Devnet struct {
 	secrets       secrets.Secrets
 	outageTime    time.Duration
 	successTime   time.Duration
-	composeDir    string         // absolute path to directory containing docker-compose.yml (espresso/)
-	composeProfile ComposeProfile // profile used for Up(), so port/ps/logs use same project
 	L1            *ethclient.Client
 	L2Seq         *ethclient.Client
 	L2SeqRollup   *sources.RollupClient
@@ -97,91 +92,15 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 		d.successTime = 10 * time.Second
 	}
 
-	d.composeDir, err = resolveComposeDir()
-	if err != nil {
-		panic(fmt.Sprintf("resolve compose dir: %v", err))
-	}
-
 	return d
-}
 
-// resolveComposeDir returns the absolute path to the directory containing
-// docker-compose.yml (espresso/). Tries multiple locations: repo root when
-// cwd is repo root, or parent of cwd when cwd is espresso/devnet-tests/ (e.g. in CI).
-func resolveComposeDir() (string, error) {
-	if dir := os.Getenv("ESPRESSO_DEVNET_COMPOSE_DIR"); dir != "" {
-		abs, err := filepath.Abs(dir)
-		if err != nil {
-			return "", fmt.Errorf("ESPRESSO_DEVNET_COMPOSE_DIR: %w", err)
-		}
-		return abs, nil
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("getwd: %w", err)
-	}
-	// 1) cwd is repo root: espresso/docker-compose.yml
-	composePath := filepath.Join(cwd, "espresso", "docker-compose.yml")
-	if _, err := os.Stat(composePath); err == nil {
-		return filepath.Join(cwd, "espresso"), nil
-	}
-	// 2) cwd is espresso/: docker-compose.yml
-	if _, err := os.Stat(filepath.Join(cwd, "docker-compose.yml")); err == nil {
-		return cwd, nil
-	}
-	// 3) cwd is espresso/devnet-tests/: ../docker-compose.yml (common in CI)
-	parentCompose := filepath.Join(cwd, "..", "docker-compose.yml")
-	if _, err := os.Stat(parentCompose); err == nil {
-		abs, err := filepath.Abs(filepath.Join(cwd, ".."))
-		if err != nil {
-			return "", fmt.Errorf("resolve parent dir: %w", err)
-		}
-		return abs, nil
-	}
-	return "", fmt.Errorf("espresso docker-compose not found (looked for %s, %s, %s); run tests from repo root or set ESPRESSO_DEVNET_COMPOSE_DIR",
-		composePath, filepath.Join(cwd, "docker-compose.yml"), parentCompose)
-}
-
-// composeCmd returns an exec.Cmd for "docker compose" with Dir set to the compose directory.
-// Uses d.composeProfile so port/ps/logs see the same services that were started with Up().
-func (d *Devnet) composeCmd(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "docker", append([]string{"compose"}, args...)...)
-	cmd.Dir = d.composeDir
-	if d.composeProfile != "" {
-		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(d.composeProfile))
-	}
-	return cmd
-}
-
-// composeCmdNoCtx is for commands that don't use context (e.g. clean-up).
-func (d *Devnet) composeCmdNoCtx(args ...string) *exec.Cmd {
-	cmd := exec.Command("docker", append([]string{"compose"}, args...)...)
-	cmd.Dir = d.composeDir
-	if d.composeProfile != "" {
-		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(d.composeProfile))
-	}
-	return cmd
-}
-
-func composeEnv(profile ComposeProfile) []string {
-	// Keep all post-Shanghai forks delayed so op-node/op-geth stay on
-	// the same pre-Cancun engine API path in devnet tests.
-	const delayedForkTime = "4102444800"
-	return append(os.Environ(),
-		"COMPOSE_PROFILES="+string(profile),
-		"L2_CANCUN_TIME="+delayedForkTime,
-		"L2_PRAGUE_TIME="+delayedForkTime,
-		"L2_ECOTONE_TIME="+delayedForkTime,
-		"L2_FJORD_TIME="+delayedForkTime,
-		"L2_GRANITE_TIME="+delayedForkTime,
-		"L2_HOLOCENE_TIME="+delayedForkTime,
-		"L2_ISTHMUS_TIME="+delayedForkTime,
-		"L2_JOVIAN_TIME="+delayedForkTime,
-	)
 }
 
 func (d *Devnet) isRunning() bool {
-	cmd := d.composeCmd(d.ctx, "ps", "-q")
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "ps", "-q",
+	)
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	if err := cmd.Run(); err != nil {
@@ -201,68 +120,40 @@ const (
 )
 
 func (d *Devnet) Up(profile ComposeProfile) (err error) {
-	d.composeProfile = profile
-	// Always start from a clean compose state. If volumes persist while services are down,
-	// op-node may keep a stale safe head hash that op-geth does not have, leading to
-	// repeated "could not get payload: not found" loops.
-	log.Info("ensuring clean devnet state before startup")
-	cleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
-	cleanCmd.Env = composeEnv(profile)
-	if cleanErr := cleanCmd.Run(); cleanErr != nil {
-		log.Warn("pre-up cleanup failed; continuing with startup", "err", cleanErr)
+	// If devnet is already running (e.g. leftover from a previous test in the same process,
+	// or CI run), tear it down and then start fresh so this test can proceed.
+	if d.isRunning() {
+		log.Info("devnet already running, tearing down before starting fresh")
+		if err := d.Down(); err != nil {
+			return fmt.Errorf("tearing down existing devnet: %w", err)
+		}
+		// Brief wait so docker compose has released resources before we start again.
+		for i := 0; i < 30; i++ {
+			if d.ctx.Err() != nil {
+				return fmt.Errorf("context cancelled while waiting for devnet to stop: %w", d.ctx.Err())
+			}
+			if !d.isRunning() {
+				break
+			}
+			sleepContext(d.ctx, time.Second)
+		}
+		if d.isRunning() {
+			return fmt.Errorf("devnet still running after Down(), shut it down manually")
+		}
 	}
 
-	// docker compose up can be killed by the OOM killer if the runner is under
-	// memory pressure (e.g. shared CI host), or by our timeout. Retry up to twice
-	// after a brief pause so the system can recover.
-	//
-	// Compose-up context is cancelled when (upTimeout elapsed) OR (test ctx done).
-	// So the test's context must be at least upTimeout (e.g. 25m) or compose up
-	// may be killed when the test context expires first. Override with
-	// ESPRESSO_DEVNET_COMPOSE_UP_TIMEOUT (e.g. "15m").
-	upTimeout := 20 * time.Minute
-	if s := os.Getenv("ESPRESSO_DEVNET_COMPOSE_UP_TIMEOUT"); s != "" {
-		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
-			upTimeout = parsed
-		}
-	}
-	var upErr error
-	var upOutput string
-	for attempt := 1; attempt <= 2; attempt++ {
-		if d.ctx.Err() != nil {
-			return fmt.Errorf("context cancelled before docker compose up: %w", d.ctx.Err())
-		}
-		if attempt > 1 {
-			log.Info("retrying docker compose up after failure", "attempt", attempt, "prev_error", upErr)
-			sleepContext(d.ctx, 10*time.Second)
-			// Clean up any partial network/container state from the failed attempt.
-			retryCleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
-			retryCleanCmd.Env = composeEnv(profile)
-			_ = retryCleanCmd.Run()
-		}
-		upCtx, upCancel := context.WithTimeout(d.ctx, upTimeout)
-		cmd := d.composeCmd(upCtx, "up", "-d", "--pull=never")
-		cmd.Env = append(composeEnv(profile),
-			fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-		)
-		// Stream output in real-time so CI logs show progress, and also capture
-		// it for the error message if the command fails.
-		outBuf := new(bytes.Buffer)
-		errBuf := new(bytes.Buffer)
-		cmd.Stdout = io.MultiWriter(os.Stdout, outBuf)
-		cmd.Stderr = io.MultiWriter(os.Stderr, errBuf)
-		upErr = cmd.Run()
-		ctxErr := upCtx.Err() // capture before upCancel so we can tell our timeout vs OOM
-		upCancel()
-		upOutput = fmt.Sprintf("stdout: %s\nstderr: %s", outBuf.String(), errBuf.String())
-		if upErr == nil {
-			break
-		}
-		// Log whether we cancelled (timeout/test end) or something else (e.g. OOM) killed the process.
-		log.Info("docker compose up attempt failed", "attempt", attempt, "error", upErr, "context_cancelled", ctxErr != nil, "output", upOutput)
-	}
-	if upErr != nil {
-		return fmt.Errorf("failed to start docker compose (%w): %s", upErr, upOutput)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "up", "-d",
+	)
+	cmd.Env = append(os.Environ(),
+		"COMPOSE_PROFILES="+string(profile),
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+	)
+	buf := new(bytes.Buffer)
+	cmd.Stderr = buf
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to start docker compose (%w): %s", err, buf.String())
 	}
 
 	// Shut down the now-running devnet if we exit this function with an error (in which case the
@@ -288,7 +179,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
 		// the context is cancelled.
 		go func() {
-			cmd := d.composeCmd(d.ctx, "logs", "-f")
+			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
 			cmd.Stdout = os.Stdout
 			// We don't care about the error return of this command, since it's always going to be
 			// killed by the context cancellation.
@@ -302,61 +193,26 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	}
 
 	// Wait for nodes to respond to RPC so we don't return and then hang on first test RPC.
-	// Use a bounded timeout; 8 min allows slow CI (e.g. after previous test OOM or heavy load).
-	// Retry on connection refused so we tolerate slow CI startup.
-	waitCtx, waitCancel := context.WithTimeout(d.ctx, 8*time.Minute)
+	// Use a bounded timeout so a bad rebase or broken devnet fails fast instead of timing out the test.
+	waitCtx, waitCancel := context.WithTimeout(d.ctx, 5*time.Minute)
 	defer waitCancel()
-	if err := d.waitForNodeUp(waitCtx, d.L1, "L1"); err != nil {
-		return err
+	if err := wait.ForNodeUp(waitCtx, d.L1, log.Root()); err != nil {
+		return fmt.Errorf("L1 not ready: %w", err)
 	}
-	if err := d.waitForNodeUp(waitCtx, d.L2Seq, "L2 sequencer"); err != nil {
-		return err
+	if err := wait.ForNodeUp(waitCtx, d.L2Seq, log.Root()); err != nil {
+		return fmt.Errorf("L2 sequencer not ready: %w", err)
 	}
-	if err := d.waitForNodeUp(waitCtx, d.L2Verif, "L2 verifier"); err != nil {
-		return err
+	if err := wait.ForNodeUp(waitCtx, d.L2Verif, log.Root()); err != nil {
+		return fmt.Errorf("L2 verifier not ready: %w", err)
 	}
 
 	return nil
 }
 
-// waitForNodeUp waits for the node to respond to RPC, retrying on connection refused
-// or timeout so that slow container startup in CI does not fail the test immediately.
-func (d *Devnet) waitForNodeUp(ctx context.Context, client *ethclient.Client, name string) error {
-	const retryInterval = 3 * time.Second
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("%s not ready: %w", name, ctx.Err())
-		default:
-		}
-		callCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		err := wait.ForNodeUp(callCtx, client, log.Root())
-		cancel()
-		if err == nil {
-			return nil
-		}
-		errStr := err.Error()
-		retry := strings.Contains(errStr, "connection refused") ||
-			strings.Contains(errStr, "connect: connection refused") ||
-			errors.Is(err, context.DeadlineExceeded)
-		if retry {
-			log.Info("waiting for node to accept connections", "node", name, "retry_in", retryInterval, "last_err", err)
-			sleepContext(ctx, retryInterval)
-			continue
-		}
-		return fmt.Errorf("%s not ready: %w", name, err)
-	}
-}
-
 // connectClientsWithRetry opens RPC clients, retrying until containers are up or timeout/context cancel.
 func (d *Devnet) connectClientsWithRetry() error {
 	const retryInterval = 5 * time.Second
-	retryTimeout := 12 * time.Minute // devnet has long dependency chain (l2-rollup, eigenda-proxy, op-node-sequencer); can be slow under CI load
-	if s := os.Getenv("ESPRESSO_DEVNET_TESTS_CONNECT_TIMEOUT"); s != "" {
-		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
-			retryTimeout = parsed
-		}
-	}
+	const retryTimeout = 2 * time.Minute
 	deadline := time.Now().Add(retryTimeout)
 	var err error
 	for time.Now().Before(deadline) {
@@ -409,52 +265,7 @@ func (d *Devnet) connectClientsWithRetry() error {
 		}
 		return nil
 	}
-	d.logComposeDiagnostics("op-node-sequencer", "l2-rollup", "op-geth-sequencer", "eigenda-proxy", "l1-genesis", "l1-geth")
 	return fmt.Errorf("devnet services did not become reachable within %v (last err: %w)", retryTimeout, err)
-}
-
-// logComposeDiagnostics runs docker compose ps -a and logs for the given services to help debug startup failures.
-// Writes ps -a and key service logs to stderr so container state and l2-rollup/op-node output are always visible.
-func (d *Devnet) logComposeDiagnostics(services ...string) {
-	psCmd := d.composeCmdNoCtx("ps", "-a")
-	psOut, psErr := psCmd.Output()
-	if psErr != nil {
-		log.Error("diagnostics: docker compose ps -a failed", "err", psErr)
-		fmt.Fprintf(os.Stderr, "\n=== docker compose ps -a (failed: %v) ===\n", psErr)
-	} else {
-		log.Info("diagnostics: docker compose ps -a", "output", string(psOut))
-		fmt.Fprintf(os.Stderr, "\n=== docker compose ps -a ===\n%s\n", string(psOut))
-	}
-	// l2-rollup and op-node-* are critical: their logs explain why op-node-sequencer never became reachable.
-	criticalServices := map[string]bool{
-		"op-node-sequencer": true, "op-node-verifier": true, "l2-rollup": true,
-	}
-	for _, svc := range services {
-		tail := "50"
-		if criticalServices[svc] {
-			tail = "100"
-		}
-		logCmd := d.composeCmdNoCtx("logs", "--tail="+tail, svc)
-		logOut, logErr := logCmd.Output()
-		if logErr != nil {
-			log.Debug("diagnostics: logs failed for service", "service", svc, "err", logErr)
-			if criticalServices[svc] {
-				fmt.Fprintf(os.Stderr, "\n=== %s logs (failed to get: %v) ===\n", svc, logErr)
-			}
-			continue
-		}
-		log.Info("diagnostics: last "+tail+" lines for "+svc, "output", string(logOut))
-		if criticalServices[svc] {
-			if len(logOut) > 0 {
-				fmt.Fprintf(os.Stderr, "\n=== %s logs (last %s lines) ===\n%s\n", svc, tail, string(logOut))
-			} else {
-				fmt.Fprintf(os.Stderr, "\n=== %s logs (no output - container may not have started) ===\n", svc)
-				if svc == "op-node-sequencer" {
-					fmt.Fprintf(os.Stderr, "Hint: op-node-sequencer starts after l2-rollup exits 0. Rebuild devnet images so l2-rollup has RPC retry logic: cd espresso && COMPOSE_PROFILES=default docker compose build && cd ..\n")
-				}
-			}
-		}
-	}
 }
 
 // sleepContext sleeps for d or until ctx is cancelled.
@@ -471,12 +282,20 @@ func sleepContext(ctx context.Context, d time.Duration) {
 
 func (d *Devnet) ServiceUp(service string) error {
 	log.Info("bringing up service", "service", service)
-	return d.composeCmd(d.ctx, "up", "-d", service).Run()
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "up", "-d", service,
+	)
+	return cmd.Run()
 }
 
 func (d *Devnet) ServiceDown(service string) error {
 	log.Info("shutting down service", "service", service)
-	return d.composeCmd(d.ctx, "down", service).Run()
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "down", service,
+	)
+	return cmd.Run()
 }
 
 func (d *Devnet) ServiceRestart(service string) error {
@@ -491,7 +310,9 @@ func (d *Devnet) ServiceRestart(service string) error {
 
 // callBatcherRPC calls a batcher RPC method on a running batcher service
 func (d *Devnet) callBatcherRPC(service, method string) error {
-	cmd := d.composeCmd(d.ctx, "exec", "-T", service,
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "exec", "-T", service,
 		"sh", "-c",
 		fmt.Sprintf("wget -q -O- --header='Content-Type: application/json' --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":[],\"id\":1}' http://localhost:8545", method),
 	)
@@ -541,13 +362,7 @@ func (d *Devnet) SystemConfig(ctx context.Context) (*bindings.SystemConfig, *bin
 
 // Submits a transaction and waits until it is confirmed by the sequencer (but not necessarily the verifier).
 func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error) {
-	submitTimeout := 10 * time.Minute // Espresso pipeline can be slow; sequencer may report "transaction indexing is in progress"
-	if s := os.Getenv("ESPRESSO_DEVNET_TESTS_SUBMIT_L2_TX_TIMEOUT"); s != "" {
-		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
-			submitTimeout = parsed
-		}
-	}
-	ctx, cancel := context.WithTimeout(d.ctx, submitTimeout)
+	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
 	defer cancel()
 
 	chainID, err := d.L2Seq.ChainID(ctx)
@@ -597,7 +412,7 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 		return nil, fmt.Errorf("sending L2 tx: %w", err)
 	}
 
-	receipt, err := d.waitForL2ReceiptOK(ctx, tx.Hash())
+	receipt, err := wait.ForReceiptOK(ctx, d.L2Seq, tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("waiting for L2 tx: %w", err)
 	}
@@ -610,76 +425,14 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 	return receipt, nil
 }
 
-// waitForL2ReceiptOK polls for receipt availability and tolerates transient RPC transport
-// errors (e.g. connection reset) that can happen during short container restarts.
-func (d *Devnet) waitForL2ReceiptOK(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return waitForReceiptOnClient(ctx, d.L2Seq, txHash)
-}
-
-func waitForReceiptOnClient(ctx context.Context, client *ethclient.Client, txHash common.Hash) (*types.Receipt, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		receipt, err := client.TransactionReceipt(callCtx, txHash)
-		cancel()
-		if err == nil {
-			return receipt, nil
-		}
-
-		if errors.Is(err, ethereum.NotFound) || isTransientReceiptError(err) {
-			sleepContext(ctx, time.Second)
-			continue
-		}
-		return nil, err
-	}
-}
-
-func isTransientReceiptError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "transaction indexing is in progress") ||
-		strings.Contains(errStr, "connection reset by peer") ||
-		strings.Contains(errStr, "broken pipe") ||
-		strings.Contains(errStr, "eof") ||
-		strings.Contains(errStr, "timeout")
-}
-
-func defaultVerifyReceiptTimeout(txHash common.Hash) time.Duration {
-	timeout := 10 * time.Minute
-	// arm64 (e.g. Apple Silicon, ARM runners) often runs amd64 containers via emulation; verifier can be much slower.
-	if runtime.GOARCH == "arm64" {
-		timeout = 18 * time.Minute
-		log.Info("arm64 detected, using extended timeout for transaction verification", "hash", txHash, "timeout", timeout)
-	} else if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		// CI runners can be slower and verifier indexing may lag significantly.
-		timeout = 12 * time.Minute
-		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", txHash, "timeout", timeout)
-	}
-	// Keep backward compatibility with existing override.
-	if s := os.Getenv("ESPRESSO_DEVNET_TESTS_VERIFY_L2_TX_TIMEOUT"); s != "" {
-		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
-			timeout = parsed
-		}
-	}
-	// Allow a dedicated override for the burn verification path.
-	if s := os.Getenv("ESPRESSO_DEVNET_TESTS_VERIFY_SIMPLE_L2_BURN_TIMEOUT"); s != "" {
-		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
-			timeout = parsed
-		}
-	}
-	return timeout
-}
-
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
-	timeout := defaultVerifyReceiptTimeout(receipt.TxHash)
+	timeout := 2 * time.Minute
+	// Use longer timeout in CI environments due to Espresso processing delays
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		timeout = 3 * time.Minute
+		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
+	}
 	return d.VerifyL2TxWithTimeout(receipt, timeout)
 }
 
@@ -692,7 +445,7 @@ func (d *Devnet) VerifyL2TxWithTimeout(receipt *types.Receipt, timeout time.Dura
 
 func (d *Devnet) verifyL2TxWithContext(ctx context.Context, receipt *types.Receipt) error {
 	log.Info("waiting for transaction verification", "hash", receipt.TxHash)
-	verified, err := waitForReceiptOnClient(ctx, d.L2Verif, receipt.TxHash)
+	verified, err := wait.ForReceiptOK(ctx, d.L2Verif, receipt.TxHash)
 	if err != nil {
 		return fmt.Errorf("waiting for L2 tx on verification client: %w", err)
 	}
@@ -753,7 +506,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	return d.VerifySimpleL2BurnWithTimeout(receipt, defaultVerifyReceiptTimeout(receipt.Receipt.TxHash))
+	return d.VerifySimpleL2BurnWithTimeout(receipt, 2*time.Minute)
 }
 
 // VerifySimpleL2BurnWithTimeout waits for the verifier to confirm the burn, using the given timeout.
@@ -817,11 +570,11 @@ func (d *Devnet) Down() error {
 		d.L2VerifRollup.Close()
 	}
 
-	// Use a fresh context so shutdown completes even when the test context was cancelled
-	// (e.g. test failed or timed out). Otherwise "docker compose down" is killed immediately.
-	downCtx, downCancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer downCancel()
-	cmd := d.composeCmd(downCtx, "down", "-v", "--remove-orphans", "--timeout", "10")
+	// Use timeout flag for faster Docker shutdown
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
+	)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to shut down docker: %w", err)
 	}
@@ -1048,8 +801,12 @@ func (d *Devnet) OpChallengerOutput(opts ...string) (string, error) {
 }
 
 func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
-	args := append([]string{"exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
-	cmd := d.composeCmd(d.ctx, args...)
+	opts = append([]string{"compose", "exec", "op-challenger", "entrypoint.sh", "op-challenger"}, opts...)
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker",
+		opts...,
+	)
 	if testing.Verbose() {
 		cmd.Stdout = NewTaggedWriter("op-challenger-cmd", os.Stdout)
 		cmd.Stderr = NewTaggedWriter("op-challenger-cmd", os.Stderr)
@@ -1059,24 +816,18 @@ func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
 }
 
 // Get the host port mapped to `privatePort` for the given Docker service.
-// When "docker compose port" fails (e.g. container not running yet), returns a fallback port
-// for op-node-sequencer/verifier from ROLLUP_PORT/VERIFIER_PORT so the retry loop can try connecting.
 func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
 	buf := new(bytes.Buffer)
 	errBuf := new(bytes.Buffer)
-	cmd := d.composeCmd(d.ctx, "port", service, fmt.Sprint(privatePort))
+	cmd := exec.CommandContext(
+		d.ctx,
+		"docker", "compose", "port", service, fmt.Sprint(privatePort),
+	)
 	cmd.Stdout = buf
 	cmd.Stderr = errBuf
 
 	if err := cmd.Run(); err != nil {
-		errStr := errBuf.String()
-		// Container may be exited/restarting; use env-based port so we can still try 127.0.0.1:port
-		if strings.Contains(errStr, "no port") || strings.Contains(errStr, "is not running") {
-			if fallback := d.hostPortFromEnv(service, privatePort); fallback != 0 {
-				return fallback, nil
-			}
-		}
-		return 0, fmt.Errorf("command failed (%w)\nStdout: %s\nStderr: %s", err, buf.String(), errStr)
+		return 0, fmt.Errorf("command failed (%w)\nStdout: %s\nStderr: %s", err, buf.String(), errBuf.String())
 	}
 	out := strings.TrimSpace(buf.String())
 	_, portStr, found := strings.Cut(out, ":")
@@ -1089,29 +840,6 @@ func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
 		return 0, fmt.Errorf("invalid output from docker port: %s (%w)", out, err)
 	}
 	return uint16(port), nil
-}
-
-// hostPortFromEnv returns the host port for op-node-sequencer/verifier from env (ROLLUP_PORT/VERIFIER_PORT)
-// when docker compose port fails because the container is not running. Defaults 9545, 9546.
-func (d *Devnet) hostPortFromEnv(service string, defaultPort uint16) uint16 {
-	switch service {
-	case "op-node-sequencer":
-		if p := os.Getenv("ROLLUP_PORT"); p != "" {
-			if n, err := strconv.Atoi(p); err == nil && n > 0 && n < 65536 {
-				return uint16(n)
-			}
-		}
-		return 9545
-	case "op-node-verifier":
-		if p := os.Getenv("VERIFIER_PORT"); p != "" {
-			if n, err := strconv.Atoi(p); err == nil && n > 0 && n < 65536 {
-				return uint16(n)
-			}
-		}
-		return 9546
-	default:
-		return 0
-	}
 }
 
 // Open an Ethereum RPC client for a Docker service running an RPC server on the given port.

@@ -5,7 +5,7 @@ ARG TARGET_BASE_IMAGE=alpine:3.22
 ARG TARGETOS
 ARG TARGETARCH
 
-# Base builder image (go.mod requires go >= 1.24.0)
+# Base builder image
 FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache \
@@ -58,15 +58,16 @@ COPY . /app
 ARG GIT_COMMIT
 ARG GIT_DATE
 
-# Build op-node (match base branch: CGO_ENABLED=0, static link, ./cmd/main.go so RPC server and behavior are unchanged)
+# Build op-node
 FROM builder AS op-node-builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG GIT_COMMIT
+ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
+ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-node && \
-  CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-  go build -a -ldflags '-extldflags "-static"' -o bin/op-node ./cmd/main.go
+  cd /app/op-node && mkdir -p bin && go build -v -ldflags "-X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X github.com/ethereum-optimism/optimism/op-node/version.Version=$VERSION -X github.com/ethereum-optimism/optimism/op-node/version.Meta=" -o ./bin/op-node ./cmd
 
 # Build op-batcher
 FROM builder AS op-batcher-builder

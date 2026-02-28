@@ -30,31 +30,9 @@ jobs:
             tests: "TestBatcherActivePublishOnly"
             tee: false
     env:
-      # Skip op-e2e config alloc generation (DeploySuperchain pipeline); devnet tests use docker devnet only.
-      OP_E2E_SKIP_ALLOC_GEN: "1"
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
     steps:
-      - name: Free disk space
-        run: |
-          # Remove pre-installed software that is not needed for this workflow.
-          # The ubuntu-24.04 runner ships with Android SDK, .NET, Haskell, etc.
-          # that together consume 20+ GB of disk space.
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
-                      "$AGENT_TOOLSDIRECTORY"
-          df -h
-
-      - name: Set up swap space
-        run: |
-          # Add 8 GB of swap so that Docker container creation doesn't OOM-kill
-          # docker compose when the runner is under memory pressure.
-          sudo fallocate -l 8G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -79,10 +57,7 @@ jobs:
 
       - name: Compile contracts
         working-directory: packages/contracts-bedrock
-        run: |
-          # Retry once on failure: forge/SVM occasionally hits ETXTBSY (os error 26)
-          # when solc is still being written to the cache by a concurrent process.
-          just build || (sleep 5 && just build)
+        run: just build
 
       - name: Load environment variables
         run: |
@@ -105,11 +80,8 @@ jobs:
           just fix-proxy-artifact
           cd ../../espresso
           ./scripts/prepare-allocs.sh
-          COMPOSE_PROFILES=default docker compose build
-          docker compose pull \
-            l1-data-init l1-validator l1-beacon \
-            eigenda-proxy succinct-proposer succinct-challenger \
-            attestation-service-zk espresso-dev-node
+          docker compose build
+          docker compose pull l1-validator espresso-dev-node l1-data-init eigenda-proxy
 
       - name: Build Devnet with TEE
         if: matrix.tee
@@ -117,50 +89,7 @@ jobs:
           cd espresso
           COMPOSE_PROFILES=tee docker compose build
 
-      - name: Pre-generate L1 beacon genesis
-        working-directory: espresso
-        run: |
-          # eth-beacon-genesis devnet computes the full EL state trie from the
-          # large op-deployer genesis.json (all OP Stack + Espresso contracts).
-          # On CI this takes 10+ minutes inside the l1-genesis container.
-          # Pre-generate genesis.ssz here using the Nix-provided tools so that
-          # l1-genesis skips this slow step and starts in seconds during tests.
-          set -e
-          dasel put -f deployment/l1-config/genesis.json -s .timestamp \
-            -v $(printf '0x%x' $(date +%s))
-          eth-beacon-genesis devnet \
-            --quiet \
-            --eth1-config deployment/l1-config/genesis.json \
-            --config docker/l1-geth/beacon-config.yaml \
-            --mnemonics docker/l1-geth/mnemonics.yaml \
-            --state-output deployment/l1-config/genesis.ssz
-          cp docker/l1-geth/beacon-config.yaml deployment/l1-config/config.yaml
-          openssl rand -hex 32 > deployment/l1-config/jwt.txt
-          echo 0 > deployment/l1-config/deposit_contract_block.txt
-          echo 0x00000000219ab540356cBB839Cbe05303d7705Fa \
-            > deployment/l1-config/deposit_contract.txt
-
-      - name: Verify L1 beacon genesis pre-generation
-        working-directory: espresso
-        run: |
-          # Fail fast if pre-gen didn't produce the files l1-genesis expects.
-          # Otherwise l1-genesis runs eth-beacon-genesis (10+ min) and the test step times out.
-          set -e
-          test -f deployment/l1-config/genesis.ssz || (echo "Missing genesis.ssz" && exit 1)
-          test -f deployment/l1-config/config.yaml || (echo "Missing config.yaml" && exit 1)
-          test -f deployment/l1-config/jwt.txt || (echo "Missing jwt.txt" && exit 1)
-          test -s deployment/l1-config/genesis.ssz || (echo "genesis.ssz is empty" && exit 1)
-          echo "Pre-generated L1 beacon files OK; l1-genesis will skip slow path."
-
-      - name: Prune Docker build cache
-        run: |
-          # Free up disk space used by the Docker build cache and dangling images
-          # so that docker compose up has enough room to create container layers.
-          docker builder prune -f
-          docker image prune -f
-          df -h
-
-      # Shorter outage/liveness for group 1 (TestSmokeWithoutTEE, TestBatcherRestart) to speed up tests
+      # Shorter outage/liveness for group 1 (TestSmokeWithoutTEE, TestBatcherRestart) to stay under 30m timeout
       - name: Set shorter periods for group 1
         if: matrix.group == 1
         run: |
@@ -168,6 +97,7 @@ jobs:
           echo "ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD=30s" >> $GITHUB_ENV
 
       - name: Run tests for group ${{ matrix.group }}
+        timeout-minutes: 35
         run: go test -timeout 30m -p 1 -count 1 -run '${{ matrix.tests }}' -v ./espresso/devnet-tests/...
 
       - name: Save Nix cache

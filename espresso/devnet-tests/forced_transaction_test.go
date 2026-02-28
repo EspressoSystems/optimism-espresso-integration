@@ -19,8 +19,9 @@ const WAIT_FORCED_TXN_TIME = 25 * time.Second
 // ForcedTransaction attempts to verify that the forced transaction mechanism works for the
 // current Docker Compose devnet
 func TestForcedTransaction(t *testing.T) {
-	// Test context must be at least as long as compose-up timeout (~20m) or compose up may be killed early.
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
+	// Set up the test timeout condition.
+	// Extended timeout to accommodate slower processing in test environments
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
 	// Launch docker compose devnet

@@ -6,19 +6,14 @@ ARG TARGETARCH
 ARG GIT_COMMIT
 ARG GIT_DATE
 
-# CGO builder for components that need Espresso crypto linking (go.mod requires go >= 1.24.0)
+# CGO builder for components that need Espresso crypto linking
 FROM golang:1.24-alpine AS op-cgo-builder
 # Install dependencies
-RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash
-# Install just (fixed version and arch to avoid mise.toml/yq dependency in build)
-ARG TARGETARCH
-RUN case "$TARGETARCH" in \
-  "amd64") JUST_ARCH="x86_64-unknown-linux-musl" ;; \
-  "arm64") JUST_ARCH="aarch64-unknown-linux-musl" ;; \
-  *) JUST_ARCH="x86_64-unknown-linux-musl" ;; \
-  esac && \
-  wget -q "https://github.com/casey/just/releases/download/1.37.0/just-1.37.0-${JUST_ARCH}.tar.gz" -O /tmp/just.tar.gz && \
-  tar -xzf /tmp/just.tar.gz -C /usr/local/bin just && rm /tmp/just.tar.gz && just --version
+RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
+# Install just from mise
+COPY ./mise.toml .
+RUN curl -L https://github.com/casey/just/releases/download/$(yq '.tools.just' mise.toml)/just-$(yq '.tools.just' mise.toml)-x86_64-unknown-linux-musl.tar.gz | \
+  tar xz -C /usr/local/bin just
 
 # Go sources
 COPY ./go.mod /app/go.mod
