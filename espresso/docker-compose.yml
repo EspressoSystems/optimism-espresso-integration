@@ -697,6 +697,7 @@ services:
   attestation-service-zk:
     image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
     platform: linux/amd64
+    restart: on-failure
     ports:
       - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
     healthcheck:

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -162,6 +163,23 @@ func (d *Devnet) composeCmdNoCtx(args ...string) *exec.Cmd {
 	return cmd
 }
 
+func composeEnv(profile ComposeProfile) []string {
+	// Keep all post-Shanghai forks delayed so op-node/op-geth stay on
+	// the same pre-Cancun engine API path in devnet tests.
+	const delayedForkTime = "4102444800"
+	return append(os.Environ(),
+		"COMPOSE_PROFILES="+string(profile),
+		"L2_CANCUN_TIME="+delayedForkTime,
+		"L2_PRAGUE_TIME="+delayedForkTime,
+		"L2_ECOTONE_TIME="+delayedForkTime,
+		"L2_FJORD_TIME="+delayedForkTime,
+		"L2_GRANITE_TIME="+delayedForkTime,
+		"L2_HOLOCENE_TIME="+delayedForkTime,
+		"L2_ISTHMUS_TIME="+delayedForkTime,
+		"L2_JOVIAN_TIME="+delayedForkTime,
+	)
+}
+
 func (d *Devnet) isRunning() bool {
 	cmd := d.composeCmd(d.ctx, "ps", "-q")
 	buf := new(bytes.Buffer)
@@ -189,7 +207,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	// repeated "could not get payload: not found" loops.
 	log.Info("ensuring clean devnet state before startup")
 	cleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
-	cleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+	cleanCmd.Env = composeEnv(profile)
 	if cleanErr := cleanCmd.Run(); cleanErr != nil {
 		log.Warn("pre-up cleanup failed; continuing with startup", "err", cleanErr)
 	}
@@ -219,13 +237,12 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 			sleepContext(d.ctx, 10*time.Second)
 			// Clean up any partial network/container state from the failed attempt.
 			retryCleanCmd := d.composeCmdNoCtx("down", "-v", "--remove-orphans", "--timeout", "10")
-			retryCleanCmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+			retryCleanCmd.Env = composeEnv(profile)
 			_ = retryCleanCmd.Run()
 		}
 		upCtx, upCancel := context.WithTimeout(d.ctx, upTimeout)
 		cmd := d.composeCmd(upCtx, "up", "-d", "--pull=never")
-		cmd.Env = append(os.Environ(),
-			"COMPOSE_PROFILES="+string(profile),
+		cmd.Env = append(composeEnv(profile),
 			fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
 		)
 		// Stream output in real-time so CI logs show progress, and also capture
@@ -596,6 +613,10 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 // waitForL2ReceiptOK polls for receipt availability and tolerates transient RPC transport
 // errors (e.g. connection reset) that can happen during short container restarts.
 func (d *Devnet) waitForL2ReceiptOK(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	return waitForReceiptOnClient(ctx, d.L2Seq, txHash)
+}
+
+func waitForReceiptOnClient(ctx context.Context, client *ethclient.Client, txHash common.Hash) (*types.Receipt, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -604,7 +625,7 @@ func (d *Devnet) waitForL2ReceiptOK(ctx context.Context, txHash common.Hash) (*t
 		}
 
 		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		receipt, err := d.L2Seq.TransactionReceipt(callCtx, txHash)
+		receipt, err := client.TransactionReceipt(callCtx, txHash)
 		cancel()
 		if err == nil {
 			return receipt, nil
@@ -630,14 +651,35 @@ func isTransientReceiptError(err error) bool {
 		strings.Contains(errStr, "timeout")
 }
 
+func defaultVerifyReceiptTimeout(txHash common.Hash) time.Duration {
+	timeout := 10 * time.Minute
+	// arm64 (e.g. Apple Silicon, ARM runners) often runs amd64 containers via emulation; verifier can be much slower.
+	if runtime.GOARCH == "arm64" {
+		timeout = 18 * time.Minute
+		log.Info("arm64 detected, using extended timeout for transaction verification", "hash", txHash, "timeout", timeout)
+	} else if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		// CI runners can be slower and verifier indexing may lag significantly.
+		timeout = 12 * time.Minute
+		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", txHash, "timeout", timeout)
+	}
+	// Keep backward compatibility with existing override.
+	if s := os.Getenv("ESPRESSO_DEVNET_TESTS_VERIFY_L2_TX_TIMEOUT"); s != "" {
+		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
+			timeout = parsed
+		}
+	}
+	// Allow a dedicated override for the burn verification path.
+	if s := os.Getenv("ESPRESSO_DEVNET_TESTS_VERIFY_SIMPLE_L2_BURN_TIMEOUT"); s != "" {
+		if parsed, err := time.ParseDuration(s); err == nil && parsed > 0 {
+			timeout = parsed
+		}
+	}
+	return timeout
+}
+
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
-	timeout := 2 * time.Minute
-	// Use longer timeout in CI environments due to Espresso processing delays
-	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		timeout = 3 * time.Minute
-		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
-	}
+	timeout := defaultVerifyReceiptTimeout(receipt.TxHash)
 	return d.VerifyL2TxWithTimeout(receipt, timeout)
 }
 
@@ -650,7 +692,7 @@ func (d *Devnet) VerifyL2TxWithTimeout(receipt *types.Receipt, timeout time.Dura
 
 func (d *Devnet) verifyL2TxWithContext(ctx context.Context, receipt *types.Receipt) error {
 	log.Info("waiting for transaction verification", "hash", receipt.TxHash)
-	verified, err := wait.ForReceiptOK(ctx, d.L2Verif, receipt.TxHash)
+	verified, err := waitForReceiptOnClient(ctx, d.L2Verif, receipt.TxHash)
 	if err != nil {
 		return fmt.Errorf("waiting for L2 tx on verification client: %w", err)
 	}
@@ -711,7 +753,7 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	return d.VerifySimpleL2BurnWithTimeout(receipt, 2*time.Minute)
+	return d.VerifySimpleL2BurnWithTimeout(receipt, defaultVerifyReceiptTimeout(receipt.Receipt.TxHash))
 }
 
 // VerifySimpleL2BurnWithTimeout waits for the verifier to confirm the burn, using the given timeout.

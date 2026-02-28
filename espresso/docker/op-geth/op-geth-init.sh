@@ -208,9 +208,11 @@ elif [ "$MODE" = "rollup" ]; then
   sanitize_rollup_config() {
     # Some op-deployer outputs include fields newer than the op-node parser in this repo.
     # Drop known incompatible keys/sections so op-node can decode rollup.json reliably.
+    # Strip daFootprintGasScalar so succinct-proposer (older schema) can parse the config;
+    # op-node treats missing value as 0 and L1BlockInfo uses DAFootprintGasScalarDefault (400).
     if [[ -f "/config/rollup.json" ]]; then
       tmp_rollup="$(mktemp)"
-      jq 'del(.caff_node_config) | walk(if type == "object" then del(.UseFetchAPI, .useFetchAPI, .OriginHeight, .originHeight) else . end)' /config/rollup.json > "$tmp_rollup" && mv "$tmp_rollup" /config/rollup.json
+      jq 'del(.caff_node_config) | del(.genesis.system_config.daFootprintGasScalar) | del(.chain_op_config.daFootprintGasScalar) | walk(if type == "object" then del(.UseFetchAPI, .useFetchAPI, .OriginHeight, .originHeight) else . end)' /config/rollup.json > "$tmp_rollup" && mv "$tmp_rollup" /config/rollup.json
     fi
   }
 
@@ -235,6 +237,17 @@ elif [ "$MODE" = "rollup" ]; then
     patched_params="$(printf '0x%08x%08x' "$denom" "$elasticity")"
     echo "Patching rollup eip1559Params from 0x0000000000000000 to ${patched_params}"
     dasel put -f /config/rollup.json -s .genesis.system_config.eip1559Params -t string -v "${patched_params}"
+  }
+
+  force_safe_rollup_system_scalar() {
+    if [[ ! -f "/config/rollup.json" ]]; then
+      return
+    fi
+    # Keep the scalar in strict Bedrock encoding (version 0 with zero padding).
+    # This avoids malformed scalar padding triggering extreme L1-cost math paths
+    # in op-geth txpool during devnet smoke tests.
+    safe_scalar="0x00000000000000000000000000000000000000000000000000000000000f4240"
+    dasel put -f /config/rollup.json -s .genesis.system_config.scalar -t string -v "${safe_scalar}"
   }
 
   force_rollup_fork_times_from_env() {
@@ -335,6 +348,7 @@ elif [ "$MODE" = "rollup" ]; then
     cp /deployment/l2-config/rollup.json /config/rollup.json
     sanitize_rollup_config
     ensure_rollup_eip1559_params
+    force_safe_rollup_system_scalar
     force_rollup_fork_times_from_env
     sync_rollup_fork_times_from_genesis
 
@@ -355,6 +369,7 @@ elif [ "$MODE" = "rollup" ]; then
     op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
     sanitize_rollup_config
     ensure_rollup_eip1559_params
+    force_safe_rollup_system_scalar
     force_rollup_fork_times_from_env
     sync_rollup_fork_times_from_genesis
 
