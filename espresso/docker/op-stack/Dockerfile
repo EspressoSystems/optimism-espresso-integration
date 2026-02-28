@@ -6,7 +6,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 # Base builder image
-FROM golang:1.24-alpine AS builder
+FROM golang:1.23.8-alpine3.20 AS builder
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
@@ -32,18 +32,10 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install just (direct binary to avoid mise trust issues)
-ARG TARGETARCH
-RUN case "$TARGETARCH" in \
-  "amd64") JUST_ARCH="x86_64-unknown-linux-musl" ;; \
-  "arm64") JUST_ARCH="aarch64-unknown-linux-musl" ;; \
-  *) JUST_ARCH="x86_64-unknown-linux-musl" ;; \
-  esac && \
-  wget -q "https://github.com/casey/just/releases/download/1.37.0/just-1.37.0-${JUST_ARCH}.tar.gz" -O /tmp/just.tar.gz && \
-  tar -xzf /tmp/just.tar.gz -C /usr/local/bin just && rm /tmp/just.tar.gz && just --version
+# Install versioned toolchain
+COPY ./mise.toml .
+RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
 
-# Ensure just and other tools are on PATH for all FROM builder stages
-ENV PATH="/usr/local/bin:$PATH"
 
 # Copy and download Go dependencies
 COPY ./go.mod /app/go.mod
@@ -60,64 +52,45 @@ ARG GIT_DATE
 
 # Build op-node
 FROM builder AS op-node-builder
-ARG TARGETOS
-ARG TARGETARCH
-ARG GIT_COMMIT
-ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-node && mkdir -p bin && go build -v -ldflags "-X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X github.com/ethereum-optimism/optimism/op-node/version.Version=$VERSION -X github.com/ethereum-optimism/optimism/op-node/version.Meta=" -o ./bin/op-node ./cmd
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-node && \
+  CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+  go build -a -ldflags '-extldflags "-static"' \
+  -o bin/op-node ./cmd/main.go
 
 # Build op-batcher
 FROM builder AS op-batcher-builder
-ARG TARGETOS
-ARG TARGETARCH
-ARG GIT_COMMIT
-ARG GIT_DATE
 ARG OP_BATCHER_VERSION=v0.0.0
+WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_BATCHER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-batcher && mkdir -p bin && go build -v -ldflags "-X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X main.Version=$VERSION" -o ./bin/op-batcher ./cmd
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just op-batcher
 
 # Build enclave-tools
 FROM builder AS enclave-tools-builder
-ARG TARGETOS
-ARG TARGETARCH
-ARG GIT_COMMIT
-ARG GIT_DATE
 ARG ENCLAVE_TOOLS_VERSION=v0.0.0
+WORKDIR /app/op-batcher
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$ENCLAVE_TOOLS_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-batcher && mkdir -p bin && go build -v -o ./bin/enclave-tools ./enclave-tools/cmd
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build just enclave-tools
 
 # Build op-proposer
 FROM builder AS op-proposer-builder
-ARG TARGETOS
-ARG TARGETARCH
-ARG GIT_COMMIT
-ARG GIT_DATE
 ARG OP_PROPOSER_VERSION=v0.0.0
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd /app/op-proposer && make op-proposer
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd /app/op-challenger && make op-challenger
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-proposer && make op-proposer  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-challenger && make op-challenger  \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_PROPOSER_VERSION"
 
 # Build op-deployer
 FROM builder AS op-deployer-builder
-ARG TARGETOS
-ARG TARGETARCH
-ARG GIT_COMMIT
-ARG GIT_DATE
-ARG OP_DEPLOYER_VERSION=v0.0.0
-ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-deployer && just build-go
+ARG OP_DEPLOER_VERSION=v0.0.0
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
+  GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION" just
 
 
 # Final runtime images
 FROM $TARGET_BASE_IMAGE AS op-node-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 
@@ -131,7 +104,7 @@ CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
 RUN apk add gcc
-ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
@@ -148,7 +121,7 @@ COPY espresso/deployment/ /source/espresso/deployment/
 # Copy the run-enclave.sh script
 COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
 RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
-ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/
 CMD ["enclave-tools"]
@@ -159,7 +132,7 @@ COPY espresso/docker/op-stack/entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 COPY --from=op-proposer-builder /app/op-proposer/bin/op-proposer /usr/local/bin/
 COPY --from=op-proposer-builder /app/espresso/deployment/deployer /deployer
-ENV ENV_PREFIX=OP_PROPOSER
+ENV ENV_PREFIX OP_PROPOSER
 ENTRYPOINT [ "/bin/entrypoint.sh" ]
 CMD ["op-proposer"]
 
@@ -177,7 +150,7 @@ COPY --from=op-proposer-builder /app/op-challenger/bin/op-challenger /usr/local/
 # ENV OP_CHALLENGER_CANNON_BIN /usr/local/bin/cannon
 # ENV OP_CHALLENGER_CANNON_SERVER /usr/local/bin/op-program
 # ENV OP_CHALLENGER_CANNON_PRESTATE /app/prestate-proof.json
-ENV ENV_PREFIX=OP_CHALLENGER
+ENV ENV_PREFIX OP_CHALLENGER
 
 ENTRYPOINT [ "/bin/entrypoint.sh" ]
 CMD ["op-challenger"]

@@ -3,7 +3,6 @@ package devnet_tests
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -19,7 +18,7 @@ import (
 // - op-batcher: The primary batcher with Espresso enabled (initially active)
 // - op-batcher-fallback: The fallback batcher without Espresso (initially stopped)
 func TestBatcherSwitching(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Initialize devnet with NON_TEE profile (starts both batchers)

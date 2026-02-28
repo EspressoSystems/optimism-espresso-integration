@@ -5,6 +5,9 @@ services:
       interval: 3s
       timeout: 2s
       retries: 40
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
     depends_on:
       l2-genesis:

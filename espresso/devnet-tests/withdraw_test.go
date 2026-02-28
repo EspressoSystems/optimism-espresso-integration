@@ -30,7 +30,7 @@ func l2BlockFromExtraData(extraData []byte) (*big.Int, error) {
 }
 
 func TestWithdrawal(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	d := NewDevnet(ctx, t)

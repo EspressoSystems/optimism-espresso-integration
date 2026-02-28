@@ -5,30 +5,17 @@ import (
 	"testing"
 	"time"
 
-	espressobindings "github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 )
-
-// sleepOrDone sleeps for d or until ctx is cancelled.
-func sleepOrDone(ctx context.Context, d time.Duration) {
-	t := time.NewTimer(d)
-	defer t.Stop()
-	select {
-	case <-ctx.Done():
-		return
-	case <-t.C:
-		return
-	}
-}
 
 // TestChallengeGame verifies that the succinct proposer creates dispute games
 // and that games can be queried from the DisputeGameFactory contract.
 // The succinct proposer needs finalized L2 blocks before creating games.
 func TestChallengeGame(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
@@ -52,15 +39,12 @@ func TestChallengeGame(t *testing.T) {
 	gameWaitStart := time.Now()
 
 	for len(games) == 0 {
-		if ctx.Err() != nil {
-			t.Fatalf("context cancelled while waiting for dispute game: %v", ctx.Err())
-		}
 		if time.Since(gameWaitStart) > maxGameWait {
 			t.Fatalf("timeout waiting for dispute game to be created (waited %v)", maxGameWait)
 		}
 
 		t.Logf("waiting for a challenge game to be created by succinct-proposer...")
-		sleepOrDone(ctx, 5*time.Second)
+		time.Sleep(5 * time.Second)
 
 		var err error
 		games, err = d.ListChallengeGames()
@@ -75,8 +59,8 @@ func TestChallengeGame(t *testing.T) {
 	// Verify the game has at least 1 claim (the root claim from proposer)
 	require.GreaterOrEqual(t, games[0].Claims, uint64(1), "Game should have at least 1 claim")
 
-	// Bind to OPSuccinctFaultDisputeGame so we can call Resolve() once the game is over.
-	disputeGame, err := espressobindings.NewOPSuccinctFaultDisputeGame(games[0].Address, d.L1)
+	// Bind the dispute game contract and log its initial status.
+	disputeGame, err := bindings.NewFaultDisputeGame(games[0].Address, d.L1)
 	require.NoError(t, err)
 	statusRaw, err := disputeGame.Status(&bind.CallOpts{})
 	require.NoError(t, err)
@@ -85,74 +69,34 @@ func TestChallengeGame(t *testing.T) {
 	t.Logf("dispute game initial status: %s (%d)", gameStatus.String(), statusRaw)
 	require.Equal(t, types.GameStatusInProgress, gameStatus, "Dispute game should start InProgress")
 
-	l1ChainID, err := d.L1.ChainID(ctx)
-	require.NoError(t, err, "failed to get L1 chain ID")
-	l1Transactor := func() *bind.TransactOpts {
-		opts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Alice, l1ChainID)
-		require.NoError(t, err, "failed to create L1 transactor")
-		return opts
-	}
-
-	// Wait for game to be resolvable and then call Resolve().
-	// Devnet uses MAX_CHALLENGE_DURATION=10s, so game is resolvable shortly after creation.
-	maxObservation := 5 * time.Minute
-	pollInterval := 5 * time.Second
+	// Observe the dispute game for a limited time to see if it resolves.
+	maxObservation := 15 * time.Minute
+	pollInterval := 10 * time.Second
 	waitStart := time.Now()
 	finalStatus := gameStatus
 	finalStatusRaw := statusRaw
 
-	t.Logf("Observing dispute game %s for up to %s; will call Resolve() when game is over...", games[0].Address.Hex(), maxObservation)
+	t.Logf("Observing dispute game %s for up to %s to see if it resolves...", games[0].Address.Hex(), maxObservation)
 
 	for time.Since(waitStart) < maxObservation {
-		select {
-		case <-ctx.Done():
-			t.Fatalf("context cancelled while waiting for game resolution: %v", ctx.Err())
-		default:
-		}
-
 		statusRaw, err := disputeGame.Status(&bind.CallOpts{})
 		require.NoError(t, err)
 		status, err := types.GameStatusFromUint8(statusRaw)
 		require.NoError(t, err)
+
 		finalStatus = status
 		finalStatusRaw = statusRaw
 
 		if status != types.GameStatusInProgress {
-			t.Logf("dispute game resolved: %s (%d)", status.String(), statusRaw)
+			t.Logf("dispute game resolved during observation window: %s (%d)", status.String(), statusRaw)
 			require.Equal(t, types.GameStatusDefenderWon, status, "Expected honest proposer/defender to win succinct dispute game")
 			break
 		}
 
-		// Try to resolve; succeeds when gameOver().
-		resolveTx, err := disputeGame.Resolve(l1Transactor())
-		if err != nil {
-			t.Logf("Resolve() not yet possible (expected until game over): %v", err)
-			sleepOrDone(ctx, pollInterval)
-			continue
-		}
-		_, err = wait.ForReceiptOK(ctx, d.L1, resolveTx.Hash())
-		if err != nil {
-			if ctx.Err() != nil {
-				t.Fatalf("context cancelled during Resolve tx: %v", ctx.Err())
-			}
-			t.Logf("Resolve tx failed: %v", err)
-			sleepOrDone(ctx, pollInterval)
-			continue
-		}
-		// Recheck status after resolve tx.
-		statusRaw, err = disputeGame.Status(&bind.CallOpts{})
-		require.NoError(t, err)
-		finalStatus, _ = types.GameStatusFromUint8(statusRaw)
-		finalStatusRaw = statusRaw
-		if finalStatus != types.GameStatusInProgress {
-			t.Logf("dispute game resolved after Resolve(): %s (%d)", finalStatus.String(), finalStatusRaw)
-			require.Equal(t, types.GameStatusDefenderWon, finalStatus, "Expected DefenderWon after resolve")
-			break
-		}
-		sleepOrDone(ctx, pollInterval)
+		time.Sleep(pollInterval)
 	}
 
-	t.Logf("dispute game final status after %s: %s (%d)", time.Since(waitStart), finalStatus.String(), finalStatusRaw)
+	t.Logf("dispute game observed final status after %s: %s (%d)", time.Since(waitStart), finalStatus.String(), finalStatusRaw)
 	require.Equal(t, finalStatus, types.GameStatusDefenderWon,
 		"succinct dispute game final status must be DefenderWon, got %s (%d)",
 		finalStatus.String(), finalStatusRaw,
