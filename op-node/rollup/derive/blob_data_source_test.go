@@ -158,7 +158,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		batchHash := ComputeCalldataBatchHash(calldataTx.Data())
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		batchHash := ComputeBlobBatchHash([]common.Hash{blobHash})
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{blobTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)
@@ -206,7 +206,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)
@@ -229,7 +229,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		calldataTx, _ := types.SignNewTx(fallbackKey, signer, txData)
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)
@@ -254,7 +254,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		batchHash := ComputeCalldataBatchHash(calldataTx.Data())
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)

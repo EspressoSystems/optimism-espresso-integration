@@ -1134,7 +1134,7 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 		"sig", hexutil.Encode(signature),
 		"address", l.RollupConfig.BatchAuthenticatorAddress.String(),
 	)
-	_, err = l.Txmgr.Send(l.killCtx, verifyCandidate)
+	verificationReceipt, err := l.Txmgr.Send(l.killCtx, verifyCandidate)
 	if err != nil {
 		l.Log.Error("Failed to send authenticateBatch transaction", "txRef", transactionReference, "err", err)
 		receiptsCh <- txmgr.TxReceipt[txRef]{
@@ -1144,8 +1144,32 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 		return
 	}
 
-	l.Log.Debug("Queueing transaction", "txRef", transactionReference)
-	queue.Send(transactionReference, *candidate, receiptsCh)
+	receipt, err := l.Txmgr.Send(l.killCtx, *candidate)
+	if err != nil {
+		l.Log.Error("Failed to send batch inbox transaction", "txRef", transactionReference, "err", err)
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("failed to send batch inbox transaction: %w", err),
+		}
+		return
+	}
+
+	distance := new(big.Int).Sub(receipt.BlockNumber, verificationReceipt.BlockNumber)
+	lookbackWindow := new(big.Int).SetUint64(uint64(derive.BatchAuthLookbackWindow))
+	if distance.Sign() < 0 || distance.Cmp(lookbackWindow) >= 0 {
+		l.Log.Error("authenticateBatch transaction too far from batch inbox transaction", "txRef", transactionReference, "distance", distance)
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: fmt.Errorf("authenticateBatch transaction too far from batch inbox transaction: %s", distance),
+		}
+		return
+	}
+
+	receiptsCh <- txmgr.TxReceipt[txRef]{
+		ID:      transactionReference,
+		Receipt: receipt,
+		Err:     nil,
+	}
 }
 
 func stripHexPrefix(hexStr string) string {

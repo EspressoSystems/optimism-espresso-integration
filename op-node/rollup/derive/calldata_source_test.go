@@ -53,15 +53,22 @@ type calldataTest struct {
 // mockAuthEvents sets up L1 mock expectations for CollectAuthenticatedBatches to find auth events
 // for the given batch hashes at the given ref's block number. Auth events for batch hashes in
 // `authenticated` are placed in the ref block's receipts; all other blocks in the lookback
-// window have empty receipts. CollectAuthenticatedBatches always scans the full window, so
-// expectations are set up for every block in the range.
-func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1BlockRef, authenticatorAddr common.Address, authenticated []common.Hash) {
+// window have empty receipts.
+//
+// CollectAuthenticatedBatches traverses backward from ref via parent hashes, so this helper
+// builds a chain of L1BlockRef values with proper parent-hash linkage, sets up FetchReceipts
+// for each block, and L1BlockRefByHash for each parent.
+//
+// Returns the updated ref with its ParentHash properly set to the chain. Callers must use
+// the returned ref when calling functions that invoke CollectAuthenticatedBatches.
+func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1BlockRef, authenticatorAddr common.Address, authenticated []common.Hash) eth.L1BlockRef {
 	startBlock := ref.Number
 	if startBlock > BatchAuthLookbackWindow {
 		startBlock = ref.Number - BatchAuthLookbackWindow
 	} else {
 		startBlock = 0
 	}
+	windowSize := ref.Number - startBlock + 1
 
 	// Build the auth receipts for the ref block
 	var authLogs []*types.Log
@@ -80,20 +87,39 @@ func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1Block
 		authReceipts = types.Receipts{{Status: types.ReceiptStatusSuccessful, Logs: authLogs}}
 	}
 
-	for blockNum := startBlock; blockNum <= ref.Number; blockNum++ {
-		var blockRef eth.L1BlockRef
+	// Build parent-hash-linked chain from startBlock to ref.Number.
+	// chain[i] corresponds to block number startBlock + i.
+	chain := make([]eth.L1BlockRef, windowSize)
+	for i := uint64(0); i < windowSize; i++ {
+		blockNum := startBlock + i
 		if blockNum == ref.Number {
-			blockRef = ref
+			chain[i] = ref
 		} else {
-			blockRef = eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
+			chain[i] = eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
 		}
-		l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-		if blockNum == ref.Number {
+		if i > 0 {
+			chain[i].ParentHash = chain[i-1].Hash
+		}
+	}
+
+	// Update the ref at the end of the chain with the correct ParentHash
+	updatedRef := chain[windowSize-1]
+
+	// Set up expectations for backward traversal: ref -> ref-1 -> ... -> startBlock
+	for i := int(windowSize) - 1; i >= 0; i-- {
+		blockRef := chain[i]
+		if blockRef.Number == ref.Number {
 			l1F.ExpectFetchReceipts(blockRef.Hash, nil, authReceipts, nil)
 		} else {
 			l1F.ExpectFetchReceipts(blockRef.Hash, nil, types.Receipts{}, nil)
 		}
+		// L1BlockRefByHash is called for every parent except when we've reached the end of the window
+		if i > 0 {
+			l1F.ExpectL1BlockRefByHash(chain[i-1].Hash, chain[i-1], nil)
+		}
 	}
+
+	return updatedRef
 }
 
 // TestDataFromEVMTransactionsEventAuth tests event-based batch authentication
@@ -133,7 +159,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		// Use block number 1 so lookback window is [0, 1] — only 2 blocks to mock
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		batchHash := ComputeCalldataBatchHash(txData)
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
@@ -154,7 +180,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		// No auth events — empty authenticated list
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
@@ -174,7 +200,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		require.NoError(t, err)
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
@@ -194,7 +220,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		require.NoError(t, err)
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
@@ -219,7 +245,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		// Mock the lookback window scan (returns no authenticated hashes)
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
@@ -260,7 +286,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		batchHash1 := ComputeCalldataBatchHash(txData1)
 		// Only tx1 has an auth event. tx2 from fallback batcher passes via sender.
 		// tx3 from unknown sender should be rejected.
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash1})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash1})
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx1, tx2, tx3}, l1F, ref, logger)
 		require.NoError(t, err)
@@ -283,7 +309,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		batchHash := ComputeCalldataBatchHash(txData)
-		mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)

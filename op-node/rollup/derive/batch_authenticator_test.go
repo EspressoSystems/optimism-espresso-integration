@@ -166,6 +166,24 @@ func TestFindBatchAuthEvent(t *testing.T) {
 	})
 }
 
+// buildL1Chain creates a chain of L1BlockRef values with proper parent-hash linkage.
+// The chain goes from block number `start` to `end` (inclusive).
+// Returns a slice indexed by block number (relative to start), and the full map by number.
+func buildL1Chain(rng *rand.Rand, start, end uint64) map[uint64]eth.L1BlockRef {
+	chain := make(map[uint64]eth.L1BlockRef)
+	for num := start; num <= end; num++ {
+		ref := eth.L1BlockRef{
+			Number: num,
+			Hash:   testutils.RandomHash(rng),
+		}
+		if num > start {
+			ref.ParentHash = chain[num-1].Hash
+		}
+		chain[num] = ref
+	}
+	return chain
+}
+
 func TestCollectAuthenticatedBatches(t *testing.T) {
 	logger := testlog.Logger(t, log.LevelDebug)
 	ctx := context.Background()
@@ -193,19 +211,38 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 	}
 	emptyReceipts := types.Receipts{}
 
+	// expectChainTraversal sets up mock expectations for a backward parent-hash
+	// traversal from chain[end] down to chain[start]. For each block it expects
+	// FetchReceipts (by hash), and for all blocks except the first (end) it
+	// expects L1BlockRefByHash to resolve the parent hash.
+	// receiptsByBlock allows overriding receipts for specific block numbers.
+	expectChainTraversal := func(l1F *testutils.MockL1Source, chain map[uint64]eth.L1BlockRef, start, end uint64, receiptsByBlock map[uint64]types.Receipts) {
+		for num := end; num >= start; num-- {
+			ref := chain[num]
+			receipts := emptyReceipts
+			if r, ok := receiptsByBlock[num]; ok {
+				receipts = r
+			}
+			l1F.ExpectFetchReceipts(ref.Hash, nil, receipts, nil)
+			// L1BlockRefByHash is called for every block except the first one (ref itself)
+			if num > start {
+				l1F.ExpectL1BlockRefByHash(chain[num-1].Hash, chain[num-1], nil)
+			}
+			if num == 0 {
+				break // avoid underflow
+			}
+		}
+	}
+
 	t.Run("found in same block", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		ref := eth.L1BlockRef{Number: 200, Hash: common.HexToHash("0xaa")}
+		chain := buildL1Chain(rng, 100, 200)
+		ref := chain[200]
 
-		// We scan from block 100 (200 - 100) to 200. Auth event is in block 200 (same block).
-		for blockNum := uint64(100); blockNum < 200; blockNum++ {
-			blockRef := eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
-			l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-			l1F.ExpectFetchReceipts(blockRef.Hash, nil, emptyReceipts, nil)
-		}
-		// Block 200 has the matching event
-		l1F.ExpectL1BlockRefByNumber(200, ref, nil)
-		l1F.ExpectFetchReceipts(ref.Hash, nil, matchingReceipts, nil)
+		// Auth event is in block 200 (same block as ref). Traversal goes 200 -> 100.
+		expectChainTraversal(l1F, chain, 100, 200, map[uint64]types.Receipts{
+			200: matchingReceipts,
+		})
 
 		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
 		require.NoError(t, err)
@@ -214,27 +251,15 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 		l1F.AssertExpectations(t)
 	})
 
-	t.Run("found in earlier block", func(t *testing.T) {
+	t.Run("found in earliest block of window", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		ref := eth.L1BlockRef{Number: 200, Hash: common.HexToHash("0xaa")}
+		chain := buildL1Chain(rng, 100, 200)
+		ref := chain[200]
 
-		// Auth event is in block 100 (first block of window). CollectAuthenticatedBatches
-		// always scans the full window, so we need expectations for all blocks.
-		for blockNum := uint64(100); blockNum <= 200; blockNum++ {
-			var blockRef eth.L1BlockRef
-			if blockNum == 100 {
-				blockRef = eth.L1BlockRef{Number: 100, Hash: testutils.RandomHash(rng)}
-				l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-				l1F.ExpectFetchReceipts(blockRef.Hash, nil, matchingReceipts, nil)
-			} else if blockNum == 200 {
-				l1F.ExpectL1BlockRefByNumber(blockNum, ref, nil)
-				l1F.ExpectFetchReceipts(ref.Hash, nil, emptyReceipts, nil)
-			} else {
-				blockRef = eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
-				l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-				l1F.ExpectFetchReceipts(blockRef.Hash, nil, emptyReceipts, nil)
-			}
-		}
+		// Auth event is in block 100 (last block of the lookback window).
+		expectChainTraversal(l1F, chain, 100, 200, map[uint64]types.Receipts{
+			100: matchingReceipts,
+		})
 
 		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
 		require.NoError(t, err)
@@ -245,14 +270,11 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		ref := eth.L1BlockRef{Number: 200, Hash: common.HexToHash("0xaa")}
+		chain := buildL1Chain(rng, 100, 200)
+		ref := chain[200]
 
 		// No auth event in any block in the window
-		for blockNum := uint64(100); blockNum <= 200; blockNum++ {
-			blockRef := eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
-			l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-			l1F.ExpectFetchReceipts(blockRef.Hash, nil, emptyReceipts, nil)
-		}
+		expectChainTraversal(l1F, chain, 100, 200, nil)
 
 		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
 		require.NoError(t, err)
@@ -262,16 +284,13 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 
 	t.Run("low block number - window clamps to 0", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		ref := eth.L1BlockRef{Number: 10, Hash: common.HexToHash("0xaa")}
+		chain := buildL1Chain(rng, 0, 10)
+		ref := chain[10]
 
-		// Window should be [0, 10]
-		for blockNum := uint64(0); blockNum < 10; blockNum++ {
-			blockRef := eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
-			l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-			l1F.ExpectFetchReceipts(blockRef.Hash, nil, emptyReceipts, nil)
-		}
-		l1F.ExpectL1BlockRefByNumber(10, ref, nil)
-		l1F.ExpectFetchReceipts(ref.Hash, nil, matchingReceipts, nil)
+		// Window should clamp to [0, 10]. Auth event is in block 10.
+		expectChainTraversal(l1F, chain, 0, 10, map[uint64]types.Receipts{
+			10: matchingReceipts,
+		})
 
 		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
 		require.NoError(t, err)
@@ -282,7 +301,8 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 
 	t.Run("multiple hashes collected", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		ref := eth.L1BlockRef{Number: 10, Hash: common.HexToHash("0xaa")}
+		chain := buildL1Chain(rng, 0, 10)
+		ref := chain[10]
 
 		batchHash2 := crypto.Keccak256Hash([]byte("second batch"))
 		multiReceipts := types.Receipts{
@@ -309,13 +329,10 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 			},
 		}
 
-		for blockNum := uint64(0); blockNum < 10; blockNum++ {
-			blockRef := eth.L1BlockRef{Number: blockNum, Hash: testutils.RandomHash(rng)}
-			l1F.ExpectL1BlockRefByNumber(blockNum, blockRef, nil)
-			l1F.ExpectFetchReceipts(blockRef.Hash, nil, emptyReceipts, nil)
-		}
-		l1F.ExpectL1BlockRefByNumber(10, ref, nil)
-		l1F.ExpectFetchReceipts(ref.Hash, nil, multiReceipts, nil)
+		// Both auth events are in block 10
+		expectChainTraversal(l1F, chain, 0, 10, map[uint64]types.Receipts{
+			10: multiReceipts,
+		})
 
 		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
 		require.NoError(t, err)

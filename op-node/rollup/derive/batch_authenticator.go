@@ -3,6 +3,9 @@ package derive
 import (
 	"context"
 	"fmt"
+	"sync"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,19 +20,34 @@ import (
 // land in this window (or in the same block as the batch submission) for the batch
 // to be considered valid.
 //
-// At ~12s per L1 block, 100 blocks ≈ 20 minutes. This gives the batcher ample time
+// At ~12s per L1 block, 100 blocks ≈ 20 minutes. This gives the batcher time
 // to land the batch data transaction on L1 after the authentication transaction,
-// even under moderate L1 congestion or batcher restarts. The window is intentionally
-// generous: a tighter window risks rejecting valid batches during congestion spikes,
-// while a wider window only increases the receipt scan range (mitigated by the
-// CachingReceiptsProvider LRU cache).
+// even under L1 congestion or batcher restarts. The window is intentionally
+// generous: a tighter window risks rejecting valid batches during congestion spikes.
 const BatchAuthLookbackWindow uint64 = 100
 
 var (
 	// BatchInfoAuthenticatedABI is the event signature for BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer).
 	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32,address)"
 	BatchInfoAuthenticatedABIHash = crypto.Keccak256Hash([]byte(BatchInfoAuthenticatedABI))
+
+	// batchAuthCache is a global LRU cache mapping L1 block hash to the set of
+	// authenticated batch commitment hashes found in that block's receipts.
+	// Keyed by block hash so it is naturally reorg-safe: after a reorg the
+	// parent-hash traversal follows a different chain and stale entries are
+	// never hit. Thread-safe via lru.Cache's internal mutex.
+	batchAuthCache     *lru.Cache[common.Hash, map[common.Hash]bool]
+	batchAuthCacheOnce sync.Once
 )
+
+func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
+	batchAuthCacheOnce.Do(func() {
+		// Size slightly larger than the lookback window to avoid thrashing
+		// at the boundary. lru.New only errors on size <= 0.
+		batchAuthCache, _ = lru.New[common.Hash, map[common.Hash]bool](int(BatchAuthLookbackWindow) + 16)
+	})
+	return batchAuthCache
+}
 
 // ComputeCalldataBatchHash computes keccak256(calldata), matching the BatchAuthenticator
 // contract's calldata batch validation path.
@@ -98,6 +116,11 @@ func collectAuthEventsFromReceipts(receipts types.Receipts, authenticatorAddr co
 // against each candidate batch transaction. This avoids rescanning the lookback window
 // for every individual batch transaction.
 //
+// Results are cached per block hash in a global LRU cache. For consecutive L1 blocks
+// the lookback windows overlap by ~99 blocks, so only one new block's receipts need
+// to be fetched on each call. The cache is keyed by block hash (not number) so it is
+// naturally reorg-safe.
+//
 // Using event scanning (rather than L1 contract state reads) keeps the derivation
 // pipeline compatible with the op-program fault proof environment, which can only
 // access L1 block headers, transactions, receipts, and blobs.
@@ -108,31 +131,46 @@ func CollectAuthenticatedBatches(
 	authenticatorAddr common.Address,
 	logger log.Logger,
 ) (map[common.Hash]bool, error) {
-	startBlock := ref.Number
-	if startBlock > BatchAuthLookbackWindow {
-		startBlock = ref.Number - BatchAuthLookbackWindow
-	} else {
-		startBlock = 0
-	}
+	cache := getBatchAuthCache()
 
 	allAuthenticated := make(map[common.Hash]bool)
-	for blockNum := startBlock; blockNum <= ref.Number; blockNum++ {
-		blockRef, err := fetcher.L1BlockRefByNumber(ctx, blockNum)
-		if err != nil {
-			return nil, NewTemporaryError(fmt.Errorf("batch auth: failed to fetch L1 block ref %d: %w", blockNum, err))
+	currentBlock := ref
+	cacheHits := 0
+
+	for {
+		// Check cache first
+		if cached, ok := cache.Get(currentBlock.Hash); ok {
+			for h := range cached {
+				allAuthenticated[h] = true
+			}
+			cacheHits++
+		} else {
+			// Cache miss: fetch receipts, extract events, cache the result
+			_, receipts, err := fetcher.FetchReceipts(ctx, currentBlock.Hash)
+			if err != nil {
+				return nil, NewTemporaryError(fmt.Errorf("batch auth: failed to fetch receipts for block %d: %w", currentBlock.Number, err))
+			}
+			events := collectAuthEventsFromReceipts(receipts, authenticatorAddr)
+			cache.Add(currentBlock.Hash, events)
+			for h := range events {
+				allAuthenticated[h] = true
+			}
 		}
-		_, receipts, err := fetcher.FetchReceipts(ctx, blockRef.Hash)
-		if err != nil {
-			return nil, NewTemporaryError(fmt.Errorf("batch auth: failed to fetch receipts for block %d: %w", blockNum, err))
+
+		if currentBlock.Number == 0 || ref.Number-currentBlock.Number >= BatchAuthLookbackWindow {
+			break
 		}
-		for h := range collectAuthEventsFromReceipts(receipts, authenticatorAddr) {
-			allAuthenticated[h] = true
+
+		var err error
+		parentHash := currentBlock.ParentHash
+		currentBlock, err = fetcher.L1BlockRefByHash(ctx, parentHash)
+		if err != nil {
+			return nil, NewTemporaryError(fmt.Errorf("batch auth: failed to fetch L1 block ref %s: %w", parentHash.String(), err))
 		}
 	}
 
-	if len(allAuthenticated) > 0 {
-		logger.Debug("collected authenticated batches from lookback window",
-			"count", len(allAuthenticated), "startBlock", startBlock, "endBlock", ref.Number)
-	}
+	logger.Debug("collected authenticated batches from lookback window",
+		"count", len(allAuthenticated), "fromBlock", currentBlock.Number, "toBlock", ref.Number,
+		"cacheHits", cacheHits)
 	return allAuthenticated, nil
 }

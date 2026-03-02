@@ -163,7 +163,7 @@ func isBatchTxAuthorized(
 	authenticatedHashes map[common.Hash]bool,
 	logger log.Logger,
 ) bool {
-	if authenticatedHashes != nil {
+	if dsCfg.BatchAuthEnabled() {
 		// Event-based authentication: TEE batcher must have an auth event
 		if authenticatedHashes[batchHash] {
 			return true
@@ -178,6 +178,6 @@ func isBatchTxAuthorized(
 			"txHash", tx.Hash(), "batchHash", batchHash)
 		return false
 	}
-	// Legacy mode: verify sender
+	// Non-espresso mode: verify sender
 	return isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger)
 }
