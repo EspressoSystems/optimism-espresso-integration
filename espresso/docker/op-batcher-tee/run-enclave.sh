@@ -22,6 +22,10 @@ ENCLAVE_DEBUG="${ENCLAVE_DEBUG:-false}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MEMORY_MB="${ENCLAVE_MEMORY_MB:-4096}"
 CPU_COUNT="${ENCLAVE_CPU_COUNT:-2}"
+MAX_CHANNEL_DURATION="${MAX_CHANNEL_DURATION:-2}"
+TARGET_NUM_FRAMES="${TARGET_NUM_FRAMES:-1}"
+MAX_L1_TX_SIZE_BYTES="${MAX_L1_TX_SIZE_BYTES:-120000}"
+ALTDA_MAX_CONCURRENT_DA_REQUESTS="${ALTDA_MAX_CONCURRENT_DA_REQUESTS:-1}"
 
 # Deployment mode detection
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-aws}"  # 'local' or 'aws'
@@ -70,6 +74,10 @@ echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
 echo "CPU Count: $CPU_COUNT"
+echo "Max Channel Duration: $MAX_CHANNEL_DURATION"
+echo "Target Num Frames: $TARGET_NUM_FRAMES"
+echo "Max L1 Tx Size Bytes: $MAX_L1_TX_SIZE_BYTES"
+echo "AltDA Max Concurrent DA Requests: $ALTDA_MAX_CONCURRENT_DA_REQUESTS"
 echo "====================================="
 
 # Batcher arguments
@@ -94,15 +102,16 @@ else
 fi
 
 BATCHER_ARGS="$BATCHER_ARGS,--throttle-threshold=0"
-BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=2"
-BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
+BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=$MAX_CHANNEL_DURATION"
+BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=$TARGET_NUM_FRAMES"
+BATCHER_ARGS="$BATCHER_ARGS,--max-l1-tx-size-bytes=$MAX_L1_TX_SIZE_BYTES"
 BATCHER_ARGS="$BATCHER_ARGS,--max-pending-tx=32"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=$ESPRESSO_LIGHT_CLIENT_ADDR"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-server=$EIGENDA_PROXY_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-service=true"
-BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=32"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=$ALTDA_MAX_CONCURRENT_DA_REQUESTS"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.put-timeout=30s"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.get-timeout=30s"
 BATCHER_ARGS="$BATCHER_ARGS,--data-availability-type=calldata"
