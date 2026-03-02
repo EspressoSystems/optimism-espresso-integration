@@ -220,7 +220,17 @@ echo ""
 echo "=== Final op-batcher arguments ==="
 echo "Total arguments: ${#all_args[@]}"
 for i in "${!all_args[@]}"; do
-    echo "  [$i]: ${all_args[$i]}" >&2
+    arg="${all_args[$i]}"
+    # Mask sensitive flag values in logs
+    case "$arg" in
+        --private-key=*|--mnemonic=*)
+            flag="${arg%%=*}"
+            echo "  [$i]: ${flag}=[REDACTED]" >&2
+            ;;
+        *)
+            echo "  [$i]: $arg" >&2
+            ;;
+    esac
 done
 echo "===================================" >&2
 echo ""
