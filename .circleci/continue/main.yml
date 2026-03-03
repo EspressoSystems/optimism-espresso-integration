@@ -82,7 +82,7 @@ orbs:
   slack: circleci/slack@6.0.0
   shellcheck: circleci/shellcheck@3.2.0
   codecov: codecov/codecov@5.0.3
-  utils: ethereum-optimism/circleci-utils@1.0.24
+  utils: karlb/circleci-utils@1.0.26  # actually 1.0.24, but I misdeployed and had to choose a new number
   docker: circleci/docker@2.8.2
   github-cli: circleci/github-cli@2.7.0
 
