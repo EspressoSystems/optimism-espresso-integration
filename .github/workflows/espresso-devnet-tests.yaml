@@ -94,7 +94,8 @@ jobs:
 
       - name: Run tests for group ${{ matrix.group }}
         # -parallel 1: run tests in package one at a time so devnet Up/Down don't race (e.g. TestSmokeWithTEE vs TestForcedTransaction).
-        run: cd espresso && go test -timeout 30m -p 1 -parallel 1 -count 1 -run '${{ matrix.tests }}' -v ./devnet-tests/...
+        # 60m timeout: devnet bring-up + tests (e.g. TestChallengeGame ~15m observation, TestBatcherRestart/Switching) often exceed 30m in CI.
+        run: cd espresso && go test -timeout 60m -p 1 -parallel 1 -count 1 -run '${{ matrix.tests }}' -v ./devnet-tests/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
