@@ -219,18 +219,21 @@ all_args=("${filtered_args[@]}" "${url_args[@]}")
 echo ""
 echo "=== Final op-batcher arguments ==="
 echo "Total arguments: ${#all_args[@]}"
+next_is_secret=false
 for i in "${!all_args[@]}"; do
     arg="${all_args[$i]}"
-    # Mask sensitive flag values in logs
-    case "$arg" in
-        --private-key=*|--mnemonic=*)
-            flag="${arg%%=*}"
-            echo "  [$i]: ${flag}=[REDACTED]" >&2
-            ;;
-        *)
-            echo "  [$i]: $arg" >&2
-            ;;
-    esac
+    if $next_is_secret; then
+        echo "  [$i]: [REDACTED]" >&2
+        next_is_secret=false
+    elif [[ "$arg" =~ ^--(private-key|mnemonic)= ]]; then
+        flag="${arg%%=*}"
+        echo "  [$i]: ${flag}=[REDACTED]" >&2
+    elif [[ "$arg" == "--private-key" || "$arg" == "--mnemonic" ]]; then
+        echo "  [$i]: $arg" >&2
+        next_is_secret=true
+    else
+        echo "  [$i]: $arg" >&2
+    fi
 done
 echo "===================================" >&2
 echo ""
