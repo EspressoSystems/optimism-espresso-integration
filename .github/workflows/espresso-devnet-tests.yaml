@@ -32,6 +32,8 @@ jobs:
     env:
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
+      # Skip op-e2e alloc gen; devnet tests use Docker devnet and don't need L1/L2 allocs (avoids init panic).
+      OP_E2E_SKIP_ALLOC_GEN: "1"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -90,7 +92,7 @@ jobs:
           COMPOSE_PROFILES=tee docker compose build
 
       - name: Run tests for group ${{ matrix.group }}
-        run: go test -timeout 30m -p 1 -count 1 -run '${{ matrix.tests }}' -v ./espresso/devnet-tests/...
+        run: cd espresso && go test -timeout 30m -p 1 -count 1 -run '${{ matrix.tests }}' -v ./devnet-tests/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6

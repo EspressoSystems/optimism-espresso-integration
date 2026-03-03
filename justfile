@@ -15,30 +15,51 @@ tests:
 fast-tests:
  ./run_fast_tests.sh
 
+# Devnet tests use Docker devnet and do not need op-e2e alloc gen. Skip it to avoid init panic.
+_devnet_test_env := "OP_E2E_SKIP_ALLOC_GEN=1"
+# Run devnet tests from espresso/ so docker compose finds docker-compose.yml (cwd = espresso when test runs).
+_devnet_test_cmd := "cd espresso && U_ID={{uid}} GID={{gid}} {{_devnet_test_env}} go test"
+
 devnet-tests: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v ./devnet-tests/...
 
 devnet-smoke-test-without-tee: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -run 'TestSmokeWithoutTEE' -v ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -run 'TestSmokeWithoutTEE' -v ./devnet-tests/...
 
+# Quick: run test only (no build-devnet). Use after `just build-devnet` for fast re-runs.
+devnet-smoke-test-without-tee-quick:
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -run 'TestSmokeWithoutTEE' -v ./devnet-tests/...
+
+# Challenge test: same 30m timeout as other devnet tests. "Quick" = skip build-devnet (faster re-runs), not shorter test.
 devnet-challenge-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./devnet-tests/...
+
+# Quick: run challenge test only (no build-devnet). Use after `just build-devnet` for fast re-runs.
+devnet-challenge-test-quick:
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v -run TestChallengeGame ./devnet-tests/...
 
 
 devnet-forced-transaction-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestForcedTransaction ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v -run TestForcedTransaction ./devnet-tests/...
 
 
 devnet-withdraw-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestWithdrawal ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v -run TestWithdrawal ./devnet-tests/...
 
 devnet-batcher-switching-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestBatcherSwitching ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v -run TestBatcherSwitching ./devnet-tests/...
 
 devnet-batcher-active-publish-only-test: build-devnet
-  U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestBatcherActivePublishOnly ./espresso/devnet-tests/...
+  {{_devnet_test_cmd}} -timeout 30m -p 1 -count 1 -v -run TestBatcherActivePublishOnly ./devnet-tests/...
 
 build-devnet: stop-containers compile-contracts
+  rm -Rf espresso/deployment
+  (cd op-deployer && just)
+  (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
+
+# Same as build-devnet but skip stop-containers. Use when Docker returns 500 (e.g. API version mismatch);
+# restart Docker Desktop or set DOCKER_API_VERSION=1.41 if needed.
+build-devnet-skip-stop: compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)
   (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
@@ -86,7 +107,8 @@ smoke-tests: compile-contracts
 nuke:
   make nuke
 
-# Stop the containers
+# Stop the containers. If you get "500 Internal Server Error" / API version, restart Docker Desktop
+# or run: DOCKER_API_VERSION=1.41 just build-devnet-skip-stop (then build-devnet-skip-stop).
 stop-containers:
   (cd espresso && U_ID={{uid}} GID={{gid}} docker compose down -v)
 
