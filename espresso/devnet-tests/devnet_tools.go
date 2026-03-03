@@ -97,14 +97,18 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 }
 
 func (d *Devnet) isRunning() bool {
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "ps", "-q",
-	)
+	root, err := composeProjectDir()
+	if err != nil {
+		log.Error("failed to get compose project dir", "error", err)
+		return false
+	}
+	cmd := exec.CommandContext(d.ctx, "docker", "compose", "ps", "-q")
+	cmd.Dir = root
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	if err := cmd.Run(); err != nil {
-		log.Error("failed to check if devnet is running", "error", err)
+		// exit status 1 is normal when no containers are running (e.g. after down or first run)
+		log.Debug("docker compose ps returned (devnet not running)", "error", err)
 		return false
 	}
 	out := strings.TrimSpace(buf.String())
@@ -119,6 +123,50 @@ const (
 	NON_TEE ComposeProfile = "default"
 )
 
+// composeProjectDir returns the directory containing docker-compose.yml so compose and env paths
+// work whether the test is run from repo root, espresso/, or espresso/devnet-tests/.
+func composeProjectDir() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for _, dir := range []string{cwd, filepath.Join(cwd, ".."), filepath.Join(cwd, "espresso"), filepath.Join(cwd, "..", "..")} {
+		abs, _ := filepath.Abs(dir)
+		if abs == "" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(abs, "docker-compose.yml")); err == nil {
+			return abs, nil
+		}
+	}
+	return "", fmt.Errorf("docker-compose.yml not found from %s (run tests from repo root or espresso/)", cwd)
+}
+
+// ensureSuccinctEnv creates deployment/deployer/succinct.env in the compose project dir if missing,
+// so docker compose does not fail on env_file. Tests that need real proposer/challenger must run after build-devnet.
+func ensureSuccinctEnv() error {
+	root, err := composeProjectDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(root, "deployment", "deployer")
+	path := filepath.Join(dir, "succinct.env")
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create deployment/deployer: %w", err)
+	}
+	// Placeholder addresses so compose can start; smoke test does not require real proposer/challenger.
+	const placeholder = "0x0000000000000000000000000000000000000000"
+	body := fmt.Sprintf("FACTORY_ADDRESS=%s\nDISPUTE_GAME_FACTORY_ADDRESS=%s\nOPTIMISM_PORTAL2_ADDRESS=%s\nANCHOR_STATE_REGISTRY_ADDRESS=%s\n",
+		placeholder, placeholder, placeholder, placeholder)
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
 func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	if d.isRunning() {
 		if err := d.Down(); err != nil {
@@ -129,20 +177,26 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		return fmt.Errorf("devnet is already running, this should be a clean state; please shut it down first")
 	}
 
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "up", "-d",
-	)
+	if err := ensureSuccinctEnv(); err != nil {
+		return fmt.Errorf("ensure succinct.env: %w", err)
+	}
+
+	root, err := composeProjectDir()
+	if err != nil {
+		return err
+	}
+
+	log.Info("starting docker compose", "profile", profile, "dir", root)
+	cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d")
+	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
-	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
-	)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))))
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to start docker compose (%w): %s", err, buf.String())
 	}
+	log.Info("docker compose up completed, connecting to RPC endpoints...")
 
 	// Shut down the now-running devnet if we exit this function with an error (in which case the
 	// caller expects the devnet not to be running and will not be responsible for shutting it down
@@ -164,58 +218,65 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	}()
 
 	if testing.Verbose() {
-		// Stream logs to stdout while the test runs. This goroutine will automatically exit when
-		// the context is cancelled.
+		logRoot := root
 		go func() {
-			cmd = exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
+			cmd := exec.CommandContext(d.ctx, "docker", "compose", "logs", "-f")
+			cmd.Dir = logRoot
 			cmd.Stdout = os.Stdout
-			// We don't care about the error return of this command, since it's always going to be
-			// killed by the context cancellation.
 			_ = cmd.Run()
 		}()
 	}
 
-	// Open RPC clients for the different nodes.
+	// Open RPC clients for the different nodes (may block until services are ready).
+	log.Info("connecting to op-geth-sequencer...")
 	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
 	if err != nil {
 		return err
 	}
+	log.Info("connecting to op-node-sequencer...")
 	d.L2SeqRollup, err = d.rollupClient("op-node-sequencer", 9545)
 	if err != nil {
 		return err
 	}
+	log.Info("connecting to op-geth-verifier...")
 	d.L2Verif, err = d.serviceClient("op-geth-verifier", 8546)
 	if err != nil {
 		return err
 	}
+	log.Info("connecting to op-node-verifier...")
 	d.L2VerifRollup, err = d.rollupClient("op-node-verifier", 9546)
 	if err != nil {
 		return err
 	}
-
+	log.Info("connecting to l1-geth...")
 	d.L1, err = d.serviceClient("l1-geth", 8545)
 	if err != nil {
 		return err
 	}
+	log.Info("all RPC endpoints connected")
 
 	return nil
 }
 
 func (d *Devnet) ServiceUp(service string) error {
+	root, err := composeProjectDir()
+	if err != nil {
+		return err
+	}
 	log.Info("bringing up service", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "up", "-d", service,
-	)
+	cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d", service)
+	cmd.Dir = root
 	return cmd.Run()
 }
 
 func (d *Devnet) ServiceDown(service string) error {
+	root, err := composeProjectDir()
+	if err != nil {
+		return err
+	}
 	log.Info("shutting down service", "service", service)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "down", service,
-	)
+	cmd := exec.CommandContext(d.ctx, "docker", "compose", "down", service)
+	cmd.Dir = root
 	return cmd.Run()
 }
 
@@ -231,12 +292,17 @@ func (d *Devnet) ServiceRestart(service string) error {
 
 // callBatcherRPC calls a batcher RPC method on a running batcher service
 func (d *Devnet) callBatcherRPC(service, method string) error {
+	root, err := composeProjectDir()
+	if err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(
 		d.ctx,
 		"docker", "compose", "exec", "-T", service,
 		"sh", "-c",
 		fmt.Sprintf("wget -q -O- --header='Content-Type: application/json' --post-data='{\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":[],\"id\":1}' http://localhost:8545", method),
 	)
+	cmd.Dir = root
 	buf := new(bytes.Buffer)
 	cmd.Stdout = buf
 	cmd.Stderr = buf
@@ -481,11 +547,12 @@ func (d *Devnet) Down() error {
 		d.L2VerifRollup.Close()
 	}
 
-	// Use timeout flag for faster Docker shutdown
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10",
-	)
+	root, rootErr := composeProjectDir()
+	if rootErr != nil {
+		return fmt.Errorf("compose project dir: %w", rootErr)
+	}
+	cmd := exec.CommandContext(d.ctx, "docker", "compose", "down", "-v", "--remove-orphans", "--timeout", "10")
+	cmd.Dir = root
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to shut down docker: %w", err)
 	}
@@ -728,12 +795,14 @@ func (d *Devnet) opChallengerCmd(opts ...string) *exec.Cmd {
 
 // Get the host port mapped to `privatePort` for the given Docker service.
 func (d *Devnet) hostPort(service string, privatePort uint16) (uint16, error) {
+	root, err := composeProjectDir()
+	if err != nil {
+		return 0, err
+	}
 	buf := new(bytes.Buffer)
 	errBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(
-		d.ctx,
-		"docker", "compose", "port", service, fmt.Sprint(privatePort),
-	)
+	cmd := exec.CommandContext(d.ctx, "docker", "compose", "port", service, fmt.Sprint(privatePort))
+	cmd.Dir = root
 	cmd.Stdout = buf
 	cmd.Stderr = errBuf
 

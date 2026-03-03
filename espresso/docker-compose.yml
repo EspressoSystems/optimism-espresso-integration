@@ -15,7 +15,7 @@ services:
       sh -c '
         mkdir -p /deployment/l1-config /deployment/l2-config /deployment/deployer
         mkdir -p /data/lighthouse-validator /data/lighthouse-beacon
-        chown -R ${U_ID:-1000}:${GID:-1000} /deployment /data
+        chown -R ${U_ID:-1000}:${GID:-1000} /deployment /data || true
         '
     volumes:
       - ./deployment:/deployment
@@ -167,6 +167,7 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    restart: unless-stopped
     volumes:
       - op-data-seq:/data
     ports:
@@ -177,6 +178,7 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    restart: unless-stopped
     volumes:
       - op-data-verifier:/data
     ports:
@@ -187,6 +189,7 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    restart: unless-stopped
     volumes:
       - op-data-caff-node:/data
     ports:
@@ -378,7 +381,8 @@ services:
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
-      - --throttle-threshold=0
+      # Disable DA throttling so we don't call miner_setMaxDASize on op-geth (devnet may not expose it).
+      - --throttle.unsafe-da-bytes-lower-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
       - --max-pending-tx=32
@@ -420,7 +424,7 @@ services:
       - op-batcher
       - --espresso.enabled=false
       - --private-key=7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
-      - --throttle-threshold=0
+      - --throttle.unsafe-da-bytes-lower-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
       - --max-pending-tx=32
@@ -780,6 +784,10 @@ services:
       NEXT_PUBLIC_NETWORK_CURRENCY_NAME: Ether
       NEXT_PUBLIC_NETWORK_CURRENCY_SYMBOL: ETH
       NEXT_PUBLIC_NETWORK_CURRENCY_DECIMALS: "18"
+
+networks:
+  default:
+    name: espresso_default
 
 volumes:
   l1-data:

@@ -73,6 +73,56 @@ func DefaultForkedScriptHost(
 	)
 }
 
+// ForkedScriptHostForBootstrap creates a script host for bootstrap superchain (and similar)
+// without WithIsolatedBroadcasts, so that CREATEs inside vm.broadcast() persist in the
+// simulation and scripts like DeploySuperchain.assertValidOutput succeed.
+func ForkedScriptHostForBootstrap(
+	ctx context.Context,
+	bcaster broadcaster.Broadcaster,
+	lgr log.Logger,
+	deployer common.Address,
+	artifacts foundry.StatDirFs,
+	forkRPC *rpc.Client,
+) (*script.Host, error) {
+	client := ethclient.NewClient(forkRPC)
+	latest, err := client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest block: %w", err)
+	}
+	// Same as DefaultScriptHost but omit WithIsolatedBroadcasts so broadcast CREATEs persist.
+	scriptCtx := script.DefaultContext
+	scriptCtx.Sender = deployer
+	scriptCtx.Origin = deployer
+	opts := []script.HostOption{
+		script.WithBroadcastHook(bcaster.Hook),
+		script.WithCreate2Deployer(),
+		script.WithForkHook(func(cfg *script.ForkConfig) (forking.ForkSource, error) {
+			src, err := forking.RPCSourceByNumber(cfg.URLOrAlias, forkRPC, *cfg.BlockNumber)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create RPC fork source: %w", err)
+			}
+			return forking.Cache(src), nil
+		}),
+	}
+	h := script.NewHost(
+		lgr,
+		&foundry.ArtifactsFS{FS: artifacts},
+		nil,
+		scriptCtx,
+		opts...,
+	)
+	if err := h.EnableCheats(); err != nil {
+		return nil, fmt.Errorf("failed to enable cheats: %w", err)
+	}
+	if _, err := h.CreateSelectFork(
+		script.ForkWithURLOrAlias("main"),
+		script.ForkWithBlockNumberU256(latest.Number),
+	); err != nil {
+		return nil, fmt.Errorf("failed to select fork: %w", err)
+	}
+	return h, nil
+}
+
 func ForkedScriptHost(
 	bcaster broadcaster.Broadcaster,
 	lgr log.Logger,
@@ -82,20 +132,21 @@ func ForkedScriptHost(
 	blockNumber *big.Int,
 	additionalOpts ...script.HostOption,
 ) (*script.Host, error) {
+	opts := append([]script.HostOption{
+		script.WithForkHook(func(cfg *script.ForkConfig) (forking.ForkSource, error) {
+			src, err := forking.RPCSourceByNumber(cfg.URLOrAlias, forkRPC, *cfg.BlockNumber)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create RPC fork source: %w", err)
+			}
+			return forking.Cache(src), nil
+		}),
+	}, additionalOpts...)
 	h, err := DefaultScriptHost(
 		bcaster,
 		lgr,
 		deployer,
 		artifacts,
-		append([]script.HostOption{
-			script.WithForkHook(func(cfg *script.ForkConfig) (forking.ForkSource, error) {
-				src, err := forking.RPCSourceByNumber(cfg.URLOrAlias, forkRPC, *cfg.BlockNumber)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create RPC fork source: %w", err)
-				}
-				return forking.Cache(src), nil
-			}),
-		}, additionalOpts...)...,
+		opts...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default script host: %w", err)

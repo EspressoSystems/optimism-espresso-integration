@@ -14,12 +14,18 @@ if [ "$MODE" = "genesis" ]; then
   echo "=== Running L2 Genesis Mode ==="
 
   echo "Generating genesis..."
-  op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
+  # Use writable cache dir (container runs as U_ID:GID and cannot write to /.op-deployer). Must be before subcommand.
+  op-deployer --cache-dir /tmp/op-deployer/cache inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
 
   echo "Updating genesis timestamp..."
   # Use environment variable or fallback to the current time.
   GENESIS_TIMESTAMP=${GENESIS_TIMESTAMP:-$(printf '0x%x\n' $(date +%s))}
   dasel put -f /config/genesis.json -s .timestamp -v "$GENESIS_TIMESTAMP"
+
+  # Ensure L2 genesis has valid Jovian EIP-1559 extraData so op-geth does not panic in CalcBaseFee.
+  # Format: version=1, denominator=250, elasticity=6, minBaseFee=0 (OP Stack Jovian spec).
+  JOVIAN_EXTRA_DATA="${JOVIAN_EXTRA_DATA:-0x01000000fa000000060000000000000000}"
+  dasel put -f /config/genesis.json -s .extraData -v "$JOVIAN_EXTRA_DATA"
 
   if [[ ! -f /config/jwt.txt ]]; then
       echo "Generating JWT token..."
@@ -119,7 +125,7 @@ elif [ "$MODE" = "rollup" ]; then
     dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
   else
     echo "Pre-built rollup config not found, generating new one..."
-    op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
+    op-deployer --cache-dir /tmp/op-deployer/cache inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
 
     echo "Updating L1 genesis info..."
     L1_HASH=$(curl -X POST \

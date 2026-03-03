@@ -154,6 +154,15 @@ func WithIsolatedBroadcasts() HostOption {
 	}
 }
 
+// WithoutIsolatedBroadcasts disables isolated broadcasts so that CREATE/CALL state from
+// vm.broadcast() persists in the simulation. Use when the script asserts on deployed
+// contract addresses in the same run (e.g. DeploySuperchain.assertValidOutput).
+func WithoutIsolatedBroadcasts() HostOption {
+	return func(h *Host) {
+		h.isolateBroadcasts = false
+	}
+}
+
 // WithCreate2Deployer proxies each CREATE2 call through the CREATE2 deployer
 // contract located at 0x4e59b44847b379578588920cA78FbF26c0B4956C. This is the Arachnid
 // Create2Deployer contract Forge uses. See https://github.com/Arachnid/deterministic-deployment-proxy

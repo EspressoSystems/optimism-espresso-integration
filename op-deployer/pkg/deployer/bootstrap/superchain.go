@@ -222,7 +222,9 @@ func Superchain(ctx context.Context, cfg SuperchainConfig) (opcm.DeploySuperchai
 		return dso, fmt.Errorf("failed to connect to L1 RPC: %w", err)
 	}
 
-	l1Host, err := env.DefaultForkedScriptHost(
+	// Use ForkedScriptHostForBootstrap so broadcast CREATEs persist (no WithIsolatedBroadcasts),
+	// and DeploySuperchain.assertValidOutput succeeds.
+	l1Host, err := env.ForkedScriptHostForBootstrap(
 		ctx,
 		bcaster,
 		lgr,
