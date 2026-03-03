@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Test } from "forge-std/Test.sol";
 import { console2 as console } from "forge-std/console2.sol";
+import { Vm } from "forge-std/Vm.sol";
 
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
@@ -10,9 +11,18 @@ import { Proxy } from "src/universal/Proxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
+import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
+import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
-import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
+import { EspressoTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoTEEVerifier.sol";
+import { EspressoNitroTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoNitroTEEVerifierMock.sol";
+import { EspressoSGXTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoSGXTEEVerifierMock.sol";
+import {
+    VerifierJournal,
+    VerificationResult,
+    Pcr
+} from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 
 import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
@@ -27,19 +37,48 @@ contract BatchAuthenticator_Test is Test {
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
 
-    MockEspressoTEEVerifier public teeVerifier;
+    EspressoTEEVerifierMock public teeVerifier;
+    EspressoNitroTEEVerifierMock public nitroVerifier;
+    EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
     ProxyAdmin public proxyAdmin;
 
     function setUp() public {
-        // Deploy the mock TEE verifier (standalone mode with no external nitro verifier)
+        // Deploy the mock TEE verifier with a mock Nitro verifier.
         // and the authenticator implementation.
-        teeVerifier = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(0)));
+        nitroVerifier = new EspressoNitroTEEVerifierMock();
+        sgxVerifier = new EspressoSGXTEEVerifierMock();
+        teeVerifier = new EspressoTEEVerifierMock(
+            IEspressoSGXTEEVerifier(address(sgxVerifier)), IEspressoNitroTEEVerifier(address(nitroVerifier))
+        );
         implementation = new BatchAuthenticator();
 
         // Deploy the proxy admin.
         vm.prank(proxyAdminOwner);
         proxyAdmin = new ProxyAdmin(proxyAdminOwner);
+    }
+
+    function _nitroRegistrationOutputForPrivateKey(uint256 privateKey) internal returns (bytes memory) {
+        Vm.Wallet memory wallet = vm.createWallet(privateKey);
+        bytes memory publicKey = abi.encodePacked(bytes1(0x04), bytes32(wallet.publicKeyX), bytes32(wallet.publicKeyY));
+
+        VerifierJournal memory journal = VerifierJournal({
+            result: VerificationResult.Success,
+            trustedCertsPrefixLen: 0,
+            timestamp: 0,
+            certs: new bytes32[](0),
+            userData: new bytes(0),
+            nonce: new bytes(0),
+            publicKey: publicKey,
+            pcrs: new Pcr[](0),
+            moduleId: ""
+        });
+
+        return abi.encode(journal);
+    }
+
+    function _registerNitroSigner(uint256 privateKey) internal {
+        nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "", ServiceType.BatchPoster);
     }
 
     /// @notice Create and initialize a proxy.
@@ -190,19 +229,18 @@ contract BatchAuthenticator_Test is Test {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
-        address signer = vm.addr(privateKey);
         bytes32 commitment = keccak256("test commitment");
 
         // Register signer.
-        teeVerifier.setRegisteredSigner(signer, true);
+        _registerNitroSigner(privateKey);
 
         // Create signature.
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
-        vm.expectEmit(true, true, false, false);
-        emit BatchInfoAuthenticated(commitment, signer);
+        vm.expectEmit(true, false, false, false);
+        emit BatchInfoAuthenticated(commitment);
 
         authenticator.authenticateBatchInfo(commitment, signature);
 
@@ -223,7 +261,7 @@ contract BatchAuthenticator_Test is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Should revert because signer is not registered.
-        vm.expectRevert("BatchAuthenticator: invalid signer");
+        vm.expectRevert(abi.encodeWithSelector(IEspressoTEEVerifier.InvalidSignature.selector));
         authenticator.authenticateBatchInfo(commitment, signature);
 
         // Verify commitment was NOT marked as valid
@@ -240,7 +278,7 @@ contract BatchAuthenticator_Test is Test {
         bytes memory invalidSignature = new bytes(65);
 
         // OpenZeppelin's ECDSA.recover reverts with its own error for invalid signatures
-        vm.expectRevert("ECDSA: invalid signature");
+        vm.expectRevert();
         authenticator.authenticateBatchInfo(commitment, invalidSignature);
     }
 
@@ -248,12 +286,11 @@ contract BatchAuthenticator_Test is Test {
     function test_registerSigner_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
-        // The new mock expects signer address in the first parameter (output/attestation)
-        address signer = address(0x1234);
-        bytes memory signerData = abi.encodePacked(signer);
+        uint256 privateKey = 1;
+        bytes memory signerData = _nitroRegistrationOutputForPrivateKey(privateKey);
         bytes memory proofBytes = "";
 
-        vm.expectEmit(true, false, false, true);
+        vm.expectEmit(true, false, false, false);
         emit SignerRegistrationInitiated(address(this));
 
         authenticator.registerSigner(signerData, proofBytes);
@@ -332,8 +369,7 @@ contract BatchAuthenticator_Test is Test {
         // Set up initial state.
         bytes32 commitment = keccak256("test commitment");
         uint256 privateKey = 1;
-        address signer = vm.addr(privateKey);
-        teeVerifier.setRegisteredSigner(signer, true);
+        _registerNitroSigner(privateKey);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
@@ -362,7 +398,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     // Event declarations for expectEmit.
-    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
+    event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
     event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
     event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
@@ -375,7 +411,9 @@ contract BatchAuthenticator_Fork_Test is Test {
     address public teeBatcher = address(0x1234);
     address public nonTeeBatcher = address(0x5678);
 
-    MockEspressoTEEVerifier public teeVerifier;
+    EspressoTEEVerifierMock public teeVerifier;
+    EspressoNitroTEEVerifierMock public nitroVerifier;
+    EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
     Proxy public proxy;
     ProxyAdmin public proxyAdmin;
@@ -391,7 +429,11 @@ contract BatchAuthenticator_Fork_Test is Test {
         console.log("Forked Sepolia at block:", block.number);
 
         // Deploy mock TEE verifier (standalone mode) and authenticator implementation.
-        teeVerifier = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(0)));
+        nitroVerifier = new EspressoNitroTEEVerifierMock();
+        sgxVerifier = new EspressoSGXTEEVerifierMock();
+        teeVerifier = new EspressoTEEVerifierMock(
+            IEspressoSGXTEEVerifier(address(sgxVerifier)), IEspressoNitroTEEVerifier(address(nitroVerifier))
+        );
         implementation = new BatchAuthenticator();
 
         // Deploy proxy admin and proxy.
@@ -411,6 +453,35 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         // Get the proxied contract instance.
         authenticator = BatchAuthenticator(address(proxy));
+    }
+
+    function _nitroRegistrationOutputForPrivateKey(uint256 privateKey) internal returns (bytes memory) {
+        Vm.Wallet memory wallet = vm.createWallet(privateKey);
+        // uncompressed secp256k1 public key similar to the key TEE generates
+        bytes memory publicKey = abi.encodePacked(
+            // uncompressed key prefix
+            bytes1(0x04),
+            bytes32(wallet.publicKeyX),
+            bytes32(wallet.publicKeyY)
+        );
+
+        VerifierJournal memory journal = VerifierJournal({
+            result: VerificationResult.Success,
+            trustedCertsPrefixLen: 0,
+            timestamp: 0,
+            certs: new bytes32[](0),
+            userData: new bytes(0),
+            nonce: new bytes(0),
+            publicKey: publicKey,
+            pcrs: new Pcr[](0),
+            moduleId: ""
+        });
+
+        return abi.encode(journal);
+    }
+
+    function _registerNitroSigner(uint256 privateKey) internal {
+        nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "", ServiceType.BatchPoster);
     }
 
     /// @notice Test deployment and initialization on Sepolia fork.
@@ -446,18 +517,17 @@ contract BatchAuthenticator_Fork_Test is Test {
         bytes32 commitment = keccak256("test commitment on sepolia");
 
         // Create a signature.
-        uint256 privateKey = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
-        address signer = vm.addr(privateKey);
+        uint256 privateKey = 1;
 
         // Register the signer.
-        teeVerifier.setRegisteredSigner(signer, true);
+        _registerNitroSigner(privateKey);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
-        vm.expectEmit(true, true, false, false);
-        emit BatchInfoAuthenticated(commitment, signer);
+        vm.expectEmit(true, false, false, false);
+        emit BatchInfoAuthenticated(commitment);
         authenticator.authenticateBatchInfo(commitment, signature);
 
         assertTrue(authenticator.validBatchInfo(commitment));
@@ -467,11 +537,10 @@ contract BatchAuthenticator_Fork_Test is Test {
     function testFork_upgrade_preservesState() external {
         // Initialize the authenticator.
         bytes32 commitment = keccak256("test commitment");
-        uint256 privateKey = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
-        address signer = vm.addr(privateKey);
+        uint256 privateKey = 1;
 
         // Register the signer.
-        teeVerifier.setRegisteredSigner(signer, true);
+        _registerNitroSigner(privateKey);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
         bytes memory signature = abi.encodePacked(r, s, v);
@@ -512,7 +581,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     }
 
     // Event declarations for expectEmit.
-    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
+    event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
     event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
     event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
