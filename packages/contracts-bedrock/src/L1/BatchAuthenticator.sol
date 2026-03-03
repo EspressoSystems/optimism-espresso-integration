@@ -106,7 +106,7 @@ contract BatchAuthenticator is
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
-        // Setting TEEType as 1 because OP integration only supports
+        // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
         espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
 
         validBatchInfo[commitment] = true;
