@@ -111,6 +111,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_AT
 BATCHER_ARGS="$BATCHER_ARGS,--altda.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-server=$EIGENDA_PROXY_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-service=true"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.verify-on-read=false"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=$ALTDA_MAX_CONCURRENT_DA_REQUESTS"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.put-timeout=30s"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.get-timeout=30s"
