@@ -12,14 +12,11 @@ RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
   linux-headers git bash jq yq
 
-# Install mise for toolchain management
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
-
-# Install yq, dasel and foundry
+# Install yq, dasel, foundry, and just
 RUN case "$TARGETARCH" in \
-  "amd64") ARCH="amd64" ;; \
-  "arm64") ARCH="arm64" ;; \
-  *) ARCH="amd64" ;; \
+  "amd64") ARCH="amd64"; JUST_ARCH="x86_64-unknown-linux-musl" ;; \
+  "arm64") ARCH="arm64"; JUST_ARCH="aarch64-unknown-linux-musl" ;; \
+  *) ARCH="amd64"; JUST_ARCH="x86_64-unknown-linux-musl" ;; \
   esac && \
   wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$ARCH -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
@@ -30,11 +27,13 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/chisel && \
   chmod +x /usr/local/bin/anvil && \
   chmod +x /usr/local/bin/cast && \
-  chmod +x /usr/local/bin/forge
-
-# Install versioned toolchain
-COPY ./mise.toml .
-RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+  chmod +x /usr/local/bin/forge && \
+  wget https://github.com/casey/just/releases/download/1.37.0/just-1.37.0-${JUST_ARCH}.tar.gz -O just.tgz && \
+  tar -xzf just.tgz just && \
+  mv just /usr/local/bin/just && \
+  chmod +x /usr/local/bin/just && \
+  rm just.tgz && \
+  just --version
 
 
 # Copy and download Go dependencies
