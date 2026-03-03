@@ -1096,8 +1096,12 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 		}
 		return
 	}
-	// OpenZeppelin ECDSA.recover requires v = 27 or 28, but crypto.Sign produces v = 0 or 1.
-	signature[64] += 27
+
+	// Normalize the recovery ID (v) from 0/1 to 27/28 for Solidity's ECDSA.recover
+	// See: https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
+	if signature[64] < 27 {
+		signature[64] += 27
+	}
 	l.Log.Debug("Signed transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
 
 	batchAuthenticatorAbi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
