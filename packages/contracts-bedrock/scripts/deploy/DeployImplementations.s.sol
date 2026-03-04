@@ -215,28 +215,28 @@ contract DeployImplementations is Script {
         private
         returns (IOPContractsManagerV2 opcmV2_)
     {
-        IOPContractsManagerContainer.Implementations memory implementations =
-            IOPContractsManagerContainer.Implementations({
-                superchainConfigImpl: address(_output.superchainConfigImpl),
-                protocolVersionsImpl: address(_output.protocolVersionsImpl),
-                l1ERC721BridgeImpl: address(_output.l1ERC721BridgeImpl),
-                optimismPortalImpl: address(_output.optimismPortalImpl),
-                optimismPortalInteropImpl: address(_output.optimismPortalInteropImpl),
-                ethLockboxImpl: address(_output.ethLockboxImpl),
-                systemConfigImpl: address(_output.systemConfigImpl),
-                optimismMintableERC20FactoryImpl: address(_output.optimismMintableERC20FactoryImpl),
-                l1CrossDomainMessengerImpl: address(_output.l1CrossDomainMessengerImpl),
-                l1StandardBridgeImpl: address(_output.l1StandardBridgeImpl),
-                disputeGameFactoryImpl: address(_output.disputeGameFactoryImpl),
-                anchorStateRegistryImpl: address(_output.anchorStateRegistryImpl),
-                delayedWETHImpl: address(_output.delayedWETHImpl),
-                mipsImpl: address(_output.mipsSingleton),
-                faultDisputeGameV2Impl: address(_output.faultDisputeGameV2Impl),
-                permissionedDisputeGameV2Impl: address(_output.permissionedDisputeGameV2Impl),
-                superFaultDisputeGameImpl: address(_output.superFaultDisputeGameImpl),
-                superPermissionedDisputeGameImpl: address(_output.superPermissionedDisputeGameImpl),
-                storageSetterImpl: address(_output.storageSetterImpl)
-            });
+        IOPContractsManagerContainer.Implementations memory implementations = IOPContractsManagerContainer
+            .Implementations({
+            superchainConfigImpl: address(_output.superchainConfigImpl),
+            protocolVersionsImpl: address(_output.protocolVersionsImpl),
+            l1ERC721BridgeImpl: address(_output.l1ERC721BridgeImpl),
+            optimismPortalImpl: address(_output.optimismPortalImpl),
+            optimismPortalInteropImpl: address(_output.optimismPortalInteropImpl),
+            ethLockboxImpl: address(_output.ethLockboxImpl),
+            systemConfigImpl: address(_output.systemConfigImpl),
+            optimismMintableERC20FactoryImpl: address(_output.optimismMintableERC20FactoryImpl),
+            l1CrossDomainMessengerImpl: address(_output.l1CrossDomainMessengerImpl),
+            l1StandardBridgeImpl: address(_output.l1StandardBridgeImpl),
+            disputeGameFactoryImpl: address(_output.disputeGameFactoryImpl),
+            anchorStateRegistryImpl: address(_output.anchorStateRegistryImpl),
+            delayedWETHImpl: address(_output.delayedWETHImpl),
+            mipsImpl: address(_output.mipsSingleton),
+            faultDisputeGameV2Impl: address(_output.faultDisputeGameV2Impl),
+            permissionedDisputeGameV2Impl: address(_output.permissionedDisputeGameV2Impl),
+            superFaultDisputeGameImpl: address(_output.superFaultDisputeGameImpl),
+            superPermissionedDisputeGameImpl: address(_output.superPermissionedDisputeGameImpl),
+            storageSetterImpl: address(_output.storageSetterImpl)
+        });
 
         // Convert blueprints to V2 blueprints
         IOPContractsManagerContainer.Blueprints memory blueprints = IOPContractsManagerContainer.Blueprints({
@@ -495,9 +495,7 @@ contract DeployImplementations is Script {
         IDelayedWETH impl = IDelayedWETH(
             DeployUtils.createDeterministic({
                 _name: "DelayedWETH",
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IDelayedWETH.__constructor__, (withdrawalDelaySeconds))
-                ),
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IDelayedWETH.__constructor__, (withdrawalDelaySeconds))),
                 _salt: _salt
             })
         );
@@ -535,9 +533,7 @@ contract DeployImplementations is Script {
         IMIPS64 singleton = IMIPS64(
             DeployUtils.createDeterministic({
                 _name: "MIPS64",
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IMIPS64.__constructor__, (preimageOracle, mipsVersion))
-                ),
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IMIPS64.__constructor__, (preimageOracle, mipsVersion))),
                 _salt: DeployUtils.DEFAULT_SALT
             })
         );
@@ -600,9 +596,7 @@ contract DeployImplementations is Script {
         IPermissionedDisputeGameV2 impl = IPermissionedDisputeGameV2(
             DeployUtils.createDeterministic({
                 _name: "PermissionedDisputeGameV2",
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IPermissionedDisputeGameV2.__constructor__, (params))
-                ),
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IPermissionedDisputeGameV2.__constructor__, (params))),
                 _salt: _salt
             })
         );
@@ -818,9 +812,7 @@ contract DeployImplementations is Script {
             DeployUtils.createDeterministic({
                 _name: "OPContractsManagerMigrator.sol:OPContractsManagerMigrator",
                 _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(
-                        IOPContractsManagerMigrator.__constructor__, (_output.opcmContainer, _output.opcmUtils)
-                    )
+                    abi.encodeCall(IOPContractsManagerMigrator.__constructor__, (_output.opcmContainer, _output.opcmUtils))
                 ),
                 _salt: _salt
             })
