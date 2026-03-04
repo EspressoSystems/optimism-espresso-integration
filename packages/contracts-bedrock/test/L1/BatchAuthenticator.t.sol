@@ -43,6 +43,27 @@ contract BatchAuthenticator_Test is Test {
     BatchAuthenticator public implementation;
     ProxyAdmin public proxyAdmin;
 
+    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH =
+        keccak256("EspressoTEEVerifier(bytes32 commitment)");
+
+    bytes32 private constant _EIP712_DOMAIN_TYPE_HASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    /// @notice Compute the EIP-712 digest that the TEE verifier mock expects.
+    function _computeEIP712Digest(bytes32 commitment) internal view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(_ESPRESSO_TEE_VERIFIER_TYPE_HASH, commitment));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                _EIP712_DOMAIN_TYPE_HASH,
+                keccak256("EspressoTEEVerifier"),
+                keccak256("1"),
+                block.chainid,
+                address(teeVerifier)
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
     function setUp() public {
         // Deploy the mock TEE verifier with a mock Nitro verifier.
         // and the authenticator implementation.
@@ -235,7 +256,7 @@ contract BatchAuthenticator_Test is Test {
         _registerNitroSigner(privateKey);
 
         // Create signature.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
@@ -257,7 +278,7 @@ contract BatchAuthenticator_Test is Test {
         // DO NOT register signer - signer is not registered in the TEE verifier
 
         // Create valid signature from unregistered signer.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Should revert because signer is not registered.
@@ -370,7 +391,7 @@ contract BatchAuthenticator_Test is Test {
         bytes32 commitment = keccak256("test commitment");
         uint256 privateKey = 1;
         _registerNitroSigner(privateKey);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
         assertTrue(authenticator.validBatchInfo(commitment));
@@ -418,6 +439,27 @@ contract BatchAuthenticator_Fork_Test is Test {
     Proxy public proxy;
     ProxyAdmin public proxyAdmin;
     BatchAuthenticator public authenticator;
+
+    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH =
+        keccak256("EspressoTEEVerifier(bytes32 commitment)");
+
+    bytes32 private constant _EIP712_DOMAIN_TYPE_HASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    /// @notice Compute the EIP-712 digest that the TEE verifier mock expects.
+    function _computeEIP712Digest(bytes32 commitment) internal view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(_ESPRESSO_TEE_VERIFIER_TYPE_HASH, commitment));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                _EIP712_DOMAIN_TYPE_HASH,
+                keccak256("EspressoTEEVerifier"),
+                keccak256("1"),
+                block.chainid,
+                address(teeVerifier)
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
 
     function setUp() public {
         // Create a fork of Sepolia using the execution layer RPC endpoint.
@@ -522,7 +564,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Register the signer.
         _registerNitroSigner(privateKey);
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
@@ -542,7 +584,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Register the signer.
         _registerNitroSigner(privateKey);
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
         assertTrue(authenticator.validBatchInfo(commitment));
