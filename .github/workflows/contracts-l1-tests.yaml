@@ -39,6 +39,14 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
+      - name: Build contracts
+        working-directory: packages/contracts-bedrock
+        run: just forge-build
+
+      - name: Fix proxy artifact
+        working-directory: packages/contracts-bedrock
+        run: just fix-proxy-artifact
+
       - name: Run L1 contracts tests
         working-directory: packages/contracts-bedrock
         run: forge test --match-path "test/L1/*.t.sol" -vv
