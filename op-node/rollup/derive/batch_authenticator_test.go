@@ -53,7 +53,6 @@ func TestComputeBlobBatchHashSingle(t *testing.T) {
 func TestFindBatchAuthEvent(t *testing.T) {
 	authenticatorAddr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	batchHash := crypto.Keccak256Hash([]byte("test batch data"))
-	signerAddr := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
 
 	t.Run("event found", func(t *testing.T) {
 		receipts := types.Receipts{
@@ -65,7 +64,6 @@ func TestFindBatchAuthEvent(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							batchHash,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 				},
@@ -85,7 +83,6 @@ func TestFindBatchAuthEvent(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							wrongHash,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 				},
@@ -105,7 +102,6 @@ func TestFindBatchAuthEvent(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							batchHash,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 				},
@@ -124,7 +120,6 @@ func TestFindBatchAuthEvent(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							batchHash,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 				},
@@ -156,7 +151,6 @@ func TestFindBatchAuthEvent(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							batchHash,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 				},
@@ -191,7 +185,6 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 
 	authenticatorAddr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	batchHash := crypto.Keccak256Hash([]byte("test batch data"))
-	signerAddr := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
 
 	// Build a matching receipt
 	matchingReceipts := types.Receipts{
@@ -203,7 +196,6 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 					Topics: []common.Hash{
 						BatchInfoAuthenticatedABIHash,
 						batchHash,
-						common.BytesToHash(signerAddr.Bytes()),
 					},
 				},
 			},
@@ -314,7 +306,6 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							batchHash,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 					{
@@ -322,7 +313,6 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 						Topics: []common.Hash{
 							BatchInfoAuthenticatedABIHash,
 							batchHash2,
-							common.BytesToHash(signerAddr.Bytes()),
 						},
 					},
 				},
@@ -345,6 +335,6 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 
 func TestBatchInfoAuthenticatedABIHash(t *testing.T) {
 	// Verify the ABI hash matches what Solidity would compute
-	expected := crypto.Keccak256Hash([]byte("BatchInfoAuthenticated(bytes32,address)"))
+	expected := crypto.Keccak256Hash([]byte("BatchInfoAuthenticated(bytes32)"))
 	require.Equal(t, expected, BatchInfoAuthenticatedABIHash)
 }

@@ -78,7 +78,6 @@ func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1Block
 			Topics: []common.Hash{
 				BatchInfoAuthenticatedABIHash,
 				bh,
-				common.BytesToHash(common.HexToAddress("0xbatcher").Bytes()),
 			},
 		})
 	}

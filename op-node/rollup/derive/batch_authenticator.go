@@ -27,8 +27,8 @@ import (
 const BatchAuthLookbackWindow uint64 = 100
 
 var (
-	// BatchInfoAuthenticatedABI is the event signature for BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer).
-	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32,address)"
+	// BatchInfoAuthenticatedABI is the event signature for BatchInfoAuthenticated(bytes32 indexed commitment).
+	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32)"
 	BatchInfoAuthenticatedABIHash = crypto.Keccak256Hash([]byte(BatchInfoAuthenticatedABI))
 
 	// batchAuthCache is a global LRU cache mapping L1 block hash to the set of
@@ -77,7 +77,7 @@ func FindBatchAuthEvent(receipts types.Receipts, authenticatorAddr common.Addres
 			if lg.Address != authenticatorAddr {
 				continue
 			}
-			// BatchInfoAuthenticated has 3 topics: event sig, indexed commitment, indexed signer
+			// BatchInfoAuthenticated has 2 topics: event sig, indexed commitment
 			if len(lg.Topics) >= 2 &&
 				lg.Topics[0] == BatchInfoAuthenticatedABIHash &&
 				lg.Topics[1] == batchHash {
