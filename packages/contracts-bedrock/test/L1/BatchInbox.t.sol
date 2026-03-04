@@ -8,7 +8,8 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
@@ -28,8 +29,8 @@ contract TestBatchAuthenticator is BatchAuthenticator {
 contract BatchInbox_Test is Test {
     BatchInbox public inbox;
     TestBatchAuthenticator public authenticator;
-    address payable public proxy;
-    IProxyAdmin public proxyAdmin;
+    Proxy public proxy;
+    ProxyAdmin public proxyAdmin;
 
     MockEspressoTEEVerifier public teeVerifier;
 
@@ -43,28 +44,10 @@ contract BatchInbox_Test is Test {
 
         // Deploy TestBatchAuthenticator via proxy.
         TestBatchAuthenticator impl = new TestBatchAuthenticator();
-        {
-            bytes memory code = vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin");
-            bytes memory args = abi.encode(deployer);
-            bytes memory initCode = abi.encodePacked(code, args);
-            address addr;
-            assembly {
-                addr := create(0, add(initCode, 0x20), mload(initCode))
-            }
-            proxyAdmin = IProxyAdmin(addr);
-        }
-        {
-            bytes memory proxyCode = vm.getCode("src/universal/Proxy.sol:Proxy");
-            bytes memory proxyArgs = abi.encode(address(proxyAdmin));
-            bytes memory proxyInitCode = abi.encodePacked(proxyCode, proxyArgs);
-            address proxyAddr;
-            assembly {
-                proxyAddr := create(0, add(proxyInitCode, 0x20), mload(proxyInitCode))
-            }
-            proxy = payable(proxyAddr);
-        }
+        proxyAdmin = new ProxyAdmin(deployer);
+        proxy = new Proxy(address(proxyAdmin));
         vm.prank(deployer);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
             (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer)

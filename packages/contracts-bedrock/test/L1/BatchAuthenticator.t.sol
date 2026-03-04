@@ -6,7 +6,8 @@ import { console2 as console } from "forge-std/console2.sol";
 
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
@@ -28,7 +29,7 @@ contract BatchAuthenticator_Test is Test {
 
     MockEspressoTEEVerifier public teeVerifier;
     BatchAuthenticator public implementation;
-    IProxyAdmin public proxyAdmin;
+    ProxyAdmin public proxyAdmin;
 
     function setUp() public {
         // Deploy the mock TEE verifier (standalone mode with no external nitro verifier)
@@ -37,33 +38,15 @@ contract BatchAuthenticator_Test is Test {
         implementation = new BatchAuthenticator();
 
         // Deploy the proxy admin.
-        {
-            bytes memory code = vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin");
-            bytes memory args = abi.encode(proxyAdminOwner);
-            bytes memory initCode = abi.encodePacked(code, args);
-            address addr;
-            assembly {
-                addr := create(0, add(initCode, 0x20), mload(initCode))
-            }
-            proxyAdmin = IProxyAdmin(addr);
-        }
-    }
-
-    /// @dev Helper to deploy a Proxy without importing src/universal/Proxy.sol.
-    function _newProxy(address _proxyAdmin) internal returns (address payable proxyAddr_) {
-        bytes memory proxyCode = vm.getCode("src/universal/Proxy.sol:Proxy");
-        bytes memory proxyArgs = abi.encode(_proxyAdmin);
-        bytes memory proxyInitCode = abi.encodePacked(proxyCode, proxyArgs);
-        assembly {
-            proxyAddr_ := create(0, add(proxyInitCode, 0x20), mload(proxyInitCode))
-        }
+        vm.prank(proxyAdminOwner);
+        proxyAdmin = new ProxyAdmin(proxyAdminOwner);
     }
 
     /// @notice Create and initialize a proxy.
     function _deployAndInitializeProxy() internal returns (BatchAuthenticator) {
-        address payable proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -77,9 +60,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that the initialization can only be called once.
     function test_constructor_revertsWhenAlreadyInitialized() external {
-        address payable proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -98,9 +81,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when teeBatcher is zero.
     function test_constructor_revertsWhenTeeBatcherIsZero() external {
-        address payable proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -114,9 +97,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when nonTeeBatcher is zero.
     function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
-        address payable proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -130,9 +113,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when verifier is zero.
     function test_constructor_revertsWhenVerifierIsZero() external {
-        address payable proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -344,7 +327,7 @@ contract BatchAuthenticator_Test is Test {
     function test_upgrade_preservesState() external {
         // Create and initialize a proxy.
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
-        address payable proxy = payable(address(authenticator));
+        Proxy proxy = Proxy(payable(address(authenticator)));
 
         // Set up initial state.
         bytes32 commitment = keccak256("test commitment");
@@ -394,19 +377,9 @@ contract BatchAuthenticator_Fork_Test is Test {
 
     MockEspressoTEEVerifier public teeVerifier;
     BatchAuthenticator public implementation;
-    address payable public proxy;
-    IProxyAdmin public proxyAdmin;
+    Proxy public proxy;
+    ProxyAdmin public proxyAdmin;
     BatchAuthenticator public authenticator;
-
-    /// @dev Helper to deploy a Proxy without importing src/universal/Proxy.sol.
-    function _newProxy(address _proxyAdmin) internal returns (address payable proxyAddr_) {
-        bytes memory proxyCode = vm.getCode("src/universal/Proxy.sol:Proxy");
-        bytes memory proxyArgs = abi.encode(_proxyAdmin);
-        bytes memory proxyInitCode = abi.encodePacked(proxyCode, proxyArgs);
-        assembly {
-            proxyAddr_ := create(0, add(proxyInitCode, 0x20), mload(proxyInitCode))
-        }
-    }
 
     function setUp() public {
         // Create a fork of Sepolia using the execution layer RPC endpoint.
@@ -422,19 +395,11 @@ contract BatchAuthenticator_Fork_Test is Test {
         implementation = new BatchAuthenticator();
 
         // Deploy proxy admin and proxy.
-        {
-            bytes memory code = vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin");
-            bytes memory args = abi.encode(proxyAdminOwner);
-            bytes memory initCode = abi.encodePacked(code, args);
-            address addr;
-            assembly {
-                addr := create(0, add(initCode, 0x20), mload(initCode))
-            }
-            proxyAdmin = IProxyAdmin(addr);
-        }
-        proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin = new ProxyAdmin(proxyAdminOwner);
+        proxy = new Proxy(address(proxyAdmin));
+        vm.prank(proxyAdminOwner);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         // Initialize the proxy.
         bytes memory initData = abi.encodeCall(
