@@ -69,12 +69,12 @@ contract UpgradeSuperchainConfig is Script {
         // Call into the DummyCaller to perform the delegatecall
         vm.broadcast(msg.sender);
         if (_useOPCMv2) {
-            return DummyCallerV2(_prank).upgradeSuperchain(
-                IOPContractsManagerV2.SuperchainUpgradeInput({
-                    superchainConfig: _input.superchainConfig,
-                    extraInstructions: _input.extraInstructions
-                })
-            );
+            return DummyCallerV2(_prank)
+                .upgradeSuperchain(
+                    IOPContractsManagerV2.SuperchainUpgradeInput({
+                        superchainConfig: _input.superchainConfig, extraInstructions: _input.extraInstructions
+                    })
+                );
         } else {
             return DummyCaller(_prank).upgradeSuperchainConfig(_input.superchainConfig);
         }
