@@ -193,7 +193,9 @@ contract DeployImplementations is Script {
         opcm_ = IOPContractsManager(
             // nosemgrep: sol-safety-deployutils-args
             DeployUtils.createDeterministic({
-                _name: "OPContractsManager", _args: encodeOPCMConstructor(_input, _output), _salt: _salt
+                _name: "OPContractsManager",
+                _args: encodeOPCMConstructor(_input, _output),
+                _salt: _salt
             })
         );
 
@@ -1027,7 +1029,10 @@ contract DeployImplementations is Script {
         ChainAssertions.checkDelayedWETHImpl(_output.delayedWETHImpl, _input.withdrawalDelaySeconds);
         ChainAssertions.checkDisputeGameFactory(_output.disputeGameFactoryImpl, address(0), address(0), false);
         DeployUtils.assertInitialized({
-            _contractAddress: address(_output.anchorStateRegistryImpl), _isProxy: false, _slot: 0, _offset: 0
+            _contractAddress: address(_output.anchorStateRegistryImpl),
+            _isProxy: false,
+            _slot: 0,
+            _offset: 0
         });
         ChainAssertions.checkL1CrossDomainMessenger(IL1CrossDomainMessenger(impls.L1CrossDomainMessenger), vm, false);
         ChainAssertions.checkL1ERC721BridgeImpl(_output.l1ERC721BridgeImpl);

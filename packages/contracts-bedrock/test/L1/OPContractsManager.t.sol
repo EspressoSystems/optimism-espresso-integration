@@ -154,7 +154,9 @@ contract OPContractsManager_Upgrade_Harness is CommonTest, DisputeGames {
 
         opChainConfigs.push(
             IOPContractsManager.OpChainConfig({
-                systemConfigProxy: systemConfig, cannonPrestate: cannonPrestate, cannonKonaPrestate: cannonKonaPrestate
+                systemConfigProxy: systemConfig,
+                cannonPrestate: cannonPrestate,
+                cannonKonaPrestate: cannonKonaPrestate
             })
         );
 
@@ -174,8 +176,8 @@ contract OPContractsManager_Upgrade_Harness is CommonTest, DisputeGames {
             cannonAbsolutePrestate: IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON)))
                 .absolutePrestate(),
             permissionedAbsolutePrestate: IPermissionedDisputeGame(
-                    address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-                ).absolutePrestate(),
+                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+            ).absolutePrestate(),
             permissionlessWethProxy: delayedWeth,
             permissionedCannonWethProxy: delayedWETHPermissionedGameProxy
         });
@@ -265,9 +267,10 @@ contract OPContractsManager_Upgrade_Harness is CommonTest, DisputeGames {
 
         // Create validationOverrides
         IOPContractsManagerStandardValidator.ValidationOverrides memory validationOverrides =
-            IOPContractsManagerStandardValidator.ValidationOverrides({
-                l1PAOMultisig: opChainConfigs[0].systemConfigProxy.proxyAdmin().owner(), challenger: initialChallenger
-            });
+        IOPContractsManagerStandardValidator.ValidationOverrides({
+            l1PAOMultisig: opChainConfigs[0].systemConfigProxy.proxyAdmin().owner(),
+            challenger: initialChallenger
+        });
 
         // Grab the validator before we do the error assertion because otherwise the assertion will
         // try to apply to this function call instead.
@@ -1436,8 +1439,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_absolutePrestateOverride_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-            ).absolutePrestate();
+            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+        ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1473,8 +1476,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_absolutePrestateNotSet_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-            ).absolutePrestate();
+            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+        ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1507,8 +1510,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_cannonPrestateNotSet_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-            ).absolutePrestate();
+            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+        ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 
@@ -1542,8 +1545,8 @@ contract OPContractsManager_Upgrade_Test is OPContractsManager_Upgrade_Harness {
     function test_upgrade_cannonKonaPrestateNotSet_succeeds() public {
         // Get the pdg and fdg before the upgrade
         Claim pdgPrestateBefore = IPermissionedDisputeGame(
-                address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
-            ).absolutePrestate();
+            address(disputeGameFactory.gameImpls(GameTypes.PERMISSIONED_CANNON))
+        ).absolutePrestate();
         Claim fdgPrestateBefore =
             IFaultDisputeGame(address(disputeGameFactory.gameImpls(GameTypes.CANNON))).absolutePrestate();
 

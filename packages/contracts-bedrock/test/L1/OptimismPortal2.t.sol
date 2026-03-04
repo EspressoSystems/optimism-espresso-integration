@@ -60,7 +60,7 @@ abstract contract OptimismPortal2_TestInit is DisputeGameFactory_TestInit {
             value: 100,
             gasLimit: 100_000,
             data: hex"aa" // includes calldata for ERC20 withdrawal test
-        });
+         });
 
         if (isUsingCustomGasToken()) {
             _defaultTx.value = 0;
@@ -1248,7 +1248,9 @@ contract OptimismPortal2_ProveWithdrawalTransaction_Test is OptimismPortal2_Test
         outputRootWithChainIdArr[0] =
             Types.OutputRootWithChainId({ root: _outputRoot, chainId: systemConfig.l2ChainId() });
         Types.SuperRootProof memory superRootProof = Types.SuperRootProof({
-            version: 0x01, timestamp: uint64(block.timestamp), outputRoots: outputRootWithChainIdArr
+            version: 0x01,
+            timestamp: uint64(block.timestamp),
+            outputRoots: outputRootWithChainIdArr
         });
 
         // Figure out what the right hash would be.
@@ -1284,9 +1286,11 @@ contract OptimismPortal2_ProveWithdrawalTransaction_Test is OptimismPortal2_Test
         outputRootWithChainIdArr[0] = Types.OutputRootWithChainId({
             root: _outputRoot,
             chainId: systemConfig.l2ChainId() + 1 // wrong chain id
-        });
+         });
         Types.SuperRootProof memory superRootProof = Types.SuperRootProof({
-            version: 0x01, timestamp: uint64(block.timestamp), outputRoots: outputRootWithChainIdArr
+            version: 0x01,
+            timestamp: uint64(block.timestamp),
+            outputRoots: outputRootWithChainIdArr
         });
 
         // Figure out what the right hash would be.
@@ -1324,7 +1328,9 @@ contract OptimismPortal2_ProveWithdrawalTransaction_Test is OptimismPortal2_Test
             chainId: systemConfig.l2ChainId()
         });
         Types.SuperRootProof memory superRootProof = Types.SuperRootProof({
-            version: 0x01, timestamp: uint64(block.timestamp), outputRoots: outputRootWithChainIdArr
+            version: 0x01,
+            timestamp: uint64(block.timestamp),
+            outputRoots: outputRootWithChainIdArr
         });
 
         // Figure out what the right hash would be.
@@ -1358,7 +1364,9 @@ contract OptimismPortal2_ProveWithdrawalTransaction_Test is OptimismPortal2_Test
         outputRootWithChainIdArr[0] =
             Types.OutputRootWithChainId({ root: _outputRoot, chainId: systemConfig.l2ChainId() });
         Types.SuperRootProof memory superRootProof = Types.SuperRootProof({
-            version: 0x01, timestamp: uint64(block.timestamp), outputRoots: outputRootWithChainIdArr
+            version: 0x01,
+            timestamp: uint64(block.timestamp),
+            outputRoots: outputRootWithChainIdArr
         });
 
         // Figure out what the right hash would be.
@@ -1941,7 +1949,12 @@ contract OptimismPortal2_FinalizeWithdrawalTransaction_Test is OptimismPortal2_T
 
         // Get a withdrawal transaction and mock proof from the differential testing script.
         Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
-            nonce: nonce, sender: _sender, target: _target, value: value, gasLimit: gasLimit, data: _data
+            nonce: nonce,
+            sender: _sender,
+            target: _target,
+            value: value,
+            gasLimit: gasLimit,
+            data: _data
         });
         (
             bytes32 stateRoot,
@@ -2023,7 +2036,12 @@ contract OptimismPortal2_FinalizeWithdrawalTransaction_Test is OptimismPortal2_T
 
         // Get a withdrawal transaction and mock proof from the differential testing script.
         Types.WithdrawalTransaction memory _tx = Types.WithdrawalTransaction({
-            nonce: nonce, sender: _sender, target: _target, value: value, gasLimit: gasLimit, data: _data
+            nonce: nonce,
+            sender: _sender,
+            target: _target,
+            value: value,
+            gasLimit: gasLimit,
+            data: _data
         });
         (
             bytes32 stateRoot,
@@ -2474,16 +2492,18 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(size));
         vm.expectRevert(IOptimismPortal.OptimismPortal_CalldataTooLarge.selector);
         optimismPortal2.depositTransaction({
-            _to: address(0), _value: 0, _gasLimit: gasLimit, _isCreation: false, _data: new bytes(size)
+            _to: address(0),
+            _value: 0,
+            _gasLimit: gasLimit,
+            _isCreation: false,
+            _data: new bytes(size)
         });
     }
 
     /// @notice Tests that `depositTransaction` reverts when the gas limit is too small.
     function test_depositTransaction_smallGasLimit_reverts() external {
         vm.expectRevert(IOptimismPortal.OptimismPortal_GasLimitTooLow.selector);
-        optimismPortal2.depositTransaction({
-            _to: address(1), _value: 0, _gasLimit: 0, _isCreation: false, _data: hex""
-        });
+        optimismPortal2.depositTransaction({ _to: address(1), _value: 0, _gasLimit: 0, _isCreation: false, _data: hex"" });
     }
 
     /// @notice Tests that `depositTransaction` reverts when the value is greater than 0 and the
@@ -2499,7 +2519,11 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         vm.prank(alice);
         vm.expectRevert(IOptimismPortal.OptimismPortal_NotAllowedOnCGTMode.selector);
         optimismPortal2.depositTransaction{ value: _value }({
-            _to: address(0x40), _value: _value, _gasLimit: gasLimit, _isCreation: false, _data: _data
+            _to: address(0x40),
+            _value: _value,
+            _gasLimit: gasLimit,
+            _isCreation: false,
+            _data: _data
         });
     }
 
@@ -2512,7 +2536,11 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         }
 
         optimismPortal2.depositTransaction({
-            _to: address(0x40), _value: 0, _gasLimit: gasLimit, _isCreation: false, _data: _data
+            _to: address(0x40),
+            _value: 0,
+            _gasLimit: gasLimit,
+            _isCreation: false,
+            _data: _data
         });
     }
 
@@ -2571,7 +2599,11 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         vm.deal(depositor, _mint);
         vm.prank(depositor, depositor);
         optimismPortal2.depositTransaction{ value: _mint }({
-            _to: _to, _value: _value, _gasLimit: _gasLimit, _isCreation: _isCreation, _data: _data
+            _to: _to,
+            _value: _value,
+            _gasLimit: _gasLimit,
+            _isCreation: _isCreation,
+            _data: _data
         });
 
         if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
@@ -2696,7 +2728,11 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         vm.deal(address(this), _mint);
         vm.prank(address(this));
         optimismPortal2.depositTransaction{ value: _mint }({
-            _to: _to, _value: _value, _gasLimit: _gasLimit, _isCreation: _isCreation, _data: _data
+            _to: _to,
+            _value: _value,
+            _gasLimit: _gasLimit,
+            _isCreation: _isCreation,
+            _data: _data
         });
 
         if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
@@ -2799,7 +2835,11 @@ contract OptimismPortal2_Params_Test is CommonTest {
 
         // Do a deposit, should not revert
         optimismPortal2.depositTransaction{ gas: MAX_GAS_LIMIT }({
-            _to: address(0x20), _value: 0x40, _gasLimit: _gasLimit, _isCreation: false, _data: hex""
+            _to: address(0x20),
+            _value: 0x40,
+            _gasLimit: _gasLimit,
+            _isCreation: false,
+            _data: hex""
         });
     }
 
