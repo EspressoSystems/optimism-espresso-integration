@@ -298,15 +298,15 @@ contract DeployImplementations is Script {
         IOPContractsManager.Blueprints memory blueprints;
         vm.startBroadcast(msg.sender);
         address checkAddress;
-        (blueprints.addressManager, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("legacy/AddressManager.sol:AddressManager"), _salt);
+        (blueprints.addressManager, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("AddressManager"), _salt);
         require(checkAddress == address(0), "OPCM-10");
-        (blueprints.proxy, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("universal/Proxy.sol:Proxy"), _salt);
+        (blueprints.proxy, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("Proxy"), _salt);
         require(checkAddress == address(0), "OPCM-20");
-        (blueprints.proxyAdmin, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin"), _salt);
+        (blueprints.proxyAdmin, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("ProxyAdmin"), _salt);
         require(checkAddress == address(0), "OPCM-30");
-        (blueprints.l1ChugSplashProxy, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("legacy/L1ChugSplashProxy.sol:L1ChugSplashProxy"), _salt);
+        (blueprints.l1ChugSplashProxy, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("L1ChugSplashProxy"), _salt);
         require(checkAddress == address(0), "OPCM-40");
-        (blueprints.resolvedDelegateProxy, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("legacy/ResolvedDelegateProxy.sol:ResolvedDelegateProxy"), _salt);
+        (blueprints.resolvedDelegateProxy, checkAddress) = DeployUtils.createDeterministicBlueprint(vm.getCode("ResolvedDelegateProxy"), _salt);
         require(checkAddress == address(0), "OPCM-50");
         // forgefmt: disable-end
         vm.stopBroadcast();
