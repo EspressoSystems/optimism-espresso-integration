@@ -144,7 +144,10 @@ library ChainAssertions {
 
         // Check that the contract is initialized
         DeployUtils.assertInitialized({
-            _contractAddress: address(_messenger), _isProxy: _isProxy, _slot: 0, _offset: 20
+            _contractAddress: address(_messenger),
+            _isProxy: _isProxy,
+            _slot: 0,
+            _offset: 20
         });
 
         if (_isProxy) {
@@ -367,7 +370,10 @@ library ChainAssertions {
 
         // Check that the contract is initialized
         DeployUtils.assertInitialized({
-            _contractAddress: address(superchainConfig), _isProxy: _isProxy, _slot: 0, _offset: 0
+            _contractAddress: address(superchainConfig),
+            _isProxy: _isProxy,
+            _slot: 0,
+            _offset: 0
         });
 
         if (_isProxy) {
@@ -413,20 +419,14 @@ library ChainAssertions {
         IOPContractsManager.Blueprints memory blueprints = _opcm.blueprints();
         Blueprint.Preamble memory addressManagerPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.addressManager).code);
-        require(
-            keccak256(addressManagerPreamble.initcode) == keccak256(vm.getCode("AddressManager")),
-            "CHECK-OPCM-160"
-        );
+        require(keccak256(addressManagerPreamble.initcode) == keccak256(vm.getCode("AddressManager")), "CHECK-OPCM-160");
 
         Blueprint.Preamble memory proxyPreamble = Blueprint.parseBlueprintPreamble(address(blueprints.proxy).code);
         require(keccak256(proxyPreamble.initcode) == keccak256(vm.getCode("Proxy")), "CHECK-OPCM-170");
 
         Blueprint.Preamble memory proxyAdminPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.proxyAdmin).code);
-        require(
-            keccak256(proxyAdminPreamble.initcode) == keccak256(vm.getCode("ProxyAdmin")),
-            "CHECK-OPCM-180"
-        );
+        require(keccak256(proxyAdminPreamble.initcode) == keccak256(vm.getCode("ProxyAdmin")), "CHECK-OPCM-180");
 
         Blueprint.Preamble memory l1ChugSplashProxyPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.l1ChugSplashProxy).code);
@@ -437,10 +437,7 @@ library ChainAssertions {
 
         Blueprint.Preamble memory rdProxyPreamble =
             Blueprint.parseBlueprintPreamble(address(blueprints.resolvedDelegateProxy).code);
-        require(
-            keccak256(rdProxyPreamble.initcode) == keccak256(vm.getCode("ResolvedDelegateProxy")),
-            "CHECK-OPCM-200"
-        );
+        require(keccak256(rdProxyPreamble.initcode) == keccak256(vm.getCode("ResolvedDelegateProxy")), "CHECK-OPCM-200");
     }
 
     function checkAnchorStateRegistryProxy(IAnchorStateRegistry _anchorStateRegistryProxy, bool _isProxy) internal {
@@ -450,7 +447,10 @@ library ChainAssertions {
         }
 
         DeployUtils.assertInitialized({
-            _contractAddress: address(_anchorStateRegistryProxy), _isProxy: _isProxy, _slot: 0, _offset: 0
+            _contractAddress: address(_anchorStateRegistryProxy),
+            _isProxy: _isProxy,
+            _slot: 0,
+            _offset: 0
         });
 
         // The below check cannot be done in the standard validator because the assertion only applies at deploy time.

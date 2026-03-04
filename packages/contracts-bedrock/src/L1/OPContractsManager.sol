@@ -528,9 +528,7 @@ contract OPContractsManagerGameTypeAdder is OPContractsManagerBase {
 
     /// @notice Constructor to initialize the immutable thisOPCM variable and contract addresses
     /// @param _contractsContainer The blueprint contract addresses and implementation contract addresses
-    constructor(OPContractsManagerContractsContainer _contractsContainer)
-        OPContractsManagerBase(_contractsContainer)
-    { }
+    constructor(OPContractsManagerContractsContainer _contractsContainer) OPContractsManagerBase(_contractsContainer) { }
 
     /// @notice Deploys a new dispute game and installs it into the DisputeGameFactory. Inputted
     ///         game configs must be added in ascending GameType order.
@@ -627,10 +625,8 @@ contract OPContractsManagerGameTypeAdder is OPContractsManagerBase {
                         vm: address(gameConfig.vm),
                         anchorStateRegistry: address(getAnchorStateRegistry(ISystemConfig(gameConfig.systemConfig))),
                         weth: address(outputs[i].delayedWETH),
-                        l2ChainId: gameConfig.disputeGameType.raw() == GameTypes.PERMISSIONED_CANNON.raw()
-                            ? l2ChainId
-                            : 0, // must
-                        // be zero for SUPER gam types
+                        l2ChainId: gameConfig.disputeGameType.raw() == GameTypes.PERMISSIONED_CANNON.raw() ? l2ChainId : 0, // must
+                            // be zero for SUPER gam types
                         proposer: getProposer(
                             dgf, IPermissionedDisputeGame(address(existingGame)), gameConfig.disputeGameType
                         ),
@@ -763,9 +759,7 @@ contract OPContractsManagerUpgrader is OPContractsManagerBase {
     error OPContractsManagerUpgrader_SuperchainConfigAlreadyUpToDate();
 
     /// @param _contractsContainer The OPContractsManagerContractsContainer to use.
-    constructor(OPContractsManagerContractsContainer _contractsContainer)
-        OPContractsManagerBase(_contractsContainer)
-    { }
+    constructor(OPContractsManagerContractsContainer _contractsContainer) OPContractsManagerBase(_contractsContainer) { }
 
     /// @notice Upgrades a set of chains to the latest implementation contracts
     /// @param _opChainConfigs Array of OpChain structs, one per chain to upgrade
@@ -1113,9 +1107,7 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
     /// @param deployOutput ABI-encoded output of the deployment.
     event Deployed(uint256 indexed l2ChainId, address indexed deployer, bytes deployOutput);
 
-    constructor(OPContractsManagerContractsContainer _contractsContainer)
-        OPContractsManagerBase(_contractsContainer)
-    { }
+    constructor(OPContractsManagerContractsContainer _contractsContainer) OPContractsManagerBase(_contractsContainer) { }
 
     /// @notice Deploys a new OP Stack chain.
     /// @param _input The deploy input parameters for the deployment.
@@ -1344,7 +1336,7 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
             optimismMintableERC20Factory: address(_output.optimismMintableERC20FactoryProxy),
             delayedWETH: address(0), // Will be used in OPCMv2.
             opcm: address(0) // Unsupported for V1.
-        });
+         });
 
         assertValidContractAddress(opChainAddrs_.l1CrossDomainMessenger);
         assertValidContractAddress(opChainAddrs_.l1ERC721Bridge);
@@ -1588,9 +1580,7 @@ contract OPContractsManagerInteropMigrator is OPContractsManagerBase {
     }
 
     /// @param _contractsContainer Container of blueprints and implementations.
-    constructor(OPContractsManagerContractsContainer _contractsContainer)
-        OPContractsManagerBase(_contractsContainer)
-    { }
+    constructor(OPContractsManagerContractsContainer _contractsContainer) OPContractsManagerBase(_contractsContainer) { }
 
     /// @notice Migrates one or more OP Stack chains to use the Super Root dispute games and shared
     ///         dispute game contracts.

@@ -111,7 +111,9 @@ contract DeployPeriphery is Script {
     /// @notice Deploy the Faucet contract.
     function deployFaucet() public broadcast returns (address addr_) {
         addr_ = _deployCreate2({
-            _name: "Faucet", _creationCode: type(Faucet).creationCode, _constructorParams: abi.encode(cfg.faucetAdmin())
+            _name: "Faucet",
+            _creationCode: type(Faucet).creationCode,
+            _constructorParams: abi.encode(cfg.faucetAdmin())
         });
 
         Faucet faucet = Faucet(payable(addr_));
