@@ -67,15 +67,7 @@ jobs:
           total: 4
           packages: "./espresso/..."
       - name: Run Go tests for group ${{ matrix.group }}
-        run: |
-          go test -short -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/... 2>&1 | tee test_output.log
-          exit ${PIPESTATUS[0]}
-
-      - name: Show test output on failure
-        if: failure()
-        run: |
-          echo "=== Last 300 lines of test output ==="
-          tail -300 test_output.log
+        run: go test -short -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
