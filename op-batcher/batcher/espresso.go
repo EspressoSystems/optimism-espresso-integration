@@ -960,6 +960,24 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
+// resolveTEEVerifierAddress queries the BatchAuthenticator contract to get the
+// EspressoTEEVerifier address. This address is used as the EIP-712 verifyingContract
+// when signing batch commitments, matching the domain separator used by the real
+// EspressoTEEVerifier contract.
+func (l *BatchSubmitter) resolveTEEVerifierAddress(ctx context.Context) error {
+	auth, err := bindings.NewBatchAuthenticatorCaller(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create BatchAuthenticator caller: %w", err)
+	}
+	addr, err := auth.EspressoTEEVerifier(nil)
+	if err != nil {
+		return fmt.Errorf("failed to query EspressoTEEVerifier address: %w", err)
+	}
+	l.teeVerifierAddress = addr
+	l.Log.Info("Resolved TEE verifier address", "address", addr.Hex())
+	return nil
+}
+
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -1164,7 +1182,7 @@ func (l *BatchSubmitter) signEIP712Commitment(commitment [32]byte) ([]byte, erro
 			Name:              "EspressoTEEVerifier",
 			Version:           "1",
 			ChainId:           (*math.HexOrDecimal256)(l.RollupConfig.L1ChainID),
-			VerifyingContract: l.RollupConfig.BatchAuthenticatorAddress.String(),
+			VerifyingContract: l.teeVerifierAddress.String(),
 		},
 		Message: map[string]interface{}{
 			"commitment": commitment,

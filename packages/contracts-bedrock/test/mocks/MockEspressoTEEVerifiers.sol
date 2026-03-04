@@ -7,6 +7,7 @@ import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspr
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
 /// @notice Mock implementation of IEspressoNitroTEEVerifier for testing without real attestation verification.
 ///         Used by deployment scripts and tests.
@@ -68,14 +69,18 @@ contract MockEspressoNitroTEEVerifier is IEspressoNitroTEEVerifier {
 
 /// @notice Mock implementation of IEspressoTEEVerifier for testing.
 ///         Can optionally wrap a MockEspressoNitroTEEVerifier or act as its own Nitro verifier.
-contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerifier {
+///         Inherits EIP712 to match the real EspressoTEEVerifier's signature verification.
+contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerifier, EIP712 {
     IEspressoNitroTEEVerifier private _nitroVerifier;
     mapping(ServiceType => mapping(address => bool)) private _registeredServices;
     bool private _useExternalNitroVerifier;
 
+    bytes32 private constant ESPRESSO_TEE_VERIFIER_TYPE_HASH =
+        keccak256("EspressoTEEVerifier(bytes32 commitment)");
+
     /// @notice Constructor that optionally takes an external Nitro verifier.
     /// @param nitroVerifier_ The external Nitro verifier to use. If address(0), acts as standalone.
-    constructor(IEspressoNitroTEEVerifier nitroVerifier_) {
+    constructor(IEspressoNitroTEEVerifier nitroVerifier_) EIP712("EspressoTEEVerifier", "1") {
         if (address(nitroVerifier_) != address(0)) {
             _nitroVerifier = nitroVerifier_;
             _useExternalNitroVerifier = true;
@@ -117,7 +122,9 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         if (teeType != TeeType.NITRO) {
             revert InvalidSignature();
         }
-        address signer = ECDSA.recover(userDataHash, signature);
+        bytes32 structHash = keccak256(abi.encode(ESPRESSO_TEE_VERIFIER_TYPE_HASH, userDataHash));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = ECDSA.recover(digest, signature);
         IEspressoNitroTEEVerifier nitroVerifier =
             _useExternalNitroVerifier ? _nitroVerifier : IEspressoNitroTEEVerifier(address(this));
         if (!nitroVerifier.isSignerValid(signer, service)) {
