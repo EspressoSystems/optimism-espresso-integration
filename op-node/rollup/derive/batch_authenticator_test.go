@@ -179,6 +179,7 @@ func buildL1Chain(rng *rand.Rand, start, end uint64) map[uint64]eth.L1BlockRef {
 }
 
 func TestCollectAuthenticatedBatches(t *testing.T) {
+	resetBatchAuthCaches()
 	logger := testlog.Logger(t, log.LevelDebug)
 	ctx := context.Background()
 	rng := rand.New(rand.NewSource(1234))
@@ -331,6 +332,58 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 		require.True(t, result[batchHash2])
 		l1F.AssertExpectations(t)
 	})
+}
+
+// TestCollectAuthenticatedBatchesBlockRefCache verifies that the block ref LRU cache
+// eliminates redundant L1BlockRefByHash RPC calls when processing consecutive L1 blocks.
+// On the first call (block N), all ~100 L1BlockRefByHash calls are made. On the second
+// call (block N+1), the overlapping window means ~99 block refs are already cached,
+// so only 1 new L1BlockRefByHash call is needed.
+func TestCollectAuthenticatedBatchesBlockRefCache(t *testing.T) {
+	resetBatchAuthCaches()
+	logger := testlog.Logger(t, log.LevelDebug)
+	ctx := context.Background()
+	rng := rand.New(rand.NewSource(5678))
+
+	authenticatorAddr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	emptyReceipts := types.Receipts{}
+
+	// Build a chain long enough for two consecutive lookback windows:
+	// Block 200's window is [100, 200], block 201's window is [101, 201].
+	chain := buildL1Chain(rng, 100, 201)
+
+	// --- First call: block 200, window [100, 200] ---
+	// Expects all 101 FetchReceipts calls and 100 L1BlockRefByHash calls (full traversal).
+	l1F := &testutils.MockL1Source{}
+	for num := uint64(200); num >= 100; num-- {
+		ref := chain[num]
+		l1F.ExpectFetchReceipts(ref.Hash, nil, emptyReceipts, nil)
+		if num > 100 {
+			l1F.ExpectL1BlockRefByHash(chain[num-1].Hash, chain[num-1], nil)
+		}
+	}
+
+	result, err := CollectAuthenticatedBatches(ctx, l1F, chain[200], authenticatorAddr, logger)
+	require.NoError(t, err)
+	require.Len(t, result, 0)
+	l1F.AssertExpectations(t)
+
+	// --- Second call: block 201, window [101, 201] ---
+	// Both receipt and block ref caches are warm for blocks [100, 200].
+	// Only block 201 needs FetchReceipts (new block, not in receipt cache).
+	// Only block 200 needs L1BlockRefByHash resolution — but it was cached as the
+	// `ref` of the previous call (we cache ref.Hash -> ref at the top of the function).
+	// So NO L1BlockRefByHash calls should be needed at all.
+	l1F2 := &testutils.MockL1Source{}
+	// Only block 201's receipts are uncached
+	l1F2.ExpectFetchReceipts(chain[201].Hash, nil, emptyReceipts, nil)
+	// All block refs in [101, 200] are cached from the first call, and block 200
+	// was cached as the ref argument. No L1BlockRefByHash calls expected.
+
+	result2, err := CollectAuthenticatedBatches(ctx, l1F2, chain[201], authenticatorAddr, logger)
+	require.NoError(t, err)
+	require.Len(t, result2, 0)
+	l1F2.AssertExpectations(t)
 }
 
 func TestBatchInfoAuthenticatedABIHash(t *testing.T) {

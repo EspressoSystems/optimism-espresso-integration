@@ -38,7 +38,24 @@ var (
 	// never hit. Thread-safe via lru.Cache's internal mutex.
 	batchAuthCache     *lru.Cache[common.Hash, map[common.Hash]bool]
 	batchAuthCacheOnce sync.Once
+
+	// blockRefCache is a global LRU cache mapping L1 block hash to its L1BlockRef.
+	// This avoids redundant L1BlockRefByHash RPC calls during the lookback window
+	// traversal: consecutive L1 blocks share ~99 blocks in their lookback windows,
+	// so almost every parent-hash lookup hits the cache after the first full traversal.
+	// Keyed by block hash for natural reorg safety (same rationale as batchAuthCache).
+	blockRefCache     *lru.Cache[common.Hash, eth.L1BlockRef]
+	blockRefCacheOnce sync.Once
 )
+
+// resetBatchAuthCaches resets both global caches (receipt and block ref).
+// This is only intended for use in tests to ensure isolation between test cases.
+func resetBatchAuthCaches() {
+	batchAuthCache = nil
+	batchAuthCacheOnce = sync.Once{}
+	blockRefCache = nil
+	blockRefCacheOnce = sync.Once{}
+}
 
 func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
 	batchAuthCacheOnce.Do(func() {
@@ -47,6 +64,13 @@ func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
 		batchAuthCache, _ = lru.New[common.Hash, map[common.Hash]bool](int(BatchAuthLookbackWindow) + 16)
 	})
 	return batchAuthCache
+}
+
+func getBlockRefCache() *lru.Cache[common.Hash, eth.L1BlockRef] {
+	blockRefCacheOnce.Do(func() {
+		blockRefCache, _ = lru.New[common.Hash, eth.L1BlockRef](int(BatchAuthLookbackWindow) + 16)
+	})
+	return blockRefCache
 }
 
 // ComputeCalldataBatchHash computes keccak256(calldata), matching the BatchAuthenticator
@@ -132,18 +156,24 @@ func CollectAuthenticatedBatches(
 	logger log.Logger,
 ) (map[common.Hash]bool, error) {
 	cache := getBatchAuthCache()
+	refCache := getBlockRefCache()
+
+	// Cache the starting block ref so future calls that traverse through this
+	// block (as part of their lookback window) can resolve it without an RPC call.
+	refCache.Add(ref.Hash, ref)
 
 	allAuthenticated := make(map[common.Hash]bool)
 	currentBlock := ref
-	cacheHits := 0
+	receiptCacheHits := 0
+	refCacheHits := 0
 
 	for {
-		// Check cache first
+		// Check receipt cache first
 		if cached, ok := cache.Get(currentBlock.Hash); ok {
 			for h := range cached {
 				allAuthenticated[h] = true
 			}
-			cacheHits++
+			receiptCacheHits++
 		} else {
 			// Cache miss: fetch receipts, extract events, cache the result
 			_, receipts, err := fetcher.FetchReceipts(ctx, currentBlock.Hash)
@@ -161,16 +191,25 @@ func CollectAuthenticatedBatches(
 			break
 		}
 
-		var err error
+		// Resolve parent block ref, using the cache to avoid redundant RPC calls.
+		// Consecutive L1 blocks share ~99 blocks in their lookback windows, so
+		// after the first full traversal almost every parent lookup is a cache hit.
 		parentHash := currentBlock.ParentHash
-		currentBlock, err = fetcher.L1BlockRefByHash(ctx, parentHash)
-		if err != nil {
-			return nil, NewTemporaryError(fmt.Errorf("batch auth: failed to fetch L1 block ref %s: %w", parentHash.String(), err))
+		if cachedRef, ok := refCache.Get(parentHash); ok {
+			currentBlock = cachedRef
+			refCacheHits++
+		} else {
+			parentRef, err := fetcher.L1BlockRefByHash(ctx, parentHash)
+			if err != nil {
+				return nil, NewTemporaryError(fmt.Errorf("batch auth: failed to fetch L1 block ref %s: %w", parentHash.String(), err))
+			}
+			refCache.Add(parentHash, parentRef)
+			currentBlock = parentRef
 		}
 	}
 
 	logger.Debug("collected authenticated batches from lookback window",
 		"count", len(allAuthenticated), "fromBlock", currentBlock.Number, "toBlock", ref.Number,
-		"cacheHits", cacheHits)
+		"receiptCacheHits", receiptCacheHits, "refCacheHits", refCacheHits)
 	return allAuthenticated, nil
 }
