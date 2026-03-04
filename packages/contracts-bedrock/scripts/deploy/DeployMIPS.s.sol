@@ -84,9 +84,7 @@ contract DeployMIPS is Script {
         IMIPS64 singleton = IMIPS64(
             DeployUtils.createDeterministic({
                 _name: "MIPS64",
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IMIPS64.__constructor__, (preimageOracle, mipsVersion))
-                ),
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IMIPS64.__constructor__, (preimageOracle, mipsVersion))),
                 _salt: DeployUtils.DEFAULT_SALT
             })
         );
