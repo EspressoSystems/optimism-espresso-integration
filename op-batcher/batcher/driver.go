@@ -811,6 +811,18 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
+		// Espresso: skip publishing if this batcher is not the active one
+		if l.hasBatchAuthenticator() {
+			isActive, err := l.isBatcherActive(ctx)
+			if err != nil {
+				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+				return
+			}
+			if !isActive {
+				return
+			}
+		}
+
 		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup)
 		if err != nil {
 			if err != io.EOF {
