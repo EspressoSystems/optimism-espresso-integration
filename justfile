@@ -109,7 +109,9 @@ nuke:
 
 # Stop the containers. If you get "500 Internal Server Error" / API version, restart Docker Desktop
 # or run: DOCKER_API_VERSION=1.41 just build-devnet-skip-stop (then build-devnet-skip-stop).
+# Ensure deployment/deployer/succinct.env exists so compose can load when deployment dir is missing (e.g. first run).
 stop-containers:
+  mkdir -p espresso/deployment/deployer && touch espresso/deployment/deployer/succinct.env
   (cd espresso && U_ID={{uid}} GID={{gid}} docker compose down -v)
 
 # Checks that TODO comments have corresponding issues.

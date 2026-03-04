@@ -33,22 +33,27 @@ if [ "$MODE" = "genesis" ]; then
       printf "2692310708e4207ecd73bf5597a59ab9cd085380108a7787b3d6be22840e37f0" > /config/jwt.txt
   fi
 
-  echo "Waiting for L1 finalized block..."
+  # L1 is beacon-based (l1-geth + l1-beacon); "finalized" appears once the beacon has finalized.
+  # Fallback to "latest" in case we run before first finality (e.g. startup order change, Jovian timing).
+  echo "Waiting for L1 to have a block (finalized, or latest if not yet finalized)..."
   while true; do
-    finalized_block=$(curl -s -X POST -H "Content-Type: application/json" \
+    # Try "finalized" first; fall back to "latest" if not available yet. Ignore curl failures so we retry.
+    block_num=$(curl -sS -X POST -H "Content-Type: application/json" \
       --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["finalized", false],"id":1}' \
-      "$L1_RPC" | jq -r '.result.number')
-
-    if [[ -z "$finalized_block" || "$finalized_block" == "null" ]]; then
-      sleep 3
-      continue
+      "$L1_RPC" 2>/dev/null | jq -r '.result.number // empty') || true
+    if [[ -z "$block_num" ]]; then
+      block_num=$(curl -sS -X POST -H "Content-Type: application/json" \
+        --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", false],"id":1}' \
+        "$L1_RPC" 2>/dev/null | jq -r '.result.number // empty') || true
     fi
-
-    echo "Found L1 finalized block, exiting"
-    break
+    if [[ -n "$block_num" && "$block_num" != "null" ]]; then
+      echo "Found L1 block, number=$block_num"
+      break
+    fi
+    sleep 3
   done
   echo "L2 genesis setup complete"
-    exit 0
+  exit 0
 
 elif [ "$MODE" = "geth" ]; then
   echo "=== Starting OP Geth Mode ==="
@@ -123,6 +128,12 @@ elif [ "$MODE" = "rollup" ]; then
 
     echo "Updating rollup l2_time..."
     dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+
+    # Strip daFootprintGasScalar so succinct-proposer (older schema) can parse the config
+    if command -v jq >/dev/null 2>&1; then
+      tmp_rollup=$(mktemp)
+      jq 'del(.genesis.system_config.daFootprintGasScalar) | del(.chain_op_config.daFootprintGasScalar)' /config/rollup.json > "$tmp_rollup" && mv "$tmp_rollup" /config/rollup.json
+    fi
   else
     echo "Pre-built rollup config not found, generating new one..."
     op-deployer --cache-dir /tmp/op-deployer/cache inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
@@ -147,6 +158,12 @@ elif [ "$MODE" = "rollup" ]; then
 
     echo "Updating rollup l2_time..."
     dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+
+    # Strip daFootprintGasScalar so succinct-proposer (older schema) can parse the config
+    if command -v jq >/dev/null 2>&1; then
+      tmp_rollup=$(mktemp)
+      jq 'del(.genesis.system_config.daFootprintGasScalar) | del(.chain_op_config.daFootprintGasScalar)' /config/rollup.json > "$tmp_rollup" && mv "$tmp_rollup" /config/rollup.json
+    fi
   fi
 
   echo "L2 rollup config complete"

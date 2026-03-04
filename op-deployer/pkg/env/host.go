@@ -76,6 +76,8 @@ func DefaultForkedScriptHost(
 // ForkedScriptHostForBootstrap creates a script host for bootstrap superchain (and similar)
 // without WithIsolatedBroadcasts, so that CREATEs inside vm.broadcast() persist in the
 // simulation and scripts like DeploySuperchain.assertValidOutput succeed.
+// Uses WithCreate2Deployer so the handleCaller hook overrides the CREATE2 caller to
+// DeterministicDeployerAddress, matching what computeCreate2Address expects.
 func ForkedScriptHostForBootstrap(
 	ctx context.Context,
 	bcaster broadcaster.Broadcaster,

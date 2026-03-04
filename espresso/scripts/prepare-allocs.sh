@@ -11,6 +11,13 @@ ANVIL_URL=http://localhost:$ANVIL_PORT
 OP_ROOT="${1:-$(pwd)/..}"
 OP_ROOT=$(realpath "${OP_ROOT}")
 
+# Use repo-built op-deployer so bootstrap uses latest (e.g. Create2Deployer seeding for anvil).
+if [[ -x "${OP_ROOT}/op-deployer/bin/op-deployer" ]]; then
+    OP_DEPLOYER="${OP_ROOT}/op-deployer/bin/op-deployer"
+else
+    OP_DEPLOYER="op-deployer"
+fi
+
 DEPLOYMENT_DIR="${OP_ROOT}/espresso/deployment"
 DEPLOYER_DIR="${DEPLOYMENT_DIR}/deployer"
 L1_CONFIG_DIR="${DEPLOYMENT_DIR}/l1-config"
@@ -42,7 +49,7 @@ cast rpc anvil_setBalance "${PROPOSER_ADDRESS}" 0x100000000000000000000000000000
 
 export LOG_LEVEL=debug
 
-op-deployer bootstrap superchain \
+"${OP_DEPLOYER}" bootstrap superchain \
                       --l1-rpc-url="${ANVIL_URL}" \
                       --private-key="${OPERATOR_PRIVATE_KEY}" \
                       --artifacts-locator="${ARTIFACTS_DIR}" \
@@ -51,7 +58,7 @@ op-deployer bootstrap superchain \
                       --protocol-versions-owner="${OPERATOR_ADDRESS}" \
                       --guardian="${OPERATOR_ADDRESS}"
 
-op-deployer bootstrap implementations \
+"${OP_DEPLOYER}" bootstrap implementations \
                       --l1-rpc-url="${ANVIL_URL}" \
                       --private-key="${OPERATOR_PRIVATE_KEY}" \
                       --artifacts-locator="${ARTIFACTS_DIR}" \
@@ -64,7 +71,7 @@ op-deployer bootstrap implementations \
                       --dispute-game-finality-delay-seconds=6 \
                       --outfile="${DEPLOYER_DIR}/bootstrap_implementations.json"
 
-op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
+"${OP_DEPLOYER}" init --l1-chain-id "${L1_CHAIN_ID}" \
                  --l2-chain-ids "${L2_CHAIN_ID}" \
                  --intent-type standard-overrides \
                  --outdir ${DEPLOYER_DIR}
@@ -108,7 +115,7 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].dangerousAltDAConfig.d
 # contract addresses are deterministic.
 dasel put -f "${DEPLOYER_DIR}/state.json" -s create2Salt -v "0xaecea4f57fadb2097ccd56594f2f22715ac52f92971c5913b70a7f1134b68feb"
 
-BATCH_AUTHENTICATOR_OWNER_ADDRESS="${BATCH_AUTHENTICATOR_OWNER_ADDRESS}" op-deployer apply --l1-rpc-url "${ANVIL_URL}" \
+BATCH_AUTHENTICATOR_OWNER_ADDRESS="${BATCH_AUTHENTICATOR_OWNER_ADDRESS}" "${OP_DEPLOYER}" apply --l1-rpc-url "${ANVIL_URL}" \
                   --workdir "${DEPLOYER_DIR}" \
                   --private-key="${OPERATOR_PRIVATE_KEY}"
 

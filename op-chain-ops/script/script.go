@@ -173,6 +173,12 @@ func WithCreate2Deployer() HostOption {
 	}
 }
 
+// UseCreate2Deployer returns whether CREATE2 is being proxied through the deterministic deployer.
+// The cheatcode uses this so computeCreate2Address matches the actual CREATE2 deployment address.
+func (h *Host) UseCreate2Deployer() bool {
+	return h.useCreate2Deployer
+}
+
 // WithNoMaxCodeSize disables the maximum contract bytecode size check.
 // This is useful for development environments where contracts may be compiled
 // without optimizations and exceed the standard 24KB limit.

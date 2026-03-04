@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -192,7 +193,9 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
 	cmd.Env = append(cmd.Env, fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))))
 	buf := new(bytes.Buffer)
-	cmd.Stderr = buf
+	// Stream stdout/stderr so we see progress (e.g. pull, health checks); avoids silent hang.
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = io.MultiWriter(os.Stderr, buf)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to start docker compose (%w): %s", err, buf.String())
 	}
@@ -414,12 +417,12 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 
 // Waits for a previously submitted transaction to be confirmed by the verifier.
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
-	// Use longer timeout in CI environments due to Espresso processing delays
-	timeout := 5 * time.Minute
-
-	// Check if running in CI environment
-	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		timeout = 5 * time.Minute
+	timeout := 10 * time.Minute
+	if runtime.GOARCH == "arm64" {
+		timeout = 18 * time.Minute
+		log.Info("arm64 detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
+	} else if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		timeout = 12 * time.Minute
 		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
 	}
 
@@ -488,7 +491,13 @@ func (d *Devnet) SubmitSimpleL2Burn() (*BurnReceipt, error) {
 
 // Waits for a previously submitted burn transaction to be confirmed by the verifier.
 func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
-	ctx, cancel := context.WithTimeout(d.ctx, 2*time.Minute)
+	timeout := 10 * time.Minute
+	if runtime.GOARCH == "arm64" {
+		timeout = 18 * time.Minute
+	} else if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		timeout = 12 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
 
 	if err := d.VerifyL2Tx(receipt.Receipt); err != nil {

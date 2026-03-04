@@ -234,13 +234,24 @@ func (c *CheatCodesPrecompile) ParseTomlAddress_65e7c844(tomlStr string, key str
 }
 
 func (c *CheatCodesPrecompile) ComputeCreate2Address_890c283b(salt, codeHash [32]byte) (common.Address, error) {
+	// When using the Create2Deployer (e.g. bootstrap), CREATE2 runs via the deployer contract
+	// so the computed address must use DeterministicDeployerAddress. Otherwise use the script
+	// (MsgSender()) so the address matches the actual CREATE2 from the script.
+	var deployer common.Address
+	if c.h.UseCreate2Deployer() {
+		deployer = DeterministicDeployerAddress
+	} else {
+		deployer = c.h.MsgSender()
+	}
+	if deployer == (common.Address{}) {
+		deployer = DeterministicDeployerAddress
+	}
 	data := make([]byte, 1+20+32+32)
 	data[0] = 0xff
-	copy(data[1:], DeterministicDeployerAddress.Bytes())
+	copy(data[1:], deployer.Bytes())
 	copy(data[1+20:], salt[:])
 	copy(data[1+20+32:], codeHash[:])
 	finalHash := crypto.Keccak256(data)
-	// Take the last 20 bytes of the hash to get the address
 	return common.BytesToAddress(finalHash[12:]), nil
 }
 

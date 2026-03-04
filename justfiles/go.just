@@ -2,6 +2,10 @@ import 'git.just'
 
 _EXTRALDFLAGS := if os() == "macos" { "-ldflags=-extldflags=-Wl,-ld_classic" } else { "" }
 
+# On macOS, use CGO_ENABLED=0 to avoid fighting the Nix shell C compilation environment
+# (Nix sets NIX_CFLAGS_COMPILE / C_INCLUDE_PATH to stale Nix store paths incompatible with system clang).
+_CGO := if os() == "macos" { "CGO_ENABLED=0" } else { "CGO_ENABLED=1" }
+
 # We use both GOOS/GOARCH and TARGETOS/TARGETARCH to set the build targets.
 # From the usage patterns, it looks like TARGETOS/TARGETARCH should take
 # precedence if set, and default to GOOS/GOARCH if not set.
@@ -17,7 +21,7 @@ _GORACE_FLAG := if GORACE == "1" { "-race " } else { "" }
 
 [private]
 go_build BIN PKG *FLAGS:
-    env GO111MODULE=on GOOS={{TARGETOS}} GOARCH={{TARGETARCH}} CGO_ENABLED=1 go build -v {{_GORACE_FLAG}} {{FLAGS}} -o {{BIN}} {{PKG}}
+    env GO111MODULE=on GOOS={{TARGETOS}} GOARCH={{TARGETARCH}} {{_CGO}} go build -v {{_GORACE_FLAG}} {{FLAGS}} -o {{BIN}} {{PKG}}
 
 [private]
 go_test SELECTOR *FLAGS:
