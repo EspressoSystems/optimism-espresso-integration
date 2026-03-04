@@ -13,6 +13,7 @@ import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspress
 import { EspressoTEEVerifier } from "@espresso-tee-contracts/EspressoTEEVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
@@ -154,21 +155,21 @@ contract DeployEspresso is Script {
         // the expected address, then transfer ownership to proxyAdminOwner afterward.
         // Use DeployUtils.create1 to ensure artifacts are available for vm.getCode calls.
         vm.broadcast(msg.sender);
-        IProxyAdmin proxyAdmin = IProxyAdmin(
+        ProxyAdmin proxyAdmin = ProxyAdmin(
             payable(DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-                }))
+                _name: "ProxyAdmin",
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+            }))
         );
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         vm.broadcast(msg.sender);
         address payable proxy = payable(DeployUtils.create1({
-                _name: "src/universal/Proxy.sol:Proxy",
-                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
-            }));
+            _name: "Proxy",
+            _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
+        }));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         vm.broadcast(msg.sender);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
@@ -229,13 +230,13 @@ contract DeployEspresso is Script {
                 mockProxyAdminOwner = msg.sender;
             }
             vm.broadcast(msg.sender);
-            IProxyAdmin mockProxyAdmin = IProxyAdmin(
+            ProxyAdmin mockProxyAdmin = ProxyAdmin(
                 payable(DeployUtils.create1({
-                        _name: "ProxyAdmin",
-                        _args: DeployUtils.encodeConstructor(
-                            abi.encodeCall(IProxyAdmin.__constructor__, (mockProxyAdminOwner))
-                        )
-                    }))
+                    _name: "ProxyAdmin",
+                    _args: DeployUtils.encodeConstructor(
+                        abi.encodeCall(IProxyAdmin.__constructor__, (mockProxyAdminOwner))
+                    )
+                }))
             );
             vm.label(address(mockProxyAdmin), "MockTEEVerifierProxyAdmin");
 
@@ -249,25 +250,25 @@ contract DeployEspresso is Script {
 
         // 1. Deploy the ProxyAdmin
         vm.broadcast(msg.sender);
-        IProxyAdmin proxyAdmin = IProxyAdmin(
+        ProxyAdmin proxyAdmin = ProxyAdmin(
             payable(DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-                }))
+                _name: "ProxyAdmin",
+                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+            }))
         );
         vm.label(address(proxyAdmin), "TEEVerifierProxyAdmin");
 
         // 2. Deploy the Proxy
         vm.broadcast(msg.sender);
         address payable proxy = payable(DeployUtils.create1({
-                _name: "src/universal/Proxy.sol:Proxy",
-                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
-            }));
+            _name: "Proxy",
+            _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
+        }));
         vm.label(address(proxy), "TEEVerifierProxy");
 
         // 3. Set proxy type
         vm.broadcast(msg.sender);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         // 4. Deploy the EspressoTEEVerifier implementation
         vm.broadcast(msg.sender);
