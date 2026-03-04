@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import { ERC20PermitUpgradeable } from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
+import {
+    ERC20PermitUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
@@ -98,15 +99,7 @@ contract StableTokenV2 is IStableTokenV2, ERC20PermitUpgradeable, CalledByVm, Ow
      * @param _validators The address of the Validators contract.
      * @param _exchange The address of the Exchange contract.
      */
-    function initializeV2(
-        address _broker,
-        address _validators,
-        address _exchange
-    )
-        external
-        reinitializer(2)
-        onlyOwner
-    {
+    function initializeV2(address _broker, address _validators, address _exchange) external reinitializer(2) onlyOwner {
         _setBroker(_broker);
         _setValidators(_validators);
         _setExchange(_exchange);
@@ -222,14 +215,7 @@ contract StableTokenV2 is IStableTokenV2, ERC20PermitUpgradeable, CalledByVm, Ow
     }
 
     /// @inheritdoc ERC20Upgradeable
-    function approve(
-        address spender,
-        uint256 amount
-    )
-        public
-        override(ERC20Upgradeable, IStableTokenV2)
-        returns (bool)
-    {
+    function approve(address spender, uint256 amount) public override(ERC20Upgradeable, IStableTokenV2) returns (bool) {
         return ERC20Upgradeable.approve(spender, amount);
     }
 
