@@ -5,7 +5,7 @@ set -x
 echo "[*] Setting up Cachix"
 cachix authtoken $1
 # Retry cachix use (cachix.org can return 502 Bad Gateway transiently)
-for attempt in 1 2 3 4 5; do
+for attempt in {1..5}; do
   if cachix use espresso-systems-private; then
     break
   fi
