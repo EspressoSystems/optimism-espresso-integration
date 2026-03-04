@@ -276,17 +276,18 @@ abstract contract OPContractsManagerStandardValidator_TestInit is CommonTest, Di
 
                 // Call upgrade to all games to be enabled.
                 prankDelegateCall(owner);
-                (bool success,) = address(opcmV2)
-                    .delegatecall(
-                        abi.encodeCall(
-                            IOPContractsManagerV2.upgrade,
-                            (IOPContractsManagerV2.UpgradeInput({
-                                    systemConfig: systemConfig,
-                                    disputeGameConfigs: disputeGameConfigs,
-                                    extraInstructions: new IOPContractsManagerUtils.ExtraInstruction[](0)
-                                }))
+                (bool success,) = address(opcmV2).delegatecall(
+                    abi.encodeCall(
+                        IOPContractsManagerV2.upgrade,
+                        (
+                            IOPContractsManagerV2.UpgradeInput({
+                                systemConfig: systemConfig,
+                                disputeGameConfigs: disputeGameConfigs,
+                                extraInstructions: new IOPContractsManagerUtils.ExtraInstruction[](0)
+                            })
                         )
-                    );
+                    )
+                );
                 assertTrue(success, "upgrade failed");
 
                 // Grab the FaultDisputeGame implementation.
@@ -439,10 +440,8 @@ contract OPContractsManagerStandardValidator_GeneralOverride_Test is OPContracts
     ///         successfully returns no error when there is none. That is, it never returns the
     ///         overridden strings alone.
     function test_validateOverrides_noErrors_succeeds() public {
-        IOPContractsManagerStandardValidator.ValidationOverrides memory overrides =
-            IOPContractsManagerStandardValidator.ValidationOverrides({
-                l1PAOMultisig: address(0xbad), challenger: address(0xc0ffee)
-            });
+        IOPContractsManagerStandardValidator.ValidationOverrides memory overrides = IOPContractsManagerStandardValidator
+            .ValidationOverrides({ l1PAOMultisig: address(0xbad), challenger: address(0xc0ffee) });
         vm.mockCall(
             address(delayedWeth),
             abi.encodeCall(IProxyAdminOwnedBase.proxyAdminOwner, ()),
@@ -462,10 +461,8 @@ contract OPContractsManagerStandardValidator_GeneralOverride_Test is OPContracts
     /// @notice Tests that the validate function (with overrides) and allow failure set to false,
     ///         returns the errors with the overrides prepended.
     function test_validateOverrides_notAllowFailurePrependsOverrides_succeeds() public {
-        IOPContractsManagerStandardValidator.ValidationOverrides memory overrides =
-            IOPContractsManagerStandardValidator.ValidationOverrides({
-                l1PAOMultisig: address(0xbad), challenger: address(0xc0ffee)
-            });
+        IOPContractsManagerStandardValidator.ValidationOverrides memory overrides = IOPContractsManagerStandardValidator
+            .ValidationOverrides({ l1PAOMultisig: address(0xbad), challenger: address(0xc0ffee) });
 
         vm.expectRevert(
             bytes(

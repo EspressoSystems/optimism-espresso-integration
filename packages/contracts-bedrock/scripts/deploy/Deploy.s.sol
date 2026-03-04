@@ -186,8 +186,9 @@ contract Deploy is Deployer {
 
         // Set the respected game type according to the deploy config
         vm.startPrank(ISuperchainConfig(artifacts.mustGetAddress("SuperchainConfigProxy")).guardian());
-        IAnchorStateRegistry(artifacts.mustGetAddress("AnchorStateRegistryProxy"))
-            .setRespectedGameType(GameType.wrap(uint32(cfg.respectedGameType())));
+        IAnchorStateRegistry(artifacts.mustGetAddress("AnchorStateRegistryProxy")).setRespectedGameType(
+            GameType.wrap(uint32(cfg.respectedGameType()))
+        );
         vm.stopPrank();
 
         if (cfg.useAltDA()) {
@@ -397,11 +398,10 @@ contract Deploy is Deployer {
         address delayedWETHPermissionlessGameProxy =
             deployERC1967ProxyWithOwner("DelayedWETHProxy", address(deployOutput.opChainProxyAdmin));
         vm.broadcast(address(deployOutput.opChainProxyAdmin));
-        IProxy(payable(delayedWETHPermissionlessGameProxy))
-            .upgradeToAndCall({
-                _implementation: delayedWETHImpl,
-                _data: abi.encodeCall(IDelayedWETH.initialize, (deployOutput.systemConfigProxy))
-            });
+        IProxy(payable(delayedWETHPermissionlessGameProxy)).upgradeToAndCall({
+            _implementation: delayedWETHImpl,
+            _data: abi.encodeCall(IDelayedWETH.initialize, (deployOutput.systemConfigProxy))
+        });
     }
 
     /// @notice Deploy all of the OP Chain specific contracts using OPCM v2

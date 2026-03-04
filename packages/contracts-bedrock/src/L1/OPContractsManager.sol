@@ -571,12 +571,14 @@ contract OPContractsManagerGameTypeAdder is OPContractsManagerBase {
                 // Deploy the DelayedWETH proxy. We use the chain ID and the game type in the
                 // contract name to ensure that the contract is unique across chains.
                 outputs[i].delayedWETH = IDelayedWETH(
-                    payable(deployProxy(
+                    payable(
+                        deployProxy(
                             l2ChainId,
                             gameConfig.systemConfig.proxyAdmin(),
                             gameConfig.saltMixer,
                             string.concat("DelayedWETH-", Strings.toString(uint256(gameTypeInt)))
-                        ))
+                        )
+                    )
                 );
 
                 // Initialize the proxy.
@@ -940,9 +942,7 @@ contract OPContractsManagerUpgrader is OPContractsManagerBase {
                     _newAbsolutePrestate: _opChainConfig.cannonKonaPrestate,
                     // CANNON and CANNON_KONA use the same weth and asr proxy addresses
                     _newDelayedWeth: getWETH(dgf, permissionlessDisputeGame, GameTypes.CANNON),
-                    _newAnchorStateRegistryProxy: getAnchorStateRegistry(
-                        dgf, permissionlessDisputeGame, GameTypes.CANNON
-                    ),
+                    _newAnchorStateRegistryProxy: getAnchorStateRegistry(dgf, permissionlessDisputeGame, GameTypes.CANNON),
                     _gameType: GameTypes.CANNON_KONA,
                     _disputeGameFactory: disputeGameFactory
                 });
@@ -958,9 +958,11 @@ contract OPContractsManagerUpgrader is OPContractsManagerBase {
     /// @dev This function will revert if the SuperchainConfig is already at or above the target version.
     function upgradeSuperchainConfig(ISuperchainConfig _superchainConfig) external {
         // Only upgrade the superchainConfig if the current version is less than the target version.
-        if (SemverComp.gte(
+        if (
+            SemverComp.gte(
                 _superchainConfig.version(), ISuperchainConfig(getImplementations().superchainConfigImpl).version()
-            )) {
+            )
+        ) {
             revert OPContractsManagerUpgrader_SuperchainConfigAlreadyUpToDate();
         }
 
@@ -1156,9 +1158,8 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
         // -------- Deploy Proxy Contracts --------
 
         // Deploy ERC-1967 proxied contracts.
-        output.l1ERC721BridgeProxy = IL1ERC721Bridge(
-            deployProxy(_input.l2ChainId, output.opChainProxyAdmin, _input.saltMixer, "L1ERC721Bridge")
-        );
+        output.l1ERC721BridgeProxy =
+            IL1ERC721Bridge(deployProxy(_input.l2ChainId, output.opChainProxyAdmin, _input.saltMixer, "L1ERC721Bridge"));
         output.optimismPortalProxy = IOptimismPortal(
             payable(deployProxy(_input.l2ChainId, output.opChainProxyAdmin, _input.saltMixer, "OptimismPortal"))
         );
@@ -1178,11 +1179,13 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
 
         // Deploy legacy proxied contracts.
         output.l1StandardBridgeProxy = IL1StandardBridge(
-            payable(Blueprint.deployFrom(
+            payable(
+                Blueprint.deployFrom(
                     blueprint.l1ChugSplashProxy,
                     computeSalt(_input.l2ChainId, _input.saltMixer, "L1StandardBridge"),
                     abi.encode(output.opChainProxyAdmin)
-                ))
+                )
+            )
         );
         output.opChainProxyAdmin.setProxyType(address(output.l1StandardBridgeProxy), IProxyAdmin.ProxyType.CHUGSPLASH);
         string memory contractName = "OVM_L1CrossDomainMessenger";
@@ -1193,15 +1196,16 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
                 abi.encode(output.addressManager, contractName)
             )
         );
-        output.opChainProxyAdmin
-            .setProxyType(address(output.l1CrossDomainMessengerProxy), IProxyAdmin.ProxyType.RESOLVED);
+        output.opChainProxyAdmin.setProxyType(
+            address(output.l1CrossDomainMessengerProxy), IProxyAdmin.ProxyType.RESOLVED
+        );
         output.opChainProxyAdmin.setImplementationName(address(output.l1CrossDomainMessengerProxy), contractName);
 
         // Eventually we will switch from DelayedWETHPermissionedGameProxy to DelayedWETHPermissionlessGameProxy.
         output.delayedWETHPermissionedGameProxy = IDelayedWETH(
-            payable(deployProxy(
-                    _input.l2ChainId, output.opChainProxyAdmin, _input.saltMixer, "DelayedWETHPermissionedGame"
-                ))
+            payable(
+                deployProxy(_input.l2ChainId, output.opChainProxyAdmin, _input.saltMixer, "DelayedWETHPermissionedGame")
+            )
         );
 
         // -------- Set and Initialize Proxy Implementations --------
@@ -1384,9 +1388,8 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
         virtual
         returns (bytes memory)
     {
-        return abi.encodeCall(
-            IL1ERC721Bridge.initialize, (_output.l1CrossDomainMessengerProxy, _output.systemConfigProxy)
-        );
+        return
+            abi.encodeCall(IL1ERC721Bridge.initialize, (_output.l1CrossDomainMessengerProxy, _output.systemConfigProxy));
     }
 
     /// @notice Helper method for encoding the OptimismPortal initializer data.
@@ -1489,9 +1492,8 @@ contract OPContractsManagerDeployer is OPContractsManagerBase {
         virtual
         returns (bytes memory)
     {
-        return abi.encodeCall(
-            IL1CrossDomainMessenger.initialize, (_output.systemConfigProxy, _output.optimismPortalProxy)
-        );
+        return
+            abi.encodeCall(IL1CrossDomainMessenger.initialize, (_output.systemConfigProxy, _output.optimismPortalProxy));
     }
 
     /// @notice Helper method for encoding the L1StandardBridge initializer data.
@@ -1741,12 +1743,14 @@ contract OPContractsManagerInteropMigrator is OPContractsManagerBase {
         {
             // Deploy a new DelayedWETH proxy for the permissioned game.
             IDelayedWETH newPermissionedDelayedWETHProxy = IDelayedWETH(
-                payable(deployProxy({
+                payable(
+                    deployProxy({
                         _l2ChainId: block.timestamp,
                         _proxyAdmin: proxyAdmin,
                         _saltMixer: reusableSaltMixer(_input.opChainConfigs[0].systemConfigProxy),
                         _contractName: "DelayedWETH-Interop-Permissioned"
-                    }))
+                    })
+                )
             );
 
             // Initialize the new DelayedWETH proxy.
@@ -1785,12 +1789,14 @@ contract OPContractsManagerInteropMigrator is OPContractsManagerBase {
         if (_input.usePermissionlessGame) {
             // Deploy a new DelayedWETH proxy for the permissionless game.
             IDelayedWETH newPermissionlessDelayedWETHProxy = IDelayedWETH(
-                payable(deployProxy({
+                payable(
+                    deployProxy({
                         _l2ChainId: block.timestamp,
                         _proxyAdmin: proxyAdmin,
                         _saltMixer: reusableSaltMixer(_input.opChainConfigs[0].systemConfigProxy),
                         _contractName: "DelayedWETH-Interop-Permissionless"
-                    }))
+                    })
+                )
             );
 
             // Initialize the new DelayedWETH proxy.
