@@ -13,7 +13,7 @@ RUN apk add --no-cache \
   linux-headers git bash jq yq
 
 # Install mise for toolchain management
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
 
 # Install yq, dasel and foundry
 RUN case "$TARGETARCH" in \
