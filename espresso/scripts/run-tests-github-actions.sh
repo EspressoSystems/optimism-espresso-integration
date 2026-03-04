@@ -4,7 +4,18 @@ set -x
 
 echo "[*] Setting up Cachix"
 cachix authtoken $1
-cachix use espresso-systems-private
+# Retry cachix use (cachix.org can return 502 Bad Gateway transiently)
+for attempt in 1 2 3 4 5; do
+  if cachix use espresso-systems-private; then
+    break
+  fi
+  if [[ $attempt -eq 5 ]]; then
+    echo "[!] Cachix still failing after 5 attempts (e.g. cachix.org 502). Continuing without cache."
+  else
+    echo "[*] Cachix failed (attempt $attempt/5), retrying in 60s..."
+    sleep 60
+  fi
+done
 echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 
 echo "[*] Cloning repo and checking out branch $BRANCH_NAME..."
@@ -12,8 +23,8 @@ git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
 cd optimism-espresso-integration
 git checkout "$BRANCH_NAME"
 git submodule update --init --recursive
-# Poblate cachix cahe
-nix flake archive --json | jq -r '.path,(.inputs|to_entries[].value.path)' | cachix push espresso-systems-private
+# Populate Cachix cache (best-effort; do not fail if Cachix is down)
+nix flake archive --json | jq -r '.path,(.inputs|to_entries[].value.path)' | cachix push espresso-systems-private || true
 
 echo "[*] Starting Docker..."
 sudo systemctl enable --now docker
