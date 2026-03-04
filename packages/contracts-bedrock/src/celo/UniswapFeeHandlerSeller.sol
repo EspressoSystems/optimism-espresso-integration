@@ -122,9 +122,8 @@ contract UniswapFeeHandlerSeller is FeeHandlerSeller {
 
         IERC20 celoToken = getGoldToken();
         address pair = IUniswapV2FactoryMin(bestRouter.factory()).getPair(sellTokenAddress, address(celoToken));
-        uint256 minAmountPair = calculateMinAmount(
-            IERC20(sellTokenAddress).balanceOf(pair), celoToken.balanceOf(pair), amount, maxSlippage
-        );
+        uint256 minAmountPair =
+            calculateMinAmount(IERC20(sellTokenAddress).balanceOf(pair), celoToken.balanceOf(pair), amount, maxSlippage);
 
         return Math.max(minAmountPair, minimalSortedOracles);
     }
