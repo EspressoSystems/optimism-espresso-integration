@@ -43,8 +43,7 @@ contract BatchAuthenticator_Test is Test {
     BatchAuthenticator public implementation;
     ProxyAdmin public proxyAdmin;
 
-    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH =
-        keccak256("EspressoTEEVerifier(bytes32 commitment)");
+    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
 
     bytes32 private constant _EIP712_DOMAIN_TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -440,8 +439,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     ProxyAdmin public proxyAdmin;
     BatchAuthenticator public authenticator;
 
-    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH =
-        keccak256("EspressoTEEVerifier(bytes32 commitment)");
+    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
 
     bytes32 private constant _EIP712_DOMAIN_TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
