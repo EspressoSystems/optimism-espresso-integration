@@ -106,24 +106,11 @@ func (af *ArtifactsFS) ListContracts(name string) ([]string, error) {
 // The contract name may be suffixed by a solidity compiler version, e.g. "Owned.0.8.25".
 // The contract name does not include ".json", this is a detail internal to the artifacts.
 // The name of the artifact is the source-file name, this must include the suffix such as ".sol".
-// If name contains a path (e.g. "legacy/AddressManager.sol"), the full path is tried first;
-// if that fails, a fallback to the base name (e.g. "AddressManager.sol") is tried for flat artifact layouts.
-// If the fallback artifact has empty bytecode (e.g. an abstract contract from a library dependency
-// that shares the same filename), versioned alternatives in the same directory are tried instead.
 func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, error) {
 	artifactPath := path.Join(name, contract+".json")
 	f, err := af.FS.Open(artifactPath)
-	usedFallback := false
 	if err != nil {
-		// Fallback for flat artifact bundles that only have File.sol/Contract.json (no subdirs)
-		if base := path.Base(name); base != name {
-			artifactPath = path.Join(base, contract+".json")
-			f, err = af.FS.Open(artifactPath)
-			usedFallback = true
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
-		}
+		return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
@@ -131,43 +118,5 @@ func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, er
 	if err := dec.Decode(&out); err != nil {
 		return nil, fmt.Errorf("failed to decode artifact %q: %w", name, err)
 	}
-	// If the fallback was used and returned an abstract contract (empty bytecode), a library
-	// dependency may have a same-named file that shadowed the concrete implementation.
-	// Try versioned alternatives (e.g. "Contract.0.8.15.json") which Foundry creates when
-	// the same contract name is compiled under multiple compiler versions.
-	if usedFallback && len(out.Bytecode.Object) == 0 {
-		base := path.Base(name)
-		if versioned := af.findVersionedArtifactWithBytecode(base, contract); versioned != nil {
-			return versioned, nil
-		}
-	}
 	return &out, nil
-}
-
-// findVersionedArtifactWithBytecode scans the artifact directory for versioned artifacts
-// (e.g. "Contract.0.8.15.json") and returns the first one with non-empty bytecode.
-func (af *ArtifactsFS) findVersionedArtifactWithBytecode(dir, contract string) *Artifact {
-	entries, err := af.FS.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	prefix := contract + "."
-	for _, entry := range entries {
-		n := entry.Name()
-		if !strings.HasPrefix(n, prefix) || !strings.HasSuffix(n, ".json") || n == contract+".json" {
-			continue
-		}
-		p := path.Join(dir, n)
-		f, err := af.FS.Open(p)
-		if err != nil {
-			continue
-		}
-		var out Artifact
-		decErr := json.NewDecoder(f).Decode(&out)
-		f.Close()
-		if decErr == nil && len(out.Bytecode.Object) > 0 {
-			return &out
-		}
-	}
-	return nil
 }

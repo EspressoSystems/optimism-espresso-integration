@@ -184,7 +184,10 @@ contract UpgradeOPChainInput_Test is Test {
         IOPContractsManagerUtils.DisputeGameConfig[] memory disputeGameConfigs =
             new IOPContractsManagerUtils.DisputeGameConfig[](1);
         disputeGameConfigs[0] = IOPContractsManagerUtils.DisputeGameConfig({
-            enabled: enabled, initBond: initBond, gameType: GameType.wrap(gameType), gameArgs: abi.encode("test")
+            enabled: enabled,
+            initBond: initBond,
+            gameType: GameType.wrap(gameType),
+            gameArgs: abi.encode("test")
         });
 
         OPContractsManagerV2.UpgradeInput memory upgradeInput = OPContractsManagerV2.UpgradeInput({
@@ -228,7 +231,10 @@ contract UpgradeOPChainInput_TestV2 is Test {
         IOPContractsManagerUtils.DisputeGameConfig[] memory disputeGameConfigs =
             new IOPContractsManagerUtils.DisputeGameConfig[](1);
         disputeGameConfigs[0] = IOPContractsManagerUtils.DisputeGameConfig({
-            enabled: enabled, initBond: initBond, gameType: GameType.wrap(gameType), gameArgs: gameArgs
+            enabled: enabled,
+            initBond: initBond,
+            gameType: GameType.wrap(gameType),
+            gameArgs: gameArgs
         });
 
         IOPContractsManagerUtils.ExtraInstruction[] memory extraInstructions =
@@ -320,13 +326,7 @@ contract MockOPCMV1 {
         address indexed sysCfgProxy, bytes32 indexed absolutePrestate, bytes32 indexed cannonKonaPrestate
     );
 
-    function isDevFeatureEnabled(
-        bytes32 /* _feature */
-    )
-        public
-        pure
-        returns (bool)
-    {
+    function isDevFeatureEnabled(bytes32 /* _feature */ ) public pure returns (bool) {
         return false;
     }
 
@@ -451,7 +451,10 @@ contract UpgradeOPChain_TestV2 is Test {
         IOPContractsManagerUtils.DisputeGameConfig[] memory disputeGameConfigs =
             new IOPContractsManagerUtils.DisputeGameConfig[](1);
         disputeGameConfigs[0] = IOPContractsManagerUtils.DisputeGameConfig({
-            enabled: enabled, initBond: initBond, gameType: GameType.wrap(gameType), gameArgs: gameArgs
+            enabled: enabled,
+            initBond: initBond,
+            gameType: GameType.wrap(gameType),
+            gameArgs: gameArgs
         });
 
         OPContractsManagerV2.UpgradeInput memory upgradeInput = OPContractsManagerV2.UpgradeInput({

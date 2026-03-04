@@ -248,12 +248,14 @@ contract FaultDisputeGameV2_Constructor_Test is FaultDisputeGame_TestInit {
             _args: DeployUtils.encodeConstructor(
                 abi.encodeCall(
                     IFaultDisputeGameV2.__constructor__,
-                    (IFaultDisputeGameV2.GameConstructorParams({
+                    (
+                        IFaultDisputeGameV2.GameConstructorParams({
                             maxGameDepth: _maxGameDepth,
                             splitDepth: _maxGameDepth + 1,
                             clockExtension: Duration.wrap(3 hours),
                             maxClockDuration: Duration.wrap(3.5 days)
-                        }))
+                        })
+                    )
                 )
             )
         });
@@ -270,12 +272,14 @@ contract FaultDisputeGameV2_Constructor_Test is FaultDisputeGame_TestInit {
             _args: DeployUtils.encodeConstructor(
                 abi.encodeCall(
                     IFaultDisputeGameV2.__constructor__,
-                    (IFaultDisputeGameV2.GameConstructorParams({
+                    (
+                        IFaultDisputeGameV2.GameConstructorParams({
                             maxGameDepth: maxGameDepth,
                             splitDepth: _splitDepth,
                             clockExtension: Duration.wrap(3 hours),
                             maxClockDuration: Duration.wrap(3.5 days)
-                        }))
+                        })
+                    )
                 )
             )
         });
@@ -292,12 +296,14 @@ contract FaultDisputeGameV2_Constructor_Test is FaultDisputeGame_TestInit {
             _args: DeployUtils.encodeConstructor(
                 abi.encodeCall(
                     IFaultDisputeGameV2.__constructor__,
-                    (IFaultDisputeGameV2.GameConstructorParams({
+                    (
+                        IFaultDisputeGameV2.GameConstructorParams({
                             maxGameDepth: 2 ** 3,
                             splitDepth: _splitDepth,
                             clockExtension: Duration.wrap(3 hours),
                             maxClockDuration: Duration.wrap(3.5 days)
-                        }))
+                        })
+                    )
                 )
             )
         });
@@ -322,12 +328,14 @@ contract FaultDisputeGameV2_Constructor_Test is FaultDisputeGame_TestInit {
             _args: DeployUtils.encodeConstructor(
                 abi.encodeCall(
                     IFaultDisputeGameV2.__constructor__,
-                    (IFaultDisputeGameV2.GameConstructorParams({
+                    (
+                        IFaultDisputeGameV2.GameConstructorParams({
                             maxGameDepth: 16,
                             splitDepth: 8,
                             clockExtension: Duration.wrap(_clockExtension),
                             maxClockDuration: Duration.wrap(_maxClockDuration)
-                        }))
+                        })
+                    )
                 )
             )
         });
@@ -357,11 +365,13 @@ contract FaultDisputeGame_Initialize_Test is FaultDisputeGame_TestInit {
 
         assertEq(address(gameProxy).balance, 0);
         gameProxy = IFaultDisputeGame(
-            payable(address(
+            payable(
+                address(
                     disputeGameFactory.create{ value: _value }(
                         GAME_TYPE, arbitaryRootClaim, abi.encode(validL2BlockNumber)
                     )
-                ))
+                )
+            )
         );
         assertEq(address(gameProxy).balance, 0);
         assertEq(delayedWeth.balanceOf(address(gameProxy)), _value);
@@ -415,9 +425,9 @@ contract FaultDisputeGame_Initialize_Test is FaultDisputeGame_TestInit {
         Claim claim = _dummyClaim();
         vm.expectRevert(IFaultDisputeGame.BadExtraData.selector);
         gameProxy = IFaultDisputeGame(
-            payable(address(
-                    disputeGameFactory.create{ value: initBond }(GAME_TYPE, claim, abi.encode(validL2BlockNumber))
-                ))
+            payable(
+                address(disputeGameFactory.create{ value: initBond }(GAME_TYPE, claim, abi.encode(validL2BlockNumber)))
+            )
         );
     }
 
@@ -437,9 +447,9 @@ contract FaultDisputeGame_Initialize_Test is FaultDisputeGame_TestInit {
         Claim claim = _dummyClaim();
         vm.expectRevert(IFaultDisputeGame.BadExtraData.selector);
         gameProxy = IFaultDisputeGame(
-            payable(address(
-                    disputeGameFactory.create{ value: initBond }(GAME_TYPE, claim, abi.encode(validL2BlockNumber))
-                ))
+            payable(
+                address(disputeGameFactory.create{ value: initBond }(GAME_TYPE, claim, abi.encode(validL2BlockNumber)))
+            )
         );
     }
 
@@ -482,9 +492,9 @@ contract FaultDisputeGame_Initialize_Test is FaultDisputeGame_TestInit {
         // Creation should fail.
         vm.expectRevert(AnchorRootNotFound.selector);
         gameProxy = IFaultDisputeGame(
-            payable(address(
-                    disputeGameFactory.create{ value: initBond }(GAME_TYPE, _dummyClaim(), new bytes(uint256(32)))
-                ))
+            payable(
+                address(disputeGameFactory.create{ value: initBond }(GAME_TYPE, _dummyClaim(), new bytes(uint256(32))))
+            )
         );
     }
 
@@ -513,11 +523,13 @@ contract FaultDisputeGame_Initialize_Test is FaultDisputeGame_TestInit {
 
         // Create game via factory - initialize() is called automatically and should revert
         gameProxy = IFaultDisputeGame(
-            payable(address(
+            payable(
+                address(
                     disputeGameFactory.create{ value: initBond }(
                         GAME_TYPE, _dummyClaim(), abi.encode(validL2BlockNumber)
                     )
-                ))
+                )
+            )
         );
     }
 }
@@ -1343,9 +1355,8 @@ contract FaultDisputeGame_ChallengeRootL2Block_Test is FaultDisputeGame_TestInit
         disputeGameFactory.setInitBond(GAME_TYPE, 0.1 ether);
         uint256 balanceBefore = address(this).balance;
         _l2BlockNumber = bound(vm.randomUint(), _l2BlockNumber + 1, type(uint256).max);
-        IDisputeGame game = disputeGameFactory.create{ value: 0.1 ether }(
-            GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber)
-        );
+        IDisputeGame game =
+            disputeGameFactory.create{ value: 0.1 ether }(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber));
         IFaultDisputeGame fdg = IFaultDisputeGame(address(game));
 
         // Attack the root as 0xb0b
