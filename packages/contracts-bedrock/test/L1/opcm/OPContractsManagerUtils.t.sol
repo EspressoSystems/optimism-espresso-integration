@@ -484,7 +484,7 @@ contract OPContractsManagerUtils_Upgrade_Test is OPContractsManagerUtils_TestIni
         // Deploy real Proxy with ProxyAdmin as admin.
         proxy = IProxy(
             DeployUtils.create1({
-                _name: "src/universal/Proxy.sol:Proxy",
+                _name: "Proxy",
                 _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(proxyAdmin))))
             })
         );

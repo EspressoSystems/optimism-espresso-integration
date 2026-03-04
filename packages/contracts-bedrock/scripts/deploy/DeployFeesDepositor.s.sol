@@ -71,7 +71,7 @@ contract DeployFeesDepositor is Script {
     function deployProxy() internal returns (IProxy) {
         return IProxy(
             DeployUtils.createDeterministic({
-                _name: "src/universal/Proxy.sol:Proxy",
+                _name: "Proxy",
                 _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (deployer))),
                 _salt: _salt
             })

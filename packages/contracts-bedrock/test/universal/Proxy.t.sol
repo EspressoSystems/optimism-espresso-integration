@@ -50,7 +50,7 @@ abstract contract Proxy_TestInit is Test {
         // Deploy a proxy and simple storage contract as the implementation
         proxy = IProxy(
             DeployUtils.create1({
-                _name: "src/universal/Proxy.sol:Proxy",
+                _name: "Proxy",
                 _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (alice)))
             })
         );

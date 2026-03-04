@@ -10,6 +10,8 @@ import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 contract DeployAWSNitroVerifierInput is BaseDeployIO {
@@ -86,8 +88,8 @@ contract DeployAWSNitroVerifierOutput is BaseDeployIO {
 
 contract DeployAWSNitroVerifier is Script {
     struct ProxyDeployment {
-        IProxyAdmin proxyAdmin;
-        address payable proxy;
+        ProxyAdmin proxyAdmin;
+        Proxy proxy;
     }
 
     function run(DeployAWSNitroVerifierInput input, DeployAWSNitroVerifierOutput output) public {
@@ -98,27 +100,36 @@ contract DeployAWSNitroVerifier is Script {
     /// @notice Deploys ProxyAdmin and Proxy contracts
     /// @param labelPrefix Prefix for vm.label (e.g., "Mock" or "")
     /// @return deployment Struct containing the deployed ProxyAdmin and Proxy
-    function deployProxyInfrastructure(string memory labelPrefix) internal returns (ProxyDeployment memory deployment) {
+    function deployProxyInfrastructure(string memory labelPrefix)
+        internal
+        returns (ProxyDeployment memory deployment)
+    {
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin = IProxyAdmin(
-            DeployUtils.create1({
-                _name: "ProxyAdmin",
-                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-            })
+        deployment.proxyAdmin = ProxyAdmin(
+            payable(
+                DeployUtils.create1({
+                    _name: "ProxyAdmin",
+                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
+                })
+            )
         );
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
         vm.broadcast(msg.sender);
-        deployment.proxy = payable(DeployUtils.create1({
-                _name: "src/universal/Proxy.sol:Proxy",
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
-                )
-            }));
+        deployment.proxy = Proxy(
+            payable(
+                DeployUtils.create1({
+                    _name: "Proxy",
+                    _args: DeployUtils.encodeConstructor(
+                        abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
+                    )
+                })
+            )
+        );
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin.setProxyType(address(deployment.proxy), IProxyAdmin.ProxyType.ERC1967);
+        deployment.proxyAdmin.setProxyType(address(deployment.proxy), ProxyAdmin.ProxyType.ERC1967);
     }
 
     function deployNitroTEEVerifier(
