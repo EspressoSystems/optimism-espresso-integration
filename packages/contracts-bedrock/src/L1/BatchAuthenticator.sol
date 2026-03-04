@@ -3,9 +3,8 @@ pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import {
-    OwnableUpgradeable
-} from "lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { OwnableUpgradeable } from
+    "lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
