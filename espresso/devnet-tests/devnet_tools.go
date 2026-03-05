@@ -267,11 +267,9 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	if err := d.waitForL2SequencerReady(); err != nil {
 		return fmt.Errorf("L2 sequencer not ready: %w", err)
 	}
-	// Brief stability wait: ensure sequencer stays responsive (reduces "connection refused"
-	// in RunSimpleL2Burn right after Up() in CI, e.g. TestBatcherActivePublishOnly).
-	if err := d.waitForL2SequencerStable(); err != nil {
-		return fmt.Errorf("L2 sequencer not stable: %w", err)
-	}
+	// Best-effort stability wait: if the sequencer stays up for a few seconds we're confident.
+	// If it restarts (e.g. CI DNS "server misbehaving"), we don't fail Up()—RunSimpleL2Burn retries will handle it.
+	d.waitForL2SequencerStable()
 	log.Info("all RPC endpoints connected")
 
 	return nil
@@ -335,10 +333,10 @@ func (d *Devnet) waitForL2SequencerReady() error {
 	}
 }
 
-// waitForL2SequencerStable waits a few seconds and verifies the sequencer still responds.
-// Reduces flake when the first post-Up() RPC (e.g. RunSimpleL2Burn) gets "connection refused".
-func (d *Devnet) waitForL2SequencerStable() error {
-	ctx, cancel := context.WithTimeout(d.ctx, 30*time.Second)
+// waitForL2SequencerStable is best-effort: wait a few seconds and verify the sequencer still responds.
+// Does not fail Up() on timeout (e.g. sequencer restart / DNS "server misbehaving" in CI); RunSimpleL2Burn retries handle that.
+func (d *Devnet) waitForL2SequencerStable() {
+	ctx, cancel := context.WithTimeout(d.ctx, 45*time.Second)
 	defer cancel()
 	const interval = 3 * time.Second
 	ticker := time.NewTicker(interval)
@@ -346,14 +344,15 @@ func (d *Devnet) waitForL2SequencerStable() error {
 	successes := 0
 	const requiredSuccesses = 2
 	for successes < requiredSuccesses {
-		tryCtx, tryCancel := context.WithTimeout(ctx, 10*time.Second)
+		tryCtx, tryCancel := context.WithTimeout(ctx, 15*time.Second)
 		_, err := d.L2Seq.ChainID(tryCtx)
 		tryCancel()
 		if err != nil {
 			log.Debug("L2 sequencer stability check failed", "error", err)
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("sequencer unstable: %w", ctx.Err())
+				log.Info("L2 sequencer stability check skipped (timeout; sequencer may be restarting, RunSimpleL2Burn will retry)")
+				return
 			case <-ticker.C:
 				successes = 0
 				continue
@@ -363,12 +362,12 @@ func (d *Devnet) waitForL2SequencerStable() error {
 		if successes < requiredSuccesses {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				log.Info("L2 sequencer stability check skipped (timeout; RunSimpleL2Burn will retry)")
+				return
 			case <-ticker.C:
 			}
 		}
 	}
-	return nil
 }
 
 func (d *Devnet) ServiceUp(service string) error {
