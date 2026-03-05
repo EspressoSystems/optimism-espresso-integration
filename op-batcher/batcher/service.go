@@ -59,9 +59,10 @@ type BatcherConfig struct {
 	ThrottlingEndpoints                        []string
 
 	// public key and private key of the batcher
-	BatcherPublicKey  *ecdsa.PublicKey
-	BatcherPrivateKey *ecdsa.PrivateKey
-	UseEspresso       bool
+	BatcherPublicKey     *ecdsa.PublicKey
+	BatcherPrivateKey    *ecdsa.PrivateKey
+	UseEspresso          bool
+	CaffeinationHeightL2 uint64
 }
 
 // BatcherService represents a full batch-submitter instance and its resources,
@@ -566,6 +567,7 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.UseEspresso = true
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
+	bs.CaffeinationHeightL2 = cfg.Espresso.CaffeinationHeightL2
 
 	urlZero := cfg.Espresso.QueryServiceURLs[0]
 	espressoClient := espressoClient.NewClient(urlZero)

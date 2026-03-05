@@ -910,10 +910,17 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 	}
 
 	safeL2 := newSyncStatus.SafeL2
+	caffHeight := l.batcher.Config.CaffeinationHeightL2
 
 	// State empty, just enqueue all unsafe blocks
 	if len(l.queuedBlocks) == 0 {
-		return inclusiveBlockRange{safeL2.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
+		start := max(safeL2.Number+1, caffHeight)
+		end := newSyncStatus.UnsafeL2.Number
+
+		if start > end {
+			return inclusiveBlockRange{}, ActionRetry
+		}
+		return inclusiveBlockRange{start, end}, ActionEnqueue
 	}
 
 	lastQueuedBlock := l.queuedBlocks[len(l.queuedBlocks)-1]
@@ -1294,6 +1301,46 @@ func (l *BatchSubmitter) signEIP712Commitment(commitment [32]byte) ([]byte, erro
 	return signature, nil
 }
 
+// waitForCaffeinationHeight blocks until the L2 unsafe head reaches CaffeinationHeightL2.
+// If CaffeinationHeightL2 is 0, it returns immediately (backward compatible).
+// Respects l.killCtx for cancellation.
+func (l *BatchSubmitter) waitForCaffeinationHeight() error {
+	caffHeight := l.Config.CaffeinationHeightL2
+	if caffHeight == 0 {
+		return nil
+	}
+
+	l.Log.Info("Waiting for L2 to reach caffeination height before starting Espresso batcher", "caffeinationHeightL2", caffHeight)
+
+	ticker := time.NewTicker(l.Config.PollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			syncStatus, err := l.getSyncStatus(l.killCtx)
+			if err != nil {
+				l.Log.Warn("Failed to get sync status while waiting for caffeination height", "err", err)
+				continue
+			}
+
+			if syncStatus.UnsafeL2.Number >= caffHeight {
+				l.Log.Info("L2 reached caffeination height, starting Espresso batcher",
+					"caffeinationHeightL2", caffHeight,
+					"unsafeL2", syncStatus.UnsafeL2.Number,
+				)
+				return nil
+			} else {
+				l.Log.Debug("Waiting for L2 to reach caffeination height",
+					"caffeinationHeightL2", caffHeight,
+					"unsafeL2", syncStatus.UnsafeL2.Number,
+				)
+			}
+		case <-l.killCtx.Done():
+			return fmt.Errorf("batcher stopped while waiting for caffeination height: %w", l.killCtx.Err())
+		}
+	}
+}
 func stripHexPrefix(hexStr string) string {
 	if len(hexStr) >= 2 && hexStr[:2] == "0x" {
 		return hexStr[2:]

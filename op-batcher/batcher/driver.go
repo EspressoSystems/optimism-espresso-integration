@@ -216,6 +216,10 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 
 	if l.Config.UseEspresso {
 
+		if err := l.waitForCaffeinationHeight(); err != nil {
+			return fmt.Errorf("error waiting for caffeination height: %w", err)
+		}
+
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with BatchAuthenticator contract: %w", err)
