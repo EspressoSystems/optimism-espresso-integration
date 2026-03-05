@@ -634,12 +634,46 @@ func isRetryableConnectionError(err error) bool {
 	s := err.Error()
 	return strings.Contains(s, "connection reset by peer") ||
 		strings.Contains(s, "connection refused") ||
-		strings.Contains(s, "EOF")
+		strings.Contains(s, "EOF") ||
+		strings.Contains(s, "server misbehaving")
+}
+
+// waitForL2SequencerReachable blocks until the L2 sequencer responds to ChainID or timeout.
+// Use at the start of RunSimpleL2Burn in CI so we don't burn retries while the sequencer is restarting.
+func (d *Devnet) waitForL2SequencerReachable(timeout time.Duration) bool {
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
+	defer cancel()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		tryCtx, tryCancel := context.WithTimeout(ctx, 15*time.Second)
+		_, err := d.L2Seq.ChainID(tryCtx)
+		tryCancel()
+		if err == nil {
+			return true
+		}
+		log.Debug("L2 sequencer not reachable yet", "error", err)
+		select {
+		case <-ctx.Done():
+			return false
+		case <-ticker.C:
+			continue
+		}
+	}
 }
 
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
 // Retries on connection errors (e.g. "connection refused") to tolerate sequencer restarts in CI.
 func (d *Devnet) RunSimpleL2Burn() error {
+	// In CI, wait for sequencer to be reachable before burning retries (op-geth-sequencer may be restarting).
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		log.Info("waiting for L2 sequencer to be reachable before RunSimpleL2Burn...")
+		if d.waitForL2SequencerReachable(2 * time.Minute) {
+			log.Info("L2 sequencer reachable")
+		} else {
+			log.Info("L2 sequencer not reachable within 2m, proceeding with retries")
+		}
+	}
 	// More attempts and longer backoff in CI so sequencer restart (restart: always) has time to come back.
 	maxAttempts := 3
 	backoff := 5 * time.Second
