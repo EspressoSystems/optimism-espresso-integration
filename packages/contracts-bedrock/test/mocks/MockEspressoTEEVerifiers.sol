@@ -75,8 +75,7 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
     mapping(ServiceType => mapping(address => bool)) private _registeredServices;
     bool private _useExternalNitroVerifier;
 
-    bytes32 private constant ESPRESSO_TEE_VERIFIER_TYPE_HASH =
-        keccak256("EspressoTEEVerifier(bytes32 commitment)");
+    bytes32 private constant ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
 
     /// @notice Constructor that optionally takes an external Nitro verifier.
     /// @param nitroVerifier_ The external Nitro verifier to use. If address(0), acts as standalone.

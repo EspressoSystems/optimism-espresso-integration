@@ -961,10 +961,8 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 }
 
 // resolveTEEVerifierAddress queries the BatchAuthenticator contract to get the
-// EspressoTEEVerifier address. This address is used as the EIP-712 verifyingContract
-// when signing batch commitments, matching the domain separator used by the real
-// EspressoTEEVerifier contract.
-func (l *BatchSubmitter) resolveTEEVerifierAddress(ctx context.Context) error {
+// EspressoTEEVerifier address.
+func (l *BatchSubmitter) resolveTEEVerifierAddress() error {
 	auth, err := bindings.NewBatchAuthenticatorCaller(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create BatchAuthenticator caller: %w", err)
