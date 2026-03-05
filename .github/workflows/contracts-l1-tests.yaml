@@ -41,11 +41,8 @@ jobs:
 
       - name: Build contracts
         working-directory: packages/contracts-bedrock
-        run: just forge-build
-
-      - name: Fix proxy artifact
-        working-directory: packages/contracts-bedrock
-        run: just fix-proxy-artifact
+        run: just build-dev
+        timeout-minutes: 30
 
       - name: Run L1 contracts tests
         working-directory: packages/contracts-bedrock
