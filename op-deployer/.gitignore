@@ -1,3 +1,4 @@
 bin
+op-deployer
 .deployer
 pkg/deployer/artifacts/forge-artifacts/*
