@@ -301,7 +301,6 @@ abstract contract Setup is FeatureFlags {
         delayedWeth = IDelayedWETH(artifacts.mustGetAddress("DelayedWETHProxy"));
         if (isDevFeatureEnabled(DevFeatures.OPCM_V2)) {
             opcmV2 = IOPContractsManagerV2(artifacts.mustGetAddress("OPContractsManagerV2"));
-            opcm = IOPContractsManager(address(opcmV2));
         } else {
             opcm = IOPContractsManager(artifacts.mustGetAddress("OPContractsManager"));
         }
