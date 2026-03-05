@@ -80,7 +80,7 @@ elif [ "$MODE" = "geth" ]; then
   fi
 
   # Start OP Geth with the specified configuration.
-  # rollup.halt=none so geth never exits on protocol-version signal (devnet CI stability).
+  # Protocol-version halting is avoided by op-node's --rollup.load-protocol-versions=false in devnet.
   echo "Starting OP Geth..."
   exec geth \
     --datadir=/data/geth \
@@ -98,7 +98,6 @@ elif [ "$MODE" = "geth" ]; then
     --authrpc.vhosts=* \
     --authrpc.jwtsecret=/config/jwt.txt \
     --rollup.disabletxpoolgossip=true \
-    --rollup.halt=none \
     --nodiscover
 
 elif [ "$MODE" = "rollup" ]; then

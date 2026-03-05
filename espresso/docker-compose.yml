@@ -241,6 +241,7 @@ services:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
+      - --rollup.load-protocol-versions=false
       - --sequencer.enabled=true
       - --sequencer.use-finalized=true
       - --rpc.addr=0.0.0.0
@@ -289,6 +290,7 @@ services:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
       - --rollup.config=/config/rollup.json
+      - --rollup.load-protocol-versions=false
       - --rpc.addr=0.0.0.0
       - --l1.http-poll-interval=1s
       - --l1.epoch-poll-interval=1s
@@ -333,7 +335,6 @@ services:
       - --espresso.enabled=true
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
-      - --rollup.halt=none
       - --l1.trustrpc=true
       - --rpc.enable-admin=true
       - --espresso.poll-interval=500ms
