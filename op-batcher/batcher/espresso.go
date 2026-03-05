@@ -17,6 +17,7 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -963,6 +964,10 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 // resolveTEEVerifierAddress queries the BatchAuthenticator contract to get the
 // EspressoTEEVerifier address.
 func (l *BatchSubmitter) resolveTEEVerifierAddress() error {
+	if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+		// If batcher authenticator address is nil, we will keep teeVerifierAddress to nil as well
+		return nil
+	}
 	auth, err := bindings.NewBatchAuthenticatorCaller(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
 	if err != nil {
 		return fmt.Errorf("failed to create BatchAuthenticator caller: %w", err)
