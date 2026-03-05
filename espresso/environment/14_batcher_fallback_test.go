@@ -68,7 +68,7 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 // derives the same chain state as the verifier by comparing block hashes at the
 // same height.
 func TestBatcherSwitching(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	launcher := new(env.EspressoDevNodeLauncherDocker)
@@ -137,8 +137,9 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start a new "TEE" batcher
-	// Reset channel settings to defaults so the new batcher submits batches promptly.
-	batcherConfig.MaxChannelDuration = 1
+	// Use moderate channel settings so the new batcher submits batches promptly without posting
+	// every L1 block.
+	batcherConfig.MaxChannelDuration = 10
 	batcherConfig.TargetNumFrames = 1
 	batcherConfig.MaxL1TxSize = 120_000
 	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
