@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -231,6 +232,10 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	}
 
 	// Open RPC clients for the different nodes (may block until services are ready).
+	// Wait for sequencer port to be open before connecting (CI can see "connection refused" if we connect too early).
+	if err := d.waitForServicePort("op-geth-sequencer", 8546); err != nil {
+		return fmt.Errorf("op-geth-sequencer port not ready: %w", err)
+	}
 	log.Info("connecting to op-geth-sequencer...")
 	d.L2Seq, err = d.serviceClient("op-geth-sequencer", 8546)
 	if err != nil {
@@ -265,6 +270,40 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	log.Info("all RPC endpoints connected")
 
 	return nil
+}
+
+// waitForServicePort waits until the given service's port is open (TCP dial succeeds).
+// Use before serviceClient so we don't connect until the container is actually listening.
+func (d *Devnet) waitForServicePort(service string, privatePort uint16) error {
+	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		port, err := d.hostPort(service, privatePort)
+		if err != nil {
+			log.Debug("service port not yet available", "service", service, "error", err)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("timed out waiting for %s port: %w", service, ctx.Err())
+			case <-ticker.C:
+				continue
+			}
+		}
+		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+		log.Debug("service not yet accepting connections", "service", service, "addr", addr, "error", err)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for %s to accept connections: %w", service, ctx.Err())
+		case <-ticker.C:
+			continue
+		}
+	}
 }
 
 // waitForL2SequencerReady polls the L2 sequencer RPC until ChainID succeeds (or timeout).
@@ -559,17 +598,23 @@ func isRetryableConnectionError(err error) bool {
 }
 
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
-// Retries on connection errors (e.g. "connection reset by peer") to tolerate sequencer restarts in CI.
+// Retries on connection errors (e.g. "connection refused") to tolerate sequencer restarts in CI.
 func (d *Devnet) RunSimpleL2Burn() error {
-	const maxAttempts = 3
+	// More attempts and longer backoff in CI so sequencer restart (restart: always) has time to come back.
+	maxAttempts := 3
+	backoff := 5 * time.Second
+	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+		maxAttempts = 8
+		backoff = 15 * time.Second
+	}
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		receipt, err := d.SubmitSimpleL2Burn()
 		if err != nil {
 			lastErr = err
 			if attempt < maxAttempts && isRetryableConnectionError(err) {
-				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "error", err)
-				time.Sleep(5 * time.Second)
+				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
+				time.Sleep(backoff)
 				continue
 			}
 			return err
@@ -577,8 +622,8 @@ func (d *Devnet) RunSimpleL2Burn() error {
 		if err := d.VerifySimpleL2Burn(receipt); err != nil {
 			lastErr = err
 			if attempt < maxAttempts && isRetryableConnectionError(err) {
-				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "error", err)
-				time.Sleep(5 * time.Second)
+				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
+				time.Sleep(backoff)
 				continue
 			}
 			return err
