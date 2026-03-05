@@ -35,14 +35,24 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just install
 
+      - name: Cache Forge
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/contracts-bedrock/cache
+            packages/contracts-bedrock/forge-artifacts
+          key: foundry-${{ runner.os }}-${{ hashFiles('packages/contracts-bedrock/foundry.lock') }}
+          restore-keys: |
+            foundry-${{ runner.os }}-
+
       - name: Build go-ffi
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
       - name: Build contracts
         working-directory: packages/contracts-bedrock
-        run: just build-dev
-        timeout-minutes: 30
+        run: just build-ci
+        timeout-minutes: 25
 
       - name: Run L1 contracts tests
         working-directory: packages/contracts-bedrock
