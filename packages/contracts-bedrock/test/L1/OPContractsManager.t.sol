@@ -773,11 +773,10 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
                 _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (address(this))))
             })
         );
-        IProxy(payable(address(delayedWETH)))
-            .upgradeToAndCall(
-                address(opcm.implementations().delayedWETHImpl),
-                abi.encodeCall(IDelayedWETH.initialize, (chainDeployOutput1.systemConfigProxy))
-            );
+        IProxy(payable(address(delayedWETH))).upgradeToAndCall(
+            address(opcm.implementations().delayedWETHImpl),
+            abi.encodeCall(IDelayedWETH.initialize, (chainDeployOutput1.systemConfigProxy))
+        );
         IOPContractsManager.AddGameInput memory input = newGameInputFactory(GameTypes.CANNON);
         input.delayedWETH = delayedWETH;
         IOPContractsManager.AddGameOutput memory output = addGameType(input);

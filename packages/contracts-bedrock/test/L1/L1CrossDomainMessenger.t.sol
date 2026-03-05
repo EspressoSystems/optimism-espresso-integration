@@ -319,7 +319,7 @@ contract L1CrossDomainMessenger_SendMessage_Test is L1CrossDomainMessenger_TestI
         uint32 highGasLimit = 30_000_000;
 
         vm.prank(alice);
-        vm.expectRevert(ResourceMetering.OutOfGas.selector);
+        vm.expectRevert("OutOfGas()");
         l1CrossDomainMessenger.sendMessage(recipient, hex"5678", highGasLimit);
     }
 }
