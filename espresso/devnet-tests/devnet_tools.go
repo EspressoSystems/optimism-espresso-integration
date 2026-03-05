@@ -267,6 +267,11 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	if err := d.waitForL2SequencerReady(); err != nil {
 		return fmt.Errorf("L2 sequencer not ready: %w", err)
 	}
+	// Brief stability wait: ensure sequencer stays responsive (reduces "connection refused"
+	// in RunSimpleL2Burn right after Up() in CI, e.g. TestBatcherActivePublishOnly).
+	if err := d.waitForL2SequencerStable(); err != nil {
+		return fmt.Errorf("L2 sequencer not stable: %w", err)
+	}
 	log.Info("all RPC endpoints connected")
 
 	return nil
@@ -328,6 +333,42 @@ func (d *Devnet) waitForL2SequencerReady() error {
 			continue
 		}
 	}
+}
+
+// waitForL2SequencerStable waits a few seconds and verifies the sequencer still responds.
+// Reduces flake when the first post-Up() RPC (e.g. RunSimpleL2Burn) gets "connection refused".
+func (d *Devnet) waitForL2SequencerStable() error {
+	ctx, cancel := context.WithTimeout(d.ctx, 30*time.Second)
+	defer cancel()
+	const interval = 3 * time.Second
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	successes := 0
+	const requiredSuccesses = 2
+	for successes < requiredSuccesses {
+		tryCtx, tryCancel := context.WithTimeout(ctx, 10*time.Second)
+		_, err := d.L2Seq.ChainID(tryCtx)
+		tryCancel()
+		if err != nil {
+			log.Debug("L2 sequencer stability check failed", "error", err)
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("sequencer unstable: %w", ctx.Err())
+			case <-ticker.C:
+				successes = 0
+				continue
+			}
+		}
+		successes++
+		if successes < requiredSuccesses {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+			}
+		}
+	}
+	return nil
 }
 
 func (d *Devnet) ServiceUp(service string) error {
@@ -604,8 +645,8 @@ func (d *Devnet) RunSimpleL2Burn() error {
 	maxAttempts := 3
 	backoff := 5 * time.Second
 	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		maxAttempts = 8
-		backoff = 15 * time.Second
+		maxAttempts = 10
+		backoff = 20 * time.Second
 	}
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
