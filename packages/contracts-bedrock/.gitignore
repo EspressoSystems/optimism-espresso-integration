@@ -1,3 +1,6 @@
+# Foundry config
+foundry.lock
+
 # Artifacts and Cache
 artifacts
 forge-artifacts
