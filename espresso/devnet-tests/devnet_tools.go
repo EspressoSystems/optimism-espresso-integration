@@ -256,9 +256,39 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	if err != nil {
 		return err
 	}
+
+	// Wait for L2 sequencer to actually respond to RPC (avoids "connection reset by peer" when
+	// the first real call happens in RunSimpleL2Burn if the node was not ready or restarted).
+	if err := d.waitForL2SequencerReady(); err != nil {
+		return fmt.Errorf("L2 sequencer not ready: %w", err)
+	}
 	log.Info("all RPC endpoints connected")
 
 	return nil
+}
+
+// waitForL2SequencerReady polls the L2 sequencer RPC until ChainID succeeds (or timeout).
+// This avoids proceeding before the node is actually serving and reduces "connection reset by peer" flakes.
+func (d *Devnet) waitForL2SequencerReady() error {
+	ctx, cancel := context.WithTimeout(d.ctx, 3*time.Minute)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		tryCtx, tryCancel := context.WithTimeout(ctx, 15*time.Second)
+		_, err := d.L2Seq.ChainID(tryCtx)
+		tryCancel()
+		if err == nil {
+			return nil
+		}
+		log.Debug("L2 sequencer not ready yet", "error", err)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for L2 sequencer RPC: %w", ctx.Err())
+		case <-ticker.C:
+			continue
+		}
+	}
 }
 
 func (d *Devnet) ServiceUp(service string) error {
@@ -517,13 +547,45 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
 	return nil
 }
 
-// RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
-func (d *Devnet) RunSimpleL2Burn() error {
-	receipt, err := d.SubmitSimpleL2Burn()
-	if err != nil {
-		return err
+// isRetryableConnectionError returns true for errors that may be transient (e.g. sequencer just restarted).
+func isRetryableConnectionError(err error) bool {
+	if err == nil {
+		return false
 	}
-	return d.VerifySimpleL2Burn(receipt)
+	s := err.Error()
+	return strings.Contains(s, "connection reset by peer") ||
+		strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "EOF")
+}
+
+// RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
+// Retries on connection errors (e.g. "connection reset by peer") to tolerate sequencer restarts in CI.
+func (d *Devnet) RunSimpleL2Burn() error {
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		receipt, err := d.SubmitSimpleL2Burn()
+		if err != nil {
+			lastErr = err
+			if attempt < maxAttempts && isRetryableConnectionError(err) {
+				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "error", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			return err
+		}
+		if err := d.VerifySimpleL2Burn(receipt); err != nil {
+			lastErr = err
+			if attempt < maxAttempts && isRetryableConnectionError(err) {
+				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "error", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+	return lastErr
 }
 
 // Wait for a configurable amount of time while simulating an outage.

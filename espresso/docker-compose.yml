@@ -167,7 +167,9 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
-    restart: unless-stopped
+    # Use "always" so the sequencer is restarted if it exits (e.g. code 0 in CI); avoids
+    # "connection reset by peer" in devnet smoke tests when the node exits after healthcheck.
+    restart: always
     volumes:
       - op-data-seq:/data
     ports:
