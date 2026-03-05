@@ -1316,26 +1316,28 @@ func (l *BatchSubmitter) waitForCaffeinationHeight() error {
 	defer ticker.Stop()
 
 	for {
+		syncStatus, err := l.getSyncStatus(l.killCtx)
+		if err != nil {
+			l.Log.Warn("Failed to get sync status while waiting for caffeination height", "err", err)
+			continue
+		}
+
+		if syncStatus.UnsafeL2.Number >= caffHeight {
+			l.Log.Info("L2 reached caffeination height, starting Espresso batcher",
+				"caffeinationHeightL2", caffHeight,
+				"unsafeL2", syncStatus.UnsafeL2.Number,
+			)
+			return nil
+		} else {
+			l.Log.Debug("Waiting for L2 to reach caffeination height",
+				"caffeinationHeightL2", caffHeight,
+				"unsafeL2", syncStatus.UnsafeL2.Number,
+			)
+		}
+
 		select {
 		case <-ticker.C:
-			syncStatus, err := l.getSyncStatus(l.killCtx)
-			if err != nil {
-				l.Log.Warn("Failed to get sync status while waiting for caffeination height", "err", err)
-				continue
-			}
-
-			if syncStatus.UnsafeL2.Number >= caffHeight {
-				l.Log.Info("L2 reached caffeination height, starting Espresso batcher",
-					"caffeinationHeightL2", caffHeight,
-					"unsafeL2", syncStatus.UnsafeL2.Number,
-				)
-				return nil
-			} else {
-				l.Log.Debug("Waiting for L2 to reach caffeination height",
-					"caffeinationHeightL2", caffHeight,
-					"unsafeL2", syncStatus.UnsafeL2.Number,
-				)
-			}
+			continue
 		case <-l.killCtx.Done():
 			return fmt.Errorf("batcher stopped while waiting for caffeination height: %w", l.killCtx.Err())
 		}
