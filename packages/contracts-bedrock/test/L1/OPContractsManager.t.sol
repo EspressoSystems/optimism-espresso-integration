@@ -504,17 +504,12 @@ abstract contract OPContractsManager_TestInit is CommonTest, DisputeGames {
 
         uint256 l2ChainId = input.systemConfig.l2ChainId();
 
-        // Expect the GameTypeAdded event to be emitted.
-        vm.expectEmit(true, true, true, false, address(this));
+        // Expect the GameTypeAdded event to be emitted by the OPCM proxy.
+        vm.expectEmit(true, true, true, false, address(opcm));
         emit GameTypeAdded(
             l2ChainId, input.disputeGameType, IDisputeGame(payable(address(0))), IDisputeGame(payable(address(0)))
         );
-        (bool success, bytes memory rawGameOut) =
-            address(opcm).delegatecall(abi.encodeCall(IOPContractsManager.addGameType, (inputs)));
-        assertTrue(success, "addGameType failed");
-
-        IOPContractsManager.AddGameOutput[] memory addGameOutAll =
-            abi.decode(rawGameOut, (IOPContractsManager.AddGameOutput[]));
+        IOPContractsManager.AddGameOutput[] memory addGameOutAll = opcm.addGameType(inputs);
         return addGameOutAll[0];
     }
 
@@ -762,8 +757,8 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
         // Run the addGameType call, should revert.
         IOPContractsManager.AddGameInput[] memory inputs = new IOPContractsManager.AddGameInput[](1);
         inputs[0] = input;
-        (bool success,) = address(opcm).delegatecall(abi.encodeCall(IOPContractsManager.addGameType, (inputs)));
-        assertFalse(success, "addGameType should have failed");
+        vm.expectRevert();
+        opcm.addGameType(inputs);
     }
 
     function test_addGameType_reusedDelayedWETH_succeeds() public {
@@ -791,9 +786,8 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
         inputs[0] = input1;
         inputs[1] = input2;
 
-        // For the sake of completeness, we run the call again to validate the success behavior.
-        (bool success,) = address(opcm).delegatecall(abi.encodeCall(IOPContractsManager.addGameType, (inputs)));
-        assertFalse(success, "addGameType should have failed");
+        vm.expectRevert();
+        opcm.addGameType(inputs);
     }
 
     function test_addGameType_duplicateGameType_reverts() public {
@@ -802,20 +796,15 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
         inputs[0] = input;
         inputs[1] = input;
 
-        // See test above for why we run the call twice.
-        (bool success, bytes memory revertData) =
-            address(opcm).delegatecall(abi.encodeCall(IOPContractsManager.addGameType, (inputs)));
-        assertFalse(success, "addGameType should have failed");
-        assertEq(bytes4(revertData), IOPContractsManager.InvalidGameConfigs.selector, "revertData mismatch");
+        vm.expectRevert(IOPContractsManager.InvalidGameConfigs.selector);
+        opcm.addGameType(inputs);
     }
 
     function test_addGameType_zeroLengthInput_reverts() public {
         IOPContractsManager.AddGameInput[] memory inputs = new IOPContractsManager.AddGameInput[](0);
 
-        (bool success, bytes memory revertData) =
-            address(opcm).delegatecall(abi.encodeCall(IOPContractsManager.addGameType, (inputs)));
-        assertFalse(success, "addGameType should have failed");
-        assertEq(bytes4(revertData), IOPContractsManager.InvalidGameConfigs.selector, "revertData mismatch");
+        vm.expectRevert(IOPContractsManager.InvalidGameConfigs.selector);
+        opcm.addGameType(inputs);
     }
 
     function test_addGameType_notDelegateCall_reverts() public {
@@ -823,8 +812,10 @@ contract OPContractsManager_AddGameType_Test is OPContractsManager_TestInit {
         IOPContractsManager.AddGameInput[] memory inputs = new IOPContractsManager.AddGameInput[](1);
         inputs[0] = input;
 
+        // Call the implementation directly (not via proxy) to trigger OnlyDelegatecall.
+        address impl = EIP1967Helper.getImplementation(address(opcm));
         vm.expectRevert(IOPContractsManager.OnlyDelegatecall.selector);
-        opcm.addGameType(inputs);
+        IOPContractsManager(impl).addGameType(inputs);
     }
 
     function assertValidGameType(
@@ -1033,20 +1024,13 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
 
         // make the call to cache the proxy admin owner before setting expectRevert
         address proxyAdminOwner = chainDeployOutput1.opChainProxyAdmin.owner();
+        vm.prank(proxyAdminOwner);
         if (_revertBytes.length > 0) {
             vm.expectRevert(_revertBytes);
-        }
-
-        // Trigger the updatePrestate function.
-        prankDelegateCall(proxyAdminOwner);
-        (bool success,) =
-            address(prestateUpdater).delegatecall(abi.encodeCall(IOPContractsManager.updatePrestate, (inputs)));
-        assertTrue(success, "updatePrestate failed");
-
-        // Return early if a revert was expected. Otherwise we'll get errors below.
-        if (_revertBytes.length > 0) {
+            IOPContractsManager(address(prestateUpdater)).updatePrestate(inputs);
             return;
         }
+        IOPContractsManager(address(prestateUpdater)).updatePrestate(inputs);
 
         LibGameArgs.GameArgs memory pdgArgsAfter = _getParsedGameArgs(dgf, GameTypes.PERMISSIONED_CANNON);
         _assertGameArgsEqual(pdgArgsBefore, pdgArgsAfter, true);
@@ -1163,12 +1147,10 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
             chainDeployOutput1.systemConfigProxy, prestate, Claim.wrap(bytes32(0))
         );
 
-        // Trigger the updatePrestate function.
+        // Trigger the updatePrestate function via regular call to the OPCM proxy.
         address proxyAdminOwner = chainDeployOutput1.opChainProxyAdmin.owner();
-        prankDelegateCall(proxyAdminOwner);
-        (bool success,) =
-            address(prestateUpdater).delegatecall(abi.encodeCall(IOPContractsManager.updatePrestate, (inputs)));
-        assertTrue(success, "updatePrestate failed");
+        vm.prank(proxyAdminOwner);
+        IOPContractsManager(address(prestateUpdater)).updatePrestate(inputs);
 
         LibGameArgs.GameArgs memory permissionedGameArgs = LibGameArgs.decode(
             IDisputeGameFactory(chainDeployOutput1.systemConfigProxy.disputeGameFactory()).gameArgs(
@@ -1289,12 +1271,10 @@ contract OPContractsManager_UpdatePrestate_Test is OPContractsManager_TestInit {
             cannonKonaPrestate: cannonKonaPrestate
         });
 
-        // Trigger the updatePrestate function.
+        // Trigger the updatePrestate function via regular call to the OPCM proxy.
         address proxyAdminOwner = chainDeployOutput1.opChainProxyAdmin.owner();
-        prankDelegateCall(proxyAdminOwner);
-        (bool success,) =
-            address(prestateUpdater).delegatecall(abi.encodeCall(IOPContractsManager.updatePrestate, (inputs)));
-        assertTrue(success, "updatePrestate failed");
+        vm.prank(proxyAdminOwner);
+        IOPContractsManager(address(prestateUpdater)).updatePrestate(inputs);
 
         LibGameArgs.GameArgs memory permissionedGameArgs =
             LibGameArgs.decode(chainDeployOutput1.disputeGameFactoryProxy.gameArgs(GameTypes.SUPER_PERMISSIONED_CANNON));

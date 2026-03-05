@@ -366,14 +366,8 @@ abstract contract OPContractsManagerStandardValidator_TestInit is CommonTest, Di
         inputs[0] = input;
 
         address owner = deployInput.roles.opChainProxyAdminOwner;
-        vm.startPrank(address(owner), address(owner), true);
-        (bool success, bytes memory rawGameOut) =
-            address(opcm).delegatecall(abi.encodeCall(IOPContractsManager.addGameType, (inputs)));
-        assertTrue(success, "addGameType failed");
-        vm.stopPrank();
-
-        IOPContractsManager.AddGameOutput[] memory addGameOutAll =
-            abi.decode(rawGameOut, (IOPContractsManager.AddGameOutput[]));
+        vm.prank(owner);
+        IOPContractsManager.AddGameOutput[] memory addGameOutAll = opcm.addGameType(inputs);
         return addGameOutAll[0];
     }
 
