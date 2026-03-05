@@ -2667,13 +2667,14 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         // 7702 delegation using the 7702 prefix
         vm.etch(depositor, abi.encodePacked(hex"EF0100", _7702Target));
 
-        // In forge 1.2.3+, vm.etch with EF0100-prefix triggers EIP-7702 semantics where
-        // extcodesize returns the delegate's code size (0) rather than 23. A 7702 EOA calling
-        // directly always has tx.origin == msg.sender, so prank both to hit the first EOA branch.
         vm.deal(depositor, _mint);
-        vm.prank(depositor, depositor);
+        vm.prank(depositor, address(0x0420));
         optimismPortal2.depositTransaction{ value: _mint }({
-            _to: _to, _value: _value, _gasLimit: _gasLimit, _isCreation: _isCreation, _data: _data
+            _to: _to,
+            _value: _value,
+            _gasLimit: _gasLimit,
+            _isCreation: _isCreation,
+            _data: _data
         });
 
         if (isSysFeatureEnabled(Features.ETH_LOCKBOX)) {
