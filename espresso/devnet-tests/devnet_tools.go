@@ -37,15 +37,17 @@ import (
 )
 
 type Devnet struct {
-	ctx           context.Context
-	secrets       secrets.Secrets
-	outageTime    time.Duration
-	successTime   time.Duration
-	L1            *ethclient.Client
-	L2Seq         *ethclient.Client
-	L2SeqRollup   *sources.RollupClient
-	L2Verif       *ethclient.Client
-	L2VerifRollup *sources.RollupClient
+	ctx            context.Context
+	secrets        secrets.Secrets
+	outageTime     time.Duration
+	successTime    time.Duration
+	composeDir     string         // directory containing docker-compose.yml (set in Up)
+	composeProfile ComposeProfile // profile used for Up(), so logs/restart use same project
+	L1             *ethclient.Client
+	L2Seq          *ethclient.Client
+	L2SeqRollup    *sources.RollupClient
+	L2Verif        *ethclient.Client
+	L2VerifRollup  *sources.RollupClient
 }
 
 // LoadEnvFile loads environment variables from a .env file
@@ -125,6 +127,38 @@ const (
 	NON_TEE ComposeProfile = "default"
 )
 
+// composeCmd returns an exec.Cmd for "docker compose" with Dir and COMPOSE_PROFILES set from Up().
+func (d *Devnet) composeCmd(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "docker", append([]string{"compose"}, args...)...)
+	cmd.Dir = d.composeDir
+	if d.composeDir != "" && d.composeProfile != "" {
+		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(d.composeProfile))
+	}
+	return cmd
+}
+
+// composeCmdNoCtx is for commands that don't use context (e.g. logs, ps).
+func (d *Devnet) composeCmdNoCtx(args ...string) *exec.Cmd {
+	cmd := exec.Command("docker", append([]string{"compose"}, args...)...)
+	cmd.Dir = d.composeDir
+	if d.composeDir != "" && d.composeProfile != "" {
+		cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(d.composeProfile))
+	}
+	return cmd
+}
+
+// sleepContext sleeps for d or until ctx is cancelled.
+func sleepContext(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return
+	case <-t.C:
+		return
+	}
+}
+
 // composeProjectDir returns the directory containing docker-compose.yml so compose and env paths
 // work whether the test is run from repo root, espresso/, or espresso/devnet-tests/.
 func composeProjectDir() (string, error) {
@@ -187,6 +221,8 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 	if err != nil {
 		return err
 	}
+	d.composeDir = root
+	d.composeProfile = profile
 
 	log.Info("starting docker compose", "profile", profile, "dir", root)
 	cmd := exec.CommandContext(d.ctx, "docker", "compose", "up", "-d")
@@ -365,6 +401,50 @@ func (d *Devnet) waitForL2SequencerStable() {
 				log.Info("L2 sequencer stability check skipped (timeout; RunSimpleL2Burn will retry)")
 				return
 			case <-ticker.C:
+			}
+		}
+	}
+}
+
+// logComposeDiagnostics runs docker compose ps -a and logs for the given services to help debug startup failures.
+// Writes ps -a and key service logs to stderr so container state and l2-rollup/op-node output are always visible.
+func (d *Devnet) logComposeDiagnostics(services ...string) {
+	psCmd := d.composeCmdNoCtx("ps", "-a")
+	psOut, psErr := psCmd.Output()
+	if psErr != nil {
+		log.Error("diagnostics: docker compose ps -a failed", "err", psErr)
+		fmt.Fprintf(os.Stderr, "\n=== docker compose ps -a (failed: %v) ===\n", psErr)
+	} else {
+		log.Info("diagnostics: docker compose ps -a", "output", string(psOut))
+		fmt.Fprintf(os.Stderr, "\n=== docker compose ps -a ===\n%s\n", string(psOut))
+	}
+	// l2-rollup and op-node-*/op-geth-sequencer are critical: their logs explain startup or sequencer exit.
+	criticalServices := map[string]bool{
+		"op-node-sequencer": true, "op-node-verifier": true, "op-geth-sequencer": true, "l2-rollup": true,
+	}
+	for _, svc := range services {
+		tail := "50"
+		if criticalServices[svc] {
+			tail = "100"
+		}
+		logCmd := d.composeCmdNoCtx("logs", "--tail="+tail, svc)
+		logOut, logErr := logCmd.Output()
+		if logErr != nil {
+			log.Debug("diagnostics: logs failed for service", "service", svc, "err", logErr)
+			if criticalServices[svc] {
+				fmt.Fprintf(os.Stderr, "\n=== %s logs (failed to get: %v) ===\n", svc, logErr)
+			}
+			continue
+		}
+		log.Info("diagnostics: last "+tail+" lines for "+svc, "output", string(logOut))
+		if criticalServices[svc] {
+			if len(logOut) > 0 {
+				fmt.Fprintf(os.Stderr, "\n=== %s logs (last %s lines) ===\n%s\n", svc, tail, string(logOut))
+			} else {
+				fmt.Fprintf(os.Stderr, "\n=== %s logs (no output - container may not have started) ===\n", svc)
+				if svc == "op-node-sequencer" {
+					fmt.Fprintf(os.Stderr, "Hint: op-node-sequencer starts after l2-rollup exits 0. Rebuild devnet images so l2-rollup has RPC retry logic: cd espresso && COMPOSE_PROFILES=default docker compose build && cd ..\n")
+				}
 			}
 		}
 	}
@@ -626,20 +706,22 @@ func (d *Devnet) VerifySimpleL2Burn(receipt *BurnReceipt) error {
 	return nil
 }
 
-// isRetryableConnectionError returns true for errors that may be transient (e.g. sequencer just restarted).
+// isRetryableConnectionError returns true for errors that usually mean the sequencer is down or restarting.
 func isRetryableConnectionError(err error) bool {
 	if err == nil {
 		return false
 	}
 	s := err.Error()
-	return strings.Contains(s, "connection reset by peer") ||
-		strings.Contains(s, "connection refused") ||
-		strings.Contains(s, "EOF") ||
-		strings.Contains(s, "server misbehaving")
+	return strings.Contains(s, "connection refused") ||
+		strings.Contains(s, "connect: connection refused") ||
+		strings.Contains(s, "connection reset by peer") ||
+		strings.Contains(s, "server misbehaving") ||
+		strings.Contains(s, "broken pipe") ||
+		strings.Contains(s, "EOF")
 }
 
-// waitForL2SequencerReachable blocks until the L2 sequencer responds to ChainID or timeout.
-// Use at the start of RunSimpleL2Burn in CI so we don't burn retries while the sequencer is restarting.
+// waitForL2SequencerReachable blocks until d.L2Seq responds to ChainID or timeout. Used in CI so we
+// don't burn retries while the sequencer is still coming up or restarting.
 func (d *Devnet) waitForL2SequencerReachable(timeout time.Duration) bool {
 	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
@@ -663,10 +745,10 @@ func (d *Devnet) waitForL2SequencerReachable(timeout time.Duration) bool {
 }
 
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the L2 Verifier.
-// Retries on connection errors (e.g. "connection refused") to tolerate sequencer restarts in CI.
+// Retries on connection errors (e.g. sequencer down/restart) and dumps sequencer logs when failing with one.
 func (d *Devnet) RunSimpleL2Burn() error {
-	// In CI, wait for sequencer to be reachable before burning retries (op-geth-sequencer may be restarting).
-	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+	inCI := os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != ""
+	if inCI {
 		log.Info("waiting for L2 sequencer to be reachable before RunSimpleL2Burn...")
 		if d.waitForL2SequencerReachable(2 * time.Minute) {
 			log.Info("L2 sequencer reachable")
@@ -674,10 +756,9 @@ func (d *Devnet) RunSimpleL2Burn() error {
 			log.Info("L2 sequencer not reachable within 2m, proceeding with retries")
 		}
 	}
-	// More attempts and longer backoff in CI so sequencer restart (restart: always) has time to come back.
 	maxAttempts := 3
 	backoff := 5 * time.Second
-	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
+	if inCI {
 		maxAttempts = 10
 		backoff = 20 * time.Second
 	}
@@ -688,8 +769,12 @@ func (d *Devnet) RunSimpleL2Burn() error {
 			lastErr = err
 			if attempt < maxAttempts && isRetryableConnectionError(err) {
 				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
-				time.Sleep(backoff)
+				sleepContext(d.ctx, backoff)
 				continue
+			}
+			if isRetryableConnectionError(err) {
+				log.Info("dumping sequencer logs after connection failure (op-geth-sequencer may have exited)")
+				d.logComposeDiagnostics("op-geth-sequencer", "op-node-sequencer")
 			}
 			return err
 		}
@@ -697,12 +782,47 @@ func (d *Devnet) RunSimpleL2Burn() error {
 			lastErr = err
 			if attempt < maxAttempts && isRetryableConnectionError(err) {
 				log.Info("retrying RunSimpleL2Burn after connection error", "attempt", attempt, "maxAttempts", maxAttempts, "error", err)
-				time.Sleep(backoff)
+				sleepContext(d.ctx, backoff)
 				continue
+			}
+			if isRetryableConnectionError(err) {
+				log.Info("dumping sequencer logs after connection failure")
+				d.logComposeDiagnostics("op-geth-sequencer", "op-node-sequencer")
 			}
 			return err
 		}
 		return nil
+	}
+	// Exhausted retries; lastErr is from the final attempt. If connection error, try restarting sequencer once in CI.
+	if inCI && isRetryableConnectionError(lastErr) {
+		log.Info("retrying after restarting op-geth-sequencer (CI)")
+		restartCmd := d.composeCmd(d.ctx, "restart", "op-geth-sequencer")
+		if restartErr := restartCmd.Run(); restartErr != nil {
+			log.Warn("op-geth-sequencer restart failed", "error", restartErr)
+			log.Info("dumping sequencer logs after connection failure")
+			d.logComposeDiagnostics("op-geth-sequencer", "op-node-sequencer")
+		} else {
+			sleepContext(d.ctx, 90*time.Second)
+			for i := 0; i < 3; i++ {
+				receipt, err := d.SubmitSimpleL2Burn()
+				if err != nil {
+					lastErr = err
+					sleepContext(d.ctx, 20*time.Second)
+					continue
+				}
+				if err := d.VerifySimpleL2Burn(receipt); err != nil {
+					lastErr = err
+					sleepContext(d.ctx, 20*time.Second)
+					continue
+				}
+				return nil
+			}
+		}
+		log.Info("dumping sequencer logs after connection failure")
+		d.logComposeDiagnostics("op-geth-sequencer", "op-node-sequencer")
+	} else if isRetryableConnectionError(lastErr) {
+		log.Info("dumping sequencer logs after connection failure")
+		d.logComposeDiagnostics("op-geth-sequencer", "op-node-sequencer")
 	}
 	return lastErr
 }
