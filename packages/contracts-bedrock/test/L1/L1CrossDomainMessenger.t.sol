@@ -18,7 +18,6 @@ import { IL1CrossDomainMessenger } from "interfaces/L1/IL1CrossDomainMessenger.s
 import { IOptimismPortal2 } from "interfaces/L1/IOptimismPortal2.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IProxyAdminOwnedBase } from "interfaces/L1/IProxyAdminOwnedBase.sol";
-import { ResourceMetering } from "src/L1/ResourceMetering.sol";
 
 /// @title L1CrossDomainMessenger_Encoding_Harness
 /// @notice A harness contract for testing internal functions of the Encoding library.
@@ -315,11 +314,11 @@ contract L1CrossDomainMessenger_SendMessage_Test is L1CrossDomainMessenger_TestI
 
     /// @notice Tests sendMessage with high gas limit that causes OutOfGas.
     function test_sendMessage_highGasLimit_reverts() external {
-        // Very high gas limit causes OutOfGas error in portal deposit (ResourceMetering)
+        // Very high gas limit causes OutOfGas error in portal deposit
         uint32 highGasLimit = 30_000_000;
 
         vm.prank(alice);
-        vm.expectRevert(ResourceMetering.OutOfGas.selector);
+        vm.expectRevert("OutOfGas()");
         l1CrossDomainMessenger.sendMessage(recipient, hex"5678", highGasLimit);
     }
 }

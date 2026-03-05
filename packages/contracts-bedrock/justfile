@@ -58,12 +58,6 @@ build *ARGS: lint-fix-no-fail
 build-dev *ARGS: lint-fix-no-fail
   just forge-build-dev {{ARGS}} && just fix-proxy-artifact
 
-# CI build: lite profile, source only (no test/scripts). Keeps build step under runner limits.
-# L1 tests are compiled when forge test runs.
-build-ci:
-  FOUNDRY_PROFILE=lite forge build --skip "/**/test/**" --skip "/**/scripts/**"
-  just fix-proxy-artifact
-
 # Builds the go-ffi tool for contract tests.
 build-go-ffi:
   cd ./scripts/go-ffi && go build -buildvcs=false

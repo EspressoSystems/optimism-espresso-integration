@@ -546,9 +546,6 @@ contract DataAvailabilityChallenge_Resolve_Test is DataAvailabilityChallenge_Tes
         // Bound the resolver refund percentage to 100
         resolverRefundPercentage = bound(resolverRefundPercentage, 0, 100);
 
-        // Bound txGasPrice to uint64 max; vm.txGasPrice rejects values >= 2^64
-        txGasPrice = uint128(bound(txGasPrice, 0, type(uint64).max));
-
         // Set the gas price to a fuzzed value to test bond distribution logic
         vm.txGasPrice(txGasPrice);
 
@@ -642,9 +639,6 @@ contract DataAvailabilityChallenge_Resolve_Test is DataAvailabilityChallenge_Tes
 
         // Bound the resolver refund percentage to 100
         resolverRefundPercentage = bound(resolverRefundPercentage, 0, 100);
-
-        // Bound txGasPrice to uint64 max; vm.txGasPrice rejects values >= 2^64
-        txGasPrice = uint128(bound(txGasPrice, 0, type(uint64).max));
 
         // Set the gas price to a fuzzed value to test bond distribution logic
         vm.txGasPrice(txGasPrice);
