@@ -57,20 +57,21 @@ func resetBatchAuthCaches() {
 	blockRefCacheOnce = sync.Once{}
 }
 
-func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
-	batchAuthCacheOnce.Do(func() {
-		// Size slightly larger than the lookback window to avoid thrashing
-		// at the boundary. lru.New only errors on size <= 0.
-		batchAuthCache, _ = lru.New[common.Hash, map[common.Hash]bool](int(BatchAuthLookbackWindow) + 16)
+func getCache[T any](cache **lru.Cache[common.Hash, T], once *sync.Once) *lru.Cache[common.Hash, T] {
+	once.Do(func() {
+		// BatchAuthLookbackWindow of past blocks + 1 current block + 1 LRU
+		// lru.New only errors on size <= 0.
+		*cache, _ = lru.New[common.Hash, T](int(BatchAuthLookbackWindow) + 2)
 	})
-	return batchAuthCache
+	return *cache
+}
+
+func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
+	return getCache(&batchAuthCache, &batchAuthCacheOnce)
 }
 
 func getBlockRefCache() *lru.Cache[common.Hash, eth.L1BlockRef] {
-	blockRefCacheOnce.Do(func() {
-		blockRefCache, _ = lru.New[common.Hash, eth.L1BlockRef](int(BatchAuthLookbackWindow) + 16)
-	})
-	return blockRefCache
+	return getCache(&blockRefCache, &blockRefCacheOnce)
 }
 
 // ComputeCalldataBatchHash computes keccak256(calldata), matching the BatchAuthenticator
