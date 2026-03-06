@@ -17,10 +17,13 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	tagged_base64 "github.com/EspressoSystems/espresso-network/sdks/go/tagged-base64"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -958,6 +961,26 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 	return block, nil
 }
 
+// resolveTEEVerifierAddress queries the BatchAuthenticator contract to get the
+// EspressoTEEVerifier address.
+func (l *BatchSubmitter) resolveTEEVerifierAddress() error {
+	if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+		// If batcher authenticator address is nil, we will keep teeVerifierAddress to nil as well
+		return nil
+	}
+	auth, err := bindings.NewBatchAuthenticatorCaller(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
+	if err != nil {
+		return fmt.Errorf("failed to create BatchAuthenticator caller: %w", err)
+	}
+	addr, err := auth.EspressoTEEVerifier(nil)
+	if err != nil {
+		return fmt.Errorf("failed to query EspressoTEEVerifier address: %w", err)
+	}
+	l.teeVerifierAddress = addr
+	l.Log.Info("Resolved TEE verifier address", "address", addr.Hex())
+	return nil
+}
+
 func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 	if l.Attestation == nil {
 		l.Log.Warn("Attestation is nil, skipping registration")
@@ -1088,7 +1111,7 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 		l.Log.Debug("Hashing blob transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
 	}
 
-	signature, err := crypto.Sign(commitment[:], l.Config.BatcherPrivateKey)
+	signature, err := l.signEIP712Commitment(commitment)
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
@@ -1097,11 +1120,6 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 		return
 	}
 
-	// Normalize the recovery ID (v) from 0/1 to 27/28 for Solidity's ECDSA.recover
-	// See: https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
-	if signature[64] < 27 {
-		signature[64] += 27
-	}
 	l.Log.Debug("Signed transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
 
 	batchAuthenticatorAbi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
@@ -1146,6 +1164,50 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 
 	l.Log.Debug("Queueing transaction", "txRef", transactionReference)
 	queue.Send(transactionReference, *candidate, receiptsCh)
+}
+
+// signEIP712Commitment creates an EIP-712 signature for the given commitment using the batcher's private key.
+func (l *BatchSubmitter) signEIP712Commitment(commitment [32]byte) ([]byte, error) {
+	typedData := apitypes.TypedData{
+		Types: apitypes.Types{
+			"EIP712Domain": []apitypes.Type{
+				{Name: "name", Type: "string"},
+				{Name: "version", Type: "string"},
+				{Name: "chainId", Type: "uint256"},
+				{Name: "verifyingContract", Type: "address"},
+			},
+			"EspressoTEEVerifier": []apitypes.Type{
+				{Name: "commitment", Type: "bytes32"},
+			},
+		},
+		PrimaryType: "EspressoTEEVerifier",
+		Domain: apitypes.TypedDataDomain{
+			Name:              "EspressoTEEVerifier",
+			Version:           "1",
+			ChainId:           (*math.HexOrDecimal256)(l.RollupConfig.L1ChainID),
+			VerifyingContract: l.teeVerifierAddress.String(),
+		},
+		Message: map[string]interface{}{
+			"commitment": commitment,
+		},
+	}
+	// Calculate the hash using go-ethereum's EIP-712 implementation
+	hash, _, err := apitypes.TypedDataAndHash(typedData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate EIP-712 hash: %w", err)
+	}
+
+	signature, err := crypto.Sign(hash, l.Config.BatcherPrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign EIP-712 hash: %w", err)
+	}
+
+	// Normalize the recovery ID (v) from 0/1 to 27/28 for Solidity's ECDSA.recover
+	// See: https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
+	if signature[64] < 27 {
+		signature[64] += 27
+	}
+	return signature, nil
 }
 
 func stripHexPrefix(hexStr string) string {
