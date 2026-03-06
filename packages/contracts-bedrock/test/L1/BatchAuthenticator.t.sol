@@ -255,7 +255,7 @@ contract BatchAuthenticator_Test is Test {
         _registerNitroSigner(privateKey);
 
         // Create signature.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
@@ -277,7 +277,7 @@ contract BatchAuthenticator_Test is Test {
         // DO NOT register signer - signer is not registered in the TEE verifier
 
         // Create valid signature from unregistered signer.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Should revert because signer is not registered.
@@ -390,7 +390,7 @@ contract BatchAuthenticator_Test is Test {
         bytes32 commitment = keccak256("test commitment");
         uint256 privateKey = 1;
         _registerNitroSigner(privateKey);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
         assertTrue(authenticator.validBatchInfo(commitment));
@@ -562,7 +562,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Register the signer.
         _registerNitroSigner(privateKey);
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
@@ -582,7 +582,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Register the signer.
         _registerNitroSigner(privateKey);
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
         authenticator.authenticateBatchInfo(commitment, signature);
         assertTrue(authenticator.validBatchInfo(commitment));
