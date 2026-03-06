@@ -313,30 +313,6 @@ func submitRandomDataToSequencerNamespace(ctx context.Context, espCli espressoCl
 	}
 }
 
-type FakeBlockType struct{}
-
-// HasOptimismWithdrawalsRoot implements types.BlockType.
-func (f *FakeBlockType) HasOptimismWithdrawalsRoot(blkTime uint64) bool {
-	return false
-}
-
-// IsGingerbread implements types.BlockType.
-func (f *FakeBlockType) IsGingerbread(blockNumber *big.Int) bool {
-	return false
-}
-
-// IsIsthmus implements types.BlockType.
-func (f *FakeBlockType) IsIsthmus(blkTime uint64) bool {
-	return false
-}
-
-// IsMigratedChain implements types.BlockType.
-func (f *FakeBlockType) IsMigratedChain() bool {
-	return false
-}
-
-var _ geth_types.BlockType = (*FakeBlockType)(nil)
-
 // createMaliciousEspressoBatch creates a malicious Espresso batch by
 // constructing a block with a deposit transaction. It uses the latest
 // block from the sequencer to create a new block with a deposit
