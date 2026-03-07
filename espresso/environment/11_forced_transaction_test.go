@@ -7,10 +7,10 @@ import (
 	"time"
 
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
+	"github.com/ethereum-optimism/optimism/op-core/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-core/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
@@ -96,7 +96,11 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 		predeploys.L2ToL1MessagePasserAddr,
 		withdrawalAmount,
 		uint64(300_000),
+		false,
+		nil,
+	)
 	require.NoError(t, err, "Failed to create transaction")
+	_, err = bind.WaitMined(ctx, l1Client, tx)
 	require.NoError(t, err, "Transaction not minted")
 
 	// Wait and attempt to get the new balance after the withdrawal.
