@@ -319,15 +319,4 @@ contract DisputeGameFactory is ProxyAdminOwnedBase, ReinitializableBase, Ownable
         initBonds[_gameType] = _initBond;
         emit InitBondUpdated(_gameType, _initBond);
     }
-
-    /// @notice Returns the challenger bond for the given game type.
-    /// @dev This function is provided for compatibility with the op-succinct
-    ///      DisputeGameFactory interface, which expects a `challengerBond(uint32)`
-    ///      view. In this deployment, we reuse the init bond as the challenger
-    ///      bond value.
-    /// @param _gameType The type of the DisputeGame as a raw uint32.
-    /// @return challengerBond_ The bond (in wei) associated with the game type.
-    function challengerBond(uint32 _gameType) external view returns (uint256 challengerBond_) {
-        challengerBond_ = initBonds[GameType.wrap(_gameType)];
-    }
 }

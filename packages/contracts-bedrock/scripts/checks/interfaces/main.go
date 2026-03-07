@@ -24,10 +24,6 @@ var excludeContracts = []string{
 	// Generic interfaces
 	"IHasSuperchainConfig",
 
-	// Espresso dependencies
-	"IBatchInbox", "IBatchAuthenticator", "IEspressoTEEVerifier", "IEspressoNitroTEEVerifier",
-	"ICertManager", "BatchAuthenticator", "INitroValidator",
-
 	// EAS
 	"IEAS", "ISchemaResolver", "ISchemaRegistry",
 
