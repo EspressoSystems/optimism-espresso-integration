@@ -495,6 +495,10 @@ func (s *BatchStreamer[B]) HasNext(ctx context.Context) bool {
 // operation and streamer can continue operation
 func (s *BatchStreamer[B]) confirmEspressoBlockHeight(safeL1Origin eth.BlockID) (shouldReset bool) {
 	shouldReset = false
+	if s.EspressoLightClient == nil {
+		s.Log.Warn("Espresso light client is not initialized")
+		return false
+	}
 
 	hotshotState, err := s.EspressoLightClient.
 		FinalizedState(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(safeL1Origin.Number)})

@@ -7,7 +7,11 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
+<<<<<<< HEAD
 	"github.com/ethereum-optimism/optimism/op-service/predeploys"
+=======
+	"github.com/ethereum-optimism/optimism/op-core/predeploys"
+>>>>>>> celo-integration-rebase-16
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"

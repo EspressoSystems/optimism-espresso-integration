@@ -9,6 +9,17 @@ L1_CHAIN_ID=${L1_CHAIN_ID:-11155111}
 # Mode can be "genesis" or "geth" (default).
 MODE=${MODE:-geth}
 
+<<<<<<< HEAD
+=======
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+>>>>>>> celo-integration-rebase-16
 if [[ "$MODE" == "genesis" ]]; then
   echo "Running Genesis Initialization"
 
@@ -27,6 +38,7 @@ if [[ "$MODE" == "genesis" ]]; then
       fi
   fi
 
+<<<<<<< HEAD
   echo "Updating genesis timestamp..."
   dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
 
@@ -39,6 +51,68 @@ if [[ "$MODE" == "genesis" ]]; then
                     --state-output "/config/genesis.ssz"
   cp -r /templates/beacon-config.yaml /config/config.yaml
 
+=======
+  # eth-beacon-genesis is expensive. Reuse pre-generated artifacts only when
+  # all genesis inputs match exactly; otherwise force regeneration.
+  # Set FORCE_BEACON_GENESIS_REGEN=1 to force regeneration unconditionally.
+  REGENERATE_BEACON_GENESIS=0
+  GENESIS_INPUTS_VERSION="v2"
+  CURRENT_GENESIS_FINGERPRINT_FILE="/tmp/current_genesis_fingerprint"
+  STORED_GENESIS_FINGERPRINT_FILE="/config/genesis.fingerprint"
+
+  {
+    printf "%s\n" "$GENESIS_INPUTS_VERSION"
+    hash_file "/config/genesis.json"
+    hash_file "/templates/beacon-config.yaml"
+    hash_file "/templates/mnemonics.yaml"
+  } > "$CURRENT_GENESIS_FINGERPRINT_FILE"
+
+  if [[ "${FORCE_BEACON_GENESIS_REGEN:-0}" == "1" ]]; then
+    echo "FORCE_BEACON_GENESIS_REGEN=1 set, regenerating beacon genesis..."
+    REGENERATE_BEACON_GENESIS=1
+  elif [[ ! -f "/config/genesis.ssz" ]]; then
+    REGENERATE_BEACON_GENESIS=1
+  elif [[ ! -f "$STORED_GENESIS_FINGERPRINT_FILE" ]]; then
+    echo "Missing genesis fingerprint metadata, regenerating beacon genesis..."
+    REGENERATE_BEACON_GENESIS=1
+  elif ! cmp -s "$CURRENT_GENESIS_FINGERPRINT_FILE" "$STORED_GENESIS_FINGERPRINT_FILE"; then
+    echo "Genesis inputs changed, regenerating beacon genesis..."
+    REGENERATE_BEACON_GENESIS=1
+  fi
+
+  if [[ "$REGENERATE_BEACON_GENESIS" -eq 1 ]]; then
+    rm -f /config/genesis.ssz /config/config.yaml /config/jwt.txt \
+      /config/deposit_contract_block.txt /config/deposit_contract.txt
+  fi
+
+  if [[ "$REGENERATE_BEACON_GENESIS" -eq 1 ]]; then
+    echo "Updating genesis timestamp..."
+    dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+
+    echo "Generating consensus layer genesis..."
+    eth-beacon-genesis devnet \
+                      --quiet \
+                      --eth1-config "/config/genesis.json" \
+                      --config "/templates/beacon-config.yaml" \
+                      --mnemonics "/templates/mnemonics.yaml" \
+                      --state-output "/config/genesis.ssz"
+    cp -r /templates/beacon-config.yaml /config/config.yaml
+
+    if [[ ! -f "/config/jwt.txt" ]]; then
+      echo "Generating JWT secret..."
+      openssl rand -hex 32 > "/config/jwt.txt"
+    fi
+
+    echo "0" > /config/deposit_contract_block.txt
+    echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
+    cp "$CURRENT_GENESIS_FINGERPRINT_FILE" "$STORED_GENESIS_FINGERPRINT_FILE"
+  else
+    echo "Beacon genesis already matches current inputs, skipping slow generation..."
+  fi
+
+  # Validator keystores must always be regenerated: they are copied to the
+  # l1-data Docker volume (/data) which is cleared on every `docker compose down -v`.
+>>>>>>> celo-integration-rebase-16
   echo "Generating validator keys..."
   rm -rf /config/keystore && \
   eth2-val-tools keystores --out-loc /config/keystore \
@@ -50,6 +124,7 @@ if [[ "$MODE" == "genesis" ]]; then
   cp -r /config/keystore/keys/* /data/lighthouse-validator/validators/
   cp -r /config/keystore/secrets/ /data/lighthouse-validator/
 
+<<<<<<< HEAD
   if [[ ! -f "/config/jwt.txt" ]]; then
       echo "Generating JWT secret..."
       openssl rand -hex 32 > "/config/jwt.txt"
@@ -58,6 +133,8 @@ if [[ "$MODE" == "genesis" ]]; then
   echo "0" > /config/deposit_contract_block.txt
   echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
 
+=======
+>>>>>>> celo-integration-rebase-16
   echo "Genesis initialization complete"
   exit 0
 

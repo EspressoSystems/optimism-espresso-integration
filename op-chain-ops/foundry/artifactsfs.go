@@ -106,11 +106,29 @@ func (af *ArtifactsFS) ListContracts(name string) ([]string, error) {
 // The contract name may be suffixed by a solidity compiler version, e.g. "Owned.0.8.25".
 // The contract name does not include ".json", this is a detail internal to the artifacts.
 // The name of the artifact is the source-file name, this must include the suffix such as ".sol".
+// If name contains a path (e.g. "src/universal/Proxy.sol"), the full path is tried first;
+// if that fails, a fallback to the base name (e.g. "Proxy.sol") is tried for flat artifact layouts.
+// If that also fails, the FS is walked to find any path ending with name/contract.json (for nested layouts).
 func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, error) {
 	artifactPath := path.Join(name, contract+".json")
 	f, err := af.FS.Open(artifactPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
+		// Fallback for flat artifact bundles that only have File.sol/Contract.json (no path prefix)
+		if base := path.Base(name); base != name {
+			artifactPath = path.Join(base, contract+".json")
+			f, err = af.FS.Open(artifactPath)
+		}
+		if err != nil {
+			// Fallback for nested layouts: find path ending with name/contract.json (e.g. Proxy.sol/Proxy.json)
+			artifactPath, err = af.findArtifactPath(name, contract+".json")
+			if err != nil {
+				return nil, fmt.Errorf("failed to open artifact %s/%s: %w", name, contract, err)
+			}
+			f, err = af.FS.Open(artifactPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open artifact %q: %w", artifactPath, err)
+			}
+		}
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
@@ -119,4 +137,39 @@ func (af *ArtifactsFS) ReadArtifact(name string, contract string) (*Artifact, er
 		return nil, fmt.Errorf("failed to decode artifact %q: %w", name, err)
 	}
 	return &out, nil
+}
+
+// findArtifactPath walks the FS to find a path ending with artifactName/contractFile (e.g. Proxy.sol/Proxy.json).
+// Supports flat layout (File.sol/Contract.json at root) when the script requests a path like src/universal/Proxy.sol.
+func (af *ArtifactsFS) findArtifactPath(artifactName, contractFile string) (string, error) {
+	target := path.Join(artifactName, contractFile)
+	var found string
+	err := fs.WalkDir(af.FS, ".", func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		clean := path.Clean(p)
+		if clean != p {
+			p = clean
+		}
+		if p == target || strings.HasSuffix(p, "/"+target) {
+			found = p
+			return fs.SkipAll
+		}
+		if strings.HasSuffix(p, "/"+contractFile) && path.Base(path.Dir(p)) == artifactName {
+			found = p
+			return fs.SkipAll
+		}
+		return nil
+	})
+	if err != nil && err != fs.SkipAll {
+		return "", err
+	}
+	if found == "" {
+		return "", fmt.Errorf("no path ending with %s", target)
+	}
+	return found, nil
 }

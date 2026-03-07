@@ -76,7 +76,15 @@ func TestBatcherSwitching(t *testing.T) {
 	// We will need this config to start a new instance of "TEE" batcher
 	// with parameters tweaked.
 	batcherConfig := &batcher.CLIConfig{}
+<<<<<<< HEAD
 	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithSequencerUseFinalized(true), env.GetBatcherConfig(batcherConfig))
+=======
+	// L1FinalizedDistance(0) to avoid long delays after batcher switch.
+	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t,
+		env.WithL1FinalizedDistance(0),
+		env.WithSequencerUseFinalized(true),
+		env.GetBatcherConfig(batcherConfig))
+>>>>>>> celo-integration-rebase-16
 	require.NoError(t, err)
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
@@ -112,7 +120,11 @@ func TestBatcherSwitching(t *testing.T) {
 	err = system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting()
 	require.NoError(t, err)
 
+<<<<<<< HEAD
 	// Everything should still work
+=======
+	// Everything should still work (verifier derives quickly with L1FinalizedDistance(0))
+>>>>>>> celo-integration-rebase-16
 	env.RunSimpleL2Burn(ctx, t, system)
 
 	// Stop the fallback batcher
@@ -133,6 +145,7 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start a new "TEE" batcher
+<<<<<<< HEAD
 	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
 	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
 	newBatcher, err := batcher.BatcherServiceFromCLIConfig(ctx, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
@@ -142,6 +155,24 @@ func TestBatcherSwitching(t *testing.T) {
 
 	// Everything should still work
 	env.RunSimpleL2Burn(ctx, t, system)
+=======
+	// Use moderate channel settings so the new batcher submits batches promptly without posting
+	// every L1 block.
+	batcherConfig.MaxChannelDuration = 10
+	batcherConfig.TargetNumFrames = 1
+	batcherConfig.MaxL1TxSize = 120_000
+	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
+	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
+	batcherCtx, cancelBatcher := context.WithCancelCause(ctx)
+	defer cancelBatcher(nil)
+	newBatcher, err := batcher.BatcherServiceFromCLIConfig(batcherCtx, cancelBatcher, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
+	require.NoError(t, err)
+	err = newBatcher.Start(batcherCtx)
+	require.NoError(t, err)
+
+	// Everything should still work (use longer timeout after batcher switch)
+	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
+>>>>>>> celo-integration-rebase-16
 
 	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
 		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight

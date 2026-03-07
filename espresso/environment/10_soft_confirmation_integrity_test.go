@@ -44,7 +44,10 @@ import (
 	geth_crypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+<<<<<<< HEAD
 	"github.com/ethereum/go-ethereum/trie"
+=======
+>>>>>>> celo-integration-rebase-16
 )
 
 // messageWithTimestamp is a struct that contains an entry of type T
@@ -314,6 +317,7 @@ func submitRandomDataToSequencerNamespace(ctx context.Context, espCli espressoCl
 	}
 }
 
+<<<<<<< HEAD
 type FakeBlockType struct{}
 
 // HasOptimismWithdrawalsRoot implements types.BlockType.
@@ -338,12 +342,18 @@ func (f *FakeBlockType) IsMigratedChain() bool {
 
 var _ geth_types.BlockType = (*FakeBlockType)(nil)
 
+=======
+>>>>>>> celo-integration-rebase-16
 // createMaliciousEspressoBatch creates a malicious Espresso batch by
 // constructing a block with a deposit transaction. It uses the latest
 // block from the sequencer to create a new block with a deposit
 // transaction. The block is then converted to an Espresso batch using
 // the derive.BlockToEspressoBatch function.
+<<<<<<< HEAD
 func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, rollupCfg *rollup.Config, hasher geth_types.TrieHasher) (*derive.EspressoBatch, error) {
+=======
+func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, rollupCfg *rollup.Config) (*derive.EspressoBatch, error) {
+>>>>>>> celo-integration-rebase-16
 	// / Determine what the latest block in the sequencer is, so we can
 	// hope to create a valid transaction, to get something out of it.
 	latestBlock, err := cli.BlockByNumber(ctx, nil)
@@ -352,7 +362,26 @@ func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, ro
 	}
 
 	latestHeader := latestBlock.Header()
+<<<<<<< HEAD
 	body := &geth_types.Body{
+=======
+	header := &geth_types.Header{
+		ParentHash: latestBlock.Hash(),
+		UncleHash:  latestHeader.UncleHash,
+		Coinbase:   latestHeader.Coinbase,
+		Root:       latestHeader.Root,
+		Bloom:      latestHeader.Bloom,
+		Difficulty: latestHeader.Difficulty,
+		Number:     new(big.Int).Add(latestBlock.Number(), big.NewInt(1)),
+		GasLimit:   latestHeader.GasLimit,
+		GasUsed:    latestHeader.GasUsed,
+		Time:       latestHeader.Time + 1,
+		Extra:      latestHeader.Extra,
+		MixDigest:  latestHeader.MixDigest,
+		Nonce:      latestHeader.Nonce,
+	}
+	body := geth_types.Body{
+>>>>>>> celo-integration-rebase-16
 		Transactions: []*geth_types.Transaction{
 			geth_types.NewTx(
 				&geth_types.DepositTx{
@@ -361,6 +390,7 @@ func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, ro
 			),
 		},
 	}
+<<<<<<< HEAD
 
 	return derive.BlockToEspressoBatch(
 		rollupCfg,
@@ -386,6 +416,11 @@ func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, ro
 			&FakeBlockType{},
 		),
 	)
+=======
+	block := geth_types.NewBlockWithHeader(header).WithBody(body)
+
+	return derive.BlockToEspressoBatch(rollupCfg, block)
+>>>>>>> celo-integration-rebase-16
 }
 
 // SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL is the interval / frequency
@@ -398,7 +433,10 @@ const SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL = 500 * time.Millisecond
 func submitValidDataWithWrongSignature(ctx context.Context, rollupCfg *rollup.Config, l2Seq *ethclient.Client, espCli espressoClient.EspressoClient, namespace uint64) {
 	// We only want to submit garbage data to the sequencer so quickly
 	ticker := time.NewTicker(SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL)
+<<<<<<< HEAD
 	stackTrie := trie.NewStackTrie(func(path []byte, hash geth_common.Hash, blob []byte) {})
+=======
+>>>>>>> celo-integration-rebase-16
 
 	for {
 		select {
@@ -417,7 +455,11 @@ func submitValidDataWithWrongSignature(ctx context.Context, rollupCfg *rollup.Co
 		}
 		randomChainSigner := factory(big.NewInt(int64(namespace)), geth_common.Address{})
 
+<<<<<<< HEAD
 		batch, err := createMaliciousEspressoBatch(ctx, l2Seq, rollupCfg, stackTrie)
+=======
+		batch, err := createMaliciousEspressoBatch(ctx, l2Seq, rollupCfg)
+>>>>>>> celo-integration-rebase-16
 
 		if err != nil {
 			// Skip
@@ -479,7 +521,10 @@ func submitValidDataWithRandomSignature(
 ) {
 	// We only want to submit garbage data to the sequencer so quickly
 	ticker := time.NewTicker(SUBMIT_VALID_DATA_WITH_RANDOM_SIGNATURE_INTERVAL)
+<<<<<<< HEAD
 	stackTrie := trie.NewStackTrie(func(path []byte, hash geth_common.Hash, blob []byte) {})
+=======
+>>>>>>> celo-integration-rebase-16
 	signer := new(fakeChainSigner)
 
 	for {
@@ -489,7 +534,11 @@ func submitValidDataWithRandomSignature(
 		case <-ticker.C:
 		}
 
+<<<<<<< HEAD
 		batch, err := createMaliciousEspressoBatch(ctx, l2Seq, rollupCfg, stackTrie)
+=======
+		batch, err := createMaliciousEspressoBatch(ctx, l2Seq, rollupCfg)
+>>>>>>> celo-integration-rebase-16
 
 		if err != nil {
 			// Skip
