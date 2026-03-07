@@ -42,20 +42,6 @@ func init() {
 	cli.VersionFlag.(*cli.BoolFlag).Category = MiscCategory
 }
 
-func init() {
-	DeprecatedFlags = append(DeprecatedFlags, deprecatedP2PFlags(EnvVarPrefix)...)
-	optionalFlags = append(optionalFlags, P2PFlags(EnvVarPrefix)...)
-	optionalFlags = append(optionalFlags, oplog.CLIFlagsWithCategory(EnvVarPrefix, OperationsCategory)...)
-	optionalFlags = append(optionalFlags, oppprof.CLIFlagsWithCategory(EnvVarPrefix, OperationsCategory)...)
-	optionalFlags = append(optionalFlags, opmetrics.CLIFlagsWithCategory(EnvVarPrefix, OperationsCategory)...)
-	optionalFlags = append(optionalFlags, oprpc.CLIFlagsWithCategory(EnvVarPrefix, OperationsCategory, rpcDefaults)...)
-	optionalFlags = append(optionalFlags, DeprecatedFlags...)
-	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix, RollupCategory)...)
-	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, AltDACategory)...)
-	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, CaffCategory)...)
-	Flags = append(requiredFlags, optionalFlags...)
-}
-
 func prefixEnvVars(names ...string) []string {
 	envs := make([]string, 0, len(names))
 	for _, name := range names {

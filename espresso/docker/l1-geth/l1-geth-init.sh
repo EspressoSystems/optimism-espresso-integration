@@ -66,9 +66,7 @@ if [[ "$MODE" == "genesis" ]]; then
   if [[ "$REGENERATE_BEACON_GENESIS" -eq 1 ]]; then
     rm -f /config/genesis.ssz /config/config.yaml /config/jwt.txt \
       /config/deposit_contract_block.txt /config/deposit_contract.txt
-  fi
 
-  if [[ "$REGENERATE_BEACON_GENESIS" -eq 1 ]]; then
     echo "Updating genesis timestamp..."
     dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
 
