@@ -56,7 +56,7 @@ build *ARGS: lint-fix-no-fail
 
 # Builds the contracts (developer mode).
 build-dev *ARGS: lint-fix-no-fail
-  just forge-build-dev {{ARGS}}
+  just forge-build-dev {{ARGS}} && just fix-proxy-artifact
 
 # Builds the go-ffi tool for contract tests.
 build-go-ffi:
@@ -65,6 +65,20 @@ build-go-ffi:
 # Cleans build artifacts and deployments.
 clean:
   rm -rf ./artifacts ./forge-artifacts ./cache ./scripts/go-ffi/go-ffi ./deployments/hardhat/*
+
+# Fixes Proxy and ProxyAdmin artifact bytecode if empty or missing.
+# Foundry generates .json files with empty bytecode when multiple compiler versions are used.
+fix-proxy-artifact:
+  @sh -c 'for contract in Proxy ProxyAdmin; do \
+    if [ -f "forge-artifacts/${contract}.sol/${contract}.0.8.15.json" ]; then \
+      if [ ! -f "forge-artifacts/${contract}.sol/${contract}.json" ]; then \
+        cp "forge-artifacts/${contract}.sol/${contract}.0.8.15.json" "forge-artifacts/${contract}.sol/${contract}.json"; \
+        echo "Created ${contract}.json from ${contract}.0.8.15.json"; \
+      else \
+        python3 -c "import json; main = json.load(open(\"forge-artifacts/${contract}.sol/${contract}.json\")); versioned = json.load(open(\"forge-artifacts/${contract}.sol/${contract}.0.8.15.json\")); bytecode_obj = main.get(\"bytecode\", {}).get(\"object\", \"0x\"); (main.update({\"bytecode\": versioned[\"bytecode\"], \"deployedBytecode\": versioned[\"deployedBytecode\"]}) or json.dump(main, open(\"forge-artifacts/${contract}.sol/${contract}.json\", \"w\"), indent=2) or print(\"Fixed ${contract}.json bytecode from ${contract}.0.8.15.json\")) if len(bytecode_obj) <= 2 else print(\"${contract}.json already has bytecode, skipping fix\")"; \
+      fi; \
+    fi; \
+  done'
 
 
 ########################################################
