@@ -190,9 +190,17 @@ abstract contract Setup is FeatureFlags {
             );
         }
 
-        // Etch the contracts used to setup the test environment
-        DeployUtils.etchLabelAndAllowCheatcodes({ _etchTo: address(deploy), _cname: "Deploy" });
-        DeployUtils.etchLabelAndAllowCheatcodes({ _etchTo: address(forkLive), _cname: "ForkLive" });
+        // Etch the contracts used to setup the test environment (full paths so getDeployedCode resolves with unchecked_cheatcode_artifacts).
+        DeployUtils.etchLabelAndAllowCheatcodes({
+            _etchTo: address(deploy),
+            _cname: "Deploy",
+            _artifactPath: "scripts/deploy/Deploy.s.sol:Deploy"
+        });
+        DeployUtils.etchLabelAndAllowCheatcodes({
+            _etchTo: address(forkLive),
+            _cname: "ForkLive",
+            _artifactPath: "test/setup/ForkLive.s.sol:ForkLive"
+        });
 
         deploy.setUp();
         forkLive.setUp();
