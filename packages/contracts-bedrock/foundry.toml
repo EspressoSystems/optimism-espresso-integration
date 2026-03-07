@@ -86,7 +86,8 @@ fs_permissions = [
 ]
 
 # 5159 error code is selfdestruct error code
-ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159]
+# 6321 = unnamed return variable; 5667 = unused parameter (allow in lib/espresso-tee-contracts mocks)
+ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159, 6321, 5667]
 deny_warnings = true
 ffi = true
 
