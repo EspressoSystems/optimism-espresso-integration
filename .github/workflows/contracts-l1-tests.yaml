@@ -41,5 +41,5 @@ jobs:
 
       - name: Run L1 contracts tests
         working-directory: packages/contracts-bedrock
-        run: forge test --match-path "test/L1/*.t.sol" -vv
+        run: FOUNDRY_PROFILE=l1tests forge test --match-path "test/L1/*.t.sol" -vv
 

@@ -120,6 +120,15 @@ runs = 64
 depth = 32
 
 ################################################################
+#                     PROFILE: L1TESTS                         #
+################################################################
+# Use for `forge test --match-path "test/L1/*.t.sol"` (and opcm tests).
+# No compilation_restrictions so each contract has one artifact (avoids
+# "multiple matching artifacts" for test/L1/opcm/ when opcm/ is restricted in default).
+[profile.l1tests]
+compilation_restrictions = []
+
+################################################################
 #                     PROFILE: CICOVERAGE                      #
 ################################################################
 
