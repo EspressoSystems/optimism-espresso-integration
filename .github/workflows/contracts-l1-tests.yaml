@@ -39,10 +39,6 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
-      - name: Build contracts (including scripts for getDeployedCode in tests)
-        working-directory: packages/contracts-bedrock
-        run: forge build
-
       - name: Run L1 contracts tests
         working-directory: packages/contracts-bedrock
         run: forge test --match-path "test/L1/*.t.sol" -vv
