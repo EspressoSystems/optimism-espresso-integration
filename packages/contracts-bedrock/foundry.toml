@@ -29,11 +29,8 @@ compilation_restrictions = [
   { paths = "src/dispute/SuperPermissionedDisputeGame.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OPContractsManagerStandardValidator.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/opcm/OPContractsManagerV2.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/opcm/OPContractsManagerContainer.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/opcm/OPContractsManagerMigrator.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/opcm/OPContractsManagerUtils.sol", optimizer_runs = 5000 },
-  { paths = "src/L1/opcm/OPContractsManagerUtilsCaller.sol", optimizer_runs = 5000 },
+  # opcm/* omitted: test/L1/opcm/ imports them → duplicate artifacts; avoids needing unchecked_cheatcode_artifacts
+  # and Setup.sol changes (files 14.2 didn't touch).
   { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
   { paths = "src/L1/ProtocolVersions.sol", optimizer_runs = 5000 },
   { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
@@ -90,9 +87,6 @@ fs_permissions = [
 ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159, 6321, 5667]
 deny_warnings = true
 ffi = true
-# With compilation_restrictions, some contracts have multiple artifacts (e.g. default + dispute).
-# Allow getCode/deployCode to resolve instead of failing with "multiple matching artifacts found".
-unchecked_cheatcode_artifacts = true
 
 # We set the gas limit to max int64 to avoid running out of gas during testing, since the default
 # gas limit is 1B and some of our tests require more gas than that, such as
@@ -180,11 +174,7 @@ compilation_restrictions = [
   { paths = "src/dispute/SuperPermissionedDisputeGame.sol", optimizer_runs = 0 },
   { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 0 },
   { paths = "src/L1/OPContractsManagerStandardValidator.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerV2.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerContainer.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerMigrator.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerUtils.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerUtilsCaller.sol", optimizer_runs = 0 },
+  # opcm/* omitted (see default profile comment).
   { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 0 },
   { paths = "src/L1/ProtocolVersions.sol", optimizer_runs = 0 },
   { paths = "src/universal/StorageSetter.sol", optimizer_runs = 0 },
