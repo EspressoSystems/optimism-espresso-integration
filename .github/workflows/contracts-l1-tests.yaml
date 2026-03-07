@@ -39,13 +39,29 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
-      - name: Build src + scripts
+      - name: Build all (src, scripts, tests)
         working-directory: packages/contracts-bedrock
-        run: forge build --skip "/**/test/**"
+        run: forge build
         timeout-minutes: 25
+
+      - name: Normalize script artifact names for getDeployedCode
+        working-directory: packages/contracts-bedrock
+        run: |
+          # getDeployedCode looks for Deploy.json / ProxyAdmin.json; Foundry may write versioned names (e.g. Deploy.0.8.15.json)
+          ensure_artifact() {
+            local dir="$1" base="$2"
+            if [ -d "$dir" ] && [ ! -f "$dir/$base.json" ]; then
+              for f in "$dir"/$base.*.json; do
+                [ -f "$f" ] && cp "$f" "$dir/$base.json" && echo "Copied $(basename "$f") -> $base.json in $dir" && break
+              done
+            fi
+            [ -d "$dir" ] && ls -la "$dir" || true
+          }
+          ensure_artifact "forge-artifacts/scripts/deploy/Deploy.s.sol" "Deploy"
+          ensure_artifact "forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
 
       - name: Run L1 contracts tests
         timeout-minutes: 20
         working-directory: packages/contracts-bedrock
-        run: forge test --match-path "test/L1/*.t.sol" -vv
+        run: forge test --match-path "test/L1/*.t.sol" --no-build -vv
 
