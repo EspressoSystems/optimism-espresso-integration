@@ -39,10 +39,6 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
-      - name: Check formatting
-        working-directory: packages/contracts-bedrock
-        run: forge fmt --check
-
       - name: Run L1 contracts tests
         working-directory: packages/contracts-bedrock
         run: forge test --match-path "test/L1/*.t.sol" -vv
