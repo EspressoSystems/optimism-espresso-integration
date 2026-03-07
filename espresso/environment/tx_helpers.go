@@ -88,12 +88,6 @@ func RunSimpleL1TransferAndVerifier(ctx context.Context, t *testing.T, system *e
 	cancel()
 }
 
-<<<<<<< HEAD
-// runSimpleL2Burn runs a simple L2 burn transaction and verifies it on the
-// L2 Verifier.
-func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-=======
 // RunSimpleL2Burn runs a simple L2 burn transaction and verifies it on the
 // L2 Verifier with a 2-minute timeout.
 func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
@@ -105,7 +99,6 @@ func RunSimpleL2Burn(ctx context.Context, t *testing.T, system *e2esys.System) {
 // when the verifier may be slow to derive, e.g. after a batcher switch.
 func RunSimpleL2BurnWithTimeout(ctx context.Context, t *testing.T, system *e2esys.System, timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
->>>>>>> celo-integration-rebase-16
 	defer cancel()
 
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
@@ -122,17 +115,11 @@ func RunSimpleL2BurnWithTimeout(ctx context.Context, t *testing.T, system *e2esy
 	initialBurnAddressBalance, err := l2Seq.BalanceAt(ctx, burnAddress, nil)
 	require.NoError(t, err, "failed to get initial balance for burn address %s", burnAddress)
 
-<<<<<<< HEAD
-	_ = helpers.SendL2Tx(
-		t,
-		system.Cfg,
-=======
 	// Use SendL2TxWithContext so the full timeout applies to the verifier wait.
 	_ = helpers.SendL2TxWithContext(
 		ctx,
 		t,
 		system.Cfg.L2ChainIDBig(),
->>>>>>> celo-integration-rebase-16
 		l2Seq,
 		senderKey,
 		L2TxWithOptions(

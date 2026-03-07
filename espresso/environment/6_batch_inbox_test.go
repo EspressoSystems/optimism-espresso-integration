@@ -170,13 +170,10 @@ func (m AlwaysSendingETHBackend) TransactionReceipt(ctx context.Context, txHash 
 	return m.inner.TransactionReceipt(ctx, txHash)
 }
 
-<<<<<<< HEAD
-=======
 // BlobBaseFee implements txmgr.ETHBackend.
 func (m AlwaysSendingETHBackend) BlobBaseFee(ctx context.Context) (*big.Int, error) {
 	return m.inner.BlobBaseFee(ctx)
 }
 
->>>>>>> celo-integration-rebase-16
 // Ensure conformance to ETHBackend
 var _ txmgr.ETHBackend = AlwaysSendingETHBackend{}

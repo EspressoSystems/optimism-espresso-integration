@@ -345,11 +345,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 
 		// Make sure the transaction will go through to op node by checking it will go through batch submitter's streamer
 		batchSubmitter := system.BatchSubmitter
-<<<<<<< HEAD
-		_, err = batchSubmitter.EspressoStreamer.UnmarshalBatch(realEspressoTransaction.Payload)
-=======
 		_, err = batchSubmitter.EspressoStreamer().UnmarshalBatch(realEspressoTransaction.Payload)
->>>>>>> celo-integration-rebase-16
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}

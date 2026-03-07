@@ -9,8 +9,6 @@ L1_CHAIN_ID=${L1_CHAIN_ID:-11155111}
 # Mode can be "genesis" or "geth" (default).
 MODE=${MODE:-geth}
 
-<<<<<<< HEAD
-=======
 hash_file() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'
@@ -19,7 +17,6 @@ hash_file() {
   fi
 }
 
->>>>>>> celo-integration-rebase-16
 if [[ "$MODE" == "genesis" ]]; then
   echo "Running Genesis Initialization"
 
@@ -38,20 +35,6 @@ if [[ "$MODE" == "genesis" ]]; then
       fi
   fi
 
-<<<<<<< HEAD
-  echo "Updating genesis timestamp..."
-  dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
-
-  echo "Generating consensus layer genesis..."
-  eth-beacon-genesis devnet \
-                    --quiet \
-                    --eth1-config "/config/genesis.json" \
-                    --config "/templates/beacon-config.yaml" \
-                    --mnemonics "/templates/mnemonics.yaml" \
-                    --state-output "/config/genesis.ssz"
-  cp -r /templates/beacon-config.yaml /config/config.yaml
-
-=======
   # eth-beacon-genesis is expensive. Reuse pre-generated artifacts only when
   # all genesis inputs match exactly; otherwise force regeneration.
   # Set FORCE_BEACON_GENESIS_REGEN=1 to force regeneration unconditionally.
@@ -112,7 +95,6 @@ if [[ "$MODE" == "genesis" ]]; then
 
   # Validator keystores must always be regenerated: they are copied to the
   # l1-data Docker volume (/data) which is cleared on every `docker compose down -v`.
->>>>>>> celo-integration-rebase-16
   echo "Generating validator keys..."
   rm -rf /config/keystore && \
   eth2-val-tools keystores --out-loc /config/keystore \
@@ -124,17 +106,6 @@ if [[ "$MODE" == "genesis" ]]; then
   cp -r /config/keystore/keys/* /data/lighthouse-validator/validators/
   cp -r /config/keystore/secrets/ /data/lighthouse-validator/
 
-<<<<<<< HEAD
-  if [[ ! -f "/config/jwt.txt" ]]; then
-      echo "Generating JWT secret..."
-      openssl rand -hex 32 > "/config/jwt.txt"
-  fi
-
-  echo "0" > /config/deposit_contract_block.txt
-  echo "0x00000000219ab540356cBB839Cbe05303d7705Fa" > /config/deposit_contract.txt
-
-=======
->>>>>>> celo-integration-rebase-16
   echo "Genesis initialization complete"
   exit 0
 

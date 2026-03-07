@@ -15,12 +15,9 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
-<<<<<<< HEAD
-=======
-	batcherCfg "github.com/ethereum-optimism/optimism/op-batcher/config"
->>>>>>> celo-integration-rebase-16
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	batcherCfg "github.com/ethereum-optimism/optimism/op-batcher/config"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
@@ -121,8 +118,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						// We will manually convert CLIConfig back to commandline arguments
 						var args []string
 
-<<<<<<< HEAD
-=======
 						// Enclave batcher requires valid throttle config (upper > lower). System config
 						// often has zero throttle; use flag defaults only for the enclave so integration
 						// tests (non-enclave batcher) are unchanged.
@@ -137,7 +132,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 							throttle.BlockSizeUpperLimit = flags.DefaultThrottleBlockSizeUpperLimit
 						}
 
->>>>>>> celo-integration-rebase-16
 						// We don't want to stop this batcher
 						appendArg(&args, flags.StoppedFlag.Name, false)
 
@@ -166,18 +160,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						appendArg(&args, flags.MaxL1TxSizeBytesFlag.Name, c.MaxL1TxSize)
 						appendArg(&args, flags.MaxPendingTransactionsFlag.Name, c.MaxPendingTransactions)
 						appendArg(&args, flags.PollIntervalFlag.Name, c.PollInterval)
-<<<<<<< HEAD
-						appendArg(&args, flags.AdditionalThrottlingEndpointsFlag.Name, strings.Join(c.ThrottleConfig.AdditionalEndpoints, ","))
-						appendArg(&args, flags.SubSafetyMarginFlag.Name, c.SubSafetyMargin)
-						appendArg(&args, flags.TargetNumFramesFlag.Name, c.TargetNumFrames)
-						appendArg(&args, flags.ThrottleBlockSizeLowerLimitFlag.Name, c.ThrottleConfig.BlockSizeLowerLimit)
-						appendArg(&args, flags.ThrottleBlockSizeUpperLimitFlag.Name, c.ThrottleConfig.BlockSizeUpperLimit)
-						appendArg(&args, flags.ThrottleUsafeDABytesLowerThresholdFlag.Name, c.ThrottleConfig.LowerThreshold)
-						appendArg(&args, flags.ThrottleUsafeDABytesUpperThresholdFlag.Name, c.ThrottleConfig.UpperThreshold)
-						appendArg(&args, flags.ThrottleTxSizeLowerLimitFlag.Name, c.ThrottleConfig.TxSizeLowerLimit)
-						appendArg(&args, flags.ThrottleTxSizeUpperLimitFlag.Name, c.ThrottleConfig.TxSizeUpperLimit)
-						appendArg(&args, flags.ThrottleControllerTypeFlag.Name, string(c.ThrottleConfig.ControllerType))
-=======
 						appendArg(&args, flags.AdditionalThrottlingEndpointsFlag.Name, strings.Join(throttle.AdditionalEndpoints, ","))
 						appendArg(&args, flags.SubSafetyMarginFlag.Name, c.SubSafetyMargin)
 						appendArg(&args, flags.TargetNumFramesFlag.Name, c.TargetNumFrames)
@@ -188,7 +170,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 						appendArg(&args, flags.ThrottleTxSizeLowerLimitFlag.Name, throttle.TxSizeLowerLimit)
 						appendArg(&args, flags.ThrottleTxSizeUpperLimitFlag.Name, throttle.TxSizeUpperLimit)
 						appendArg(&args, flags.ThrottleControllerTypeFlag.Name, string(throttle.ControllerType))
->>>>>>> celo-integration-rebase-16
 						appendArg(&args, flags.WaitNodeSyncFlag.Name, c.WaitNodeSync)
 
 						// TxMgr flags

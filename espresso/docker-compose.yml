@@ -709,11 +709,7 @@ services:
     env_file:
       - ./.env
     environment:
-<<<<<<< HEAD
       RUST_LOG: warn
-=======
-      RUST_LOG: info
->>>>>>> celo-integration-rebase-16
       ESPRESSO_DEV_NODE_L1_DEPLOYMENT: skip
       RUST_BACKTRACE: 1
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso

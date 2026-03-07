@@ -6,24 +6,15 @@ import (
 	"testing"
 	"time"
 
-<<<<<<< HEAD
-=======
-	"github.com/ethereum-optimism/optimism/espresso"
->>>>>>> celo-integration-rebase-16
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-<<<<<<< HEAD
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-=======
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
->>>>>>> celo-integration-rebase-16
 	rpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
@@ -92,50 +83,8 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	}
 }
 
-<<<<<<< HEAD
 // TestCaffNodeWaitForFinality is a test that attempts to make sure that the Caff node waits for
 // the derived L1 block to be finalized before advancing its safe head.
-=======
-// VerifyL1OriginFinalized checks whether every batch in the batch buffer has a finalized L1
-// origin.
-func VerifyL1OriginFinalized(t *testing.T, streamer *espresso.BatchStreamer[derive.EspressoBatch], l1Client *ethclient.Client) bool {
-	for i := 0; i < streamer.BatchBuffer.Len(); i++ {
-		batch := streamer.BatchBuffer.Get(i)
-		origin := (batch).L1Origin()
-		finalizedL1, err := l1Client.BlockByNumber(context.Background(), big.NewInt(rpc.FinalizedBlockNumber.Int64()))
-		if err != nil {
-			return false
-		}
-
-		// Use the finalized L1 number from the Espresso streamer instead of the rollup client, in
-		// case they update their states at different times.
-		if origin.Number > finalizedL1.NumberU64() {
-			t.Log("L1 origin not finalized", "origin", origin.Number, "FinalizedL1", finalizedL1.NumberU64())
-			return false
-		}
-	}
-	return true
-}
-
-// VerifyBatchBufferUpdated checks whether the batch buffer is updated before the timeout.
-func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.BatchStreamer[derive.EspressoBatch]) bool {
-	tickerBufferInsert := time.NewTicker(100 * time.Millisecond)
-	defer tickerBufferInsert.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-tickerBufferInsert.C:
-			if streamer.BatchBuffer.Len() > 0 {
-				return true
-			}
-		}
-	}
-}
-
-// TestCaffNodeWaitForFinality is a test that attempts to make sure that the Caff node waits for
-// the derived L1 block to be finalized before updating its record.
->>>>>>> celo-integration-rebase-16
 //
 // This tests is designed to evaluate Test 8.2.1 as outlined within the Espresso Celo Integration
 // plan. It has stated task definition as follows:
@@ -143,16 +92,9 @@ func VerifyBatchBufferUpdated(ctx context.Context, streamer *espresso.BatchStrea
 //	Arrange:
 //		Run the sequencer and the Caff node in Espresso mode.
 //	Act:
-<<<<<<< HEAD
 //		Wait until the Caff node's safe L2 head advances.
 //	Assert:
 //		The Caff node's safe L2 head always has a finalized L1 origin.
-=======
-//		Wait until the Caff node's batch buffer is empty.
-//	Assert:
-//		The Caff node doesn't insert a batch without finalized L1 origin to the batch buffer.
-//		After the L1 origin is finalized, the Caff node inserts the batch.
->>>>>>> celo-integration-rebase-16
 func TestCaffNodeWaitForFinality(t *testing.T) {
 	// Basic test setup.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -175,7 +117,6 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
-<<<<<<< HEAD
 
 	// Create a RollupClient for the caff node
 	caffRpcClient, err := dial.DialRPCClientWithTimeout(ctx, 30*time.Second, log.New(), caffNode.OpNode.UserRPC().RPC())
@@ -215,41 +156,6 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 				return
 			}
 		}
-=======
-	rollupClient := system.RollupClient(e2esys.RoleVerif)
-	streamer := caffNode.OpNode.EspressoStreamer()
-
-	initialStatus, err := rollupClient.SyncStatus(context.Background())
-	require.NoError(t, err)
-
-	// Wait for the batch buffer to be empty which will trigger the Caff node to sync the status
-	// and insert more batches to the buffer.
-	for {
-		if streamer.BatchBuffer.Len() == 0 {
-			// Wait for the finalized L1 number and the batch buffer to be updated.
-			for {
-				if streamer.BatchBuffer.Len() > 0 {
-					// Verify that any batch inserted into the batch buffer has a finalized L1
-					// origin.
-					if !VerifyL1OriginFinalized(t, streamer, l1Client) {
-						require.FailNow(t, "Timeout: L1 origin not finalized")
-					}
-				} else {
-					statusAfterWait, err := rollupClient.SyncStatus(context.Background())
-					require.NoError(t, err)
-					if statusAfterWait.FinalizedL1.Number > initialStatus.FinalizedL1.Number {
-						// Verify that eventually the batch buffer will be updated.
-						if !VerifyBatchBufferUpdated(ctx, streamer) {
-							require.FailNow(t, "Timeout: Batch buffer not updated")
-						}
-						return
-					}
-				}
-			}
-		}
-
-		time.Sleep(10 * time.Millisecond)
->>>>>>> celo-integration-rebase-16
 	}
 }
 
