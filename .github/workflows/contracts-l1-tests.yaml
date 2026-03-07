@@ -39,10 +39,13 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
-      - name: Build src and scripts
+      # Full build (src + scripts + tests) with -j 1 to reduce peak memory and avoid OOM (exit 143).
+      # Then we normalize artifact names and run tests with --no-build so forge test does not recompile
+      # and overwrite the Deploy.json / ProxyAdmin.json that getDeployedCode expects.
+      - name: Build all (src, scripts, tests)
         working-directory: packages/contracts-bedrock
-        run: forge build --skip "/**/test/**"
-        timeout-minutes: 25
+        run: forge build -j 1
+        timeout-minutes: 35
 
       - name: Normalize script artifact names for getDeployedCode
         working-directory: packages/contracts-bedrock
@@ -63,5 +66,5 @@ jobs:
       - name: Run L1 contracts tests
         timeout-minutes: 20
         working-directory: packages/contracts-bedrock
-        run: forge test --match-path "test/L1/*.t.sol" -vv
+        run: forge test --match-path "test/L1/*.t.sol" --no-build -vv
 
