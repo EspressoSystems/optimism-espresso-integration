@@ -47,6 +47,7 @@ jobs:
         run: forge build --skip "/**/test/**" -j 1
         timeout-minutes: 25
 
+      # 27 tests fail with "addGameType failed" in OPContractsManagerStandardValidator (upstream setup). 429 pass.
       - name: Run L1 contracts tests
         timeout-minutes: 45
         working-directory: packages/contracts-bedrock
