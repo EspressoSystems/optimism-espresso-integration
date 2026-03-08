@@ -39,19 +39,41 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
-      # Use lite profile (optimizer off) to avoid OOM; full build so tests can run with --no-build.
-      # Then normalize artifact names so getDeployedCode finds Deploy.json / ProxyAdmin.json.
-      - name: Build all (src, scripts, tests) with lite profile
+      # Build src + scripts (skip tests) to stay under memory limit.
+      - name: Build src and scripts (lite, skip tests)
         working-directory: packages/contracts-bedrock
         env:
           FOUNDRY_PROFILE: lite
-        run: forge build -j 1
-        timeout-minutes: 35
+        run: forge build --skip "/**/test/**" -j 1
+        timeout-minutes: 25
 
       - name: Normalize script artifact names for getDeployedCode
         working-directory: packages/contracts-bedrock
         run: |
-          # getDeployedCode looks for Deploy.json / ProxyAdmin.json; Foundry may write versioned names (e.g. Deploy.0.8.15.json)
+          ensure_artifact() {
+            local dir="$1" base="$2"
+            if [ -d "$dir" ] && [ ! -f "$dir/$base.json" ]; then
+              for f in "$dir"/$base.*.json; do
+                [ -f "$f" ] && cp "$f" "$dir/$base.json" && echo "Copied $(basename "$f") -> $base.json in $dir" && break
+              done
+            fi
+            [ -d "$dir" ] && ls -la "$dir" || true
+          }
+          ensure_artifact "forge-artifacts/scripts/deploy/Deploy.s.sol" "Deploy"
+          ensure_artifact "forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
+
+      # Compile test contracts (incremental; may overwrite script artifacts with versioned names).
+      # Allow failure so we can re-normalize and run tests with --no-build.
+      - name: Compile tests (lite)
+        working-directory: packages/contracts-bedrock
+        env:
+          FOUNDRY_PROFILE: lite
+        run: forge test --match-path "test/L1/*.t.sol" -j 1 -vv || true
+        timeout-minutes: 20
+
+      - name: Normalize script artifact names again
+        working-directory: packages/contracts-bedrock
+        run: |
           ensure_artifact() {
             local dir="$1" base="$2"
             if [ -d "$dir" ] && [ ! -f "$dir/$base.json" ]; then
