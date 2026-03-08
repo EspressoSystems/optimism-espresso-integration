@@ -38,8 +38,9 @@ compilation_restrictions = [
   { paths = "src/L1/ProtocolVersions.sol", optimizer_runs = 5000 },
   { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
   { paths = "src/universal/StorageSetter.sol", optimizer_runs = 5000 },
-  { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
-  { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
+  # Espresso-only; omitted to minimize diff vs Celo (same compilation_restrictions as theirs). TEE libs may need these for a full build.
+  # { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
+  # { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
 ]
 
 extra_output = ['devdoc', 'userdoc', 'metadata', 'storageLayout']
