@@ -43,7 +43,9 @@ jobs:
       # Then normalize artifact names so getDeployedCode finds Deploy.json / ProxyAdmin.json.
       - name: Build all (src, scripts, tests) with lite profile
         working-directory: packages/contracts-bedrock
-        run: forge build --profile lite -j 1
+        env:
+          FOUNDRY_PROFILE: lite
+        run: forge build -j 1
         timeout-minutes: 35
 
       - name: Normalize script artifact names for getDeployedCode
@@ -65,5 +67,7 @@ jobs:
       - name: Run L1 contracts tests
         timeout-minutes: 20
         working-directory: packages/contracts-bedrock
-        run: forge test --profile lite --match-path "test/L1/*.t.sol" --no-build -vv
+        env:
+          FOUNDRY_PROFILE: lite
+        run: forge test --match-path "test/L1/*.t.sol" --no-build -vv
 
