@@ -43,6 +43,19 @@ jobs:
         if: steps.forge-cache.outputs.cache-hit != 'true'
         run: just compile-contracts
 
+      - name: Normalize script artifact names for getDeployedCode/getCode
+        run: |
+          ensure_artifact() {
+            local dir="$1" base="$2"
+            if [ -d "$dir" ] && [ ! -f "$dir/$base.json" ]; then
+              for f in "$dir"/$base.*.json; do
+                [ -f "$f" ] && cp "$f" "$dir/$base.json" && echo "Copied $(basename "$f") -> $base.json in $dir" && break
+              done
+            fi
+          }
+          ensure_artifact "packages/contracts-bedrock/forge-artifacts/scripts/deploy/Deploy.s.sol" "Deploy"
+          ensure_artifact "packages/contracts-bedrock/forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
+
       - name: Save Nix cache
         if: always() && steps.forge-cache.outputs.cache-hit != 'true' && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
         uses: nix-community/cache-nix-action/save@v6

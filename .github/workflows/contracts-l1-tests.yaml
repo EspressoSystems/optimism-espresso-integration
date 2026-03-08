@@ -62,8 +62,7 @@ jobs:
           ensure_artifact "forge-artifacts/scripts/deploy/Deploy.s.sol" "Deploy"
           ensure_artifact "forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
 
-      # Compile test contracts (incremental; may overwrite script artifacts with versioned names).
-      # Allow failure so we can re-normalize and run tests with --no-build.
+      # Compile test contracts (may overwrite script artifacts with versioned names).
       - name: Compile tests (lite)
         working-directory: packages/contracts-bedrock
         env:
