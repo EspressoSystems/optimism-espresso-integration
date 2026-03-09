@@ -5,7 +5,7 @@ ARG TARGET_BASE_IMAGE=alpine:3.22
 ARG TARGETOS
 ARG TARGETARCH
 
-# Base builder image
+# Base builder image (go.mod requires go >= 1.24.0)
 FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache \
@@ -13,7 +13,7 @@ RUN apk add --no-cache \
   linux-headers git bash jq yq
 
 # Install mise for toolchain management
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
 
 # Install yq, dasel and foundry
 RUN case "$TARGETARCH" in \
@@ -32,15 +32,8 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install just (direct binary to avoid mise trust issues)
-ARG TARGETARCH
-RUN case "$TARGETARCH" in \
-  "amd64") JUST_ARCH="x86_64-unknown-linux-musl" ;; \
-  "arm64") JUST_ARCH="aarch64-unknown-linux-musl" ;; \
-  *) echo "Unsupported architecture for just: $TARGETARCH" >&2; exit 1 ;; \
-  esac && \
-  wget -q "https://github.com/casey/just/releases/download/1.37.0/just-1.37.0-${JUST_ARCH}.tar.gz" -O /tmp/just.tar.gz && \
-  tar -xzf /tmp/just.tar.gz -C /usr/local/bin just && rm /tmp/just.tar.gz && just --version
+# Install just from apk
+RUN apk add just && just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
@@ -58,7 +51,7 @@ COPY . /app
 ARG GIT_COMMIT
 ARG GIT_DATE
 
-# Build op-node
+# Build op-node (match base branch: CGO_ENABLED=0, static link, ./cmd/main.go so RPC server and behavior are unchanged)
 FROM builder AS op-node-builder
 ARG TARGETOS
 ARG TARGETARCH
@@ -67,7 +60,8 @@ ARG GIT_DATE
 ARG OP_NODE_VERSION=v0.0.0
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_NODE_VERSION"
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-  cd /app/op-node && mkdir -p bin && go build -v -ldflags "-X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X github.com/ethereum-optimism/optimism/op-node/version.Version=$VERSION -X github.com/ethereum-optimism/optimism/op-node/version.Meta=" -o ./bin/op-node ./cmd
+  cd /app/op-node && mkdir -p bin && \
+  CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static" -X main.GitCommit=$GITCOMMIT -X main.GitDate=$GITDATE -X github.com/ethereum-optimism/optimism/op-node/version.Version=$VERSION -X github.com/ethereum-optimism/optimism/op-node/version.Meta=' -o bin/op-node ./cmd/main.go
 
 # Build op-batcher
 FROM builder AS op-batcher-builder
