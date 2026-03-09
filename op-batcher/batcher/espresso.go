@@ -232,6 +232,7 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 	}
 
 	if errors.Is(err, espressoClient.ErrPermanent) {
+		log.Warn("Skipping submission due to permanent error", "err", err)
 		return Skip
 	}
 
@@ -239,6 +240,8 @@ func evaluateSubmission(jobResp espressoSubmitTransactionJobResponse) JobEvaluat
 		// Log the warning for a potentially missed error handling, but still retry it.
 		log.Warn("error not explicitly marked as retryable or not", "err", err)
 	}
+
+	log.Warn("Submission failed, retrying", "err", err)
 
 	// Otherwise, retry the submission.
 	return RetrySubmission
@@ -281,6 +284,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		case Skip:
 			continue
 		case RetrySubmission:
+			jobResp.job.createdAt = time.Now()
 			s.submitJobQueue <- jobResp.job
 			continue
 		}
@@ -328,6 +332,7 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 	}
 
 	if errors.Is(err, espressoClient.ErrPermanent) {
+		log.Warn("Skipping verification due to permanent error", "err", err)
 		return Skip
 	}
 
@@ -338,10 +343,12 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 
 	// If the verification times out, degrade to the submission phase and try again.
 	if have := time.Now(); have.Sub(jobResp.job.start) > VERIFY_RECEIPT_TIMEOUT {
+		log.Warn("Verification timed out, queuing for resubmission", "err", err)
 		return RetrySubmission
 	}
 
 	// Otherwise, retry the verification.
+	log.Warn("Verification failed, retrying", "err", err)
 	return RetryVerification
 }
 
