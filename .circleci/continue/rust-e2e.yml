@@ -239,14 +239,15 @@ workflows:
       #       - cannon-kona-host
       #       - kona-build-release
       #       - op-reth-build
-      - rust-restart-sysgo-tests:
-          name: rust-e2e-restart
-          <<: *rust-e2e-job-base
-          requires:
-            - contracts-bedrock-build
-            - cannon-prestate
-            - cannon-kona-host
-            - kona-build-release
+      # celo: skip until Rust RollupConfig supports cel2_time
+      # - rust-restart-sysgo-tests:
+      #     name: rust-e2e-restart
+      #     <<: *rust-e2e-job-base
+      #     requires:
+      #       - contracts-bedrock-build
+      #       - cannon-prestate
+      #       - cannon-kona-host
+      #       - kona-build-release
       # Proof tests - single kind only, interop excluded per original config
       - kona-proof-action-tests:
           name: kona-proof-action-single
