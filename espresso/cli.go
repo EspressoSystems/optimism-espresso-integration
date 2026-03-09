@@ -29,6 +29,7 @@ var (
 	EnabledFlagName                  = espressoFlags("enabled")
 	PollIntervalFlagName             = espressoFlags("poll-interval")
 	QueryServiceUrlsFlagName         = espressoFlags("urls")
+	BuilderUrlFlagName               = espressoFlags("builder-url")
 	LightClientAddrFlagName          = espressoFlags("light-client-addr")
 	L1UrlFlagName                    = espressoFlags("l1-url")
 	TestingBatcherPrivateKeyFlagName = espressoFlags("testing-batcher-private-key")
@@ -59,6 +60,12 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Name:     QueryServiceUrlsFlagName,
 			Usage:    "Comma-separated list of Espresso query service URLs",
 			EnvVars:  espressoEnvs(envPrefix, "URLS"),
+			Category: category,
+		},
+		&cli.StringFlag{
+			Name:     BuilderUrlFlagName,
+			Usage:    "Espresso builder URL",
+			EnvVars:  espressoEnvs(envPrefix, "BUILDER_URL"),
 			Category: category,
 		},
 		&cli.StringFlag{
@@ -117,6 +124,7 @@ type CLIConfig struct {
 	Enabled                    bool
 	PollInterval               time.Duration
 	QueryServiceURLs           []string
+	BuilderURL                 string
 	LightClientAddr            common.Address
 	L1URL                      string
 	RollupL1URL                string
@@ -173,6 +181,7 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
 		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
 		EspressoAttestationService: c.String(AttestationServiceFlagName),
+		BuilderURL:                 c.String(BuilderUrlFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)

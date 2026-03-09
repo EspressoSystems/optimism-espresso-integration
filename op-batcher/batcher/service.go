@@ -95,6 +95,7 @@ type BatcherService struct {
 	opcrypto.ChainSigner
 	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
 	EspressoClient   espressoClient.EspressoClient
+	EspressoBuilder  espressoClient.SubmitAPI
 	Attestation      []byte
 }
 
@@ -387,6 +388,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 
 		EspressoStreamer: bs.EspressoStreamer,
 		EspressoClient:   bs.EspressoClient,
+		EspressoBuilder:  bs.EspressoBuilder,
 		ChainSigner:      bs.ChainSigner,
 		Attestation:      bs.Attestation,
 	}
@@ -568,9 +570,15 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 
 	urlZero := cfg.Espresso.QueryServiceURLs[0]
-	espressoClient := espressoClient.NewClient(urlZero)
+	espressoQuery := espressoClient.NewClient(urlZero)
 
-	bs.EspressoClient = espressoClient
+	bs.EspressoClient = espressoQuery
+
+	if cfg.Espresso.BuilderURL != "" {
+		bs.EspressoBuilder = espressoClient.NewClient(cfg.Espresso.BuilderURL)
+	} else {
+		bs.EspressoBuilder = espressoQuery
+	}
 
 	if err := bs.initKeyPair(); err != nil {
 		return fmt.Errorf("failed to create key pair for batcher: %w", err)

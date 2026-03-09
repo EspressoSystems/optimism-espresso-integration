@@ -106,6 +106,7 @@ type DriverSetup struct {
 
 	EspressoStreamer espresso.EspressoStreamer[derive.EspressoBatch]
 	EspressoClient   espressoClient.EspressoClient
+	EspressoBuilder  espressoClient.SubmitAPI
 	ChainSigner      opcrypto.ChainSigner
 	Attestation      []byte
 }
@@ -223,6 +224,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
 			WithEspressoClient(l.EspressoClient),
+			WithEspressoBuilder(l.EspressoBuilder),
 		)
 		l.espressoSubmitter.SpawnWorkers(128, 128)
 		l.espressoSubmitter.Start()

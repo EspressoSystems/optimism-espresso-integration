@@ -102,7 +102,8 @@ type espressoTransactionSubmitter struct {
 	verifyReceiptJobQueue    chan espressoVerifyReceiptJob
 	verifyReceiptRespQueue   chan espressoVerifyReceiptJobResponse
 	verifyReceiptWorkerQueue chan chan espressoVerifyReceiptJobAttempt
-	espresso                 espressoClient.EspressoClient
+	espressoQuery            espressoClient.QueryService
+	espressoBuilder          espressoClient.SubmitAPI
 }
 
 // EspressoTransactionSubmitterConfig is a configuration struct for the
@@ -111,6 +112,7 @@ type espressoTransactionSubmitter struct {
 type EspressoTransactionSubmitterConfig struct {
 	Ctx                                context.Context
 	EspressoClient                     espressoClient.EspressoClient
+	EspressoBuilder                    espressoClient.SubmitAPI
 	Wg                                 *sync.WaitGroup
 	SubmitJobQueueCapacity             int
 	SubmitResponseQueueCapacity        int
@@ -135,6 +137,14 @@ func WithContext(ctx context.Context) EspressoTransactionSubmitterOption {
 func WithEspressoClient(client espressoClient.EspressoClient) EspressoTransactionSubmitterOption {
 	return func(config *EspressoTransactionSubmitterConfig) {
 		config.EspressoClient = client
+	}
+}
+
+// WithEspressoBuilder is an option that can be used to set the Espresso builder
+// for the EspressoTransactionSubmitterConfig.
+func WithEspressoBuilder(client espressoClient.SubmitAPI) EspressoTransactionSubmitterOption {
+	return func(config *EspressoTransactionSubmitterConfig) {
+		config.EspressoBuilder = client
 	}
 }
 
@@ -174,6 +184,11 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 		panic("Espresso client is required")
 	}
 
+	builder := config.EspressoBuilder
+	if builder == nil {
+		builder = config.EspressoClient
+	}
+
 	return &espressoTransactionSubmitter{
 		ctx:                      config.Ctx,
 		wg:                       config.Wg,
@@ -183,7 +198,8 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 		verifyReceiptJobQueue:    make(chan espressoVerifyReceiptJob, config.VerifyReceiptJobQueueCapacity),
 		verifyReceiptRespQueue:   make(chan espressoVerifyReceiptJobResponse, config.VerifyReceiptResponseQueueCapacity),
 		verifyReceiptWorkerQueue: make(chan chan espressoVerifyReceiptJobAttempt),
-		espresso:                 config.EspressoClient,
+		espressoQuery:            config.EspressoClient,
+		espressoBuilder:          builder,
 	}
 }
 
@@ -384,7 +400,9 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 		case Skip:
 			continue
 		case RetrySubmission:
-			s.submitJobQueue <- jobResp.job.transaction
+			transaction := jobResp.job.transaction
+			transaction.createdAt = time.Now()
+			s.submitJobQueue <- transaction
 			continue
 		case RetryVerification:
 			s.verifyReceiptJobQueue <- jobResp.job
@@ -509,7 +527,7 @@ func (s *espressoTransactionSubmitter) scheduleVerifyReceiptsJobs() {
 func espressoSubmitTransactionWorker(
 	ctx context.Context,
 	wg *sync.WaitGroup,
-	cli espressoClient.EspressoClient,
+	cli espressoClient.SubmitAPI,
 	workerQueue chan<- chan espressoTransactionJobAttempt,
 ) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -579,7 +597,7 @@ func espressoSubmitTransactionWorker(
 func espressoVerifyTransactionWorker(
 	ctx context.Context,
 	wg *sync.WaitGroup,
-	cli espressoClient.EspressoClient,
+	cli espressoClient.QueryService,
 	workerQueue chan<- chan espressoVerifyReceiptJobAttempt,
 ) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -643,12 +661,12 @@ func (s *espressoTransactionSubmitter) SpawnWorkers(numSubmitTransactionWorkers,
 
 	for i := 0; i < numSubmitTransactionWorkers; i++ {
 		s.wg.Add(1)
-		go espressoSubmitTransactionWorker(workersCtx, s.wg, s.espresso, s.submitWorkerQueue)
+		go espressoSubmitTransactionWorker(workersCtx, s.wg, s.espressoBuilder, s.submitWorkerQueue)
 	}
 
 	for i := 0; i < numVerifyReceiptWorkers; i++ {
 		s.wg.Add(1)
-		go espressoVerifyTransactionWorker(workersCtx, s.wg, s.espresso, s.verifyReceiptWorkerQueue)
+		go espressoVerifyTransactionWorker(workersCtx, s.wg, s.espressoQuery, s.verifyReceiptWorkerQueue)
 	}
 }
 
