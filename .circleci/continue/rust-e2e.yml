@@ -225,19 +225,20 @@ workflows:
           binary: "op-reth"
           context:
             - circleci-repo-readonly-authenticated-github-token
-      - rust-e2e-sysgo-tests:
-          name: rust-e2e-<<matrix.devnet_config>>
-          matrix:
-            parameters:
-              devnet_config: ["simple-kona", "simple-kona-geth", "simple-kona-sequencer", "large-kona-sequencer"]
-          context:
-            - circleci-repo-readonly-authenticated-github-token
-          requires:
-            - contracts-bedrock-build
-            - cannon-prestate
-            - cannon-kona-host
-            - kona-build-release
-            - op-reth-build
+      # celo: Skip e2e tests until we support Celo in op-reth and kona-node
+      # - rust-e2e-sysgo-tests:
+      #     name: rust-e2e-<<matrix.devnet_config>>
+      #     matrix:
+      #       parameters:
+      #         devnet_config: ["simple-kona", "simple-kona-geth", "simple-kona-sequencer", "large-kona-sequencer"]
+      #     context:
+      #       - circleci-repo-readonly-authenticated-github-token
+      #     requires:
+      #       - contracts-bedrock-build
+      #       - cannon-prestate
+      #       - cannon-kona-host
+      #       - kona-build-release
+      #       - op-reth-build
       - rust-restart-sysgo-tests:
           name: rust-e2e-restart
           <<: *rust-e2e-job-base
