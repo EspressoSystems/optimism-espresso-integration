@@ -3,7 +3,6 @@ package enclave_tools
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -123,14 +122,15 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 	return output.Measurements, nil
 }
 
-// RunEnclave runs an enclaver EIF image `name` with the provided arguments. Stdout and stderr are redirected to the parent process.
+// RunEnclave runs an enclaver EIF image `name` with the provided arguments.
+// Uses 'docker run' directly (not 'enclaver run') to support --publish.
+// --publish=127.0.0.1:9000:8337 instead of --net=host keeps the container off
+// the host network stack, blocking EC2 metadata-service access (requires
+// IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
 func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
 
-	// We don't use 'enclaver run' here, because it doesn't
-	// support --net=host, which is required for Odyn to
-	// correctly resolve 'host' to parent machine's localhost
 	cmd := exec.CommandContext(
 		ctx,
 		"docker",
@@ -138,7 +138,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--rm",
 		"-d",
 		"--privileged",
-		"--net=host",
+		"--publish=127.0.0.1:9000:8337",
 		"--name=batcher-enclaver-"+nameSuffix,
 		"--device=/dev/nitro_enclaves",
 		name,
@@ -146,7 +146,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	log.Info("Starting enclave container: %v...\n", "command", cmd.Args)
+	log.Info("Starting enclave container", "command", cmd.Args)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start enclave container: %w", err)
@@ -187,7 +187,7 @@ func sendArgsToEnclave(ctx context.Context, args []string) error {
 
 	for time.Now().Before(deadline) {
 		// Connect to the enclave's listener
-		conn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:8337")
+		conn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:9000")
 		if err != nil {
 			// If we still have time, wait and retry
 			if time.Now().Add(retryInterval).Before(deadline) {
