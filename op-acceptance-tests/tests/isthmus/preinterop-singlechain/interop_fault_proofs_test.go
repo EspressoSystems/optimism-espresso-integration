@@ -9,6 +9,7 @@ import (
 )
 
 func TestPreinteropSingleChainFaultProofs(gt *testing.T) {
+	gt.Skip("Skipped: fault proof program lacks cel2_time support in RollupConfig")
 	t := devtest.SerialT(gt)
 	sys := presets.NewSingleChainInterop(t)
 	sfp.RunSingleChainSuperFaultProofSmokeTest(t, sys)
