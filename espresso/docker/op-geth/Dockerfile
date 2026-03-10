@@ -9,10 +9,7 @@ ARG GIT_DATE
 # CGO builder for components that need Espresso crypto linking (go.mod requires go >= 1.24.0)
 FROM golang:1.24-alpine AS op-cgo-builder
 # Install dependencies
-RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq
-# Install just from mise
-COPY ./mise.toml ./
-RUN apk add just && just --version
+RUN apk add musl-dev gcc g++ curl tar gzip make linux-headers git jq bash yq just
 
 # Go sources
 COPY ./go.mod /app/go.mod
