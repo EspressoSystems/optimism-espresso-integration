@@ -89,7 +89,6 @@ jobs:
           done
           fix_artifact "forge-artifacts/OPContractsManagerV2.sol" "OPContractsManagerV2"
           rm -f forge-artifacts/OPContractsManagerV2.sol/OPContractsManagerV2.0.8.15.json
-          python3 scripts/fix_artifact_bytecode.py
           for f in forge-artifacts/*/*.0.8.15.json; do
             [ -f "$f" ] || continue
             base="${f%.0.8.15.json}"
