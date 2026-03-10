@@ -126,37 +126,6 @@ func SendL2Tx(t *testing.T, cfg e2esys.SystemConfig, l2Client *ethclient.Client,
 	return SendL2TxWithID(t, cfg.L2ChainIDBig(), l2Client, privKey, applyTxOpts)
 }
 
-// SendL2TxWithContext sends an L2 tx and waits for it on the sequencer and all verify clients,
-// using the given context for the entire operation. Use when the verifier may be slow to derive.
-func SendL2TxWithContext(ctx context.Context, t *testing.T, chainID *big.Int, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyTxOpts TxOptsFn) *types.Receipt {
-	opts := defaultTxOpts()
-	applyTxOpts(opts)
-	tx := types.MustSignNewTx(privKey, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
-		ChainID:   chainID,
-		Nonce:     opts.Nonce,
-		To:        opts.ToAddr,
-		Value:     opts.Value,
-		GasTipCap: opts.GasTipCap,
-		GasFeeCap: opts.GasFeeCap,
-		Gas:       opts.Gas,
-		Data:      opts.Data,
-	})
-	err := l2Client.SendTransaction(ctx, tx)
-	require.NoError(t, err, "Sending L2 tx")
-
-	receipt, err := wait.ForReceiptOKWithContext(ctx, l2Client, tx.Hash())
-	require.NoError(t, err, "Waiting for L2 tx")
-	require.Equal(t, opts.ExpectedStatus, receipt.Status, "TX should have expected status")
-
-	for i, client := range opts.VerifyClients {
-		t.Logf("Waiting for tx %v on verification client %d", tx.Hash(), i)
-		receiptVerif, err := wait.ForReceiptOKWithContext(ctx, client, tx.Hash())
-		require.NoErrorf(t, err, "Waiting for L2 tx on verification client %d", i)
-		require.Equalf(t, receipt, receiptVerif, "Receipts should be the same on sequencer and verification client %d", i)
-	}
-	return receipt
-}
-
 func SendL2SetCodeTx(cfg e2esys.SystemConfig, l2Client *ethclient.Client, privKey *ecdsa.PrivateKey, applyTxOpts TxOptsFn) (*types.Receipt, error) {
 	opts := defaultTxOpts()
 	applyTxOpts(opts)
