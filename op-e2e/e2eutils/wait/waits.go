@@ -38,44 +38,6 @@ func ForReceiptOK(ctx context.Context, client *ethclient.Client, hash common.Has
 	return ForReceiptMaybe(ctx, client, hash, types.ReceiptStatusSuccessful, false)
 }
 
-// ForReceiptOKWithContext waits for a successful receipt using the given context as-is. Use when
-// the caller needs a longer or custom timeout.
-func ForReceiptOKWithContext(ctx context.Context, client *ethclient.Client, hash common.Hash) (*types.Receipt, error) {
-	return ForReceiptMaybeWithContext(ctx, client, hash, types.ReceiptStatusSuccessful, false)
-}
-
-// ForReceiptMaybeWithContext is similar to ForReceiptMaybe but uses ctx directly without adding
-// an inner timeout.
-func ForReceiptMaybeWithContext(ctx context.Context, client *ethclient.Client, hash common.Hash, status uint64, statusIgnore bool) (*types.Receipt, error) {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		receipt, err := client.TransactionReceipt(ctx, hash)
-		if errors.Is(err, ethereum.NotFound) || (err != nil && strings.Contains(err.Error(), "transaction indexing is in progress")) {
-			select {
-			case <-ctx.Done():
-				return nil, fmt.Errorf("timed out waiting for tx %s: %w: %w", hash, err, ctx.Err())
-			case <-ticker.C:
-				continue
-			}
-		}
-		if errors.Is(err, os.ErrDeadlineExceeded) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to get receipt for tx %s: %w", hash, err)
-		}
-		if !statusIgnore && receipt.Status != status {
-			trace, err := DebugTraceTx(ctx, client, hash)
-			if err != nil {
-				return receipt, fmt.Errorf("unexpected receipt status %d, error tracing tx: %w", receipt.Status, err)
-			}
-			return receipt, &ReceiptStatusError{Status: receipt.Status, TxTrace: trace}
-		}
-		return receipt, nil
-	}
-}
-
 func ForReceiptFail(ctx context.Context, client *ethclient.Client, hash common.Hash) (*types.Receipt, error) {
 	return ForReceiptMaybe(ctx, client, hash, types.ReceiptStatusFailed, false)
 }

@@ -45,6 +45,9 @@ jobs:
       - name: Download Go modules
         run: go mod download && go list -deps ./espresso/... > /dev/null
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Download forge-artifacts
         uses: actions/download-artifact@v4
         with:
@@ -83,7 +86,7 @@ jobs:
           junit-summary: ./junit-test-summary.xml
 
       - name: Run Go tests for group ${{ matrix.group }}
-        run: go test -short -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
+        run: gotestsum --junitfile junit-summary-${{ matrix.group }}.xml --format testdox -- -short -timeout 30m -p 1 -count 1 -v -run "^(${{ steps.test_split.outputs.run}})$" ./espresso/...
 
       - name: Upload JUnit test summary
         if: always()
