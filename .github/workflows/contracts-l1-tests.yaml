@@ -21,7 +21,12 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-654c8f01721e43dbc8a53c7a3b022548cb82b2f9
+          # Pinned to stable 1.2.3 rather than the nightly used elsewhere.
+          # The nightly (654c8f01) added strict vm.getCode artifact matching that errors
+          # when two contracts share the same name (e.g. src/universal/Proxy.sol and
+          # OZ v5's proxy/Proxy.sol). Fixing every upstream call-site would touch many
+          # Celo/OP-stack files; defer to the next rebase sync. See: keyao/fix-contract-16.1.
+          version: "1.2.3"
 
       - name: Install Just
         uses: extractions/setup-just@v2

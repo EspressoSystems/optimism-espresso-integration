@@ -6,12 +6,9 @@ import { EspressoNitroTEEVerifier } from "@espresso-tee-contracts/EspressoNitroT
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { Script } from "forge-std/Script.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
-import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
-import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
-import { Proxy } from "src/universal/Proxy.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 contract DeployAWSNitroVerifierInput is BaseDeployIO {
@@ -88,13 +85,25 @@ contract DeployAWSNitroVerifierOutput is BaseDeployIO {
 
 contract DeployAWSNitroVerifier is Script {
     struct ProxyDeployment {
-        ProxyAdmin proxyAdmin;
-        Proxy proxy;
+        IProxyAdmin proxyAdmin;
+        IProxy proxy;
     }
 
     function run(DeployAWSNitroVerifierInput input, DeployAWSNitroVerifierOutput output) public {
         deployNitroTEEVerifier(input, output);
         checkOutput(output);
+    }
+
+    /// @notice Deploys a contract by name using vm.getCode and CREATE. Avoids importing DeployUtils
+    ///         (which transitively imports Blueprint/Bytes) to prevent compilation group merging with
+    ///         the OZ v5 chain (from EspressoNitroTEEVerifier), which would create duplicate versioned
+    ///         artifacts that break vm.getCode lookups.
+    function _create1(string memory _name, bytes memory _args) internal returns (address payable addr_) {
+        bytes memory bytecode = abi.encodePacked(vm.getCode(_name), _args);
+        assembly {
+            addr_ := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(addr_ != address(0), "DeployAWSNitroVerifier: deployment failed");
     }
 
     /// @notice Deploys ProxyAdmin and Proxy contracts
@@ -105,31 +114,15 @@ contract DeployAWSNitroVerifier is Script {
         returns (ProxyDeployment memory deployment)
     {
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin = ProxyAdmin(
-            payable(
-                DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-                })
-            )
-        );
+        deployment.proxyAdmin = IProxyAdmin(_create1("ProxyAdmin", abi.encode(msg.sender)));
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
         vm.broadcast(msg.sender);
-        deployment.proxy = Proxy(
-            payable(
-                DeployUtils.create1({
-                    _name: "Proxy",
-                    _args: DeployUtils.encodeConstructor(
-                        abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
-                    )
-                })
-            )
-        );
+        deployment.proxy = IProxy(payable(_create1("universal/Proxy.sol:Proxy", abi.encode(address(deployment.proxyAdmin)))));
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin.setProxyType(address(deployment.proxy), ProxyAdmin.ProxyType.ERC1967);
+        deployment.proxyAdmin.setProxyType(address(deployment.proxy), IProxyAdmin.ProxyType.ERC1967);
     }
 
     function deployNitroTEEVerifier(
@@ -194,6 +187,8 @@ contract DeployAWSNitroVerifier is Script {
     function checkOutput(DeployAWSNitroVerifierOutput output) public view {
         address[] memory addresses =
             Solarray.addresses(output.nitroTEEVerifierProxy(), output.nitroTEEVerifierImpl(), output.proxyAdmin());
-        DeployUtils.assertValidContractAddresses(addresses);
+        for (uint256 i = 0; i < addresses.length; i++) {
+            require(addresses[i] != address(0) && addresses[i].code.length > 0, "DeployAWSNitroVerifier: invalid address");
+        }
     }
 }
