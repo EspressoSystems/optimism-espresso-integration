@@ -80,34 +80,6 @@ fix-proxy-artifact:
     fi; \
   done'
 
-# Copies versioned script artifacts to Deploy.json / ProxyAdmin.json when missing (for getDeployedCode).
-# Run after forge build when using compilation_restrictions; matches CI normalize step.
-normalize-script-artifacts:
-  #!/usr/bin/env bash
-  set -e
-  ensure_artifact() {
-    local dir="$1" base="$2"
-    if [ ! -d "$dir" ]; then
-      echo "normalize-script-artifacts: directory missing: $dir" >&2
-      return 0
-    fi
-    if [ -f "$dir/$base.json" ]; then
-      return 0
-    fi
-    shopt -s nullglob
-    local copied=
-    for f in "$dir"/$base.*.json; do
-      cp "$f" "$dir/$base.json" && echo "Copied $(basename "$f") -> $base.json in $dir" && copied=1 && break
-    done
-    shopt -u nullglob
-    if [ -z "$copied" ]; then
-      echo "normalize-script-artifacts: no $base.*.json in $dir (getDeployedCode will fail):" >&2
-      ls -la "$dir" 2>/dev/null || true
-    fi
-  }
-  ensure_artifact "forge-artifacts/scripts/deploy/Deploy.s.sol" "Deploy"
-  ensure_artifact "forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
-
 
 ########################################################
 #                         TEST                         #
@@ -125,10 +97,6 @@ test *ARGS: build-go-ffi
 # Runs standard contract tests (developer mode).
 test-dev *ARGS: build-go-ffi
   FOUNDRY_PROFILE=lite forge test {{ARGS}}
-
-# Run L1 contract tests (default profile; Espresso TEE lines above must stay commented out so Deploy.json exists).
-test-l1 *ARGS: build-go-ffi
-  forge test --match-path "test/L1/*.t.sol" -j 1 {{ARGS}}
 
 # Default block number for the forked upgrade path.
 # Block numbers are calculated deterministically based on the current week.
