@@ -117,6 +117,8 @@ elif [ "$MODE" = "rollup" ]; then
 
     echo "Updating rollup l2_time..."
     dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+    # Remove Celo/Espresso-specific fields not known to the succinct-proposer image.
+    dasel delete -f /config/rollup.json -s .genesis.system_config.daFootprintGasScalar 2>/dev/null || true
   else
     echo "Pre-built rollup config not found, generating new one..."
     op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
@@ -141,6 +143,8 @@ elif [ "$MODE" = "rollup" ]; then
 
     echo "Updating rollup l2_time..."
     dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+    # Remove Celo/Espresso-specific fields not known to the succinct-proposer image.
+    dasel delete -f /config/rollup.json -s .genesis.system_config.daFootprintGasScalar 2>/dev/null || true
   fi
 
   echo "L2 rollup config complete"

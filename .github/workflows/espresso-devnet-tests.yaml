@@ -144,13 +144,14 @@ jobs:
         run: |
           cd espresso
           docker compose build
-          docker compose pull l1-validator espresso-dev-node l1-data-init
+          COMPOSE_PROFILES=default docker compose pull
 
       - name: Build Docker images with TEE
         if: matrix.tee
         run: |
           cd espresso
           COMPOSE_PROFILES=tee docker compose build
+          COMPOSE_PROFILES=tee docker compose pull
 
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest

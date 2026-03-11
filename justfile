@@ -41,6 +41,7 @@ devnet-batcher-active-publish-only-test: build-devnet
 build-devnet: stop-containers compile-contracts
   rm -Rf espresso/deployment
   (cd op-deployer && just)
+  (cd packages/contracts-bedrock && just fix-proxy-artifact)
   (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
 
 golint:

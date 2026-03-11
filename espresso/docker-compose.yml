@@ -158,6 +158,7 @@ services:
     image: op-geth:espresso
     environment:
       - MODE=genesis
+      - HOME=/tmp
       - L1_RPC=http://l1-geth:${L1_HTTP_PORT:?err}
     volumes:
       - ./deployment/l2-config:/config
@@ -378,7 +379,7 @@ services:
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
-      - --throttle-threshold=0
+      - --throttle.unsafe-da-bytes-lower-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
       - --max-pending-tx=32
@@ -420,7 +421,7 @@ services:
       - op-batcher
       - --espresso.enabled=false
       - --private-key=7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
-      - --throttle-threshold=0
+      - --throttle.unsafe-da-bytes-lower-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
       - --max-pending-tx=32
@@ -534,7 +535,8 @@ services:
     volumes:
       - ./deployment/deployer:/deployer:ro
     env_file:
-      - ./deployment/deployer/succinct.env
+      - path: ./deployment/deployer/succinct.env
+        required: false
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       L1_BEACON_RPC: http://l1-beacon:${L1_BEACON_PORT}
@@ -542,10 +544,10 @@ services:
       L2_NODE_RPC: http://op-node-sequencer:${ROLLUP_PORT}
       PRIVATE_KEY: ${PROPOSER_PRIVATE_KEY}
       GAME_TYPE: "42"
-      PROPOSAL_INTERVAL_IN_BLOCKS: "30"
+      PROPOSAL_INTERVAL_IN_BLOCKS: "100"
       FETCH_INTERVAL: "1"
       MOCK_MODE: "true"
-      USE_SAFE_HEAD_FOR_PROPOSALS: "false"
+      USE_SAFE_HEAD_FOR_PROPOSALS: "true"
       RUST_LOG: info
     restart: unless-stopped
 
@@ -631,7 +633,8 @@ services:
     volumes:
       - ./deployment/deployer:/deployer:ro
     env_file:
-      - ./deployment/deployer/succinct.env
+      - path: ./deployment/deployer/succinct.env
+        required: false
     environment:
       L1_RPC: http://l1-geth:${L1_HTTP_PORT}
       L1_BEACON_RPC: http://l1-beacon:${L1_BEACON_PORT}

@@ -35,7 +35,7 @@ func TestChallengeGame(t *testing.T) {
 	// The proposer creates games when safe L2 head >= anchor + proposal_interval (3 blocks)
 	t.Log("Waiting for succinct-proposer to create a dispute game...")
 	var games []ChallengeGame
-	maxGameWait := 2 * time.Minute
+	maxGameWait := 8 * time.Minute
 	gameWaitStart := time.Now()
 
 	for len(games) == 0 {

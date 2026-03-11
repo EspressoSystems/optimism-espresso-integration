@@ -84,7 +84,7 @@ func TestWithdrawal(t *testing.T) {
 			return true
 		}
 		return false
-	}, 3*time.Minute, 2*time.Second, "proposer didn't start")
+	}, 8*time.Minute, 2*time.Second, "proposer didn't start")
 
 	// Step 2: Initiate withdrawal
 	t.Log("Initiating withdrawal on L2...")
