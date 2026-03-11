@@ -522,8 +522,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         rootClaim_ = Claim.wrap(_getArgBytes32(0x14));
     }
 
-    /// @notice Getter for the root claim for a given L2 chain ID.
-    /// @dev This game type has a single root claim; returns it regardless of chain ID.
+    /// @notice Getter for the root claim for a given L2 chain ID (IDisputeGame interface; this game has a single root).
     function rootClaimByChainId(uint256) public pure returns (Claim rootClaim_) {
         rootClaim_ = rootClaim();
     }
