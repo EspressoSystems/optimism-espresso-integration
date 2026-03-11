@@ -43,59 +43,6 @@ jobs:
         if: steps.forge-cache.outputs.cache-hit != 'true'
         run: just compile-contracts
 
-      - name: Normalize script artifact names for getDeployedCode/getCode
-        run: |
-          ensure_artifact() {
-            local dir="$1" base="$2"
-            if [ -d "$dir" ] && [ ! -f "$dir/$base.json" ]; then
-              for f in "$dir"/$base.*.json; do
-                [ -f "$f" ] && cp "$f" "$dir/$base.json" && echo "Copied $(basename "$f") -> $base.json in $dir" && break
-              done
-            fi
-          }
-          ensure_artifact "packages/contracts-bedrock/forge-artifacts/scripts/deploy/Deploy.s.sol" "Deploy"
-          ensure_artifact "packages/contracts-bedrock/forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
-
-      - name: Fix Proxy/ProxyAdmin/OPCM impl bytecode (vm.getCode; empty bytecode causes "no code at" / addGameType failed)
-        working-directory: packages/contracts-bedrock
-        run: |
-          fix_artifact() {
-            local dir="$1" base="$2"
-            [ ! -f "$dir/${base}.0.8.15.json" ] && return 0
-            if [ ! -f "$dir/${base}.json" ]; then
-              cp "$dir/${base}.0.8.15.json" "$dir/${base}.json"
-              echo "Created ${base}.json from ${base}.0.8.15.json"
-              return 0
-            fi
-            python3 << PY
-          import json
-          main = json.load(open("$dir/${base}.json"))
-          versioned = json.load(open("$dir/${base}.0.8.15.json"))
-          bc = main.get("bytecode", {}).get("object", "0x")
-          if len(bc) <= 2:
-            main["bytecode"] = versioned["bytecode"]
-            main["deployedBytecode"] = versioned["deployedBytecode"]
-            json.dump(main, open("$dir/${base}.json", "w"), indent=2)
-            print("Fixed ${base}.json bytecode")
-          else:
-            print("${base}.json already has bytecode")
-          PY
-          }
-          fix_artifact "forge-artifacts/Proxy.sol" "Proxy"
-          fix_artifact "forge-artifacts/ProxyAdmin.sol" "ProxyAdmin"
-          opcm_dir="forge-artifacts/OPContractsManager.sol"
-          for base in OPContractsManager OPContractsManagerContractsContainer OPContractsManagerGameTypeAdder OPContractsManagerDeployer OPContractsManagerUpgrader OPContractsManagerInteropMigrator; do
-            fix_artifact "$opcm_dir" "$base"
-          done
-          fix_artifact "forge-artifacts/OPContractsManagerV2.sol" "OPContractsManagerV2"
-          rm -f forge-artifacts/OPContractsManagerV2.sol/OPContractsManagerV2.0.8.15.json
-          python3 scripts/fix_artifact_bytecode.py
-          for f in forge-artifacts/*/*.0.8.15.json; do
-            [ -f "$f" ] || continue
-            base="${f%.0.8.15.json}"
-            if [ -f "${base}.json" ]; then rm -f "$f"; fi
-          done
-
       - name: Save Nix cache
         if: always() && steps.forge-cache.outputs.cache-hit != 'true' && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
         uses: nix-community/cache-nix-action/save@v6
