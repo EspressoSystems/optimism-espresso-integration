@@ -88,7 +88,6 @@ func CombineDeployConfig(intent *Intent, chainIntent *ChainIntent, state *State,
 				BatchInboxAddress:         calculateBatchInboxAddr(chainState.ID),
 
 				BatchAuthenticatorAddress: chainState.BatchAuthenticatorAddress,
-				FallbackBatcherAddress:    chainIntent.NonTeeBatcher,
 			},
 			OperatorDeployConfig: genesis.OperatorDeployConfig{
 				BatchSenderAddress:  chainIntent.Roles.Batcher,

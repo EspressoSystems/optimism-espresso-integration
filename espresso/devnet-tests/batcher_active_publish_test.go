@@ -71,8 +71,7 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 
 	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(&bind.CallOpts{})
 	require.NoError(t, err)
-	nonTeeBatcherAddr, err := batchAuthenticator.NonTeeBatcher(&bind.CallOpts{})
-	require.NoError(t, err)
+	nonTeeBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
 
 	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
 	require.NoError(t, err)

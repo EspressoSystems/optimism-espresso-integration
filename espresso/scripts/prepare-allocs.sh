@@ -77,15 +77,10 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
 
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
 
-# Configure Espresso batchers for devnet. We reuse the operator address for the
-# TEE batcher, but use a separate address for the non-TEE fallback batcher.
-# We use Anvil test account #6 for the fallback batcher (already prefunded by Anvil).
-# Account #3 is reserved for the Deployer / BatchAuthenticator owner (used by tests),
-# so the fallback batcher must use a different account to avoid nonce collisions.
-# Private key: 0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e
-# Address: 0x976EA74026E726554dB657fA54763abd0C3a0aa9
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].nonTeeBatcher -v "0x976EA74026E726554dB657fA54763abd0C3a0aa9"
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].teeBatcher -v "${OPERATOR_ADDRESS}"
+# Configure Espresso TEE batcher for devnet. The TEE batcher uses HD index 6
+# (TEE_BATCHER_ADDRESS). The fallback (non-TEE) batcher uses the standard OP stack
+# batcher address from SystemConfig.batcherHash (FALLBACK_BATCHER_ADDRESS, HD index 2).
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].teeBatcher -v "${TEE_BATCHER_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`
@@ -101,7 +96,7 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].l1FeeVaultRecipient -v
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].sequencerFeeVaultRecipient -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.systemConfigOwner -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.unsafeBlockSigner -v "${OPERATOR_ADDRESS}"
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.batcher -v "${OPERATOR_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.batcher -v "${FALLBACK_BATCHER_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.proposer -v "${PROPOSER_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.l1ProxyAdminOwner -v "${OPERATOR_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].roles.challenger -v "${OPERATOR_ADDRESS}"

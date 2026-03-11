@@ -29,15 +29,15 @@ contract BatchAuthenticator is
     /// @notice Address of the TEE batcher whose signatures may authenticate batches.
     address public teeBatcher;
 
-    /// @notice Address of the non-TEE (fallback) batcher that can post when TEE is inactive.
-    address public nonTeeBatcher;
-
     /// @notice Address of the Espresso TEE Verifier contract.
     IEspressoTEEVerifier public espressoTEEVerifier;
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
     bool public activeIsTee;
+
+    /// @notice Address of the SystemConfig contract.
+    address public systemConfig;
 
     /// @notice Constructor disables initializers on implementation
     constructor() ReinitializableBase(1) {
@@ -47,7 +47,7 @@ contract BatchAuthenticator is
     function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
-        address _nonTeeBatcher,
+        address _systemConfig,
         address _owner
     )
         external
@@ -60,14 +60,14 @@ contract BatchAuthenticator is
         __OwnableWithGuardians_init(_owner);
 
         if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
-        if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
+        if (_systemConfig == address(0)) revert InvalidAddress(_systemConfig);
         if (address(_espressoTEEVerifier) == address(0)) {
             revert InvalidAddress(address(_espressoTEEVerifier));
         }
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
-        nonTeeBatcher = _nonTeeBatcher;
+        systemConfig = _systemConfig;
         // By default, start with the TEE batcher active.
         activeIsTee = true;
     }
@@ -89,16 +89,6 @@ contract BatchAuthenticator is
         address oldTeeBatcher = teeBatcher;
         teeBatcher = _newTeeBatcher;
         emit TeeBatcherUpdated(oldTeeBatcher, _newTeeBatcher);
-    }
-
-    /// @notice Updates the non-TEE batcher address.
-    function setNonTeeBatcher(address _newNonTeeBatcher) external onlyOwner {
-        if (_newNonTeeBatcher == address(0)) {
-            revert InvalidAddress(_newNonTeeBatcher);
-        }
-        address oldNonTeeBatcher = nonTeeBatcher;
-        nonTeeBatcher = _newNonTeeBatcher;
-        emit NonTeeBatcherUpdated(oldNonTeeBatcher, _newNonTeeBatcher);
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {

@@ -259,6 +259,9 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 		l := log.NewLogger(slog.Default().Handler())
 		lightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(env.ESPRESSO_LIGHT_CLIENT_ADDRESS), l1Client)
 		require.NoError(t, err, "light client creation failed")
+		// Resolve the TEE batcher address from BatchAuthenticator for signature validation
+		teeBatcherAddr, err := espresso.FetchTeeBatcherAddress(ctx, l1Client, system.RollupConfig.BatchAuthenticatorAddress)
+		require.NoError(t, err, "failed to fetch TEE batcher address")
 		streamer := espresso.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),
 			espresso.NewAdaptL1BlockRefClient(l1Client),
@@ -267,19 +270,21 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 			lightClient,
 			l,
 			func(b []byte) (*derive.EspressoBatch, error) {
-				return derive.UnmarshalEspressoTransaction(b, system.RollupConfig.Genesis.SystemConfig.BatcherAddr)
+				return derive.UnmarshalEspressoTransaction(b, teeBatcherAddr)
 			},
 			100*time.Millisecond,
 			0,
 			1,
 		)
 
-		l1Client, _ := client.NewRPC(streamBlocksCtx, l, system.NodeEndpoint(e2esys.RoleL1).RPC())
-		l2Seq, _ := client.NewRPC(streamBlocksCtx, l, system.NodeEndpoint(e2esys.RoleSeq).RPC())
+		l1RPC, err := client.NewRPC(streamBlocksCtx, l, system.NodeEndpoint(e2esys.RoleL1).RPC())
+		require.NoError(t, err, "failed to create L1 RPC client")
+		l2SeqRPC, err := client.NewRPC(streamBlocksCtx, l, system.NodeEndpoint(e2esys.RoleSeq).RPC())
+		require.NoError(t, err, "failed to create L2 sequencer RPC client")
 
-		l1RefClient, err := sources.NewL1Client(l1Client, l, nil, sources.L1ClientDefaultConfig(system.RollupConfig, true, sources.RPCKindStandard))
+		l1RefClient, err := sources.NewL1Client(l1RPC, l, nil, sources.L1ClientDefaultConfig(system.RollupConfig, true, sources.RPCKindStandard))
 		require.NoError(t, err, "failed to create L1 Ref client")
-		l2RefClient, err := sources.NewL2Client(l2Seq, l, nil, sources.L2ClientDefaultConfig(system.RollupConfig, true))
+		l2RefClient, err := sources.NewL2Client(l2SeqRPC, l, nil, sources.L2ClientDefaultConfig(system.RollupConfig, true))
 		require.NoError(t, err, "failed to create L2 Ref client")
 		l2BlockRef, err := l2RefClient.L2BlockRefByLabel(streamBlocksCtx, eth.Safe)
 		require.NoError(t, err, "failed to get safe L2 block ref")

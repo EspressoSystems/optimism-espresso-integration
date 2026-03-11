@@ -641,7 +641,6 @@ type L2CoreDeployConfig struct {
 
 	EspressoEnabled           bool           `json:"espressoEnabled,omitzero,omitempty"`
 	BatchAuthenticatorAddress common.Address `json:"batchAuthenticatorAddress,omitzero,omitempty"`
-	FallbackBatcherAddress    common.Address `json:"fallbackBatcherAddress,omitzero,omitempty"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)
@@ -1119,7 +1118,6 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 		Cel2Time:                d.RegolithTime(l1StartTime),
 
 		BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
-		FallbackBatcherAddress:    d.FallbackBatcherAddress,
 	}, nil
 }
 

@@ -77,7 +77,6 @@ type ChainIntent struct {
 
 	// Espresso-specific fields
 	EspressoEnabled bool           `json:"espressoEnabled,omitzero" toml:"espressoEnabled,omitzero"`
-	NonTeeBatcher   common.Address `json:"nonTeeBatcher,omitzero" toml:"nonTeeBatcher,omitzero"`
 	TeeBatcher      common.Address `json:"teeBatcher,omitzero" toml:"teeBatcher,omitzero"`
 }
 

@@ -169,7 +169,6 @@ type Config struct {
 	CaffNodeConfig espresso.CLIConfig `json:"caff_node_config,omitempty"`
 
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
-	FallbackBatcherAddress    common.Address `json:"fallback_batcher_address,omitempty,omitzero"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.
