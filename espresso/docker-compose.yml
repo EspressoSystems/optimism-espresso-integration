@@ -544,10 +544,10 @@ services:
       L2_NODE_RPC: http://op-node-sequencer:${ROLLUP_PORT}
       PRIVATE_KEY: ${PROPOSER_PRIVATE_KEY}
       GAME_TYPE: "42"
-      PROPOSAL_INTERVAL_IN_BLOCKS: "100"
+      PROPOSAL_INTERVAL_IN_BLOCKS: "30"
       FETCH_INTERVAL: "1"
       MOCK_MODE: "true"
-      USE_SAFE_HEAD_FOR_PROPOSALS: "true"
+      USE_SAFE_HEAD_FOR_PROPOSALS: "false"
       RUST_LOG: info
     restart: unless-stopped
 
