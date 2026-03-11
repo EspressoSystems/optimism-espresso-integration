@@ -1,0 +1,96 @@
+\begin{requirementspage}{op}{op integration}{
+    Keyao Shen, Jeb Bearer, Verity Coltman
+}
+    \begin{requirement}{General Rollup Integration}
+        OP integrations should meet all high-level requirements of a general
+        \page{rollup integration}, with the exception that permissionless batching can be supported
+        in a later version. Below are the specific requirements for each component.
+
+        \acceptance All the acceptance criteria of those requirements. If after benchmarks, some
+        time requirements don't seem possible, it's okay to update the specific numbers, but the
+        general requirements shouldn't be compromised.
+
+        \acceptance
+            \begin{itemize}
+                \item Benchmark the time a transaction appears in Espresso. The maximum load should
+                be one non-empty block every 2s, which applies to the following benchmarks as well.
+                \item Benchmark the time a transaction is confirmed on Espresso.
+                \item Benchmark the time the batcher is ready to submit a transaction to L1 after
+                Espresso confirms it.
+                \item Benchmark the time a transaction is confirmed on L1.
+            \end{itemize}
+    \end{requirement}
+
+    \begin{requirement}{Batch Authentication}
+        The authenticator contract must correctly authenticate batches only when they are being
+        posted from within a \tee using the correct code and configuration.
+
+        \acceptance Try to register a batcher key in the authenticator contract with an invalid TEE
+        attestation. Check that the contract reverts.
+
+        \acceptance Try to authenticate a batch using a signing key that is not registered.
+        Check that the contract reverts.
+    \end{requirement}
+
+    \begin{requirement}{Batch Posting}
+        The batcher must authenticate itself, e.g., by a signature on transactions, before
+        submitting batches to L1.
+
+        \acceptance Try to submit a batch to the inbox before authenticating it with the
+        authenticator contract. Check that the inbox reverts. Check that the batch is not processed
+        by the derivation pipeline.
+
+        \acceptance Run the batcher inside a correctly configured enclave. Check that it
+        successfully sends batches to the inbox without reverts.
+    \end{requirement}
+
+    \begin{requirement}{Stateless Batcher}
+        Operations should be stateless to prevent attacker manipulation that may lead to duplicated
+        or mismatched batches. In our threat model, we assume that an attacker may have the capacity
+        to manipulate persistent local storage but not the process memory. This means that if our
+        operations rely on persistent local storage, an attacker could potentially alter or corrupt
+        the data. A stateless approach minimizes the risk of such manipulations.
+
+        \acceptance Run the rollup and randomly restart the batcher. Check the liveness of the
+        rollup, and the consistency of Espresso confirmations and L1 confirmations. We don't need
+        to clear persistent storage because the original Optimism code isn't and our integration
+        work shouldn't use any.
+    \end{requirement}
+
+    \begin{requirement}{Derivation From Finalized L1} \label{derivation-from-finalized-l1}
+        The caffeinated node should derive from finalized L1 data only, so it is not affected by L1
+        reorgs.
+
+        \acceptance Post batches to both Espresso and the L1 then force the L1 to reorg back to an
+        earlier state in which those batches have not been posted. Wait for some time and check
+        that the batches are eventually posted to the L1 again, in the same order as they were
+        originally sequenced, as if the reorg did not happen.
+
+        \acceptance Run a caffeinated node while the L1 is undergoing reorgs, the caffeinated node
+        itself never surfaces reorgs or inconsistent state. This should hold even when the
+        sequencer is (maliciously) sequencing OP blocks whose L1 origin points to unfinalized L1
+        blocks.
+
+        \acceptance Simulate a sequencer that sends a batch derived from an L1 block that hasn't
+        been finalized yet. The batcher should not submit it to the L1 before the finalization,
+        but later when the L1 eventually finalizes the block, the batcher should include the batch.
+
+        \acceptance Simulate a sequencer that sends a batch derived from an L1 block that hasn't
+        been finalized and an L1 reorg that causes a different block being finalized. The batcher
+        should ignore the batch derived from the first block.
+
+        Note: The last three acceptance criteria above are for chains like Celo that have a
+        a configuration that allows the OP node to only fetch blocks derived from finalized L1
+        states. See \subsect{\currentChapter:Additional Considerations:L1 Reorg Handling} for more
+        considerations.
+
+    \end{requirement}
+
+    \begin{requirement}{Pipeline Enhancement}
+        The derivation pipeline should fully prevent unsuccessful batches from being included on L2.
+
+        \acceptance Attempt to post a batch that fails in the batch inbox contract. The revert
+        transactions should not be included by the derivation pipeline.
+    \end{requirement}
+
+\end{requirementspage}
