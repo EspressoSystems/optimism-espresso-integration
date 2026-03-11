@@ -24,6 +24,7 @@ func main() {
 		Version:     "1.0.0",
 		Commands: []*cli.Command{
 			buildCommand(),
+			buildEifCommand(),
 			registerCommand(),
 			isRegisteredCommand(),
 			runCommand(),
@@ -59,6 +60,55 @@ with the op-batcher and specified arguments.`,
 		},
 		Action: buildAction,
 	}
+}
+
+func buildEifCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "build-eif",
+		Usage: "Build EIF image from a pre-built app Docker image",
+		Description: `Build an EIF (Enclave Image Format) image by wrapping a pre-built
+op-batcher-enclave-app Docker image with Enclaver. Prints the PCR0 measurement
+to stdout so it can be captured by CI pipelines.
+
+Example (run from op-batcher-tee container in CI):
+  enclave-tools build-eif \
+    --app-image ghcr.io/espressosystems/optimism-espresso-integration/op-batcher-enclave-app:TAG \
+    --eif-tag op-batcher-eif:TAG`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "app-image",
+				Usage:    "Pre-built app Docker image to wrap (e.g. ghcr.io/org/op-batcher-enclave-app:tag)",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  "eif-tag",
+				Usage: "Docker tag for the resulting EIF image",
+				Value: "op-batcher-eif:latest",
+			},
+		},
+		Action: buildEifAction,
+	}
+}
+
+func buildEifAction(c *cli.Context) error {
+	appImage := c.String("app-image")
+	eifTag := c.String("eif-tag")
+
+	ctx := context.Background()
+	slog.Info("Building EIF from pre-built app image...", "app-image", appImage, "eif-tag", eifTag)
+
+	measurements, err := enclave_tools.BuildEifFromImage(ctx, appImage, eifTag)
+	if err != nil {
+		return fmt.Errorf("failed to build EIF: %w", err)
+	}
+
+	slog.Info("EIF build completed",
+		"PCR0", measurements.PCR0,
+		"PCR1", measurements.PCR1,
+		"PCR2", measurements.PCR2)
+	// Print PCR0 to stdout for CI capture
+	fmt.Println(measurements.PCR0)
+	return nil
 }
 
 func registerCommand() *cli.Command {

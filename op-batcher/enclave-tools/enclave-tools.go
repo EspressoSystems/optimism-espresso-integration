@@ -53,6 +53,12 @@ func BuildBatcherImage(ctx context.Context, opRoot string, tag string, args ...s
 	return measurements, err
 }
 
+// BuildEifFromImage builds an EIF image by wrapping a pre-built app Docker image with Enclaver.
+func BuildEifFromImage(ctx context.Context, appImage string, eifTag string) (EnclaveMeasurements, error) {
+	manifest := DefaultManifest("op-batcher", eifTag, appImage)
+	return new(EnclaverCli).BuildEnclave(ctx, manifest)
+}
+
 // getNitroVerifier retrieves the Nitro TEE verifier instance and L1 client by traversing the contract chain.
 func getNitroVerifier(ctx context.Context, authenticatorAddress common.Address, L1Url string) (*bindings.EspressoNitroTEEVerifier, *ethclient.Client, error) {
 	l1Client, err := ethclient.DialContext(ctx, L1Url)
