@@ -52,7 +52,7 @@ jobs:
         timeout-minutes: 25
 
       - name: Run L1 contracts tests
-        timeout-minutes: 45
+        timeout-minutes: 20
         working-directory: packages/contracts-bedrock
         env:
           FOUNDRY_PROFILE: lite
