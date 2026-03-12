@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -30,19 +30,17 @@ type EnclaveMeasurements struct {
 func BuildBatcherImage(ctx context.Context, opRoot string, tag string, args ...string) (EnclaveMeasurements, error) {
 	intermediateTag := tag + "intermediate"
 
-	dockerCli := new(environment.DockerCli)
-	err := dockerCli.Build(
-		ctx,
-		intermediateTag,
-		filepath.Join(opRoot, "ops/docker/op-stack-go/Dockerfile"),
-		"op-batcher-enclave-target",
+	cmd := exec.CommandContext(ctx, "docker",
+		"build",
+		"--tag", intermediateTag,
+		"--file", filepath.Join(opRoot, "ops/docker/op-stack-go/Dockerfile"),
+		"--target", "op-batcher-enclave-target",
+		"--build-arg", "ENCLAVE_BATCHER_ARGS="+strings.Join(args, " "),
 		opRoot,
-		environment.DockerBuildArg{
-			Name:  "ENCLAVE_BATCHER_ARGS",
-			Value: strings.Join(args, " "),
-		},
 	)
-	if err != nil {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return EnclaveMeasurements{}, fmt.Errorf("failed to build intermediate docker image: %w", err)
 	}
 
@@ -115,7 +113,9 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}
 
-	receipt, err := geth.WaitForTransaction(registrationTx.Hash(), l1Client, 2*time.Minute)
+	waitCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	receipt, err := bind.WaitMined(waitCtx, l1Client, registrationTx)
 	if err != nil {
 		return fmt.Errorf("failed to wait for registration transaction: %w", err)
 	}
