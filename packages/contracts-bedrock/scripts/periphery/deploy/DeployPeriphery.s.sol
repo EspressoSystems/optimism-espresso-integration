@@ -9,8 +9,8 @@ import { Config } from "scripts/libraries/Config.sol";
 import { Artifacts } from "scripts/Artifacts.s.sol";
 import { PeripheryDeployConfig } from "scripts/periphery/deploy/PeripheryDeployConfig.s.sol";
 
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
 import { Faucet } from "src/periphery/faucet/Faucet.sol";
 import { Drippie } from "src/periphery/drippie/Drippie.sol";
 import { CheckBalanceLow } from "src/periphery/drippie/dripchecks/CheckBalanceLow.sol";
@@ -85,11 +85,11 @@ contract DeployPeriphery is Script {
     function deployProxyAdmin() public broadcast returns (address addr_) {
         addr_ = _deployCreate2({
             _name: "ProxyAdmin",
-            _creationCode: vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin"),
+            _creationCode: type(ProxyAdmin).creationCode,
             _constructorParams: abi.encode(msg.sender)
         });
 
-        IProxyAdmin admin = IProxyAdmin(addr_);
+        ProxyAdmin admin = ProxyAdmin(addr_);
         require(admin.owner() == msg.sender, "DeployPeriphery: ProxyAdmin owner mismatch");
     }
 
@@ -97,11 +97,11 @@ contract DeployPeriphery is Script {
     function deployFaucetProxy() public broadcast returns (address addr_) {
         addr_ = _deployCreate2({
             _name: "FaucetProxy",
-            _creationCode: vm.getCode("universal/Proxy.sol:Proxy"),
+            _creationCode: type(Proxy).creationCode,
             _constructorParams: abi.encode(artifacts.mustGetAddress("ProxyAdmin"))
         });
 
-        IProxy proxy = IProxy(payable(addr_));
+        Proxy proxy = Proxy(payable(addr_));
         require(
             EIP1967Helper.getAdmin(address(proxy)) == artifacts.mustGetAddress("ProxyAdmin"),
             "DeployPeriphery: FaucetProxy admin mismatch"
@@ -201,7 +201,7 @@ contract DeployPeriphery is Script {
 
     /// @notice Initialize the Faucet.
     function initializeFaucet() public broadcast {
-        IProxyAdmin proxyAdmin = IProxyAdmin(artifacts.mustGetAddress("ProxyAdmin"));
+        ProxyAdmin proxyAdmin = ProxyAdmin(artifacts.mustGetAddress("ProxyAdmin"));
         address faucetProxy = artifacts.mustGetAddress("FaucetProxy");
         address faucet = artifacts.mustGetAddress("Faucet");
         address implementationAddress = proxyAdmin.getProxyImplementation(faucetProxy);
