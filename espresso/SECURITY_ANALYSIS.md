@@ -844,7 +844,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 
 **TEE Contracts:** All critical and high-severity vulnerabilities resolved, including cross-chain deployment replay attacks, missing journal validations, and signer deletion DoS attacks.
 
-**For more details**, see the [internal Security Audit Report](audits/internal_report_30_january_2026.md).
+**For more details**, see the [internal Security Audit Report](https://github.com/EspressoSystems/espresso-audits/blob/main/internal-reviews/Integration/internal_report_30_january_2026.pdf).
 
 
 ## 7. Trust Model and Assumptions

@@ -152,6 +152,8 @@ type BatchSubmitter struct {
 	// Group to limit number of concurrent batches waiting for approval
 	// from BatchAuthenticator contract, only relevant when running with Espresso enabled
 	teeAuthGroup errgroup.Group
+
+	teeVerifierAddress common.Address
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -217,6 +219,11 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
 			return fmt.Errorf("could not register with batch inbox contract: %w", err)
+		}
+
+		// Resolve the TEE verifier address from the BatchAuthenticator contract.
+		if err := l.resolveTEEVerifierAddress(); err != nil {
+			return fmt.Errorf("could not resolve TEE verifier address: %w", err)
 		}
 
 		l.espressoSubmitter = NewEspressoTransactionSubmitter(

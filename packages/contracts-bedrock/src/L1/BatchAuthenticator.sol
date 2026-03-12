@@ -106,25 +106,11 @@ contract BatchAuthenticator is
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
-        // https://github.com/ethereum/go-ethereum/issues/19751#issuecomment-504900739
-        bytes memory signature = _signature;
-        require(signature.length == 65, "Invalid signature length");
-        uint8 v = uint8(signature[64]);
-        if (v == 0 || v == 1) {
-            v += 27;
-            signature[64] = bytes1(v);
-        }
-        address signer = ECDSA.recover(commitment, signature);
-
-        require(signer != address(0), "BatchAuthenticator: invalid signature");
-
-        require(
-            espressoTEEVerifier.espressoNitroTEEVerifier().isSignerValid(signer, ServiceType.BatchPoster),
-            "BatchAuthenticator: invalid signer"
-        );
+        // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
+        espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
 
         validBatchInfo[commitment] = true;
-        emit BatchInfoAuthenticated(commitment, signer);
+        emit BatchInfoAuthenticated(commitment);
     }
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {

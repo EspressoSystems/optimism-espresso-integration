@@ -10,7 +10,10 @@ FROM golang:1.23.8-alpine3.20 AS builder
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
-  linux-headers git bash jq just
+  linux-headers git bash jq
+
+# Install mise for toolchain management
+RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
 
 # Install yq, dasel, and foundry
 RUN case "$TARGETARCH" in \
@@ -29,6 +32,9 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
+# Install versioned toolchain (just via mise for shell() function support)
+COPY ./mise.toml .
+RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
 
 # Copy and download Go dependencies
 COPY ./go.mod /app/go.mod
