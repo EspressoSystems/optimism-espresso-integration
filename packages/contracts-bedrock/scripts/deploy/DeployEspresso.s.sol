@@ -153,10 +153,10 @@ contract DeployEspresso is Script {
         // We create ProxyAdmin with msg.sender as the owner to ensure broadcasts come from
         // the expected address, then transfer ownership to proxyAdminOwner afterward.
         vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = _createProxyAdmin(msg.sender);
+        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         vm.broadcast(msg.sender);
-        Proxy proxy = _createProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
@@ -220,7 +220,7 @@ contract DeployEspresso is Script {
                 mockProxyAdminOwner = msg.sender;
             }
             vm.broadcast(msg.sender);
-            ProxyAdmin mockProxyAdmin = _createProxyAdmin(mockProxyAdminOwner);
+            ProxyAdmin mockProxyAdmin = new ProxyAdmin(mockProxyAdminOwner);
             vm.label(address(mockProxyAdmin), "MockTEEVerifierProxyAdmin");
 
             output.set(output.teeVerifierProxy.selector, address(mockImpl));
@@ -233,12 +233,12 @@ contract DeployEspresso is Script {
 
         // 1. Deploy the ProxyAdmin
         vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = _createProxyAdmin(msg.sender);
+        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
         vm.label(address(proxyAdmin), "TEEVerifierProxyAdmin");
 
         // 2. Deploy the Proxy
         vm.broadcast(msg.sender);
-        Proxy proxy = _createProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "TEEVerifierProxy");
 
         // 3. Set proxy type
@@ -273,28 +273,6 @@ contract DeployEspresso is Script {
         output.set(output.teeVerifierProxyAdmin.selector, address(proxyAdmin));
 
         return IEspressoTEEVerifier(address(proxy));
-    }
-
-    /// @notice Deploys a ProxyAdmin with the given owner via CREATE.
-    function _createProxyAdmin(address owner) internal returns (ProxyAdmin) {
-        bytes memory initCode = abi.encodePacked(type(ProxyAdmin).creationCode, abi.encode(owner));
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "DeployEspresso: ProxyAdmin deployment failed");
-        return ProxyAdmin(addr);
-    }
-
-    /// @notice Deploys a Proxy with the given admin via CREATE.
-    function _createProxy(address admin) internal returns (Proxy) {
-        bytes memory initCode = abi.encodePacked(type(Proxy).creationCode, abi.encode(admin));
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "DeployEspresso: Proxy deployment failed");
-        return Proxy(payable(addr));
     }
 
     function deployBatchInbox(
