@@ -7,8 +7,8 @@ import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { Script } from "forge-std/Script.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 contract DeployAWSNitroVerifierInput is BaseDeployIO {
@@ -85,8 +85,8 @@ contract DeployAWSNitroVerifierOutput is BaseDeployIO {
 
 contract DeployAWSNitroVerifier is Script {
     struct ProxyDeployment {
-        IProxyAdmin proxyAdmin;
-        IProxy proxy;
+        ProxyAdmin proxyAdmin;
+        Proxy proxy;
     }
 
     function run(DeployAWSNitroVerifierInput input, DeployAWSNitroVerifierOutput output) public {
@@ -94,19 +94,7 @@ contract DeployAWSNitroVerifier is Script {
         checkOutput(output);
     }
 
-    /// @notice Deploys a contract by name using vm.getCode and CREATE. Avoids importing DeployUtils
-    ///         (which transitively imports Blueprint/Bytes) to prevent compilation group merging with
-    ///         the OZ v5 chain (from EspressoNitroTEEVerifier), which would create duplicate versioned
-    ///         artifacts that break vm.getCode lookups.
-    function _create1(string memory _name, bytes memory _args) internal returns (address payable addr_) {
-        bytes memory bytecode = abi.encodePacked(vm.getCode(_name), _args);
-        assembly {
-            addr_ := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-        require(addr_ != address(0), "DeployAWSNitroVerifier: deployment failed");
-    }
-
-    /// @notice Deploys ProxyAdmin and Proxy contracts
+    /// @notice Deploys ProxyAdmin and Proxy contracts via CREATE using type().creationCode.
     /// @param labelPrefix Prefix for vm.label (e.g., "Mock" or "")
     /// @return deployment Struct containing the deployed ProxyAdmin and Proxy
     function deployProxyInfrastructure(string memory labelPrefix)
@@ -114,15 +102,35 @@ contract DeployAWSNitroVerifier is Script {
         returns (ProxyDeployment memory deployment)
     {
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin = IProxyAdmin(_create1("ProxyAdmin", abi.encode(msg.sender)));
+        deployment.proxyAdmin = _createProxyAdmin(msg.sender);
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
         vm.broadcast(msg.sender);
-        deployment.proxy = IProxy(payable(_create1("universal/Proxy.sol:Proxy", abi.encode(address(deployment.proxyAdmin)))));
+        deployment.proxy = _createProxy(address(deployment.proxyAdmin));
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin.setProxyType(address(deployment.proxy), IProxyAdmin.ProxyType.ERC1967);
+        deployment.proxyAdmin.setProxyType(address(deployment.proxy), ProxyAdmin.ProxyType.ERC1967);
+    }
+
+    function _createProxyAdmin(address owner) internal returns (ProxyAdmin) {
+        bytes memory initCode = abi.encodePacked(type(ProxyAdmin).creationCode, abi.encode(owner));
+        address addr;
+        assembly {
+            addr := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        require(addr != address(0), "DeployAWSNitroVerifier: ProxyAdmin deployment failed");
+        return ProxyAdmin(addr);
+    }
+
+    function _createProxy(address admin) internal returns (Proxy) {
+        bytes memory initCode = abi.encodePacked(type(Proxy).creationCode, abi.encode(admin));
+        address addr;
+        assembly {
+            addr := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        require(addr != address(0), "DeployAWSNitroVerifier: Proxy deployment failed");
+        return Proxy(payable(addr));
     }
 
     function deployNitroTEEVerifier(

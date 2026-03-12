@@ -9,8 +9,8 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
@@ -29,8 +29,8 @@ contract TestBatchAuthenticator is BatchAuthenticator {
 contract BatchInbox_Test is Test {
     BatchInbox public inbox;
     TestBatchAuthenticator public authenticator;
-    IProxy public proxy;
-    IProxyAdmin public proxyAdmin;
+    Proxy public proxy;
+    ProxyAdmin public proxyAdmin;
 
     MockEspressoTEEVerifier public teeVerifier;
 
@@ -39,28 +39,24 @@ contract BatchInbox_Test is Test {
     address public deployer = address(0xDEF0);
     address public unauthorized = address(0xDEAD);
 
-    function _newProxyAdmin(address owner) internal returns (IProxyAdmin) {
-        bytes memory code = vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin");
-        bytes memory args = abi.encode(owner);
-        bytes memory initCode = abi.encodePacked(code, args);
+    function _newProxyAdmin(address owner) internal returns (ProxyAdmin) {
+        bytes memory initCode = abi.encodePacked(type(ProxyAdmin).creationCode, abi.encode(owner));
         address addr;
         assembly {
             addr := create(0, add(initCode, 0x20), mload(initCode))
         }
         require(addr != address(0), "ProxyAdmin deployment failed");
-        return IProxyAdmin(addr);
+        return ProxyAdmin(addr);
     }
 
-    function _newProxy(address admin) internal returns (IProxy) {
-        bytes memory code = vm.getCode("universal/Proxy.sol:Proxy");
-        bytes memory args = abi.encode(admin);
-        bytes memory initCode = abi.encodePacked(code, args);
+    function _newProxy(address admin) internal returns (Proxy) {
+        bytes memory initCode = abi.encodePacked(type(Proxy).creationCode, abi.encode(admin));
         address addr;
         assembly {
             addr := create(0, add(initCode, 0x20), mload(initCode))
         }
         require(addr != address(0), "Proxy deployment failed");
-        return IProxy(payable(addr));
+        return Proxy(payable(addr));
     }
 
     function setUp() public virtual {
@@ -71,7 +67,7 @@ contract BatchInbox_Test is Test {
         proxyAdmin = _newProxyAdmin(deployer);
         proxy = _newProxy(address(proxyAdmin));
         vm.prank(deployer);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
             (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, deployer)
