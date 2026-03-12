@@ -67,10 +67,10 @@ func buildEifCommand() *cli.Command {
 		Name:  "build-eif",
 		Usage: "Build EIF image from a pre-built app Docker image",
 		Description: `Build an EIF (Enclave Image Format) image by wrapping a pre-built
-op-batcher-enclave-app Docker image with Enclaver. Prints the PCR0 measurement
-to stdout so it can be captured by CI pipelines.
+op-batcher-enclave-app Docker image with Enclaver. Prints PCR measurements
+to stdout in KEY=VALUE format (PCR0, PCR1, PCR2) for CI capture.
 
-Example (run from op-batcher-tee container in CI):
+Example:
   enclave-tools build-eif \
     --app-image ghcr.io/espressosystems/optimism-espresso-integration/op-batcher-enclave-app:TAG \
     --eif-tag op-batcher-eif:TAG`,
@@ -106,8 +106,8 @@ func buildEifAction(c *cli.Context) error {
 		"PCR0", measurements.PCR0,
 		"PCR1", measurements.PCR1,
 		"PCR2", measurements.PCR2)
-	// Print PCR0 to stdout for CI capture
-	fmt.Println(measurements.PCR0)
+	// Print measurements to stdout in KEY=VALUE format for CI capture
+	fmt.Printf("PCR0=%s\nPCR1=%s\nPCR2=%s\n", measurements.PCR0, measurements.PCR1, measurements.PCR2)
 	return nil
 }
 
