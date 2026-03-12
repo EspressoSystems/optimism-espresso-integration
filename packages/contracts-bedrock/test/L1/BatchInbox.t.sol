@@ -44,8 +44,8 @@ contract BatchInbox_Test is Test {
 
         // Deploy TestBatchAuthenticator via proxy.
         TestBatchAuthenticator impl = new TestBatchAuthenticator();
-        proxyAdmin = newProxyAdmin(deployer);
-        proxy = newProxy(address(proxyAdmin));
+        proxyAdmin = new ProxyAdmin(deployer);
+        proxy = new Proxy(address(proxyAdmin));
         vm.prank(deployer);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         bytes memory initData = abi.encodeCall(
