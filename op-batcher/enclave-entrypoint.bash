@@ -17,6 +17,32 @@ if [ -n "$ENCLAVE_BATCHER_ARGS" ]; then
   eval set -- "$ENCLAVE_BATCHER_ARGS"
 fi
 
+# Store the original arguments from ENCLAVE_BATCHER_ARGS
+original_args=("$@")
+
+# ---------------------------------------------------------------------------
+# Start nc listener in background IMMEDIATELY — before Odyn setup.
+#
+# The host-side ingress proxy (TCP:8337) becomes ready ~250ms after the
+# enclave VM boots, which can be BEFORE the entrypoint finishes Odyn setup.
+# Starting nc here (in background) eliminates the race: the listener is
+# already open when run-eif.sh connects and sends batcher arguments.
+# ---------------------------------------------------------------------------
+NC_PORT=8337
+received_args=()
+NC_TMPFILE=$(mktemp)
+echo "nc listener starting on port $NC_PORT (background, 60 second timeout)"
+nc -l -p "$NC_PORT" -w 60 > "$NC_TMPFILE" &
+NC_BG_PID=$!
+# Ensure nc process and tempfile are cleaned up on any exit path.
+# kill/rm are no-ops if the process/file is already gone.
+trap 'kill "$NC_BG_PID" 2>/dev/null; rm -f "$NC_TMPFILE"' EXIT
+if ! kill -0 "$NC_BG_PID" 2>/dev/null; then
+    echo "[ERROR] nc listener failed to start on port $NC_PORT" >&2
+    exit 1
+fi
+echo "nc listener running (PID $NC_BG_PID)"
+
 # Verify Odyn proxy is available
 if [ -z "$http_proxy" ]; then
     echo "[ERROR] http_proxy not set" >&2
@@ -49,33 +75,6 @@ echo "  HTTPS_PROXY=$HTTPS_PROXY"
 echo "  NO_PROXY=$NO_PROXY"
 echo "[DEBUG] External URLs will use proxy with correct SNI/Host headers"
 echo ""
-
-# Store the original arguments from ENCLAVE_BATCHER_ARGS
-original_args=("$@")
-
-# Launch nc listener to receive null-separated arguments
-NC_PORT=8337
-received_args=()
-
-echo "Starting nc listener on port $NC_PORT (60 second timeout)"
-{
-    # Read null-separated arguments until we get \0\0
-    while IFS= read -r -d '' arg; do
-        if [[ -z "$arg" ]]; then
-            # Empty argument signals end (\0\0)
-            break
-        fi
-        received_args+=("$arg")
-    done
-} < <(nc -l -p "$NC_PORT" -w 60)
-
-if [ ${#received_args[@]} -eq 0 ]; then
-    echo "Warning: No arguments received via nc listener within 60 seconds, using original arguments"
-    set -- "${original_args[@]}"
-else
-    echo "Received ${#received_args[@]} arguments via nc, merging with original arguments"
-    set -- "${original_args[@]}" "${received_args[@]}"
-fi
 
 # Helper function to check if URL needs socat proxying
 # URLs pointing to localhost, 127.0.0.1, or "host" need socat because:
@@ -151,6 +150,30 @@ launch_socat() {
     return 0
 }
 
+# Wait for background nc to finish — by this point it has either already
+# received all args (connection came in during Odyn setup) or we block up to
+# the 60 second nc timeout.
+echo "Waiting for batcher arguments (nc PID $NC_BG_PID)..."
+wait "$NC_BG_PID" 2>/dev/null || true
+
+if [ -s "$NC_TMPFILE" ]; then
+    while IFS= read -r -d '' arg; do
+        if [[ -z "$arg" ]]; then
+            break
+        fi
+        received_args+=("$arg")
+    done < "$NC_TMPFILE"
+fi
+rm -f "$NC_TMPFILE"
+
+if [ ${#received_args[@]} -eq 0 ]; then
+    echo "Warning: No arguments received via nc listener within 60 seconds, using original arguments"
+    set -- "${original_args[@]}"
+else
+    echo "Received ${#received_args[@]} arguments via nc, merging with original arguments"
+    set -- "${original_args[@]}" "${received_args[@]}"
+fi
+
 # URL argument regex pattern
 URL_ARG_RE='^(--altda\.da-server|--espresso\.espresso-attestation-service|--espresso\.urls|--espresso\.l1-url|--espresso\.rollup-l1-url|--l1-eth-rpc|--l2-eth-rpc|--rollup-rpc|--signer\.endpoint)(=|$)'
 # Process all arguments
@@ -184,7 +207,7 @@ while [ $# -gt 0 ]; do
                     fi
                     echo "[DEBUG] Proxying internal URL via socat: $part -> $new_url" >&2
                     rewritten_parts+=("$new_url")
-                    ((SOCAT_PORT++))
+                    SOCAT_PORT=$((SOCAT_PORT + 1))
                 else
                     echo "[DEBUG] Keeping external URL unchanged (will use HTTPS_PROXY): $part" >&2
                     rewritten_parts+=("$part")
@@ -201,7 +224,7 @@ while [ $# -gt 0 ]; do
                 fi
                 echo "[DEBUG] Proxying internal URL via socat: $value -> $new_url" >&2
                 url_args+=("$flag" "$new_url")
-                ((SOCAT_PORT++))
+                SOCAT_PORT=$((SOCAT_PORT + 1))
             else
                 echo "[DEBUG] Keeping external URL unchanged (will use HTTPS_PROXY): $value" >&2
                 url_args+=("$flag" "$value")
