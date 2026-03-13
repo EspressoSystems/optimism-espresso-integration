@@ -129,11 +129,9 @@ WORKDIR /source
 # Include the deployment state for contract addresses
 COPY espresso/deployment/ /source/espresso/deployment/
 # run-enclave.sh — build from source + register PCR0 + run (local/dev)
-# run-eif.sh     — run a pre-built EIF image directly (production/infra repo)
+# run-eif.sh lives in the infra repo (not shipped in this image)
 COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
-COPY espresso/docker/op-batcher-tee/run-eif.sh ./espresso/docker/op-batcher-tee/run-eif.sh
-RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh \
-  ./espresso/docker/op-batcher-tee/run-eif.sh
+RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
 ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/

@@ -1,4 +1,11 @@
 #!/bin/sh
+# REFERENCE TEMPLATE — canonical copy lives in the infra repo
+#
+# Copy this file to the root of the infra repo alongside build-eif.yml.
+# Once copied, edit it there — changes here require a new op-batcher-tee CI
+# image, which is unnecessary since run-eif.sh is an outer-layer script that
+# does NOT affect PCR0.
+#
 # Run the pre-built EIF for the op-batcher.
 #
 # This script is the ENTRYPOINT of the op-batcher-eif image produced by the
@@ -106,7 +113,7 @@ send_batcher_args() {
 
 # List IDs of all running Nitro enclaves (one per line).
 enclave_list_ids() {
-    /bin/nitro-cli describe-enclaves 2>/dev/null | awk -F'"' '/"EnclaveID"/{print $4}'
+    /bin/nitro-cli describe-enclaves 2>&1 | awk -F'"' '/"EnclaveID"/{print $4}'
 }
 
 # Terminate all running enclaves by their specific ID.
@@ -137,6 +144,7 @@ trap 'enclave_shutdown' TERM INT
 # ---------------------------------------------------------------------------
 
 # Terminate any stale enclaves left by a previous task.
+echo "describe-enclaves output: $(/bin/nitro-cli describe-enclaves 2>&1)"
 enclave_terminate_all
 
 # Assert no enclaves are running — guarantees the ID we capture later is ours.
