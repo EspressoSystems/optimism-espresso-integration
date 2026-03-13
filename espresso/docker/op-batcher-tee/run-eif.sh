@@ -100,15 +100,58 @@ send_batcher_args() {
     printf '\0'  # double-NUL terminator
 }
 
+# ---------------------------------------------------------------------------
+# Enclave lifecycle helpers
+# ---------------------------------------------------------------------------
+
+# List IDs of all running Nitro enclaves (one per line).
+enclave_list_ids() {
+    /bin/nitro-cli describe-enclaves 2>/dev/null | awk -F'"' '/"EnclaveID"/{print $4}'
+}
+
+# Terminate all running enclaves by their specific ID.
+enclave_terminate_all() {
+    for id in $(enclave_list_ids); do
+        echo "Terminating enclave: $id"
+        /bin/nitro-cli terminate-enclave --enclave-id "$id" 2>/dev/null || true
+    done
+}
+
+# Terminate our specific enclave by ID (set after startup).
+ENCLAVE_ID=""
+enclave_shutdown() {
+    echo "Received shutdown signal"
+    if [ -n "$ENCLAVE_ID" ]; then
+        echo "Terminating enclave: $ENCLAVE_ID"
+        /bin/nitro-cli terminate-enclave --enclave-id "$ENCLAVE_ID" 2>/dev/null || true
+    fi
+    kill "$ENCLAVER_PID" 2>/dev/null
+    wait "$ENCLAVER_PID" 2>/dev/null
+    exit 0
+}
+
+trap 'enclave_shutdown' TERM INT
+
+# ---------------------------------------------------------------------------
+# Startup: ensure a clean slate before launching our enclave
+# ---------------------------------------------------------------------------
+
+# Terminate any stale enclaves left by a previous task.
+enclave_terminate_all
+
+# Assert no enclaves are running — guarantees the ID we capture later is ours.
+LEFTOVER=$(enclave_list_ids)
+if [ -n "$LEFTOVER" ]; then
+    echo "ERROR: enclave still running after cleanup: $LEFTOVER"
+    exit 1
+fi
+
 # Start enclaver-run — reads /enclave/enclaver.yaml, starts the Nitro enclave
 # from /enclave/application.eif, and proxies TCP:8337 → vsock:8337.
 echo "Starting enclaver-run..."
 /usr/local/bin/enclaver-run &
 ENCLAVER_PID=$!
 echo "enclaver-run started with PID: $ENCLAVER_PID"
-
-# Forward SIGTERM/SIGINT to enclaver-run so the enclave shuts down gracefully.
-trap 'kill "$ENCLAVER_PID" 2>/dev/null; wait "$ENCLAVER_PID" 2>/dev/null; exit' TERM INT
 
 # Wait for the ingress port (enclaver-run's vsock bridge) to be ready.
 echo "Waiting for enclave ingress port 8337..."
@@ -130,6 +173,15 @@ if ! nc -z 127.0.0.1 8337 2>/dev/null; then
     echo "ERROR: Enclave ingress port 8337 did not open within 120 seconds"
     exit 1
 fi
+
+# Capture the ID of the enclave we just started.
+# The pre-start assertion above guarantees this is exactly our enclave.
+ENCLAVE_ID=$(enclave_list_ids)
+if [ -z "$ENCLAVE_ID" ]; then
+    echo "ERROR: enclave not found after startup"
+    exit 1
+fi
+echo "Enclave started with ID: $ENCLAVE_ID"
 
 # Deliver batcher arguments to the enclave's nc listener (args not logged here).
 echo "Sending batcher arguments to enclave..."
