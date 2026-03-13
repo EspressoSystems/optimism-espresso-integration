@@ -1096,6 +1096,8 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 		}
 		return
 	}
+	// OpenZeppelin ECDSA.recover requires v = 27 or 28, but crypto.Sign produces v = 0 or 1.
+	signature[64] += 27
 	l.Log.Debug("Signed transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
 
 	batchAuthenticatorAbi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
