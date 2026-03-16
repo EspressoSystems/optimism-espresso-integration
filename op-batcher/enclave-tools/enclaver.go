@@ -50,7 +50,7 @@ type EnclaverManifest struct {
 	Ingress  []EnclaverManifestIngress `yaml:"ingress"`
 }
 
-func DefaultManifest(name string, target string, source string) EnclaverManifest {
+func DefaultManifest(name string, target string, source string, cpuCount uint, memoryMb uint) EnclaverManifest {
 	return EnclaverManifest{
 		Version: "v1",
 		Name:    name,
@@ -59,8 +59,8 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 			App: source,
 		},
 		Defaults: &EnclaverManifestDefaults{
-			CpuCount: 2,
-			MemoryMb: 4096,
+			CpuCount: cpuCount,
+			MemoryMb: memoryMb,
 		},
 		Egress: &EnclaverManifestEgress{
 			ProxyPort: 10000,

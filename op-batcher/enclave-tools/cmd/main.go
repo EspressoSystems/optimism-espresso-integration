@@ -57,6 +57,16 @@ with the op-batcher and specified arguments.`,
 				Name:  "args",
 				Usage: "Command-line arguments to op-batcher (comma-separated)",
 			},
+			&cli.UintFlag{
+				Name:  "cpu-count",
+				Usage: "Number of vCPUs to allocate to the enclave (affects PCR0)",
+				Value: 2,
+			},
+			&cli.UintFlag{
+				Name:  "memory-mb",
+				Usage: "Memory in MiB to allocate to the enclave (affects PCR0)",
+				Value: 4096,
+			},
 		},
 		Action: buildAction,
 	}
@@ -85,6 +95,16 @@ Example:
 				Usage: "Docker tag for the resulting EIF image",
 				Value: "op-batcher-eif:latest",
 			},
+			&cli.UintFlag{
+				Name:  "cpu-count",
+				Usage: "Number of vCPUs to allocate to the enclave (affects PCR0)",
+				Value: 2,
+			},
+			&cli.UintFlag{
+				Name:  "memory-mb",
+				Usage: "Memory in MiB to allocate to the enclave (affects PCR0)",
+				Value: 4096,
+			},
 		},
 		Action: buildEifAction,
 	}
@@ -93,11 +113,13 @@ Example:
 func buildEifAction(c *cli.Context) error {
 	appImage := c.String("app-image")
 	eifTag := c.String("eif-tag")
+	cpuCount := c.Uint("cpu-count")
+	memoryMb := c.Uint("memory-mb")
 
 	ctx := context.Background()
-	slog.Info("Building EIF from pre-built app image...", "app-image", appImage, "eif-tag", eifTag)
+	slog.Info("Building EIF from pre-built app image...", "app-image", appImage, "eif-tag", eifTag, "cpu-count", cpuCount, "memory-mb", memoryMb)
 
-	measurements, err := enclave_tools.BuildEifFromImage(ctx, appImage, eifTag)
+	measurements, err := enclave_tools.BuildEifFromImage(ctx, appImage, eifTag, cpuCount, memoryMb)
 	if err != nil {
 		return fmt.Errorf("failed to build EIF: %w", err)
 	}
@@ -195,6 +217,8 @@ func buildAction(c *cli.Context) error {
 	opRoot := c.String("op-root")
 	tag := c.String("tag")
 	args := c.String("args")
+	cpuCount := c.Uint("cpu-count")
+	memoryMb := c.Uint("memory-mb")
 
 	// Parse batcher arguments
 	batcherArgs, err := ParseBatcherArgs(args)
@@ -204,7 +228,7 @@ func buildAction(c *cli.Context) error {
 
 	ctx := context.Background()
 	slog.Info("Building enclave image...")
-	measurements, err := enclave_tools.BuildBatcherImage(ctx, opRoot, tag, batcherArgs...)
+	measurements, err := enclave_tools.BuildBatcherImage(ctx, opRoot, tag, cpuCount, memoryMb, batcherArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to build enclave image: %w", err)
 	}

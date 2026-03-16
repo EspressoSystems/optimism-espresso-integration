@@ -27,7 +27,7 @@ type EnclaveMeasurements struct {
 // Builds docker and enclaver EIF image for op-batcher and registers EIF's PCR0 with
 // EspressoNitroTEEVerifier. args... are command-line arguments to op-batcher
 // to be baked into the image.
-func BuildBatcherImage(ctx context.Context, opRoot string, tag string, args ...string) (EnclaveMeasurements, error) {
+func BuildBatcherImage(ctx context.Context, opRoot string, tag string, cpuCount uint, memoryMb uint, args ...string) (EnclaveMeasurements, error) {
 	intermediateTag := tag + "intermediate"
 
 	cmd := exec.CommandContext(ctx, "docker",
@@ -46,14 +46,14 @@ func BuildBatcherImage(ctx context.Context, opRoot string, tag string, args ...s
 
 	// Build EIF image based on the docker image we just built
 	enclaverCli := new(EnclaverCli)
-	manifest := DefaultManifest("op-batcher", tag, intermediateTag)
+	manifest := DefaultManifest("op-batcher", tag, intermediateTag, cpuCount, memoryMb)
 	measurements, err := enclaverCli.BuildEnclave(ctx, manifest)
 	return measurements, err
 }
 
 // BuildEifFromImage builds an EIF image by wrapping a pre-built app Docker image with Enclaver.
-func BuildEifFromImage(ctx context.Context, appImage string, eifTag string) (EnclaveMeasurements, error) {
-	manifest := DefaultManifest("op-batcher", eifTag, appImage)
+func BuildEifFromImage(ctx context.Context, appImage string, eifTag string, cpuCount uint, memoryMb uint) (EnclaveMeasurements, error) {
+	manifest := DefaultManifest("op-batcher", eifTag, appImage, cpuCount, memoryMb)
 	return new(EnclaverCli).BuildEnclave(ctx, manifest)
 }
 

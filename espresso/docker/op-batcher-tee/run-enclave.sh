@@ -127,7 +127,7 @@ fi
 echo "Building enclave image with tag: $TAG"
 cd /source
 
-if ! enclave-tools build --op-root /source --tag "$TAG" 2>&1 | tee /tmp/build_output.log; then
+if ! enclave-tools build --op-root /source --tag "$TAG" --cpu-count "$CPU_COUNT" --memory-mb "$MEMORY_MB" 2>&1 | tee /tmp/build_output.log; then
     echo "ERROR: Failed to build enclave image"
     echo "Build output was:"
     cat /tmp/build_output.log
