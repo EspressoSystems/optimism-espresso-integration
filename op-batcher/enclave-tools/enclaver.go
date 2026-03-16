@@ -67,7 +67,8 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 			Allow:     []string{"0.0.0.0/0", "**", "::/0"},
 		},
 		Ingress: []EnclaverManifestIngress{
-			{ListenPort: 8337},
+			{ListenPort: 8337}, // batcher arg delivery
+			{ListenPort: 8338}, // readiness handshake
 		},
 	}
 }

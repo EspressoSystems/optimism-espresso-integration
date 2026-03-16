@@ -23,10 +23,6 @@ original_args=("$@")
 # ---------------------------------------------------------------------------
 # Start nc listener in background IMMEDIATELY — before Odyn setup.
 #
-# The host-side ingress proxy (TCP:8337) becomes ready ~250ms after the
-# enclave VM boots, which can be BEFORE the entrypoint finishes Odyn setup.
-# Starting nc here (in background) eliminates the race: the listener is
-# already open when run-eif.sh connects and sends batcher arguments.
 # ---------------------------------------------------------------------------
 NC_PORT=8337
 received_args=()
@@ -75,6 +71,13 @@ echo "  HTTPS_PROXY=$HTTPS_PROXY"
 echo "  NO_PROXY=$NO_PROXY"
 echo "[DEBUG] External URLs will use proxy with correct SNI/Host headers"
 echo ""
+
+# Readiness handshake — send "READY" on port 8338 (background).
+#
+# Sending READY here (after the Odyn check) proves two things to the caller:
+# That nc:8337 is already listening and Odyn egress proxy is verified and functional
+echo "Signaling readiness on port 8338 (background)..."
+echo "READY" | nc -l -p 8338 -w 30 &
 
 # Helper function to check if URL needs socat proxying
 # URLs pointing to localhost, 127.0.0.1, or "host" need socat because:
