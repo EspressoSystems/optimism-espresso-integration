@@ -116,6 +116,17 @@ Runs with a `workflow_dispatch` trigger, takes a source tag as input.
 > production, independently of the application CI. We use this approach to permit
 > both local testing with the enclaver tools and use in production.
 
+---
+
+## Enclave Resources
+
+`enclaver.yaml` is embedded inside the EIF, so CPU and memory are sealed into PCR0 at build
+time.  Defaults: **2 vCPUs**, **4096 MiB** (overridable via `--cpu-count` / `--memory-mb`
+passed to `enclave-tools build-eif`).  Changing either value requires rebuilding the EIF and
+re-registering the new PCR0 on-chain.
+
+---
+
 ## Runtime: What Happens When ECS Starts the Container
 
 ```
@@ -247,7 +258,7 @@ enclaver-run's SIGTERM handler also tries to terminate the same enclave and gets
 The correct pattern is: signal enclaver-run, wait for it — enclaver-run owns the
 enclave lifecycle.
 
-## Why EIF over Docker-in-Docker
+## Pre-built EIF vs. Docker-in-Docker
 
 An earlier iteration of this system (`run-enclave.sh`) drove the batcher via
 `enclave-tools run` — a wrapper around `docker run --privileged
@@ -364,6 +375,7 @@ The diagram below shows what is inside the hardware trust boundary and what is n
 │  │  enclave-entrypoint.bash                                      │  │
 │  │  op-batcher binary                                            │  │
 │  │  OP_BATCHER_PRIVATE_KEY  (in enclave memory only after entry) │  │
+│  │  cpu_count=2, memory_mb=4096  ← sealed in EIF at build time   │  │
 │  │                                                               │  │
 │  │  PCR0 = SHA-384(entire EIF)  ← fixed at build time            │  │
 │  │  Attestation doc signed by AWS Nitro hardware                 │  │
