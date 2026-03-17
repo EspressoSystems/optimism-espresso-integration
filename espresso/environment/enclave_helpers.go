@@ -212,6 +212,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}
 						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService)
+						appendArg(&args, espresso.BatchAuthenticatorAddrFlagName, c.Espresso.BatchAuthenticatorAddr)
 
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {

@@ -577,7 +577,7 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	}
 
 	unbufferedStreamer, err := espresso.BatchStreamerFromCLIConfig(cfg.Espresso, bs.Log, func(data []byte) (*derive.EspressoBatch, error) {
-		return derive.UnmarshalEspressoTransaction(data, bs.TxManager.From())
+		return derive.UnmarshalEspressoTransaction(data)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create unbuffered Espresso streamer: %w", err)

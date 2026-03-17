@@ -31,6 +31,7 @@ type Batch interface {
 	L1Origin() eth.BlockID
 	Header() *types.Header
 	Hash() common.Hash
+	Signer() common.Address
 }
 
 type BatchBuffer[B Batch] struct {

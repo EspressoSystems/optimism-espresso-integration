@@ -66,7 +66,7 @@ remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 
 forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
-bindings_dir:="op-batcher/bindings"
+bindings_dir:="espresso/bindings"
 gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
 gen-bindings:
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
