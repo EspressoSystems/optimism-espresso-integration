@@ -7,12 +7,13 @@ import { Vm } from "forge-std/Vm.sol";
 
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
 import { EspressoTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoTEEVerifier.sol";
 import { EspressoNitroTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoNitroTEEVerifierMock.sol";
@@ -40,7 +41,27 @@ contract BatchAuthenticator_Test is Test {
     EspressoNitroTEEVerifierMock public nitroVerifier;
     EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
-    IProxyAdmin public proxyAdmin;
+    ProxyAdmin public proxyAdmin;
+
+    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
+
+    bytes32 private constant _EIP712_DOMAIN_TYPE_HASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    /// @notice Compute the EIP-712 digest that the TEE verifier mock expects.
+    function _computeEIP712Digest(bytes32 commitment) internal view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(_ESPRESSO_TEE_VERIFIER_TYPE_HASH, commitment));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                _EIP712_DOMAIN_TYPE_HASH,
+                keccak256("EspressoTEEVerifier"),
+                keccak256("1"),
+                block.chainid,
+                address(teeVerifier)
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
 
     function setUp() public {
         // Deploy the mock TEE verifier with a mock Nitro verifier.
@@ -54,31 +75,7 @@ contract BatchAuthenticator_Test is Test {
 
         // Deploy the proxy admin.
         vm.prank(proxyAdminOwner);
-        proxyAdmin = _newProxyAdmin(proxyAdminOwner);
-    }
-
-    function _newProxyAdmin(address owner) internal returns (IProxyAdmin) {
-        bytes memory code = vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin");
-        bytes memory args = abi.encode(owner);
-        bytes memory initCode = abi.encodePacked(code, args);
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "ProxyAdmin deployment failed");
-        return IProxyAdmin(addr);
-    }
-
-    function _newProxy(address admin) internal returns (IProxy) {
-        bytes memory code = vm.getCode("universal/Proxy.sol:Proxy");
-        bytes memory args = abi.encode(admin);
-        bytes memory initCode = abi.encodePacked(code, args);
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "Proxy deployment failed");
-        return IProxy(payable(addr));
+        proxyAdmin = new ProxyAdmin(proxyAdminOwner);
     }
 
     function _nitroRegistrationOutputForPrivateKey(uint256 privateKey) internal returns (bytes memory) {
@@ -106,9 +103,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Create and initialize a proxy.
     function _deployAndInitializeProxy() internal returns (BatchAuthenticator) {
-        IProxy proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -122,9 +119,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that the initialization can only be called once.
     function test_constructor_revertsWhenAlreadyInitialized() external {
-        IProxy proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -143,9 +140,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when teeBatcher is zero.
     function test_constructor_revertsWhenTeeBatcherIsZero() external {
-        IProxy proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -159,9 +156,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when nonTeeBatcher is zero.
     function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
-        IProxy proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -175,9 +172,9 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when verifier is zero.
     function test_constructor_revertsWhenVerifierIsZero() external {
-        IProxy proxy = _newProxy(address(proxyAdmin));
+        Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -387,7 +384,7 @@ contract BatchAuthenticator_Test is Test {
     function test_upgrade_preservesState() external {
         // Create and initialize a proxy.
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
-        IProxy proxy = IProxy(payable(address(authenticator)));
+        Proxy proxy = Proxy(payable(address(authenticator)));
 
         // Set up initial state.
         bytes32 commitment = keccak256("test commitment");
@@ -438,32 +435,28 @@ contract BatchAuthenticator_Fork_Test is Test {
     EspressoNitroTEEVerifierMock public nitroVerifier;
     EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
-    IProxy public proxy;
-    IProxyAdmin public proxyAdmin;
+    Proxy public proxy;
+    ProxyAdmin public proxyAdmin;
     BatchAuthenticator public authenticator;
 
-    function _newProxyAdmin(address owner) internal returns (IProxyAdmin) {
-        bytes memory code = vm.getCode("universal/ProxyAdmin.sol:ProxyAdmin");
-        bytes memory args = abi.encode(owner);
-        bytes memory initCode = abi.encodePacked(code, args);
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "ProxyAdmin deployment failed");
-        return IProxyAdmin(addr);
-    }
+    bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
 
-    function _newProxy(address admin) internal returns (IProxy) {
-        bytes memory code = vm.getCode("universal/Proxy.sol:Proxy");
-        bytes memory args = abi.encode(admin);
-        bytes memory initCode = abi.encodePacked(code, args);
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "Proxy deployment failed");
-        return IProxy(payable(addr));
+    bytes32 private constant _EIP712_DOMAIN_TYPE_HASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    /// @notice Compute the EIP-712 digest that the TEE verifier mock expects.
+    function _computeEIP712Digest(bytes32 commitment) internal view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(_ESPRESSO_TEE_VERIFIER_TYPE_HASH, commitment));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                _EIP712_DOMAIN_TYPE_HASH,
+                keccak256("EspressoTEEVerifier"),
+                keccak256("1"),
+                block.chainid,
+                address(teeVerifier)
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 
     function setUp() public {
@@ -485,10 +478,10 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         // Deploy proxy admin and proxy.
         vm.prank(proxyAdminOwner);
-        proxyAdmin = _newProxyAdmin(proxyAdminOwner);
-        proxy = _newProxy(address(proxyAdmin));
+        proxyAdmin = new ProxyAdmin(proxyAdminOwner);
+        proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
 
         // Initialize the proxy.
         bytes memory initData = abi.encodeCall(

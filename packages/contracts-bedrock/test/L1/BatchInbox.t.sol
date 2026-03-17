@@ -8,9 +8,9 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 // Contracts
 import { BatchInbox } from "src/L1/BatchInbox.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
-import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { Proxy } from "src/universal/Proxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
@@ -39,33 +39,13 @@ contract BatchInbox_Test is Test {
     address public deployer = address(0xDEF0);
     address public unauthorized = address(0xDEAD);
 
-    function _newProxyAdmin(address owner) internal returns (ProxyAdmin) {
-        bytes memory initCode = abi.encodePacked(type(ProxyAdmin).creationCode, abi.encode(owner));
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "ProxyAdmin deployment failed");
-        return ProxyAdmin(addr);
-    }
-
-    function _newProxy(address admin) internal returns (Proxy) {
-        bytes memory initCode = abi.encodePacked(type(Proxy).creationCode, abi.encode(admin));
-        address addr;
-        assembly {
-            addr := create(0, add(initCode, 0x20), mload(initCode))
-        }
-        require(addr != address(0), "Proxy deployment failed");
-        return Proxy(payable(addr));
-    }
-
     function setUp() public virtual {
         teeVerifier = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(0)));
 
         // Deploy TestBatchAuthenticator via proxy.
         TestBatchAuthenticator impl = new TestBatchAuthenticator();
-        proxyAdmin = _newProxyAdmin(deployer);
-        proxy = _newProxy(address(proxyAdmin));
+        proxyAdmin = new ProxyAdmin(deployer);
+        proxy = new Proxy(address(proxyAdmin));
         vm.prank(deployer);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         bytes memory initData = abi.encodeCall(

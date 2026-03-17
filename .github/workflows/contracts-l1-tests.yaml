@@ -25,7 +25,7 @@ jobs:
           # The nightly (654c8f01) added strict vm.getCode artifact matching that errors
           # when two contracts share the same name (e.g. src/universal/Proxy.sol and
           # OZ v5's proxy/Proxy.sol). Fixing every upstream call-site would touch many
-          # Celo/OP-stack files; defer to the next rebase sync. See: keyao/fix-contract-16.1.
+          # Celo/OP-stack files.
           version: "1.2.3"
 
       - name: Install Just

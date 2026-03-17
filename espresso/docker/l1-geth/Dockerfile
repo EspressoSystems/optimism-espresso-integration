@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Build eth2-val-tools
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    go install -ldflags '-linkmode external -extldflags "-static"' \
+    CGO_ENABLED=0 go install \
     github.com/protolambda/eth2-val-tools@latest
 
 # Main runtime image
@@ -25,8 +25,9 @@ FROM debian:12.7-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install runtime dependencies
+# Install runtime dependencies (coreutils provides sha256sum)
 RUN apt-get update && apt-get install -y \
+    coreutils \
     curl \
     jq \
     ca-certificates \
