@@ -25,8 +25,9 @@ FROM debian:12.7-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install runtime dependencies
+# Install runtime dependencies (coreutils provides sha256sum)
 RUN apt-get update && apt-get install -y \
+    coreutils \
     curl \
     jq \
     ca-certificates \

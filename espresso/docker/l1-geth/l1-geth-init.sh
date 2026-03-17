@@ -9,12 +9,9 @@ L1_CHAIN_ID=${L1_CHAIN_ID:-11155111}
 # Mode can be "genesis" or "geth" (default).
 MODE=${MODE:-geth}
 
+# sha256sum is required (provided by coreutils in the image).
 hash_file() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | awk '{print $1}'
-  else
-    shasum -a 256 "$1" | awk '{print $1}'
-  fi
+  sha256sum "$1" | awk '{print $1}'
 }
 
 if [[ "$MODE" == "genesis" ]]; then
