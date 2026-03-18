@@ -22,6 +22,10 @@ type E2eDevnetLauncherContext struct {
 	// The launching Context
 	Ctx context.Context
 
+	// The testing.T for the current test, used to fail with a clear error message on
+	// launch failures (e.g. Docker container failing to start).
+	T *testing.T
+
 	// Any Current Error
 	Error error
 
