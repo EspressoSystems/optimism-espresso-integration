@@ -124,10 +124,11 @@
             src = srcs.${system};
             nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook ];
             buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.stdenv.cc.cc.lib ];
-            phases = [ "unpackPhase" "installPhase" ];
+            dontUnpack = true;
             installPhase = ''
               mkdir -p $out/bin
-              install -m755 forge cast anvil chisel $out/bin/
+              tar -xzf $src -C $out/bin forge cast anvil chisel
+              chmod +x $out/bin/forge $out/bin/cast $out/bin/anvil $out/bin/chisel
             '';
           };
 

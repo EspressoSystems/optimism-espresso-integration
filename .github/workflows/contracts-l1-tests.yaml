@@ -44,12 +44,9 @@ jobs:
         working-directory: packages/contracts-bedrock
         run: just build-go-ffi
 
-      - name: Build src and scripts (lite, skip tests)
+      - name: Check formatting
         working-directory: packages/contracts-bedrock
-        env:
-          FOUNDRY_PROFILE: lite
-        run: forge build --skip "/**/test/**" -j 1
-        timeout-minutes: 25
+        run: forge fmt --check
 
       - name: Run L1 contracts tests
         timeout-minutes: 20
