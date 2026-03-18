@@ -812,8 +812,16 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 	return e2esys.StartOption{
 		Role: "launch-espresso-dev-node",
 		BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
+			// On error, disable Espresso in the batcher so sysConfig.Start() does not fail with a
+			// misleading "query service URLs are required" error. The test will still fail; this
+			// is only so the failure message is the actual cause, to help with debugging.
+			defer func() {
+				if ct.Error != nil {
+					c.Espresso.Enabled = false
+				}
+			}()
+
 			if ct.Error != nil {
-				// Early Return if we already have an Error set
 				return
 			}
 

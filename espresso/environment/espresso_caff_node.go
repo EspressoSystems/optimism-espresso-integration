@@ -115,6 +115,7 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 	// Make a copy
 
 	caffNodeConfig := *system.Cfg.Nodes[e2esys.RoleVerif]
+	caffNodeConfig.L1ChainConfig = system.L1GenesisCfg.Config
 	caffNodeConfig.Rollup = *system.RollupConfig
 	caffNodeConfig.Rollup.CaffNodeConfig = espresso.CLIConfig{
 		Enabled:      true,
