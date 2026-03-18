@@ -2,10 +2,14 @@
 pragma solidity ^0.8.0;
 
 import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 
 interface IBatchAuthenticator {
     /// @notice Error thrown when an invalid address (zero address) is provided.
     error InvalidAddress(address contract_);
+
+    /// @notice Error thrown when the contract is paused.
+    error BatchAuthenticator_Paused();
 
     /// @notice Emitted when a batch info is authenticated.
     event BatchInfoAuthenticated(bytes32 indexed commitment);
@@ -42,7 +46,9 @@ interface IBatchAuthenticator {
 
     function activeIsTee() external view returns (bool);
 
-    function systemConfig() external view returns (address);
+    function systemConfig() external view returns (ISystemConfig);
+
+    function paused() external view returns (bool);
 
     function switchBatcher() external;
 
