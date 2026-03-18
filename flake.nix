@@ -91,6 +91,46 @@
           doCheck = false;
         };
 
+        # Pinned to stable 1.2.3 rather than the nightly used elsewhere.
+        # The nightly (654c8f01) added strict vm.getCode artifact matching that errors
+        # when two contracts share the same name (e.g. src/universal/Proxy.sol and
+        # OZ v5's proxy/Proxy.sol). Fixing every upstream call-site would touch many
+        # Celo/OP-stack files.
+        foundry-bin-1_2_3 =
+          let
+            version = "1.2.3";
+            srcs = {
+              "x86_64-linux" = pkgs.fetchurl {
+                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_linux_amd64.tar.gz";
+                sha256 = "sha256-ggLzjxY1wnk7LRpP5EOub3MVGQ3G7tIZ15aaQKt4ooY=";
+              };
+              "aarch64-linux" = pkgs.fetchurl {
+                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_linux_arm64.tar.gz";
+                sha256 = "sha256-cGEv0dqd86izVIQhTk8rN7odbEEVCElJBkLXoFPDHqo=";
+              };
+              "x86_64-darwin" = pkgs.fetchurl {
+                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_darwin_amd64.tar.gz";
+                sha256 = "sha256-4+K0JcfhuMhT7UVCdrIP9QD6gtZcyVrK0iW0twY63Uo=";
+              };
+              "aarch64-darwin" = pkgs.fetchurl {
+                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_darwin_arm64.tar.gz";
+                sha256 = "sha256-o/PxQXp6AqFpQun8hkGNASHC2QTBE/6xsmydadxvKH0=";
+              };
+            };
+          in
+          pkgs.stdenv.mkDerivation {
+            pname = "foundry-bin";
+            inherit version;
+            src = srcs.${system};
+            nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook ];
+            buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.stdenv.cc.cc.lib ];
+            phases = [ "unpackPhase" "installPhase" ];
+            installPhase = ''
+              mkdir -p $out/bin
+              install -m755 forge cast anvil chisel $out/bin/
+            '';
+          };
+
         enclaver = pkgs.rustPlatform.buildRustPackage rec {
           pname = "enclaver";
           version = "0.5.0";
@@ -128,7 +168,7 @@
               pkgs.awscli2
               pkgs.cargo
               pkgs.dasel
-              pkgs.foundry-bin
+              foundry-bin-1_2_3
               pkgs.go-ethereum
               pkgs.jq
               pkgs.just
