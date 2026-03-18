@@ -1,5 +1,5 @@
 # L1 Geth Dockerfile, modified from ops/docker/deployment-utils/Dockerfile
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # Build eth2-val-tools
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go install \
-    github.com/protolambda/eth2-val-tools@latest
+    github.com/protolambda/eth2-val-tools@aeec3fcc6e7ae67be1aec8dc8f463e5585b2612e
 
 # Main runtime image
 FROM debian:12.7-slim
