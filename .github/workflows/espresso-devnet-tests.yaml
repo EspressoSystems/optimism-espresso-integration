@@ -60,9 +60,7 @@ jobs:
           cd op-deployer
           just
           export PATH=$PATH:$PWD/bin
-          cd ../packages/contracts-bedrock && just fix-proxy-artifact
-          cd ../..
-          cd espresso
+          cd ../espresso
           ./scripts/prepare-allocs.sh
 
       - name: Upload deployment artifacts
