@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # Build eth2-val-tools
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     go install -ldflags '-linkmode external -extldflags "-static"' \
-    github.com/protolambda/eth2-val-tools@latest
+    github.com/protolambda/eth2-val-tools@1393104
 
 # Main runtime image
 FROM debian:12.7-slim
