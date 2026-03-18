@@ -217,7 +217,7 @@ func init() {
 func initAllocType(root string, allocType AllocType) {
 	artifactsPath := path.Join(root, "packages", "contracts-bedrock", "forge-artifacts")
 	if err := ensureDir(artifactsPath); err != nil {
-		panic(fmt.Errorf("invalid artifacts path: %w", err))
+		panic(fmt.Errorf("invalid artifacts path: %w (run `just compile-contracts` or `cd packages/contracts-bedrock && just build` to build contracts first)", err))
 	}
 
 	loc, err := artifacts.NewFileLocator(artifactsPath)
