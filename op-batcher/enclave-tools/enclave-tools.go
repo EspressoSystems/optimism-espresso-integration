@@ -3,6 +3,7 @@ package enclave_tools
 import (
 	"context"
 	"crypto/ecdsa"
+	_ "embed"
 	"fmt"
 	"path/filepath"
 	"strings"
