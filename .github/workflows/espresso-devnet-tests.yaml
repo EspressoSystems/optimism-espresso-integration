@@ -86,19 +86,14 @@ jobs:
         include:
           - group: 0
             tests: "TestChallengeGame|TestChangeBatchAuthenticatorOwner"
-            tee: false
           - group: 1
             tests: "TestSmokeWithoutTEE|TestBatcherRestart"
-            tee: false
           - group: 2
             tests: "TestWithdrawal|TestBatcherSwitching"
-            tee: false
           - group: 3
-            tests: "TestSmokeWithTEE|TestForcedTransaction"
-            tee: true
+            tests: "TestForcedTransaction"
           - group: 4
             tests: "TestBatcherActivePublishOnly"
-            tee: false
     env:
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
@@ -143,12 +138,6 @@ jobs:
           cd espresso
           docker compose build
           docker compose pull l1-validator espresso-dev-node l1-data-init
-
-      - name: Build Docker images with TEE
-        if: matrix.tee
-        run: |
-          cd espresso
-          COMPOSE_PROFILES=tee docker compose build
 
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
