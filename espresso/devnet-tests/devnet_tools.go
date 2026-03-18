@@ -771,7 +771,7 @@ func (d *Devnet) rollupClient(service string, port uint16) (*sources.RollupClien
 	if err != nil {
 		return nil, fmt.Errorf("could not get %s port: %w", service, err)
 	}
-	rpc, err := opclient.NewRPC(d.ctx, log.Root(), fmt.Sprintf("http://127.0.0.1:%d", port), opclient.WithDialAttempts(20))
+	rpc, err := opclient.NewRPC(d.ctx, log.Root(), fmt.Sprintf("http://127.0.0.1:%d", port), opclient.WithDialAttempts(10))
 	if err != nil {
 		return nil, fmt.Errorf("could not open %s RPC client: %w", service, err)
 	}
