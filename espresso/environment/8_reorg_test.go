@@ -119,7 +119,7 @@ func TestCaffNodeWaitForFinality(t *testing.T) {
 	l1Client := system.NodeClient(e2esys.RoleL1)
 
 	// Create a RollupClient for the caff node
-	caffRpcClient, err := dial.DialRPCClientWithTimeout(ctx, 30*time.Second, log.New(), caffNode.OpNode.UserRPC().RPC())
+	caffRpcClient, err := dial.DialRPCClientWithTimeout(ctx, log.New(), caffNode.OpNode.UserRPC().RPC())
 	require.NoError(t, err)
 	caffRollupClient := sources.NewRollupClient(client.NewBaseRPCClient(caffRpcClient))
 
