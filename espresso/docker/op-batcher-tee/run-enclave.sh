@@ -80,7 +80,7 @@ else
     BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/0"
 fi
 
-BATCHER_ARGS="$BATCHER_ARGS,--throttle-threshold=0"
+BATCHER_ARGS="$BATCHER_ARGS,--throttle.unsafe-da-bytes-lower-threshold=0"
 BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=2"
 BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
 BATCHER_ARGS="$BATCHER_ARGS,--max-pending-tx=32"
