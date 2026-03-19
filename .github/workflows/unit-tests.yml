@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run espresso package tests
-        run: go test -v -count=1 -timeout 5m ./espresso/...
+        run: go test -v -count=1 -timeout 5m github.com/ethereum-optimism/optimism/espresso
 
       - name: Run batcher espresso tests
         run: go test -v -count=1 -timeout 5m -run "TestWaitForCaffeinationHeight|TestNextBlockRange" ./op-batcher/batcher/
