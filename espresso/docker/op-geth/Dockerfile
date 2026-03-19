@@ -26,7 +26,18 @@ ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VE
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
   go build -ldflags '-linkmode external -extldflags "-static"' -o /op-deployer ./cmd/op-deployer
 
+# Build geth from Celo fork (go.mod replaces github.com/ethereum/go-ethereum with github.com/celo-org/op-geth)
+# Required because the devnet uses Jovian eip-1559 params (17-byte extraData) which the OP Labs geth does not support.
+# GONOSUMDB=* and GOFLAGS=-mod=mod allow resolving cmd/geth dependencies not in our go.sum.
+FROM op-cgo-builder AS geth-builder
+ENV GONOSUMDB="*" GOFLAGS="-mod=mod"
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  go build -ldflags '-linkmode external -extldflags "-static"' -o /geth github.com/ethereum/go-ethereum/cmd/geth
+
 FROM us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
+
+# Replace OP Labs geth with Celo fork geth (supports Jovian eip-1559 extraData format).
+COPY --from=geth-builder /geth /usr/local/bin/geth
 
 # For healtcheck and JSON operations.
 RUN apk add curl jq openssl
