@@ -114,7 +114,7 @@ func TestNextBlockRange(t *testing.T) {
 			wantAction: ActionRetry,
 		},
 		{
-			name:       "caffHeight disabled",
+			name:   "caffHeight disabled",
 			safeL2: 50, unsafeL2: 150,
 			wantAction: ActionEnqueue, wantStart: 51, wantEnd: 150,
 		},
@@ -139,8 +139,8 @@ func TestNextBlockRange(t *testing.T) {
 			wantAction: ActionEnqueue, wantStart: 100, wantEnd: 150,
 		},
 		{
-			name:         "queue not empty ignores caffHeight",
-			caffHeight:   100, safeL2: 99, unsafeL2: 150,
+			name:       "queue not empty ignores caffHeight",
+			caffHeight: 100, safeL2: 99, unsafeL2: 150,
 			queuedBlocks: []eth.L2BlockRef{{Number: 100}, {Number: 101}},
 			wantAction:   ActionEnqueue, wantStart: 102, wantEnd: 150,
 		},
