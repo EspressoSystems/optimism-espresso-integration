@@ -6,10 +6,7 @@ import { EspressoNitroTEEVerifier } from "@espresso-tee-contracts/EspressoNitroT
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
 import { Script } from "forge-std/Script.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
-import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
-import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { Proxy } from "src/universal/Proxy.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
@@ -97,7 +94,7 @@ contract DeployAWSNitroVerifier is Script {
         checkOutput(output);
     }
 
-    /// @notice Deploys ProxyAdmin and Proxy contracts
+    /// @notice Deploys ProxyAdmin and Proxy contracts via CREATE using type().creationCode.
     /// @param labelPrefix Prefix for vm.label (e.g., "Mock" or "")
     /// @return deployment Struct containing the deployed ProxyAdmin and Proxy
     function deployProxyInfrastructure(string memory labelPrefix)
@@ -105,31 +102,35 @@ contract DeployAWSNitroVerifier is Script {
         returns (ProxyDeployment memory deployment)
     {
         vm.broadcast(msg.sender);
-        deployment.proxyAdmin = ProxyAdmin(
-            payable(
-                DeployUtils.create1({
-                    _name: "ProxyAdmin",
-                    _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender)))
-                })
-            )
-        );
+        deployment.proxyAdmin = _createProxyAdmin(msg.sender);
         vm.label(address(deployment.proxyAdmin), string.concat(labelPrefix, "NitroTEEVerifierProxyAdmin"));
 
         vm.broadcast(msg.sender);
-        deployment.proxy = Proxy(
-            payable(
-                DeployUtils.create1({
-                    _name: "Proxy",
-                    _args: DeployUtils.encodeConstructor(
-                        abi.encodeCall(IProxy.__constructor__, (address(deployment.proxyAdmin)))
-                    )
-                })
-            )
-        );
+        deployment.proxy = _createProxy(address(deployment.proxyAdmin));
         vm.label(address(deployment.proxy), string.concat(labelPrefix, "NitroTEEVerifierProxy"));
 
         vm.broadcast(msg.sender);
         deployment.proxyAdmin.setProxyType(address(deployment.proxy), ProxyAdmin.ProxyType.ERC1967);
+    }
+
+    function _createProxyAdmin(address owner) internal returns (ProxyAdmin) {
+        bytes memory initCode = abi.encodePacked(type(ProxyAdmin).creationCode, abi.encode(owner));
+        address addr;
+        assembly {
+            addr := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        require(addr != address(0), "DeployAWSNitroVerifier: ProxyAdmin deployment failed");
+        return ProxyAdmin(addr);
+    }
+
+    function _createProxy(address admin) internal returns (Proxy) {
+        bytes memory initCode = abi.encodePacked(type(Proxy).creationCode, abi.encode(admin));
+        address addr;
+        assembly {
+            addr := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        require(addr != address(0), "DeployAWSNitroVerifier: Proxy deployment failed");
+        return Proxy(payable(addr));
     }
 
     function deployNitroTEEVerifier(
@@ -194,6 +195,10 @@ contract DeployAWSNitroVerifier is Script {
     function checkOutput(DeployAWSNitroVerifierOutput output) public view {
         address[] memory addresses =
             Solarray.addresses(output.nitroTEEVerifierProxy(), output.nitroTEEVerifierImpl(), output.proxyAdmin());
-        DeployUtils.assertValidContractAddresses(addresses);
+        for (uint256 i = 0; i < addresses.length; i++) {
+            require(
+                addresses[i] != address(0) && addresses[i].code.length > 0, "DeployAWSNitroVerifier: invalid address"
+            );
+        }
     }
 }

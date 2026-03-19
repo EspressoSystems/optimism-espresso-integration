@@ -8,7 +8,7 @@ interface IBatchAuthenticator {
     error InvalidAddress(address contract_);
 
     /// @notice Emitted when a batch info is authenticated.
-    event BatchInfoAuthenticated(bytes32 indexed commitment, address indexed signer);
+    event BatchInfoAuthenticated(bytes32 indexed commitment);
 
     /// @notice Emitted when a signer registration is initiated through this contract.
     event SignerRegistrationInitiated(address indexed caller);
@@ -22,10 +22,7 @@ interface IBatchAuthenticator {
     /// @notice Emitted when the active batcher is switched.
     event BatcherSwitched(bool indexed activeIsTee);
 
-    function authenticateBatchInfo(
-        bytes32 commitment,
-        bytes memory _signature
-    ) external;
+    function authenticateBatchInfo(bytes32 commitment, bytes memory _signature) external;
 
     function espressoTEEVerifier() external view returns (IEspressoTEEVerifier);
 
@@ -37,10 +34,7 @@ interface IBatchAuthenticator {
 
     function nonTeeBatcher() external view returns (address);
 
-    function registerSigner(
-        bytes memory attestationTbs,
-        bytes memory signature
-    ) external;
+    function registerSigner(bytes memory attestationTbs, bytes memory signature) external;
 
     function validBatchInfo(bytes32) external view returns (bool);
 
