@@ -16,6 +16,11 @@ use_literal_content = true
 optimizer = true
 optimizer_runs = 999999
 
+# IMPORTANT:
+# When adding any new compiler profiles or compilation restrictions, you must
+# also update the restrictions in the "LITE" profile to match. This guarantees
+# that builds will fully overwrite one another without needing to clean the
+# entire build directory.
 additional_compiler_profiles = [
   { name = "dispute", optimizer_runs = 5000 },
   { name = "via-ir", via_ir = true },
@@ -36,9 +41,8 @@ compilation_restrictions = [
   { paths = "src/L1/opcm/OPContractsManagerUtilsCaller.sol", optimizer_runs = 5000 },
   { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 5000 },
   { paths = "src/L1/ProtocolVersions.sol", optimizer_runs = 5000 },
-  { paths = "src/universal/StorageSetter.sol", optimizer_runs = 5000 },
-  { paths = "lib/espresso-tee-contracts/lib/nitro-validator/**", via_ir = false },
-  { paths = "lib/espresso-tee-contracts/lib/automata-dcap-attestation/**", via_ir = true },
+  { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
+  { paths = "src/universal/StorageSetter.sol", optimizer_runs = 5000 }
 ]
 
 extra_output = ['devdoc', 'userdoc', 'metadata', 'storageLayout']
@@ -60,6 +64,7 @@ remappings = [
   '@openzeppelin/contracts-v5/=lib/openzeppelin-contracts-v5/contracts',
   '@rari-capital/solmate/=lib/solmate',
   '@lib-keccak/=lib/lib-keccak/contracts/lib',
+  'solady/=lib/solady/',
   '@solady/=lib/solady/src',
   '@solady-v0.0.245/=lib/solady-v0.0.245/src',
   'forge-std/=lib/forge-std/src',
@@ -70,22 +75,23 @@ remappings = [
 ]
 
 fs_permissions = [
-  { access = 'read-write', path = './.resource-metering.csv' },
-  { access = 'read-write', path = './snapshots/' },
-  { access = 'read-write', path = './deployments/' },
-  { access = 'read', path = './deploy-config/' },
-  { access = 'read', path = './deploy-config-periphery/' },
-  { access = 'read', path = './broadcast/' },
-  { access = 'read', path = './forge-artifacts/' },
-  { access = 'read-write', path = './.testdata/' },
-  { access = 'read', path = './kout-deployment' },
-  { access = 'read', path = './test/fixtures' },
-  { access = 'read', path = './lib/superchain-registry/superchain/configs/' },
+  { access='read-write', path='./.resource-metering.csv' },
+  { access='read-write', path='./snapshots/' },
+  { access='read-write', path='./deployments/' },
+  { access='read', path='./deploy-config/' },
+  { access='read', path='./deploy-config-periphery/' },
+  { access='read', path='./broadcast/' },
+  { access='read', path = './forge-artifacts/' },
+  { access='read-write', path='./.testdata/' },
+  { access='read', path='./kout-deployment' },
+  { access='read', path='./test/fixtures' },
+  { access='read', path='./lib/superchain-registry/superchain/configs/' },
+  { access='read', path='./lib/superchain-registry/validation/standard/' },
   { access = 'read-write', path = '../../op-chain-ops/cmd/celo-migrate/testdata/' },
 ]
 
-# 5159 error code is selfdestruct error code
-ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159]
+# 5159 = selfdestruct; 6321 = unnamed return variable; 5667 = unused param (lib/espresso-tee-contracts mocks)
+ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-many-warnings", 5159, 6321, 5667]
 deny_warnings = true
 ffi = true
 
@@ -101,10 +107,10 @@ runs = 64
 failure_persist_file = "~/Desktop/failures.txt"
 
 [fmt]
-line_length = 120
-multiline_func_header = 'all'
-bracket_spacing = true
-wrap_comments = true
+line_length=120
+multiline_func_header='all'
+bracket_spacing=true
+wrap_comments=true
 
 ################################################################
 #                         PROFILE: CI                          #
@@ -151,7 +157,7 @@ timeout = 300
 
 [profile.lite]
 optimizer = false
-optimizer_runs = 0
+optimizer_runs = 200
 use_literal_content = false
 
 [profile.lite.fuzz]
@@ -160,33 +166,6 @@ runs = 8
 [profile.lite.invariant]
 runs = 8
 depth = 8
-
-# IMPORTANT:
-# See the info in the "DEFAULT" profile to understand this section.
-additional_compiler_profiles = [
-  { name = "dispute", optimizer_runs = 0 },
-  { name = "via-ir", via_ir = true },
-]
-compilation_restrictions = [
-  { paths = "src/dispute/FaultDisputeGame.sol", optimizer_runs = 0 },
-  { paths = "src/dispute/v2/FaultDisputeGameV2.sol", optimizer_runs = 0 },
-  { paths = "src/dispute/PermissionedDisputeGame.sol", optimizer_runs = 0 },
-  { paths = "src/dispute/v2/PermissionedDisputeGameV2.sol", optimizer_runs = 0 },
-  { paths = "src/dispute/SuperFaultDisputeGame.sol", optimizer_runs = 0 },
-  { paths = "src/dispute/SuperPermissionedDisputeGame.sol", optimizer_runs = 0 },
-  { paths = "src/L1/OPContractsManager.sol", optimizer_runs = 0 },
-  { paths = "src/L1/OPContractsManagerStandardValidator.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerV2.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerContainer.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerMigrator.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerUtils.sol", optimizer_runs = 0 },
-  { paths = "src/L1/opcm/OPContractsManagerUtilsCaller.sol", optimizer_runs = 0 },
-  { paths = "src/L1/OptimismPortal2.sol", optimizer_runs = 0 },
-  { paths = "src/L1/ProtocolVersions.sol", optimizer_runs = 0 },
-  { paths = "src/universal/StorageSetter.sol", optimizer_runs = 0 },
-  { paths = "src/L1/StandardValidator.sol", optimizer_runs = 5000 },
-]
-
 
 ################################################################
 #                         PROFILE: KONTROL                     #
