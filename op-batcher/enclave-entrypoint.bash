@@ -24,7 +24,9 @@ original_args=("$@")
 # Start nc listener in background IMMEDIATELY — before Odyn setup.
 #
 # ---------------------------------------------------------------------------
+# These port numbers must match ArgDeliveryPort / ReadinessPort in enclave-tools/enclaver.go.
 NC_PORT=8337
+READY_PORT=8338
 received_args=()
 NC_TMPFILE=$(mktemp)
 echo "nc listener starting on port $NC_PORT (background, 60 second timeout)"
@@ -72,12 +74,12 @@ echo "  NO_PROXY=$NO_PROXY"
 echo "[DEBUG] External URLs will use proxy with correct SNI/Host headers"
 echo ""
 
-# Readiness handshake — send "READY" on port 8338 (background).
+# Readiness handshake — send "READY" on port $READY_PORT (background).
 #
 # Sending READY here (after the Odyn check) proves two things to the caller:
-# That nc:8337 is already listening and Odyn egress proxy is verified and functional
-echo "Signaling readiness on port 8338 (background)..."
-echo "READY" | nc -l -p 8338 -w 30 &
+# That nc:$NC_PORT is already listening and Odyn egress proxy is verified and functional
+echo "Signaling readiness on port $READY_PORT (background)..."
+echo "READY" | nc -l -p "$READY_PORT" -w 30 &
 
 # Helper function to check if URL needs socat proxying
 # URLs pointing to localhost, 127.0.0.1, or "host" need socat because:

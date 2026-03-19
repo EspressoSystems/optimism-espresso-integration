@@ -16,6 +16,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	// ArgDeliveryPort is the vsock port for batcher arg delivery. Must match NC_PORT in enclave-entrypoint.bash.
+	ArgDeliveryPort uint16 = 8337
+	// ReadinessPort is the vsock port for the readiness handshake. Must match READY_PORT in enclave-entrypoint.bash.
+	ReadinessPort uint16 = 8338
+	// ArgDeliveryHostPort is the host-side TCP port docker --publish maps to ArgDeliveryPort.
+	ArgDeliveryHostPort = 9000
+)
+
 type EnclaverManifestSources struct {
 	App string `yaml:"app"`
 }
@@ -67,8 +76,8 @@ func DefaultManifest(name string, target string, source string, cpuCount uint, m
 			Allow:     []string{"0.0.0.0/0", "**", "::/0"},
 		},
 		Ingress: []EnclaverManifestIngress{
-			{ListenPort: 8337}, // batcher arg delivery
-			{ListenPort: 8338}, // readiness handshake
+			{ListenPort: ArgDeliveryPort}, // batcher arg delivery
+			{ListenPort: ReadinessPort},   // readiness handshake
 		},
 	}
 }
@@ -125,9 +134,9 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 
 // RunEnclave runs an enclaver EIF image `name` with the provided arguments.
 // Uses 'docker run' directly (not 'enclaver run') to support --publish.
-// --publish=127.0.0.1:9000:8337 instead of --net=host keeps the container off
-// the host network stack, blocking EC2 metadata-service access (requires
-// IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
+// --publish=127.0.0.1:ArgDeliveryHostPort:ArgDeliveryPort instead of --net=host keeps
+// the container off the host network stack, blocking EC2 metadata-service access
+// (requires IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
 func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
@@ -139,7 +148,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--rm",
 		"-d",
 		"--privileged",
-		"--publish=127.0.0.1:9000:8337",
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryHostPort, ArgDeliveryPort),
 		"--name=batcher-enclaver-"+nameSuffix,
 		"--device=/dev/nitro_enclaves",
 		name,
@@ -188,7 +197,7 @@ func sendArgsToEnclave(ctx context.Context, args []string) error {
 
 	for time.Now().Before(deadline) {
 		// Connect to the enclave's listener
-		conn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:9000")
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", ArgDeliveryHostPort))
 		if err != nil {
 			// If we still have time, wait and retry
 			if time.Now().Add(retryInterval).Before(deadline) {
