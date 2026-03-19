@@ -616,7 +616,7 @@ type SystemConfig struct {
 	// MinBaseFee identifies the minimum base fee.
 	MinBaseFee uint64 `json:"minBaseFee"`
 	// DAFootprintGasScalar identifies the DA footprint gas scalar.
-	DAFootprintGasScalar uint16 `json:"daFootprintGasScalar"`
+	DAFootprintGasScalar uint16 `json:"daFootprintGasScalar,omitempty"`
 	// More fields can be added for future SystemConfig versions.
 
 	// MarshalPreHolocene indicates whether or not this struct should be
