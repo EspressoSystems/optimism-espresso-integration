@@ -65,7 +65,7 @@ shared libraries `nitro-cli` needs.  That is why `busybox` and `run-eif.sh`
 must be added on top in stage 3.
 
 > **Note**: adding `run-eif.sh` and `busybox` as outer layers does **not**
-> affect PCR0–2.  Those measurements are sealed inside the EIF at stage 2 and
+> affect PCR0,1 & 2.  Those measurements are sealed inside the EIF at stage 2 and
 > never change once the EIF is built.
 
 ---
