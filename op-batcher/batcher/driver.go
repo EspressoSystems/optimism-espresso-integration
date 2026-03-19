@@ -177,13 +177,19 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	}
 
 	l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
+	// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
+	// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
+	var lightClientIface espresso.LightClientCallerInterface
+	if batchSubmitter.EspressoLightClient != nil {
+		lightClientIface = batchSubmitter.EspressoLightClient
+	}
 	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(
 		espresso.NewEspressoStreamer(
 			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
 			l1Adapter,
 			l1Adapter,
 			batchSubmitter.Espresso,
-			batchSubmitter.EspressoLightClient,
+			lightClientIface,
 			batchSubmitter.Log,
 			func(data []byte) (*derive.EspressoBatch, error) {
 				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
