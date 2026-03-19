@@ -6,6 +6,7 @@ import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEs
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { INitroEnclaveVerifier } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @notice Mock implementation of IEspressoNitroTEEVerifier for testing without real attestation verification.
 ///         Used by deployment scripts and tests.
@@ -96,9 +97,25 @@ contract MockEspressoTEEVerifier is IEspressoTEEVerifier, IEspressoNitroTEEVerif
         return IEspressoSGXTEEVerifier(address(0));
     }
 
-    function verify(bytes memory, bytes32, TeeType teeType, ServiceType) external pure override returns (bool) {
+    function verify(
+        bytes memory signature,
+        bytes32 userDataHash,
+        TeeType teeType,
+        ServiceType service
+    )
+        external
+        view
+        override
+        returns (bool)
+    {
         if (teeType != TeeType.NITRO) {
-            return false;
+            revert InvalidSignature();
+        }
+        address signer = ECDSA.recover(userDataHash, signature);
+        IEspressoNitroTEEVerifier nitroVerifier =
+            _useExternalNitroVerifier ? _nitroVerifier : IEspressoNitroTEEVerifier(address(this));
+        if (!nitroVerifier.isSignerValid(signer, service)) {
+            revert InvalidSignature();
         }
         return true;
     }
