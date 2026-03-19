@@ -28,10 +28,7 @@ interface IBatchAuthenticator {
     /// @notice Emitted when the active batcher is switched.
     event BatcherSwitched(bool indexed activeIsTee);
 
-    function authenticateBatchInfo(
-        bytes32 commitment,
-        bytes memory _signature
-    ) external;
+    function authenticateBatchInfo(bytes32 commitment, bytes memory _signature) external;
 
     function espressoTEEVerifier() external view returns (IEspressoTEEVerifier);
 
@@ -43,10 +40,7 @@ interface IBatchAuthenticator {
 
     function nonTeeBatcher() external view returns (address);
 
-    function registerSigner(
-        bytes memory attestationTbs,
-        bytes memory signature
-    ) external;
+    function registerSigner(bytes memory attestationTbs, bytes memory signature) external;
 
     function validBatchInfo(bytes32) external view returns (bool);
 

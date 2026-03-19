@@ -196,7 +196,9 @@ contract DeployAWSNitroVerifier is Script {
         address[] memory addresses =
             Solarray.addresses(output.nitroTEEVerifierProxy(), output.nitroTEEVerifierImpl(), output.proxyAdmin());
         for (uint256 i = 0; i < addresses.length; i++) {
-            require(addresses[i] != address(0) && addresses[i].code.length > 0, "DeployAWSNitroVerifier: invalid address");
+            require(
+                addresses[i] != address(0) && addresses[i].code.length > 0, "DeployAWSNitroVerifier: invalid address"
+            );
         }
     }
 }
