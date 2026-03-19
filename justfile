@@ -40,6 +40,8 @@ build-devnet: stop-containers compile-contracts
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
 
+golint-fix:
+ golangci-lint run --fix -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
 
 compile-contracts:
  (cd packages/contracts-bedrock && just build-dev)
