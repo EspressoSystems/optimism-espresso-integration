@@ -50,6 +50,7 @@ export BATCH_AUTHENTICATOR_ADDRESS
 if [ -n "$ESPRESSO_LIGHT_CLIENT_ADDR" ]; then
     echo "Using ESPRESSO_LIGHT_CLIENT_ADDR from environment variable"
 else
+    # Decaf light client address for ETH Sepoliaß
     ESPRESSO_LIGHT_CLIENT_ADDR="0x303872bb82a191771321d4828888920100d0b3e4"
     echo "ESPRESSO_LIGHT_CLIENT_ADDR not set, using default"
 fi
