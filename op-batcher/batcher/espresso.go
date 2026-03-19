@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
@@ -77,7 +78,8 @@ type espressoTransactionJobAttempt struct {
 // transaction, and the number of attempts to verify the receipt.
 type espressoVerifyReceiptJob struct {
 	attempts    int
-	start       time.Time
+	startHeight uint64    // HotShot block height when verification began (set on first attempt)
+	startTime   time.Time // wall-clock time when verification began (safety backstop)
 	transaction espressoSubmitTransactionJob
 	hash        *espressoCommon.TaggedBase64
 }
@@ -87,8 +89,9 @@ type espressoVerifyReceiptJob struct {
 // It contains the job that was submitted, and any error that occurred
 // during the verification (if unsuccessful).
 type espressoVerifyReceiptJobResponse struct {
-	job espressoVerifyReceiptJob
-	err error
+	job           espressoVerifyReceiptJob
+	err           error
+	currentHeight uint64 // latest known HotShot block height at time of verification attempt
 }
 
 // espressoVerifyReceiptJobAttempt is a struct that holds the job and
@@ -114,6 +117,7 @@ type espressoTransactionSubmitter struct {
 	verifyReceiptRespQueue   chan espressoVerifyReceiptJobResponse
 	verifyReceiptWorkerQueue chan chan espressoVerifyReceiptJobAttempt
 	espresso                 espressoClient.EspressoClient
+	latestBlockHeight        atomic.Uint64 // shared HotShot block height, updated by trackBlockHeight
 }
 
 // EspressoTransactionSubmitterConfig is a configuration struct for the
@@ -296,7 +300,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 		}
 
 		verifyJob := espressoVerifyReceiptJob{
-			start:       time.Now(),
+			startTime:   time.Now(),
 			transaction: jobResp.job,
 			hash:        jobResp.hash,
 		}
@@ -310,9 +314,16 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 	}
 }
 
-// VERIFY_RECEIPT_TIMEOUT is the amount of time we will wait for a receipt to
-// be verified before we requeue the job for another attempt.
-const VERIFY_RECEIPT_TIMEOUT = 4 * time.Second
+// VERIFY_RECEIPT_MAX_BLOCKS is the number of HotShot blocks we will wait
+// for a submitted transaction to become queryable before re-submitting.
+// Using block count instead of wall-clock time makes us resilient to
+// variable block times across different Espresso networks.
+const VERIFY_RECEIPT_MAX_BLOCKS uint64 = 5
+
+// VERIFY_RECEIPT_SAFETY_TIMEOUT is a wall-clock backstop for receipt
+// verification. If the block height tracker is stale or broken, we fall
+// back to this generous timeout before re-submitting.
+const VERIFY_RECEIPT_SAFETY_TIMEOUT = 5 * time.Minute
 
 // VERIFY_RECEIPT_RETRY_DELAY is the amount of time we will wait before
 // retrying a job that failed to verify the receipt.
@@ -326,7 +337,9 @@ const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
 //
 // * If there is a permanent issue that won't be fixed by a retry: Skip.
 //
-// * If the verification times out: RetrySubmission.
+// * If enough HotShot blocks have passed since verification started: RetrySubmission.
+//
+// * If the wall-clock safety timeout is exceeded: RetrySubmission.
 //
 // * Otherwise: RetryVerification.
 func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluation {
@@ -346,8 +359,23 @@ func evaluateVerification(jobResp espressoVerifyReceiptJobResponse) JobEvaluatio
 		log.Warn("error not explicitly marked as retryable or not", "err", err)
 	}
 
-	// If the verification times out, degrade to the submission phase and try again.
-	if have := time.Now(); have.Sub(jobResp.job.start) > VERIFY_RECEIPT_TIMEOUT {
+	// Block-count-based timeout: re-submit if enough HotShot blocks have
+	// passed since verification started. The startHeight guard handles the
+	// edge case where the height tracker hasn't fetched its first value yet.
+	if jobResp.job.startHeight > 0 && jobResp.currentHeight >= jobResp.job.startHeight+VERIFY_RECEIPT_MAX_BLOCKS {
+		log.Info("Verification timed out by block count, re-submitting",
+			"startHeight", jobResp.job.startHeight,
+			"currentHeight", jobResp.currentHeight,
+			"maxBlocks", VERIFY_RECEIPT_MAX_BLOCKS)
+		return RetrySubmission
+	}
+
+	// Wall-clock safety backstop in case the block height tracker is stale
+	// or broken (e.g., query service returning old data).
+	if elapsed := time.Since(jobResp.job.startTime); elapsed > VERIFY_RECEIPT_SAFETY_TIMEOUT {
+		log.Warn("Verification timed out by safety timeout, re-submitting",
+			"elapsed", elapsed,
+			"safetyTimeout", VERIFY_RECEIPT_SAFETY_TIMEOUT)
 		return RetrySubmission
 	}
 
@@ -571,6 +599,7 @@ func espressoVerifyTransactionWorker(
 	wg *sync.WaitGroup,
 	cli espressoClient.EspressoClient,
 	workerQueue chan<- chan espressoVerifyReceiptJobAttempt,
+	latestHeight *atomic.Uint64,
 ) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -600,6 +629,12 @@ func espressoVerifyTransactionWorker(
 			}
 		}
 
+		// On the first attempt, snapshot the current block height so we
+		// can measure how many blocks pass during verification.
+		if jobAttempt.job.attempts == 0 {
+			jobAttempt.job.startHeight = latestHeight.Load()
+		}
+
 		if jobAttempt.job.attempts > 0 {
 			// We have already attempted this job, so we will wait a bit
 			// NOTE: this prevents this worker from being able to process
@@ -611,8 +646,9 @@ func espressoVerifyTransactionWorker(
 
 		jobAttempt.job.attempts++
 		resp := espressoVerifyReceiptJobResponse{
-			job: jobAttempt.job,
-			err: err,
+			job:           jobAttempt.job,
+			err:           err,
+			currentHeight: latestHeight.Load(),
 		}
 
 		select {
@@ -636,11 +672,35 @@ func (s *espressoTransactionSubmitter) SpawnWorkers(numSubmitTransactionWorkers,
 
 	for i := 0; i < numVerifyReceiptWorkers; i++ {
 		s.wg.Add(1)
-		go espressoVerifyTransactionWorker(workersCtx, s.wg, s.espresso, s.verifyReceiptWorkerQueue)
+		go espressoVerifyTransactionWorker(workersCtx, s.wg, s.espresso, s.verifyReceiptWorkerQueue, &s.latestBlockHeight)
+	}
+}
+
+// trackBlockHeight periodically polls FetchLatestBlockHeight and stores
+// the result in s.latestBlockHeight for verify jobs to compare against.
+// This avoids redundant height queries from individual verify workers.
+func (s *espressoTransactionSubmitter) trackBlockHeight() {
+	for {
+		height, err := s.espresso.FetchLatestBlockHeight(s.ctx)
+		if err == nil {
+			s.latestBlockHeight.Store(height)
+		} else if s.ctx.Err() == nil {
+			log.Debug("failed to fetch latest block height for verification tracking", "err", err)
+		}
+
+		// Wait for the next interval or until context is done.
+		select {
+		case <-time.After(VERIFY_RECEIPT_RETRY_DELAY):
+		case <-s.ctx.Done():
+			return
+		}
 	}
 }
 
 func (s *espressoTransactionSubmitter) Start() {
+	// Block height tracker for verify receipt timeout
+	go s.trackBlockHeight()
+
 	// Submit Transaction Jobs
 	go s.scheduleSubmitTransactionJobs()
 	go s.handleTransactionSubmitJobResponse()
