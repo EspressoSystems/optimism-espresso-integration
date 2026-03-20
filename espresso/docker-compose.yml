@@ -718,6 +718,7 @@ services:
       ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
       ESPRESSO_DEV_NODE_EPOCH_HEIGHT: "4294967295"
       ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
+      ESPRESSO_DEV_NODE_VERSION: "0.4"
 
   blockscout-db:
     profiles: [ "default" ]
