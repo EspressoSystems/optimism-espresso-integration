@@ -417,7 +417,7 @@ contract BatchAuthenticator_Test is Test {
 
         // Register signer and create valid signature.
         _registerNitroSigner(privateKey);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Pause the system.
@@ -437,7 +437,7 @@ contract BatchAuthenticator_Test is Test {
 
         // Register signer and create valid signature.
         _registerNitroSigner(privateKey);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, commitment);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Ensure not paused.
