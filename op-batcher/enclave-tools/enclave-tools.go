@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,30 +27,34 @@ type EnclaveMeasurements struct {
 // Builds docker and enclaver EIF image for op-batcher and registers EIF's PCR0 with
 // EspressoNitroTEEVerifier. args... are command-line arguments to op-batcher
 // to be baked into the image.
-func BuildBatcherImage(ctx context.Context, opRoot string, tag string, args ...string) (EnclaveMeasurements, error) {
+func BuildBatcherImage(ctx context.Context, opRoot string, tag string, cpuCount uint, memoryMb uint, args ...string) (EnclaveMeasurements, error) {
 	intermediateTag := tag + "intermediate"
 
-	dockerCli := new(environment.DockerCli)
-	err := dockerCli.Build(
-		ctx,
-		intermediateTag,
-		filepath.Join(opRoot, "ops/docker/op-stack-go/Dockerfile"),
-		"op-batcher-enclave-target",
+	cmd := exec.CommandContext(ctx, "docker",
+		"build",
+		"--tag", intermediateTag,
+		"--file", filepath.Join(opRoot, "ops/docker/op-stack-go/Dockerfile"),
+		"--target", "op-batcher-enclave-target",
+		"--build-arg", "ENCLAVE_BATCHER_ARGS="+strings.Join(args, " "),
 		opRoot,
-		environment.DockerBuildArg{
-			Name:  "ENCLAVE_BATCHER_ARGS",
-			Value: strings.Join(args, " "),
-		},
 	)
-	if err != nil {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
 		return EnclaveMeasurements{}, fmt.Errorf("failed to build intermediate docker image: %w", err)
 	}
 
 	// Build EIF image based on the docker image we just built
 	enclaverCli := new(EnclaverCli)
-	manifest := DefaultManifest("op-batcher", tag, intermediateTag)
+	manifest := DefaultManifest("op-batcher", tag, intermediateTag, cpuCount, memoryMb)
 	measurements, err := enclaverCli.BuildEnclave(ctx, manifest)
 	return measurements, err
+}
+
+// BuildEifFromImage builds an EIF image by wrapping a pre-built app Docker image with Enclaver.
+func BuildEifFromImage(ctx context.Context, appImage string, eifTag string, cpuCount uint, memoryMb uint) (EnclaveMeasurements, error) {
+	manifest := DefaultManifest("op-batcher", eifTag, appImage, cpuCount, memoryMb)
+	return new(EnclaverCli).BuildEnclave(ctx, manifest)
 }
 
 // getNitroVerifier retrieves the Nitro TEE verifier instance and L1 client by traversing the contract chain.
@@ -109,7 +113,9 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}
 
-	receipt, err := geth.WaitForTransaction(registrationTx.Hash(), l1Client, 2*time.Minute)
+	waitCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	receipt, err := bind.WaitMined(waitCtx, l1Client, registrationTx)
 	if err != nil {
 		return fmt.Errorf("failed to wait for registration transaction: %w", err)
 	}

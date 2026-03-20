@@ -340,6 +340,60 @@ jobs:
             TARGETOS=linux
             TARGETARCH=amd64
 
+  build-op-batcher-enclave-app:
+    needs: prepare-deployment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
+
+      - name: Copy config for op-batcher-enclave-app
+        run: |
+          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
+          echo "Config prepared for op-batcher-enclave-app"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/op-batcher-enclave-app
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Build and push OP Batcher Enclave App
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-batcher-enclave-app
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+            TARGETOS=linux
+            TARGETARCH=amd64
+
   build-op-batcher-tee:
     needs: prepare-deployment
     runs-on: ubuntu-24.04-8core
