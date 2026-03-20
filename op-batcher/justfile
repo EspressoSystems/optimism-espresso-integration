@@ -14,8 +14,11 @@ ET_BINARY := "./bin/enclave-tools"
 build: op-batcher enclave-tools
 # Build op-batcher binary
 op-batcher: (go_build BINARY "./cmd" "-ldflags" _LDFLAGSSTRING)
-# Build enclave-tools binary
-enclave-tools: (go_build ET_BINARY "./enclave-tools/cmd" "-ldflags" _LDFLAGSSTRING)
+# Build enclave-tools binary — CGO_ENABLED=0 produces a static binary that
+# runs on any Linux libc.
+enclave-tools:
+    env GO111MODULE=on GOOS={{TARGETOS}} GOARCH={{TARGETARCH}} CGO_ENABLED=0 \
+        go build -v -ldflags {{_LDFLAGSSTRING}} -o {{ET_BINARY}} ./enclave-tools/cmd
 
 # Clean build artifacts
 clean:
