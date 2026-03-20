@@ -706,6 +706,7 @@ type L2CoreDeployConfig struct {
 
 	EspressoEnabled           bool           `json:"espressoEnabled,omitzero,omitempty"`
 	BatchAuthenticatorAddress common.Address `json:"batchAuthenticatorAddress,omitzero,omitempty"`
+	FallbackBatcherAddress    common.Address `json:"fallbackBatcherAddress,omitzero,omitempty"`
 }
 
 var _ ConfigChecker = (*L2CoreDeployConfig)(nil)
@@ -1196,6 +1197,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 		ChainOpConfig:           chainOpConfig,
 		Cel2Time:                func() *uint64 { v := uint64(0); return &v }(),
 		BatchAuthenticatorAddress: d.BatchAuthenticatorAddress,
+		FallbackBatcherAddress:    d.FallbackBatcherAddress,
 	}, nil
 }
 
@@ -1270,7 +1272,6 @@ type L1Deployments struct {
 	DataAvailabilityChallenge         common.Address `json:"DataAvailabilityChallenge"`
 	DataAvailabilityChallengeProxy    common.Address `json:"DataAvailabilityChallengeProxy"`
 
-	BatchInbox         common.Address `json:"BatchInbox"`
 	BatchAuthenticator common.Address `json:"BatchAuthenticator"`
 }
 
@@ -1325,7 +1326,7 @@ func (d *L1Deployments) Check(deployConfig *DeployConfig) error {
 	}
 	for i := 0; i < val.NumField(); i++ {
 		name := val.Type().Field(i).Name
-		if name == "BatchInbox" || name == "BatchAuthenticator" {
+		if name == "BatchAuthenticator" {
 			continue
 		}
 		if !deployConfig.UseFaultProofs &&

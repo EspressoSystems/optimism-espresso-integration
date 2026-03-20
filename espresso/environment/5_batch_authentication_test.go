@@ -13,8 +13,8 @@ import (
 )
 
 // TestE2eDevnetWithInvalidAttestation verifies that the batcher correctly fails to register
-// when provided with an invalid attestation. This test ensures that the batch inbox contract
-// properly validates attestations
+// when provided with an invalid attestation. This test ensures that the BatchAuthenticator
+// contract properly validates attestations.
 func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -45,7 +45,7 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 	}
 
 	// Check for the key part of the error message
-	expectedMsg := "could not register with batch inbox contract"
+	expectedMsg := "could not register with BatchAuthenticator contract"
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, expectedMsg) {
 		t.Fatalf("error message does not contain expected message %q:\ngot: %q", expectedMsg, errMsg)

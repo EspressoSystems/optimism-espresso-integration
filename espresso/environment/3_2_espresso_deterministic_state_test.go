@@ -102,7 +102,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 	// The reason is that the iterations of the test are executed sequentially.
 	numIterations := 10
 	attackRoundEspresso := 5 // the round where we send transactions directly to Espresso outside without running the batcher code.
-	attackRoundL1 := 7       // the round where we send transaction directly to the batch inbox contract.
+	attackRoundL1 := 7       // the round where we send a transaction directly to the BatchInbox EOA.
 	// Compare states between nodes for multiple latest blocks
 	// We don't compare states for every individual block as any diff in block x will be reflected in block x + n
 	for i := 0; i < numIterations; i++ {
@@ -169,8 +169,9 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				t.Fatalf("failed to send transaction directly to L1:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}
 
-			// Wait for the receipt to fail
-			_, err = wait.ForReceiptFail(ctx, l1Client, tx.Hash())
+			// BatchInbox is an EOA, so the tx succeeds on L1. The pipeline
+			// ignores it because there is no matching BatchInfoAuthenticated event.
+			_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 			if have, want := err, error(nil); have != want {
 				t.Fatalf("failed to get receipt for transaction:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			}

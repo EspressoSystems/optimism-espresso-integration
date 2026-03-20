@@ -320,7 +320,8 @@ func (t *TxManagerIntercept) markFramesAsUnsuccessful(frames []derive.Frame) {
 func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
 	frames, err := decodeFrameInformation(candidate)
 	if err != nil {
-		return nil, err
+		// Not a batch frame transaction (e.g. authenticateBatch call) — pass through
+		return t.TxManager.Send(ctx, candidate)
 	}
 
 	if t.shouldFail {
@@ -347,7 +348,8 @@ func (t *TxManagerIntercept) Send(ctx context.Context, candidate txmgr.TxCandida
 func (t *TxManagerIntercept) SendAsync(ctx context.Context, candidate txmgr.TxCandidate, ch chan txmgr.SendResponse) {
 	frames, err := decodeFrameInformation(candidate)
 	if err != nil {
-		ch <- txmgr.SendResponse{Err: fmt.Errorf("failed to decode frame information: %w", err)}
+		// Not a batch frame transaction (e.g. authenticateBatch call) — pass through
+		t.TxManager.SendAsync(ctx, candidate, ch)
 		return
 	}
 
@@ -494,24 +496,18 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 		system.BatchSubmitter.TxManager,
 	)
 
-	{
-		// Replace the existing TxManager with our intercept
-		system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager
+	// Replace the existing TxManager with our intercept
+	system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager
 
-		// Start the Batcher again, so the publishingLoop picks up the TxManager
-		// when creating its queue.
-		err = system.BatchSubmitter.TestDriver().StartBatchSubmitting()
-		require.NoError(t, err)
+	// Start the Batcher again, so the publishingLoop picks up the TxManager
+	// when creating its queue.
+	err = system.BatchSubmitter.TestDriver().StartBatchSubmitting()
+	require.NoError(t, err)
 
-		// Wait for the Next L2 Block to be verified by ensure everything is
-		// working and progressing without issue
-		err = wait.ForProcessingFullBatch(ctx, system.RollupClient(e2esys.RoleVerif))
-		require.NoError(t, err)
-
-		// Reset TxManager as we don't want to target or interfere with the
-		// other aspects of the system.
-		system.BatchSubmitter.TestDriver().Txmgr = interceptTxManager.TxManager
-	}
+	// Wait for the Next L2 Block to be verified by ensure everything is
+	// working and progressing without issue
+	err = wait.ForProcessingFullBatch(ctx, system.RollupClient(e2esys.RoleVerif))
+	require.NoError(t, err)
 
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l1Client := system.NodeClient(e2esys.RoleL1)
