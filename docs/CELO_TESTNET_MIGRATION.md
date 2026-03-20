@@ -56,7 +56,7 @@ The migration to Espresso will be implemented as a **hardfork** because:
 
 **Response from Celo:**
 
-For the new L1 contracts (BatchInbox and BatchAuthenticator), Celo needs to determine:
+For the new L1 contracts (BatchAuthenticator), Celo needs to determine:
 
 **Questions:**
 - Can we deploy contracts before the hardfork activation?

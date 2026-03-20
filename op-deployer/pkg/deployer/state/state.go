@@ -115,7 +115,6 @@ type ChainState struct {
 	DelayedWETHPermissionlessGameProxyAddress common.Address               `json:"delayedWETHPermissionlessGameProxyAddress"`
 	DataAvailabilityChallengeProxyAddress     common.Address               `json:"dataAvailabilityChallengeProxyAddress"`
 	DataAvailabilityChallengeImplAddress      common.Address               `json:"dataAvailabilityChallengeImplAddress"`
-	BatchInboxAddress                         common.Address               `json:"batchInboxAddress"`
 	BatchAuthenticatorAddress                 common.Address               `json:"batchAuthenticatorAddress,omitzero,omitempty"`
 	AdditionalDisputeGames                    []AdditionalDisputeGameState `json:"additionalDisputeGames"`
 

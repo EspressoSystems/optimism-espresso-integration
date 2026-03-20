@@ -3,7 +3,6 @@ package derive
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"io"
 	"math/big"
 	"math/rand"
@@ -41,6 +40,9 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		batchInboxAddress: batchInboxAddr,
 	}
 
+	ctx := context.Background()
+	ref := eth.L1BlockRef{Number: 1}
+
 	// create a valid non-blob batcher transaction and make sure it's picked up
 	txData := &types.LegacyTx{
 		Nonce:    rng.Uint64(),
@@ -51,13 +53,10 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		Data:     testutils.RandomData(rng, rng.Intn(1000)),
 	}
 	calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
-	calldataReceipt := &types.Receipt{
-		Status: types.ReceiptStatusSuccessful,
-		TxHash: calldataTx.Hash(),
-	}
 	txs := types.Transactions{calldataTx}
-	receipts := types.Receipts{calldataReceipt}
-	data, blobHashes := dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	// Legacy mode: no L1Fetcher needed (sender check is local)
+	data, blobHashes, err := dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -71,34 +70,26 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		BlobHashes: []common.Hash{blobHash},
 	}
 	blobTx, _ := types.SignNewTx(privateKey, signer, blobTxData)
-	blobReceipt := &types.Receipt{
-		Status: types.ReceiptStatusSuccessful,
-		TxHash: blobTx.Hash(),
-	}
 	txs = types.Transactions{blobTx}
-	receipts = types.Receipts{blobReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.Nil(t, data[0].calldata)
 
 	// try again with both the blob & calldata transactions and make sure both are picked up
 	txs = types.Transactions{blobTx, calldataTx}
-	receipts = types.Receipts{blobReceipt, calldataReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	require.NoError(t, err)
 	require.Equal(t, 2, len(data))
 	require.Equal(t, 1, len(blobHashes))
 	require.NotNil(t, data[1].calldata)
 
 	// make sure blob tx to the batch inbox is ignored if not signed by the batcher
 	blobTx, _ = types.SignNewTx(testutils.RandomKey(), signer, blobTxData)
-	blobReceipt = &types.Receipt{
-		Status: types.ReceiptStatusSuccessful,
-		TxHash: blobTx.Hash(),
-	}
 	txs = types.Transactions{blobTx}
-	receipts = types.Receipts{blobReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -106,13 +97,9 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	// signature is valid.
 	blobTxData.To = testutils.RandomAddress(rng)
 	blobTx, _ = types.SignNewTx(privateKey, signer, blobTxData)
-	blobReceipt = &types.Receipt{
-		Status: types.ReceiptStatusSuccessful,
-		TxHash: blobTx.Hash(),
-	}
 	txs = types.Transactions{blobTx}
-	receipts = types.Receipts{blobReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
 
@@ -124,16 +111,157 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 		Data:  testutils.RandomData(rng, rng.Intn(1000)),
 	}
 	setCodeTx, err := types.SignNewTx(privateKey, signer, setCodeTxData)
-	setCodeReceipt := &types.Receipt{
-		Status: types.ReceiptStatusSuccessful,
-		TxHash: setCodeTx.Hash(),
-	}
 	require.NoError(t, err)
 	txs = types.Transactions{setCodeTx}
-	receipts = types.Receipts{setCodeReceipt}
-	data, blobHashes = dataAndHashesFromTxs(txs, receipts, &config, batcherAddr, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
+}
+
+// TestDataAndHashesFromTxsEventAuth tests event-based batch authentication for both
+// calldata and blob transactions in the blob data source path.
+func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
+	rng := rand.New(rand.NewSource(9999))
+	privateKey := testutils.InsecureRandomKey(rng)
+	altKey := testutils.InsecureRandomKey(rng)
+	fallbackKey := testutils.InsecureRandomKey(rng)
+	batcherAddr := crypto.PubkeyToAddress(*privateKey.Public().(*ecdsa.PublicKey))
+	fallbackBatcherAddr := crypto.PubkeyToAddress(*fallbackKey.Public().(*ecdsa.PublicKey))
+	batchInboxAddr := testutils.RandomAddress(rng)
+	authenticatorAddr := testutils.RandomAddress(rng)
+	logger := testlog.Logger(t, log.LvlInfo)
+
+	chainId := new(big.Int).SetUint64(rng.Uint64())
+	signer := types.NewPragueSigner(chainId)
+	config := DataSourceConfig{
+		l1Signer:                  signer,
+		batchInboxAddress:         batchInboxAddr,
+		batchAuthenticatorAddress: authenticatorAddr,
+		fallbackBatcherAddress:    fallbackBatcherAddr,
+	}
+	require.True(t, config.BatchAuthEnabled())
+
+	ctx := context.Background()
+
+	t.Run("authenticated calldata tx accepted", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := &types.LegacyTx{
+			Nonce:    rng.Uint64(),
+			GasPrice: new(big.Int).SetUint64(rng.Uint64()),
+			Gas:      2_000_000,
+			To:       &batchInboxAddr,
+			Value:    big.NewInt(10),
+			Data:     testutils.RandomData(rng, 200),
+		}
+		calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		batchHash := ComputeCalldataBatchHash(calldataTx.Data())
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(data))
+		require.Equal(t, 0, len(blobHashes))
+		require.NotNil(t, data[0].calldata)
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("authenticated blob tx accepted", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		blobHash := testutils.RandomHash(rng)
+		blobTxData := &types.BlobTx{
+			Nonce:      rng.Uint64(),
+			Gas:        2_000_000,
+			To:         batchInboxAddr,
+			Data:       testutils.RandomData(rng, 100),
+			BlobHashes: []common.Hash{blobHash},
+		}
+		blobTx, _ := types.SignNewTx(privateKey, signer, blobTxData)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		batchHash := ComputeBlobBatchHash([]common.Hash{blobHash})
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{blobTx}, &config, batcherAddr, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(data))
+		require.Equal(t, 1, len(blobHashes))
+		require.Nil(t, data[0].calldata) // blob placeholder
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("TEE batcher rejected without auth event", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := &types.LegacyTx{
+			Nonce:    rng.Uint64(),
+			GasPrice: new(big.Int).SetUint64(rng.Uint64()),
+			Gas:      2_000_000,
+			To:       &batchInboxAddr,
+			Value:    big.NewInt(10),
+			Data:     testutils.RandomData(rng, 200),
+		}
+		// Signed by the TEE batcher key, but no auth event — should be rejected
+		calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
+
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(data), "TEE batcher tx without auth event should be rejected")
+		require.Equal(t, 0, len(blobHashes))
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("fallback batcher accepted without auth event", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := &types.LegacyTx{
+			Nonce:    rng.Uint64(),
+			GasPrice: new(big.Int).SetUint64(rng.Uint64()),
+			Gas:      2_000_000,
+			To:       &batchInboxAddr,
+			Value:    big.NewInt(10),
+			Data:     testutils.RandomData(rng, 200),
+		}
+		// Signed by fallback batcher key, no auth event — should be accepted via sender
+		calldataTx, _ := types.SignNewTx(fallbackKey, signer, txData)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
+
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(data), "fallback batcher tx should be accepted via sender verification")
+		require.Equal(t, 0, len(blobHashes))
+		require.NotNil(t, data[0].calldata)
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("any sender accepted with auth event", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := &types.LegacyTx{
+			Nonce:    rng.Uint64(),
+			GasPrice: new(big.Int).SetUint64(rng.Uint64()),
+			Gas:      2_000_000,
+			To:       &batchInboxAddr,
+			Value:    big.NewInt(10),
+			Data:     testutils.RandomData(rng, 200),
+		}
+		// Signed by alt key (not batcher), but has auth event — should be accepted
+		calldataTx, _ := types.SignNewTx(altKey, signer, txData)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		batchHash := ComputeCalldataBatchHash(calldataTx.Data())
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
+
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(data))
+		require.Equal(t, 0, len(blobHashes))
+		l1F.AssertExpectations(t)
+	})
 }
 
 func TestFillBlobPointers(t *testing.T) {
@@ -251,7 +379,6 @@ func TestBlobDataSourceL1FetcherErrors(t *testing.T) {
 		Data:      input,
 	})
 	require.NoError(t, err)
-	txReceipt := &types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful}
 
 	blobInput := testutils.RandomData(rng, 1024)
 	blob := new(eth.Blob)
@@ -267,40 +394,19 @@ func TestBlobDataSourceL1FetcherErrors(t *testing.T) {
 		BlobHashes: blobHashes,
 	}
 	blobTx, _ := types.SignNewTx(batcherPriv, signer, blobTxData)
-	blobReceipt := &types.Receipt{
-		Status: types.ReceiptStatusSuccessful,
-		TxHash: blobTx.Hash(),
-	}
 
 	txs := []*types.Transaction{tx, blobTx}
-	receipts := types.Receipts{txReceipt, blobReceipt}
 
+	// Open with valid txs — should succeed and fetch blobs
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-
-	src, err := factory.OpenData(ctx, ref, batcherAddr)
-	require.IsType(t, &BlobDataSource{}, src, src)
-	// Data source should still be opened correctly and attempt to fetch receipts
-	require.NoError(t, err)
-
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, nil, errors.New("Intermittent error"))
-
-	// Should fail because receipts are still not delivered
-	_, err = src.Next(ctx)
-	require.Error(t, err)
-
-	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
-
-	// Should fail because receipts do not match the transactions
-	_, err = src.Next(ctx)
-	require.Error(t, err)
-
-	l1F.SetFetchReceipts(ref.Hash, nil, receipts, nil)
-	blobF.ExpectOnGetBlobs(ctx, ref, []eth.IndexedBlobHash{eth.IndexedBlobHash{
+	blobF.ExpectOnGetBlobs(ctx, ref, []eth.IndexedBlobHash{{
 		Index: 0,
 		Hash:  blobHashes[0],
 	}}, []*eth.Blob{(*eth.Blob)(blob)}, nil)
+
+	src, err := factory.OpenData(ctx, ref, batcherAddr)
+	require.IsType(t, &BlobDataSource{}, src, src)
+	require.NoError(t, err)
 
 	// calldata input is passed through
 	data, err := src.Next(ctx)

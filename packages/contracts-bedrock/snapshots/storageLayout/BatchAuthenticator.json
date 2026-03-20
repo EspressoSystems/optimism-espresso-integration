@@ -1,16 +1,30 @@
 [
   {
     "bytes": "20",
-    "label": "_owner",
+    "label": "teeBatcher",
     "offset": 0,
     "slot": "0",
     "type": "address"
   },
   {
-    "bytes": "32",
-    "label": "validBatchInfo",
+    "bytes": "20",
+    "label": "nonTeeBatcher",
     "offset": 0,
     "slot": "1",
-    "type": "mapping(bytes32 => bool)"
+    "type": "address"
+  },
+  {
+    "bytes": "20",
+    "label": "espressoTEEVerifier",
+    "offset": 0,
+    "slot": "2",
+    "type": "contract IEspressoTEEVerifier"
+  },
+  {
+    "bytes": "1",
+    "label": "activeIsTee",
+    "offset": 20,
+    "slot": "2",
+    "type": "bool"
   }
 ]
