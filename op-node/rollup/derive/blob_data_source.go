@@ -27,13 +27,13 @@ type BlobDataSource struct {
 	ref          eth.L1BlockRef
 	batcherAddr  common.Address
 	dsCfg        DataSourceConfig
-	fetcher      L1TransactionFetcher
+	fetcher      L1Fetcher
 	blobsFetcher L1BlobsFetcher
 	log          log.Logger
 }
 
 // NewBlobDataSource creates a new blob data source.
-func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1TransactionFetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
+func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
 	return &BlobDataSource{
 		ref:          ref,
 		dsCfg:        dsCfg,
@@ -86,19 +86,10 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
 
-	_, receipts, err := ds.fetcher.FetchReceipts(ctx, ds.ref.Hash)
+	data, hashes, err := dataAndHashesFromTxs(ctx, txs, &ds.dsCfg, ds.batcherAddr, ds.fetcher, ds.ref, ds.log)
 	if err != nil {
-		if errors.Is(err, ethereum.NotFound) {
-			return nil, NewResetError(fmt.Errorf("failed to open blob data source: %w", err))
-		}
-		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
+		return nil, err
 	}
-
-	if len(receipts) != len(txs) {
-		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: L1 fetcher provided inconsistent number of receipts"))
-	}
-
-	data, hashes := dataAndHashesFromTxs(txs, receipts, &ds.dsCfg, ds.batcherAddr, ds.log)
 
 	if len(hashes) == 0 {
 		// there are no blobs to fetch so we can return immediately
@@ -127,17 +118,50 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(txs types.Transactions, receipts types.Receipts, config *DataSourceConfig, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash) {
+//
+// When batch authenticator is configured, it collects all authenticated batch hashes from a
+// lookback window once, then checks each candidate transaction against that set. For blob
+// transactions, the batch hash is computed from the concatenated blob versioned hashes.
+func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
+	// Collect authenticated batch hashes once for the entire block
+	var authenticatedHashes map[common.Hash]bool
+	if config.BatchAuthEnabled() {
+		var err error
+		authenticatedHashes, err = CollectAuthenticatedBatches(
+			ctx, fetcher, ref, config.batchAuthenticatorAddress, logger,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	data := []blobOrCalldata{}
 	var hashes []eth.IndexedBlobHash
 	blobIndex := 0 // index of each blob in the block's blob sidecar
-	for i, tx := range txs {
-		receipt := receipts[i]
-		// skip any non-batcher transactions
-		if !isValidBatchTx(tx, receipt, config.l1Signer, config.batchInboxAddress, batcherAddr, logger) {
+	for _, tx := range txs {
+		// skip any non-batcher transactions (wrong type or wrong To address)
+		if !isValidBatchTx(tx, config.batchInboxAddress, logger) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}
+
+		// Compute batch hash depending on tx type
+		var batchHash common.Hash
+		if tx.Type() == types.BlobTxType {
+			blobHashes := tx.BlobHashes()
+			hashList := make([]common.Hash, len(blobHashes))
+			copy(hashList, blobHashes)
+			batchHash = ComputeBlobBatchHash(hashList)
+		} else {
+			batchHash = ComputeCalldataBatchHash(tx.Data())
+		}
+
+		// Check authorization (event-based or legacy sender check)
+		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, logger) {
+			blobIndex += len(tx.BlobHashes())
+			continue
+		}
+
 		// handle non-blob batcher transactions by extracting their calldata
 		if tx.Type() != types.BlobTxType {
 			calldata := eth.Data(tx.Data())
@@ -158,7 +182,7 @@ func dataAndHashesFromTxs(txs types.Transactions, receipts types.Receipts, confi
 			blobIndex += 1
 		}
 	}
-	return data, hashes
+	return data, hashes, nil
 }
 
 // fillBlobPointers goes back through the data array and fills in the pointers to the fetched blob

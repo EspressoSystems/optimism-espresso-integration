@@ -19,24 +19,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestE2eDevnetWithoutAuthenticatingBatches verifies BatchInboxContract behaviour when batches
-// aren't attested before being posted to batch inbox. To do this, we substitute BatchAuthenticatorAddress
-// in batcher config with a zero address, which will never revert as it has no contract deployed.
-// This way we trick batcher into posting unauthenticated batches to batch inbox.
-// We then verify that these batches aren't accepted by the batch inbox contract and derivation pipeline.
+// TestE2eDevnetWithoutAuthenticatingBatches verifies that batches posted without
+// a corresponding BatchInfoAuthenticated event are rejected by the derivation pipeline.
 //
-// The test is defined as follows
+// The batcher's BatchAuthenticatorAddress is zeroed out so it skips the
+// authenticateBatchInfo call. Batches land on L1 (BatchInbox is an EOA, so txs
+// succeed), but the derivation pipeline finds no matching auth event and ignores them.
+//
 // Arrange:
 //
-//	Deploy a mock BatchAuthenticator.
-//	Configure batcher to use said authenticator instead of the real one.
 //	Start sequencer, batcher in Espresso mode and OP node.
+//	Zero out the batcher's BatchAuthenticatorAddress so it skips authentication.
 //
 // Assert:
 //
-//	Assert that transaction submitting the batch was reverted by
-//	batch inbox contract
-//	Assert that derivation pipeline doesn't progress
+//	Assert that the batch transaction lands on L1 (BatchInbox is an EOA).
+//	Assert that the derivation pipeline doesn't progress (no auth event).
 func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -99,7 +97,10 @@ func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 	receipt, err := l1Client.TransactionReceipt(ctx, batchInboxTxHash)
 	require.NoError(t, err)
 
-	require.Equal(t, receipt.Status, types.ReceiptStatusFailed, "transaction should've been rejected by BatchInbox contract")
+	// BatchInbox is an EOA, so the transaction lands successfully on L1.
+	// However, the derivation pipeline should reject it because there is no
+	// BatchInfoAuthenticated event (the batcher skipped authentication).
+	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful, "transaction to EOA BatchInbox should succeed")
 
 	_, err = geth.WaitForBlockToBeSafe(new(big.Int).SetUint64(1), system.NodeClient(e2esys.RoleVerif), time.Minute)
 	require.Error(t, err)

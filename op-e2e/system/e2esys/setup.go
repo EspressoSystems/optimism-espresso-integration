@@ -749,6 +749,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			},
 
 			BatchAuthenticatorAddress: cfg.DeployConfig.BatchAuthenticatorAddress,
+			FallbackBatcherAddress:    cfg.DeployConfig.FallbackBatcherAddress,
 		}
 	}
 	defaultConfig := makeRollupConfig()

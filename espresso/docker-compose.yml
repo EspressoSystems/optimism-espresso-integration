@@ -419,7 +419,7 @@ services:
     command:
       - op-batcher
       - --espresso.enabled=false
-      - --private-key=7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
+      - --private-key=92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e
       - --throttle-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
@@ -519,7 +519,7 @@ services:
   # Succinct proposer for ZK fault proofs
   succinct-proposer:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-fd56351
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-15d94cc
     depends_on:
       l1-data-init:
         condition: service_completed_successfully
@@ -612,7 +612,7 @@ services:
   # Succinct challenger for ZK fault proofs
   succinct-challenger:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-fd56351
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-15d94cc
     depends_on:
       l1-geth:
         condition: service_started
