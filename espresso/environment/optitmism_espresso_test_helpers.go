@@ -730,6 +730,7 @@ func determineEspressoDevNodeDockerContainerConfig(l1EthRpcURL url.URL, network 
 			"ESPRESSO_SEQUENCER_DATABASE_MAX_CONNECTIONS": "25",
 			"ESPRESSO_SEQUENCER_STORAGE_PATH":             "/data/espresso",
 			"RUST_LOG":                                    "info",
+			"ESPRESSO_DEV_NODE_VERSION":                   "0.4",
 
 			"ESPRESSO_BUILDER_PORT":       portRemapping[ESPRESSO_BUILDER_PORT],
 			"ESPRESSO_SEQUENCER_API_PORT": portRemapping[ESPRESSO_SEQUENCER_API_PORT],
