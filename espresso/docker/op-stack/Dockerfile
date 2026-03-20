@@ -10,12 +10,12 @@ FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
-  linux-headers git bash jq yq
+  linux-headers git bash jq
 
 # Install mise for toolchain management
 RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
 
-# Install yq, dasel and foundry
+# Install yq, dasel, and foundry
 RUN case "$TARGETARCH" in \
   "amd64") ARCH="amd64" ;; \
   "arm64") ARCH="arm64" ;; \
@@ -32,11 +32,13 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install just from apk
-RUN apk add just && just --version
+# Install versioned toolchain (just via mise for shell() function support)
+COPY ./mise.toml .
+RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
+
 
 # Copy and download Go dependencies
 COPY ./go.mod /app/go.mod
@@ -130,6 +132,17 @@ ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-a
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
 
+# Inner image that Enclaver wraps into the EIF. Contains only the batcher
+# binary and the enclave entrypoint (socat proxying, arg routing via nc).
+FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-app
+RUN apk add gcc bash socat trurl
+ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
+ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
+COPY op-batcher/enclave-entrypoint.bash /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]
+
 FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-target
 RUN apk add gcc docker bash jq curl wget
 # Install enclaver for EIF creation
@@ -139,7 +152,8 @@ COPY --from=builder /app /source
 WORKDIR /source
 # Include the deployment state for contract addresses
 COPY espresso/deployment/ /source/espresso/deployment/
-# Copy the run-enclave.sh script
+# run-enclave.sh — build from source + register PCR0 + run (local/dev)
+# run-eif.sh lives in the infra repo (not shipped in this image)
 COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
 RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
 ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin

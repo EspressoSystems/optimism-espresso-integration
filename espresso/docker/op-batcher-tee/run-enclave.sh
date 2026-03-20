@@ -22,6 +22,10 @@ ENCLAVE_DEBUG="${ENCLAVE_DEBUG:-false}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MEMORY_MB="${ENCLAVE_MEMORY_MB:-4096}"
 CPU_COUNT="${ENCLAVE_CPU_COUNT:-2}"
+MAX_CHANNEL_DURATION="${MAX_CHANNEL_DURATION:-2}"
+TARGET_NUM_FRAMES="${TARGET_NUM_FRAMES:-1}"
+MAX_L1_TX_SIZE_BYTES="${MAX_L1_TX_SIZE_BYTES:-120000}"
+ALTDA_MAX_CONCURRENT_DA_REQUESTS="${ALTDA_MAX_CONCURRENT_DA_REQUESTS:-1}"
 
 # Deployment mode detection
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-aws}"  # 'local' or 'aws'
@@ -42,6 +46,19 @@ fi
 
 export BATCH_AUTHENTICATOR_ADDRESS
 
+# Get light client address from env var or use default
+if [ -n "$ESPRESSO_LIGHT_CLIENT_ADDR" ]; then
+    echo "Using ESPRESSO_LIGHT_CLIENT_ADDR from environment variable"
+else
+    # Decaf light client address for ETH Sepoliaß
+    ESPRESSO_LIGHT_CLIENT_ADDR="0x303872bb82a191771321d4828888920100d0b3e4"
+    echo "ESPRESSO_LIGHT_CLIENT_ADDR not set, using default"
+fi
+
+# Override OP_BATCHER_ESPRESSO_LIGHT_CLIENT_ADDR so the batcher's env var matches,
+# preventing any outer deployment env from leaking a stale value into the enclave.
+export OP_BATCHER_ESPRESSO_LIGHT_CLIENT_ADDR="$ESPRESSO_LIGHT_CLIENT_ADDR"
+
 echo "=== Enclave Batcher Configuration ==="
 echo "Deployment Mode: $DEPLOYMENT_MODE"
 echo "L1 RPC URL: $L1_RPC_URL"
@@ -51,12 +68,17 @@ echo "Espresso URLs: $ESPRESSO_URL1, $ESPRESSO_URL2"
 echo "Attestation service url: $ESPRESSO_ATTESTATION_SERVICE_URL"
 echo "EigenDA Proxy URL: $EIGENDA_PROXY_URL"
 echo "Batch Authenticator Address: ${BATCH_AUTHENTICATOR_ADDRESS:-[not set]}"
+echo "Light Client Address: $ESPRESSO_LIGHT_CLIENT_ADDR"
 echo "Espresso Origin Height: $ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
 echo "L2 Origin Height: $ESPRESSO_ORIGIN_HEIGHT_L2"
 echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
 echo "CPU Count: $CPU_COUNT"
+echo "Max Channel Duration: $MAX_CHANNEL_DURATION"
+echo "Target Num Frames: $TARGET_NUM_FRAMES"
+echo "Max L1 Tx Size Bytes: $MAX_L1_TX_SIZE_BYTES"
+echo "AltDA Max Concurrent DA Requests: $ALTDA_MAX_CONCURRENT_DA_REQUESTS"
 echo "====================================="
 
 # Batcher arguments
@@ -81,15 +103,17 @@ else
 fi
 
 BATCHER_ARGS="$BATCHER_ARGS,--throttle.unsafe-da-bytes-lower-threshold=0"
-BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=2"
-BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=1"
+BATCHER_ARGS="$BATCHER_ARGS,--max-channel-duration=$MAX_CHANNEL_DURATION"
+BATCHER_ARGS="$BATCHER_ARGS,--target-num-frames=$TARGET_NUM_FRAMES"
+BATCHER_ARGS="$BATCHER_ARGS,--max-l1-tx-size-bytes=$MAX_L1_TX_SIZE_BYTES"
 BATCHER_ARGS="$BATCHER_ARGS,--max-pending-tx=32"
-BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.light-client-addr=$ESPRESSO_LIGHT_CLIENT_ADDR"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-server=$EIGENDA_PROXY_URL"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.da-service=true"
-BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=32"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.verify-on-read=false"
+BATCHER_ARGS="$BATCHER_ARGS,--altda.max-concurrent-da-requests=$ALTDA_MAX_CONCURRENT_DA_REQUESTS"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.put-timeout=30s"
 BATCHER_ARGS="$BATCHER_ARGS,--altda.get-timeout=30s"
 BATCHER_ARGS="$BATCHER_ARGS,--data-availability-type=calldata"
@@ -104,7 +128,7 @@ fi
 echo "Building enclave image with tag: $TAG"
 cd /source
 
-if ! enclave-tools build --op-root /source --tag "$TAG" 2>&1 | tee /tmp/build_output.log; then
+if ! enclave-tools build --op-root /source --tag "$TAG" --cpu-count "$CPU_COUNT" --memory-mb "$MEMORY_MB" 2>&1 | tee /tmp/build_output.log; then
     echo "ERROR: Failed to build enclave image"
     echo "Build output was:"
     cat /tmp/build_output.log
