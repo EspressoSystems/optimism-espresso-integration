@@ -3,7 +3,6 @@ package enclave_tools
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -15,6 +14,15 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	// ArgDeliveryPort is the vsock port for batcher arg delivery. Must match NC_PORT in enclave-entrypoint.bash.
+	ArgDeliveryPort uint16 = 8337
+	// ReadinessPort is the vsock port for the readiness handshake. Must match READY_PORT in enclave-entrypoint.bash.
+	ReadinessPort uint16 = 8338
+	// ArgDeliveryHostPort is the host-side TCP port docker --publish maps to ArgDeliveryPort.
+	ArgDeliveryHostPort = 9000
 )
 
 type EnclaverManifestSources struct {
@@ -51,7 +59,7 @@ type EnclaverManifest struct {
 	Ingress  []EnclaverManifestIngress `yaml:"ingress"`
 }
 
-func DefaultManifest(name string, target string, source string) EnclaverManifest {
+func DefaultManifest(name string, target string, source string, cpuCount uint, memoryMb uint) EnclaverManifest {
 	return EnclaverManifest{
 		Version: "v1",
 		Name:    name,
@@ -60,15 +68,16 @@ func DefaultManifest(name string, target string, source string) EnclaverManifest
 			App: source,
 		},
 		Defaults: &EnclaverManifestDefaults{
-			CpuCount: 2,
-			MemoryMb: 4096,
+			CpuCount: cpuCount,
+			MemoryMb: memoryMb,
 		},
 		Egress: &EnclaverManifestEgress{
 			ProxyPort: 10000,
 			Allow:     []string{"0.0.0.0/0", "**", "::/0"},
 		},
 		Ingress: []EnclaverManifestIngress{
-			{ListenPort: 8337},
+			{ListenPort: ArgDeliveryPort}, // batcher arg delivery
+			{ListenPort: ReadinessPort},   // readiness handshake
 		},
 	}
 }
@@ -123,14 +132,15 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 	return output.Measurements, nil
 }
 
-// RunEnclave runs an enclaver EIF image `name` with the provided arguments. Stdout and stderr are redirected to the parent process.
+// RunEnclave runs an enclaver EIF image `name` with the provided arguments.
+// Uses 'docker run' directly (not 'enclaver run') to support --publish.
+// --publish=127.0.0.1:ArgDeliveryHostPort:ArgDeliveryPort instead of --net=host keeps
+// the container off the host network stack, blocking EC2 metadata-service access
+// (requires IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
 func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
 
-	// We don't use 'enclaver run' here, because it doesn't
-	// support --net=host, which is required for Odyn to
-	// correctly resolve 'host' to parent machine's localhost
 	cmd := exec.CommandContext(
 		ctx,
 		"docker",
@@ -138,7 +148,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--rm",
 		"-d",
 		"--privileged",
-		"--net=host",
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryHostPort, ArgDeliveryPort),
 		"--name=batcher-enclaver-"+nameSuffix,
 		"--device=/dev/nitro_enclaves",
 		name,
@@ -146,7 +156,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	log.Info("Starting enclave container: %v...\n", "command", cmd.Args)
+	log.Info("Starting enclave container", "command", cmd.Args)
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start enclave container: %w", err)
@@ -187,7 +197,7 @@ func sendArgsToEnclave(ctx context.Context, args []string) error {
 
 	for time.Now().Before(deadline) {
 		// Connect to the enclave's listener
-		conn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:8337")
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", ArgDeliveryHostPort))
 		if err != nil {
 			// If we still have time, wait and retry
 			if time.Now().Add(retryInterval).Before(deadline) {
