@@ -42,8 +42,6 @@ interface IBatchAuthenticator {
 
     function registerSigner(bytes memory attestationTbs, bytes memory signature) external;
 
-    function validBatchInfo(bytes32) external view returns (bool);
-
     function activeIsTee() external view returns (bool);
 
     function switchBatcher() external;
@@ -51,6 +49,4 @@ interface IBatchAuthenticator {
     function setTeeBatcher(address _newTeeBatcher) external;
 
     function setNonTeeBatcher(address _newNonTeeBatcher) external;
-
-    function validateBatch(address sender, bytes calldata data) external view;
 }

@@ -29,7 +29,6 @@ type DeployEspressoInput struct {
 }
 
 type DeployEspressoOutput struct {
-	BatchInboxAddress         common.Address
 	BatchAuthenticatorAddress common.Address
 	TeeVerifierProxy          common.Address
 	TeeVerifierImpl           common.Address

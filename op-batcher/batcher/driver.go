@@ -258,7 +258,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
-			return fmt.Errorf("could not register with batch inbox contract: %w", err)
+			return fmt.Errorf("could not register with BatchAuthenticator contract: %w", err)
 		}
 
 		// Resolve the TEE verifier address from the BatchAuthenticator contract.
@@ -909,6 +909,18 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 		if !l.checkTxpool(queue, receiptsCh) {
 			l.Log.Info("txpool state is not good, aborting state publishing")
 			return
+		}
+
+		// Espresso: skip publishing if this batcher is not the active one
+		if l.hasBatchAuthenticator() {
+			isActive, err := l.isBatcherActive(ctx)
+			if err != nil {
+				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+				return
+			}
+			if !isActive {
+				return
+			}
 		}
 
 		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup, pi)

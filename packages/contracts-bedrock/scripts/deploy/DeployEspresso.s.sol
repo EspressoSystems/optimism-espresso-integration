@@ -2,7 +2,6 @@
 pragma solidity 0.8.25;
 
 import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
-import { IBatchInbox } from "interfaces/L1/IBatchInbox.sol";
 import { Script } from "forge-std/Script.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
@@ -79,7 +78,6 @@ contract DeployEspressoInput is BaseDeployIO {
 }
 
 contract DeployEspressoOutput is BaseDeployIO {
-    address internal _batchInboxAddress;
     address internal _batchAuthenticatorAddress;
     address internal _teeVerifierProxy;
     address internal _teeVerifierImpl;
@@ -87,9 +85,7 @@ contract DeployEspressoOutput is BaseDeployIO {
 
     function set(bytes4 _sel, address _addr) public {
         require(_addr != address(0), "DeployEspressoOutput: cannot set zero address");
-        if (_sel == this.batchInboxAddress.selector) {
-            _batchInboxAddress = _addr;
-        } else if (_sel == this.batchAuthenticatorAddress.selector) {
+        if (_sel == this.batchAuthenticatorAddress.selector) {
             _batchAuthenticatorAddress = _addr;
         } else if (_sel == this.teeVerifierProxy.selector) {
             _teeVerifierProxy = _addr;
@@ -105,11 +101,6 @@ contract DeployEspressoOutput is BaseDeployIO {
     function batchAuthenticatorAddress() public view returns (address) {
         require(_batchAuthenticatorAddress != address(0), "DeployEspressoOutput: batch authenticator address not set");
         return _batchAuthenticatorAddress;
-    }
-
-    function batchInboxAddress() public view returns (address) {
-        require(_batchInboxAddress != address(0), "DeployEspressoOutput: batcher inbox address not set");
-        return _batchInboxAddress;
     }
 
     function teeVerifierProxy() public view returns (address) {
@@ -136,8 +127,7 @@ contract DeployEspressoOutput is BaseDeployIO {
 contract DeployEspresso is Script {
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEVerifier(input, output, deployerAddress);
-        IBatchAuthenticator batchAuthenticator = deployBatchAuthenticator(input, output, teeVerifier);
-        deployBatchInbox(input, output, batchAuthenticator);
+        deployBatchAuthenticator(input, output, teeVerifier);
         checkOutput(input, output);
     }
 
@@ -275,33 +265,10 @@ contract DeployEspresso is Script {
         return IEspressoTEEVerifier(address(proxy));
     }
 
-    function deployBatchInbox(
-        DeployEspressoInput input,
-        DeployEspressoOutput output,
-        IBatchAuthenticator batchAuthenticator
-    )
-        public
-    {
-        bytes32 salt = input.salt();
-        vm.broadcast(msg.sender);
-        IBatchInbox impl = IBatchInbox(
-            DeployUtils.create2({
-                _name: "BatchInbox",
-                _salt: salt,
-                _args: DeployUtils.encodeConstructor(
-                    abi.encodeCall(IBatchInbox.__constructor__, (address(batchAuthenticator)))
-                )
-            })
-        );
-        vm.label(address(impl), "BatchInboxImpl");
-        output.set(output.batchInboxAddress.selector, address(impl));
-    }
-
     function checkOutput(DeployEspressoInput input, DeployEspressoOutput output) public view {
         // Check core addresses
-        address[] memory coreAddresses = Solarray.addresses(
-            output.batchAuthenticatorAddress(), output.batchInboxAddress(), output.teeVerifierProxy()
-        );
+        address[] memory coreAddresses =
+            Solarray.addresses(output.batchAuthenticatorAddress(), output.teeVerifierProxy());
         DeployUtils.assertValidContractAddresses(coreAddresses);
 
         // Check that proxy admin is a valid, distinct address (applies to both mock and production)

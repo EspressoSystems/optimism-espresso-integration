@@ -132,8 +132,11 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	activeIsTee = !activeIsTee
 	t.Logf("Switched state to: activeIsTee=%v", activeIsTee)
 
-	// Wait for services to stabilize after switch (key for the batcher loop to pick up the change)
-	time.Sleep(10 * time.Second)
+	// Wait for services to stabilize after switch. In-flight sendTxWithEspresso goroutines
+	// spawned before deactivation can take ~25s to drain their queued Txmgr.Send calls,
+	// so we wait long enough for all residual transactions to land on L1 before capturing
+	// startBlock in the next verifyPublishing call.
+	time.Sleep(60 * time.Second)
 
 	// 3. Verify new state
 	verifyPublishing(activeIsTee)

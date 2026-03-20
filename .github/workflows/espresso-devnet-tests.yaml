@@ -85,7 +85,7 @@ jobs:
         group: [0, 1, 2, 3, 4]
         include:
           - group: 0
-            tests: "TestChallengeGame|TestChangeBatchInboxOwner"
+            tests: "TestChallengeGame|TestChangeBatchAuthenticatorOwner"
             tee: false
           - group: 1
             tests: "TestSmokeWithoutTEE|TestBatcherRestart"

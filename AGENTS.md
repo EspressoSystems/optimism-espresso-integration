@@ -52,14 +52,13 @@ The integration adds Espresso as a fast confirmation layer for the OP stack. The
 | `op-deployer/pkg/deployer/*/espresso.go` | Deployment pipeline for Espresso contracts |
 | `op-alt-da/cmd/daserver/espresso.go` | Alternative DA store fetching from Espresso |
 | `packages/contracts-bedrock/src/L1/BatchAuthenticator.sol` | L1 contract: batch signature verification, TEE attestation, batcher switching |
-| `packages/contracts-bedrock/src/L1/BatchInbox.sol` | L1 contract: delegates validation to BatchAuthenticator |
 | `packages/contracts-bedrock/lib/espresso-tee-contracts/` | Git submodule: TEE verifier contract interfaces and implementations |
 
 Small modifications exist in core OP files (`op-node/rollup/types.go`, `op-batcher/batcher/driver.go`, `op-batcher/batcher/service.go`, `op-node/service.go`, flag registration files) to wire Espresso in. These are intentionally kept minimal per the diff discipline above.
 
 ## Solidity Contracts
 
-Foundry-based, in `packages/contracts-bedrock/`. For fast iteration when testing contract changes, use `just build-dev` in that directory. After modifying contracts that have Go bindings (e.g., `BatchAuthenticator`, `BatchInbox`), regenerate bindings with `just gen-bindings` from the repo root.
+Foundry-based, in `packages/contracts-bedrock/`. For fast iteration when testing contract changes, use `just build-dev` in that directory. After modifying contracts that have Go bindings (e.g., `BatchAuthenticator`), regenerate bindings with `just gen-bindings` from the repo root.
 
 ## Running Tests
 

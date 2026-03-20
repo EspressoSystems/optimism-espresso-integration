@@ -75,7 +75,6 @@ forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
 bindings_dir:="op-batcher/bindings"
 gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
 gen-bindings:
-  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchInbox.sol/BatchInbox.json > ./{{bindings_dir}}/batch_inbox.go
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/OPSuccinctFaultDisputeGame.sol/OPSuccinctFaultDisputeGame.json > ./{{bindings_dir}}/opsuccinct_fault_dispute_game.go
 
