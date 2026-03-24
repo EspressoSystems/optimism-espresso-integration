@@ -253,8 +253,9 @@ func (s *BatchStreamer[B]) computeEspressoBlockHeightsRange(currentBlockHeight u
 		// reprocessing the same block, we want to start from the next block.
 		start++
 	}
-	// `FetchNamespaceTransactionsInRange` is exclusive to finish, so we add 1 to currentBlockHeight
-	finish = min(start+limit, currentBlockHeight+1)
+	// `FetchNamespaceTransactionsInRange` is exclusive to finish. We use currentBlockHeight to
+	// avoid fetching the tip block which may not yet be indexed in the availability API.
+	finish = min(start+limit, currentBlockHeight)
 
 	return start, finish
 }
