@@ -140,9 +140,10 @@ func NewEspressoStreamer[B Batch](
 		EspressoLightClient: lightClient,
 		Log:                 log,
 		Namespace:           namespace,
-		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
+		// BatchPos is the next batch to give out.
+		// Reset() sets BatchPos = fallbackBatchPos + 1, so New and Reset stay consistent.
 		BatchPos:               originBatchPos + 1,
-		fallbackBatchPos:       originBatchPos + 1,
+		fallbackBatchPos:       originBatchPos,
 		BatchBuffer:            NewBatchBuffer[B](MaxBatchOutOfOrder),
 		HotShotPollingInterval: hotShotPollingInterval,
 		finalizedL1HashCache:   finalizedL1HashCache,
