@@ -36,7 +36,7 @@ type BatchBuffer[B Batch] struct {
 	batches []B
 }
 
-func NewBatchBuffer[B Batch]() BatchBuffer[B] {
+func NewBatchBuffer[B Batch](capacity uint64) BatchBuffer[B] {
 	return BatchBuffer[B]{
 		batches: []B{},
 	}
