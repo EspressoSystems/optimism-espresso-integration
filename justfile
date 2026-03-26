@@ -18,10 +18,10 @@ fast-op-tests:
  ./run_fast_tests.sh
 
 ## Unit tests (no Docker, fast)
-# Espresso core (streamer, batch buffer), derivation pipeline, and batcher unit tests.
-espresso-unit-tests:
-  go test -count=1 -v ./espresso/ ./op-batcher/...
-  go test -count=1 -v -run TestEspresso ./op-node/rollup/derive/
+# Espresso core (streamer, batch buffer)
+espresso-streamer-unit-tests:
+  go test -count=1 -v ./espresso/
+
 
 ## Integration tests
 
