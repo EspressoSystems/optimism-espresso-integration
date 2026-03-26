@@ -17,6 +17,12 @@ op-tests:
 fast-op-tests:
  ./run_fast_tests.sh
 
+## Unit tests (no Docker, fast)
+# Espresso core (streamer, batch buffer), derivation pipeline, and batcher unit tests.
+espresso-unit-tests:
+  go test -count=1 -v ./espresso/ ./op-batcher/...
+  go test -count=1 -v -run TestEspresso ./op-node/rollup/derive/
+
 ## Integration tests
 
 espresso_tests_timeout := "35m"
