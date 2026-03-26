@@ -36,6 +36,7 @@ import (
 //	Assert that the batch transaction lands on L1 (BatchInbox is an EOA).
 //	Assert that the derivation pipeline doesn't progress (no auth event).
 func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

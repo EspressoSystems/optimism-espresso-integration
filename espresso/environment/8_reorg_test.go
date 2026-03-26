@@ -33,6 +33,7 @@ import (
 //		The batcher doesn't submit a block without finalized L1 origin to the L1.
 //		After the L1 origin is finalized, the batcher submits the block.
 func TestBatcherWaitForFinality(t *testing.T) {
+	t.Parallel()
 	// Basic test setup.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -96,6 +97,7 @@ func TestBatcherWaitForFinality(t *testing.T) {
 //	Assert:
 //		The Caff node's safe L2 head always has a finalized L1 origin.
 func TestCaffNodeWaitForFinality(t *testing.T) {
+	t.Parallel()
 	// Basic test setup.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -234,6 +236,7 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 //	Assert that derivation pipeline still progresses
 //	Assert that Caff and OP node report a new block at the target L2 height
 func TestE2eDevnetWithL1Reorg(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

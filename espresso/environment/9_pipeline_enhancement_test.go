@@ -42,6 +42,7 @@ import (
 //		corresponding BatchInfoAuthenticated event.
 
 func TestPipelineEnhancement(t *testing.T) {
+	t.Parallel()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

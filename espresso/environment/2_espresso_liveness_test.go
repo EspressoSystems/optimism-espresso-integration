@@ -57,6 +57,7 @@ import (
 // submitter that the transaction was submitted successfully, and withholding
 // the submission itself.
 func TestE2eDevnetWithEspressoDegradedLiveness(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -165,6 +166,7 @@ func TestE2eDevnetWithEspressoDegradedLiveness(t *testing.T) {
 // we can use that Block information to track the arrival of the Transaction
 // / Block coming from Espresso.
 func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 

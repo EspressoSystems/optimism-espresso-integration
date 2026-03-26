@@ -200,6 +200,7 @@ func run(ctx context.Context, t *testing.T, system *e2esys.System) {
 //	Assert:
 //		L == L'
 func TestConfirmationIntegrityWithReorgs(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

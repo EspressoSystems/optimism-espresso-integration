@@ -36,6 +36,7 @@ import (
 //		Query the OP node to check that Alice balance has been increased by n-2
 
 func TestStatelessBatcher(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

@@ -23,7 +23,6 @@ const (
 	BatchPast
 )
 
-var ErrAtCapacity = errors.New("batch buffer at capacity")
 var ErrDuplicateBatch = errors.New("duplicate batch")
 
 type Batch interface {
@@ -34,19 +33,13 @@ type Batch interface {
 }
 
 type BatchBuffer[B Batch] struct {
-	batches  []B
-	capacity uint64
+	batches []B
 }
 
 func NewBatchBuffer[B Batch](capacity uint64) BatchBuffer[B] {
 	return BatchBuffer[B]{
-		batches:  []B{},
-		capacity: capacity,
+		batches: []B{},
 	}
-}
-
-func (b BatchBuffer[B]) Capacity() uint64 {
-	return b.capacity
 }
 
 func (b BatchBuffer[B]) Len() int {
@@ -57,11 +50,10 @@ func (b *BatchBuffer[B]) Clear() {
 	b.batches = nil
 }
 
+// Insert adds a batch to the buffer in sorted order by batch number.
+// The caller (processEspressoTransaction) is responsible for ensuring the buffer
+// stays bounded by dropping batches that are too far ahead of the current position.
 func (b *BatchBuffer[B]) Insert(batch B) error {
-	if uint64(b.Len()) >= b.capacity {
-		return ErrAtCapacity
-	}
-
 	pos, alreadyExists := slices.BinarySearchFunc(b.batches, batch, func(a, t B) int {
 		// Note: we use a custom comparison function that returns 0 only if the batches are actually
 		// the same to ensure that newer batches with the same number are stored later in the buffer

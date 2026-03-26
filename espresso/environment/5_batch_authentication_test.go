@@ -16,6 +16,7 @@ import (
 // when provided with an invalid attestation. This test ensures that the BatchAuthenticator
 // contract properly validates attestations.
 func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -55,6 +56,7 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 // TestE2eDevnetWithUnattestedBatcherKey verifies that when a batcher key is not properly
 // attested, the L2 chain can still produce unsafe blocks but cannot progress to safe L2 blocks.
 func TestE2eDevnetWithUnattestedBatcherKey(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

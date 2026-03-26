@@ -1005,29 +1005,19 @@ func TestStreamerMultipleBatchesSameNumber(t *testing.T) {
 	})
 }
 
-// TestStreamerBufferCapacityAndSkipPos tests the skip position mechanism when the buffer fills up.
-func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
+// TestStreamerMaxBatchOutOfOrder tests that batches too far ahead of the current
+// BatchPos are dropped, bounding the buffer size without needing capacity-based
+// overflow or skip/rewind logic.
+func TestStreamerMaxBatchOutOfOrder(t *testing.T) {
 	namespace := uint64(42)
 	chainID := big.NewInt(int64(namespace))
 	privateKeyString := "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 	chainSignerFactory, signerAddress, _ := crypto.ChainSignerFactoryFromConfig(&NoOpLogger{}, privateKeyString, "", "", opsigner.CLIConfig{})
 	chainSigner := chainSignerFactory(chainID, common.Address{})
 
-	t.Run("skipPos not overwritten across multiple fetch ranges", func(t *testing.T) {
-		// Regression test: when the Update loop iterates through multiple
-		// HotShot block ranges, hitting ErrAtCapacity in a later range must
-		// NOT overwrite skipPos set by an earlier range. Otherwise the rewind
-		// skips the earlier range's batches permanently.
-		//
-		// Scenario:
-		//   - Enough batches (starting from 2, skipping 1) are placed to fill
-		//     the buffer, plus an extra fetch range worth of batches beyond it.
-		//   - The extra batches are dropped because the buffer is full.
-		//     skipPos should record the earliest range where capacity was hit.
-		//   - Batch 1 is injected later, consumed, and triggers a rewind.
-		//   - After draining the buffer, the next batch must come from the
-		//     re-fetched overflow. If skipPos was overwritten to a later range
-		//     start, the rewind won't go far enough and those batches are lost.
+	t.Run("batches beyond MaxBatchOutOfOrder are dropped", func(t *testing.T) {
+		// Verify that a batch whose number exceeds BatchPos + MaxBatchOutOfOrder
+		// is silently dropped and never appears in the buffer or as the head batch.
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -1053,64 +1043,37 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 		require.NoError(t, err)
 
-		// Place enough batches to fill the buffer and overflow by one full
-		// fetch range. Batch 1 is intentionally missing so HasNext stays
-		// false, forcing the Update loop to keep iterating across ranges.
-		totalBatches := int(espresso.BatchBufferCapacity) + int(espresso.HOTSHOT_BLOCK_FETCH_LIMIT)
-		for i := 0; i < totalBatches; i++ {
-			_, _, _, espTxn := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, uint64(i+2), chainSigner)
-			state.AddEspressoTransactionData(uint64(i), namespace, espTxn)
-		}
+		// Insert a batch that is exactly at the boundary (BatchPos + MaxBatchOutOfOrder).
+		// BatchPos is 1, so this batch number should be accepted.
+		boundaryBatchNum := uint64(1) + espresso.MaxBatchOutOfOrder
+		_, _, _, espTxnBoundary := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, boundaryBatchNum, chainSigner)
+		state.AddEspressoTransactionData(0, namespace, espTxnBoundary)
 
-		// Update processes all ranges. The buffer fills up partway through,
-		// and all subsequent batches are dropped with ErrAtCapacity.
+		// Insert a batch that is one beyond the boundary — should be dropped.
+		tooFarBatchNum := boundaryBatchNum + 1
+		_, _, _, espTxnTooFar := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, tooFarBatchNum, chainSigner)
+		state.AddEspressoTransactionData(1, namespace, espTxnTooFar)
+
 		err = streamer.Update(ctx)
 		require.NoError(t, err)
+
+		// The boundary batch should be buffered, but we can't consume it yet
+		// (batch 1 is missing). The too-far batch should have been dropped entirely.
 		require.False(t, streamer.HasNext(ctx))
 
-		// Inject batch 1 beyond all existing data.
-		batch1Pos := uint64(totalBatches + 10)
-		_, _, _, espTxn1 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 1, chainSigner)
-		state.AddEspressoTransactionData(batch1Pos, namespace, espTxn1)
-
-		// Fetch and consume batch 1 — triggers the rewind via skipPos.
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-		require.True(t, streamer.HasNext(ctx))
-		batch := streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(1), batch.Number())
-
-		// Drain the entire buffer of previously-buffered batches.
-		firstOverflow := uint64(espresso.BatchBufferCapacity) + 2
-		for expectedNum := uint64(2); expectedNum < firstOverflow; expectedNum++ {
-			err = streamer.Update(ctx)
-			require.NoError(t, err)
-			require.True(t, streamer.HasNext(ctx), "expected batch %d to be available", expectedNum)
-			batch = streamer.Next(ctx)
-			require.NotNil(t, batch)
-			require.Equal(t, expectedNum, batch.Number())
-		}
-
-		// The first batch that was dropped due to capacity must now be
-		// recoverable via the rewind. If skipPos was overwritten to a later
-		// range, this batch is permanently lost.
-		err = streamer.Update(ctx)
-		require.NoError(t, err)
-		require.True(t, streamer.HasNext(ctx), "first overflow batch must be available after rewind — skipPos must preserve the earliest range")
-		batch = streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, firstOverflow, batch.Number(), "first batch after buffer drain must not be skipped")
+		// The buffer should contain exactly 1 batch (the boundary one).
+		require.Equal(t, 1, streamer.BatchBuffer.Len())
 	})
 
-	t.Run("new batch for current BatchPos arrives when buffer full", func(t *testing.T) {
+	t.Run("batches within range are buffered and consumable", func(t *testing.T) {
+		// Verify that out-of-order batches within MaxBatchOutOfOrder are buffered
+		// and become consumable once the missing batch arrives.
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		state := NewMockStreamerSource()
 		logger := new(NoOpLogger)
 
-		// Create streamer - after Refresh with SafeL2.Number=0, BatchPos becomes 1
 		streamer := espresso.NewEspressoStreamer(
 			namespace,
 			state,
@@ -1126,38 +1089,34 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 
 		rng := rand.New(rand.NewSource(7))
 
-		// Refresh state - after this, BatchPos becomes 1
 		syncStatus := state.SyncStatus()
 		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 		require.NoError(t, err)
 
-		// Fill buffer with future batches (2, 3, 4, ...)
-		for i := 0; i < int(espresso.BatchBufferCapacity); i++ {
-			_, _, _, espTxn := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, uint64(i+2), chainSigner)
-			state.AddEspressoTransactionData(uint64(i), namespace, espTxn)
-		}
+		// Insert batches 2 and 3, skipping batch 1.
+		_, _, _, espTxn2 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 2, chainSigner)
+		state.AddEspressoTransactionData(0, namespace, espTxn2)
+		_, _, _, espTxn3 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 3, chainSigner)
+		state.AddEspressoTransactionData(1, namespace, espTxn3)
 
-		// Update to fill buffer
 		err = streamer.Update(ctx)
 		require.NoError(t, err)
+		require.False(t, streamer.HasNext(ctx), "batch 1 is missing, should not have next")
 
-		// HasNext should be false (batch 1 is missing)
-		require.False(t, streamer.HasNext(ctx))
-
-		// Now add batch 1 (the one we need)
-		laterPos := uint64(espresso.BatchBufferCapacity + 1)
+		// Now add batch 1.
 		_, _, _, espTxn1 := state.CreateEspressoTxnData(ctx, namespace, rng, chainID, 1, chainSigner)
-		state.AddEspressoTransactionData(laterPos, namespace, espTxn1)
+		state.AddEspressoTransactionData(2, namespace, espTxn1)
 
-		// Update to get batch 1
 		err = streamer.Update(ctx)
 		require.NoError(t, err)
 
-		// Batch 1 should be assigned to headBatch directly (not buffered)
-		require.True(t, streamer.HasNext(ctx))
-		batch := streamer.Next(ctx)
-		require.NotNil(t, batch)
-		require.Equal(t, uint64(1), batch.Number())
+		// Consume all three batches in order.
+		for expectedNum := uint64(1); expectedNum <= 3; expectedNum++ {
+			require.True(t, streamer.HasNext(ctx), "expected batch %d to be available", expectedNum)
+			batch := streamer.Next(ctx)
+			require.NotNil(t, batch)
+			require.Equal(t, expectedNum, batch.Number())
+		}
 	})
 }
 

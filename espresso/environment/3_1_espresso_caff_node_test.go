@@ -32,6 +32,7 @@ import (
 // The actual tests is unable to make Alice's initial balance zero, and will
 // instead just check Alice's starting balance against the rest of the cases.
 func TestE2eDevnetWithEspressoWithCaffNodeDeterministicDerivation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

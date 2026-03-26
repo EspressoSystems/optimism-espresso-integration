@@ -2,9 +2,7 @@ package espresso
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -18,7 +16,17 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-const BatchBufferCapacity uint64 = 1024
+// MaxBatchOutOfOrder defines how far ahead of the current BatchPos a batch can be
+// before it is considered invalid and dropped. This bounds the buffer size: since any
+// batch with number > BatchPos + MaxBatchOutOfOrder is dropped on arrival, the buffer
+// can never hold more than MaxBatchOutOfOrder entries.
+//
+// This eliminates the need for capacity-based overflow handling (skipPos / rewind).
+// The tradeoff is that if Espresso confirms batches more than MaxBatchOutOfOrder apart,
+// the batcher must resubmit them. This is an extremely unlikely scenario, and the batcher
+// is only trusted for liveness (not safety), so bugs there can only cause stalls, not
+// invalid state transitions.
+const MaxBatchOutOfOrder uint64 = 1024
 
 // Espresso light client bindings don't have an explicit name for this struct,
 // so we define it here to avoid spelling it out every time
@@ -95,15 +103,12 @@ type BatchStreamer[B Batch] struct {
 	originHotShotPos uint64
 	// Latest finalized block on the L1.
 	FinalizedL1 eth.L1BlockRef
-	// If the batch buffer is full, but we don't yet have the next batch,
-	// we will start skipping other batches until we encounter the missing batch.
-	// This position will be used to record such a situation occurring, when
-	// we find the target batch HotShot position will be reset to this.
-	skipPos   uint64
-	headBatch *B
+	headBatch   *B
 
 	// Maintained in sorted order, but may be missing batches if we receive
-	// any out of order.
+	// any out of order. The buffer size is provably bounded by MaxBatchOutOfOrder
+	// because processEspressoTransaction drops any batch whose number exceeds
+	// BatchPos + MaxBatchOutOfOrder.
 	BatchBuffer BatchBuffer[B]
 
 	// Cache for finalized L1 block hashes, keyed by block number.
@@ -140,14 +145,13 @@ func NewEspressoStreamer[B Batch](
 		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
 		BatchPos:               originBatchPos + 1,
 		fallbackBatchPos:       originBatchPos + 1,
-		BatchBuffer:            NewBatchBuffer[B](BatchBufferCapacity),
+		BatchBuffer:            NewBatchBuffer[B](MaxBatchOutOfOrder),
 		HotShotPollingInterval: hotShotPollingInterval,
 		finalizedL1HashCache:   finalizedL1HashCache,
 		unmarshalBatch:         unmarshalBatch,
 		originHotShotPos:       originHotShotPos,
 		fallbackHotShotPos:     originHotShotPos,
 		hotShotPos:             originHotShotPos,
-		skipPos:                math.MaxUint64,
 	}
 }
 
@@ -157,7 +161,6 @@ func (s *BatchStreamer[B]) Reset() {
 	s.hotShotPos = s.fallbackHotShotPos
 	s.BatchPos = s.fallbackBatchPos + 1
 	s.headBatch = nil
-	s.skipPos = math.MaxUint64
 	s.BatchBuffer.Clear()
 }
 
@@ -356,10 +359,7 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 
 	for _, namespaceTransaction := range namespaceRangeTransactions {
 		for _, txn := range namespaceTransaction.Transactions {
-			err := s.processEspressoTransaction(ctx, txn.Payload)
-			if errors.Is(err, ErrAtCapacity) {
-				s.skipPos = min(s.skipPos, start)
-			}
+			s.processEspressoTransaction(ctx, txn.Payload)
 		}
 	}
 
@@ -368,12 +368,11 @@ func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish 
 
 // processEspressoTransaction is a helper method that encapsulates the logic of
 // processing batches from the transactions in a block fetched from Espresso.
-// It will return an error if the transaction contains a valid batch, but the buffer is full.
-func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, transaction espressoCommon.Bytes) error {
+func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, transaction espressoCommon.Bytes) {
 	batch, err := s.UnmarshalBatch(transaction)
 	if err != nil {
 		s.Log.Warn("Dropping batch with invalid transaction data", "error", err)
-		return nil
+		return
 	}
 
 	validity := s.CheckBatch(ctx, *batch)
@@ -381,16 +380,29 @@ func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, trans
 	switch validity {
 	case BatchDrop:
 		s.Log.Info("Dropping batch", batch)
-		return nil
+		return
 
 	case BatchPast:
 		s.Log.Info("Batch already processed. Skipping", "batch", (*batch).Number())
-		return nil
+		return
 
 	case BatchUndecided:
 		s.Log.Warn("Inserting undecided batch", "batch", (*batch).Hash())
 
 	case BatchAccept:
+	}
+
+	// Drop batches that are too far ahead of where we are. This bounds the buffer size
+	// to at most MaxBatchOutOfOrder entries, eliminating the need for capacity-based
+	// overflow handling. If a batch is confirmed by Espresso this far out of order,
+	// the batcher is responsible for resubmitting it — this is an extremely unlikely
+	// scenario and only affects liveness, not safety.
+	if (*batch).Number() > s.BatchPos+MaxBatchOutOfOrder {
+		s.Log.Warn("Dropping batch too far ahead of current position",
+			"batchNumber", (*batch).Number(),
+			"batchPos", s.BatchPos,
+			"maxOutOfOrder", MaxBatchOutOfOrder)
+		return
 	}
 
 	header := (*batch).Header()
@@ -405,39 +417,25 @@ func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, trans
 			"timestamp", header.Time)
 		s.headBatch = batch
 	} else {
-		// Otherwise, try to buffer it. If the buffer is full, forward the error up to record
-		// that we're skipping batches and will need to revisit when the buffer drains
 		s.Log.Info("Inserting batch into buffer",
 			"hash", (*batch).Hash(),
 			"parentHash", header.ParentHash,
 			"epochNum", header.Number,
 			"timestamp", header.Time)
 		err := s.BatchBuffer.Insert(*batch)
-		if errors.Is(err, ErrDuplicateBatch) {
+		if err == ErrDuplicateBatch {
 			s.Log.Warn("Dropping batch with duplicate hash")
 		}
-		if errors.Is(err, ErrAtCapacity) {
-			return err
-		}
 	}
-
-	return nil
 }
 
 // UnmarshalBatch implements EspressoStreamerIFace
 func (s *BatchStreamer[B]) Next(ctx context.Context) *B {
 	// Is the next batch available?
 	if s.HasNext(ctx) {
-		// Current batch is going to be processed, update fallback batch position
 		s.BatchPos += 1
 		head := s.headBatch
 		s.headBatch = nil
-		// If we have been skipping batches, now is the time
-		// to rewind and start considering batches again: we've made more space
-		if s.skipPos != math.MaxUint64 {
-			s.hotShotPos = s.skipPos
-			s.skipPos = math.MaxUint64
-		}
 		return head
 	}
 

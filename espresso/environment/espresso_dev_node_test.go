@@ -14,6 +14,7 @@ import (
 // Docker implementation. It starts the dev node and then stops it. And tries
 // to ensure that the e2e system, and the docker container stop correctly.
 func TestEspressoDockerDevNodeSmokeTest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -89,6 +90,7 @@ func TestEspressoDockerDevNodeSmokeTest(t *testing.T) {
 // TestE2eDevnetWithEspressoSimpleTransactions launches the e2e Dev Net with the Espresso Dev Node
 // and runs a couple of simple transactions to it.
 func TestE2eDevnetWithEspressoSimpleTransactions(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -112,6 +114,7 @@ func TestE2eDevnetWithEspressoSimpleTransactions(t *testing.T) {
 // TestE2eDevnetWithEspressoAndAltDaSimpleTransactions launches the e2e Dev Net with the Espresso
 // Dev Node in AltDA mode and runs a couple of simple transactions to it.
 func TestE2eDevnetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -143,6 +146,7 @@ func TestE2eDevnetWithEspressoAndAltDaSimpleTransactions(t *testing.T) {
 // TestE2eDevnetWithoutEspressoSimpleTransactions launches the e2e Dev Net
 // without the Espresso Dev Node and runs a couple of simple transactions to it.
 func TestE2eDevnetWithoutEspressoSimpleTransaction(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

@@ -68,6 +68,7 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 // derives the same chain state as the verifier by comparing block hashes at the
 // same height.
 func TestBatcherSwitching(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -422,6 +423,7 @@ func retryWaitNTimes(fn func() error, n int) error {
 // switched to the fallback and the fallback batcher should continue
 // submitting the remaining frames of the channel without any issues.
 func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeoutCause(context.Background(), time.Minute*10, fmt.Errorf("test did not complete within expected time allotment: %w", context.DeadlineExceeded))
 	defer cancel()
 

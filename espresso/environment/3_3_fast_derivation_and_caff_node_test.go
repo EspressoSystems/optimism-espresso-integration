@@ -51,6 +51,7 @@ func checkNewBlocks(ctx context.Context, client *ethclient.Client, previousBlock
 //
 // checkNewBlocks checks for new blocks and verifies their timestamps
 func TestFastDerivationAndCaffNode(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 

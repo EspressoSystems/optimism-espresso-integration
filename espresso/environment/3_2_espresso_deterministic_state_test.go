@@ -44,6 +44,7 @@ import (
 //		Once a state of op-node is finalized on L1, it should match the state that was earlier reported by the caff-node for the same block.
 
 func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

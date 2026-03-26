@@ -59,24 +59,21 @@ func newMockBatchWithHash(number uint64, hash common.Hash) mockBatch {
 	}
 }
 
-// TestBatchBufferInsertAtCapacity verifies that the buffer respects its capacity limit
-// and returns ErrAtCapacity when attempting to insert beyond capacity.
-func TestBatchBufferInsertAtCapacity(t *testing.T) {
-	const testCapacity uint64 = 3
-
-	// Create a buffer with small capacity
-	buffer := NewBatchBuffer[mockBatch](testCapacity)
-
-	// Verify Capacity() returns the configured capacity
-	require.Equal(t, testCapacity, buffer.Capacity())
+// TestBatchBufferInsertAndRetrieve verifies basic insert and retrieval behavior.
+// Note: the buffer no longer enforces a capacity limit internally. Bounding is
+// done by the streamer, which drops batches too far ahead of the current position
+// (see MaxBatchOutOfOrder). The buffer itself accepts any number of inserts.
+func TestBatchBufferInsertAndRetrieve(t *testing.T) {
+	buffer := NewBatchBuffer[mockBatch](0)
 
 	// Verify buffer starts empty
 	require.Equal(t, 0, buffer.Len())
 
-	// Insert batches up to capacity
+	// Insert batches
 	batch1 := newMockBatch(1)
 	batch2 := newMockBatch(2)
 	batch3 := newMockBatch(3)
+	batch4 := newMockBatch(4)
 
 	err := buffer.Insert(batch1)
 	require.NoError(t, err)
@@ -90,40 +87,29 @@ func TestBatchBufferInsertAtCapacity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, buffer.Len())
 
-	// Verify inserting beyond capacity returns ErrAtCapacity
-	batch4 := newMockBatch(4)
+	// Inserting a fourth batch succeeds (no capacity limit)
 	err = buffer.Insert(batch4)
-	require.ErrorIs(t, err, ErrAtCapacity)
+	require.NoError(t, err)
+	require.Equal(t, 4, buffer.Len())
 
-	// Verify buffer contents unchanged after failed insert
-	require.Equal(t, 3, buffer.Len())
-	require.Equal(t, testCapacity, buffer.Capacity())
-
-	// Verify the original batches are still accessible and in sorted order
-	got := buffer.Get(0)
-	require.NotNil(t, got)
-	require.Equal(t, uint64(1), got.Number())
-
-	got = buffer.Get(1)
-	require.NotNil(t, got)
-	require.Equal(t, uint64(2), got.Number())
-
-	got = buffer.Get(2)
-	require.NotNil(t, got)
-	require.Equal(t, uint64(3), got.Number())
+	// Verify all batches are accessible and in sorted order
+	for i := 0; i < 4; i++ {
+		got := buffer.Get(i)
+		require.NotNil(t, got)
+		require.Equal(t, uint64(i+1), got.Number())
+	}
 
 	// Verify Get returns nil for out of bounds
-	require.Nil(t, buffer.Get(3))
+	require.Nil(t, buffer.Get(4))
 }
 
 // TestBatchBufferInsertDuplicateHandling verifies that:
 // - Inserting the exact same batch (same number AND same hash) does not create a duplicate
 // - Inserting a batch with the same number but different hash IS allowed
 func TestBatchBufferInsertDuplicateHandling(t *testing.T) {
-	const testCapacity uint64 = 10
 	const batchNumberN uint64 = 42
 
-	buffer := NewBatchBuffer[mockBatch](testCapacity)
+	buffer := NewBatchBuffer[mockBatch](0)
 
 	// Create first batch with number N and hash H1
 	hashH1 := common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")
@@ -257,9 +243,6 @@ func TestBatchBufferClear(t *testing.T) {
 	require.Nil(t, buffer.Peek())
 	require.Nil(t, buffer.Pop())
 	require.Nil(t, buffer.Get(0))
-
-	// Verify capacity is unchanged
-	require.Equal(t, uint64(10), buffer.Capacity())
 
 	// Verify we can insert again after clear
 	err = buffer.Insert(newMockBatch(1))

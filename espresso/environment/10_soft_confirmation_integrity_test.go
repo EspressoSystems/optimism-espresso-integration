@@ -484,6 +484,7 @@ func submitValidDataWithRandomSignature(
 // L1. All of these should yield the same blocks in the same order (but at
 // different times).
 func TestSequencerFeedConsistency(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -546,6 +547,7 @@ func TestSequencerFeedConsistency(t *testing.T) {
 // to Espresso. Such attacks should not cause Espresso to finalize something
 // different than the sequencer feed.
 func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 

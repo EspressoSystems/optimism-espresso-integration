@@ -69,3 +69,7 @@ config/jwt.txt
 *.pem
 
 packages/contracts-bedrock/lib/automate/
+
+
+# Claude
+.claude
