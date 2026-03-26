@@ -23,9 +23,7 @@ import (
 //
 // This eliminates the need for capacity-based overflow handling (skipPos / rewind).
 // The tradeoff is that if Espresso confirms batches more than MaxBatchOutOfOrder apart,
-// the batcher must resubmit them. This is an extremely unlikely scenario, and the batcher
-// is only trusted for liveness (not safety), so bugs there can only cause stalls, not
-// invalid state transitions.
+// the batcher must resubmit them. This is an extremely unlikely scenario, that would only yield a liveness failure.
 const MaxBatchOutOfOrder uint64 = 1024
 
 // Espresso light client bindings don't have an explicit name for this struct,
