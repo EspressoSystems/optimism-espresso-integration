@@ -9,12 +9,65 @@ build-rust-release:
   cd rollup-boost && cargo build --release -p rollup-boost --bin rollup-boost
 
 # Run the tests
-tests:
+
+## OP stack tests
+op-tests:
   ./run_all_tests.sh
 
-fast-tests:
+fast-op-tests:
  ./run_fast_tests.sh
 
+## Integration tests
+
+espresso_tests_timeout := "35m"
+# Max parallel tests. Each test spins up L1+L2+Espresso Docker containers.
+# 4 is a good default for 32GB RAM; reduce to 2 on constrained machines.
+espresso_tests_parallel := "4"
+
+espresso-tests timeout=espresso_tests_timeout parallel=espresso_tests_parallel: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -parallel={{parallel}} -v ./espresso/environment
+
+# Run espresso-tests without recompiling contracts (when artifacts already exist).
+espresso-tests-no-compile timeout=espresso_tests_timeout parallel=espresso_tests_parallel:
+ go test -timeout={{timeout}} -count=1 -parallel={{parallel}} -v ./espresso/environment
+
+# Run a single espresso integration test by name regex.
+espresso-test name timeout=espresso_tests_timeout: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -run '{{name}}' -v ./espresso/environment
+
+# Run a single espresso integration test without recompiling contracts.
+espresso-test-no-compile name timeout=espresso_tests_timeout:
+ go test -timeout={{timeout}} -count=1 -run '{{name}}' -v ./espresso/environment
+
+## Integration test groups (for targeted development)
+# Caff node tests
+espresso-tests-caff timeout=espresso_tests_timeout: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -parallel=3 -run 'TestE2eDevnetWithEspressoWithCaffNodeDeterministicDerivation|TestDeterministicDerivationExecutionState|TestFastDerivationAndCaffNode' -v ./espresso/environment
+
+# Batcher tests (auth, inbox, stateless, fallback)
+espresso-tests-batcher timeout=espresso_tests_timeout: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -parallel=4 -run 'TestE2eDevnetWithInvalidAttestation|TestE2eDevnetWithUnattestedBatcherKey|TestE2eDevnetWithoutAuthenticatingBatches|TestStatelessBatcher|TestBatcherSwitching|TestFallbackMechanism' -v ./espresso/environment
+
+# Derivation pipeline and soft confirmation tests
+espresso-tests-derivation timeout=espresso_tests_timeout: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -parallel=3 -run 'TestPipelineEnhancement|TestSequencerFeedConsistency|TestSoftConfirmation' -v ./espresso/environment
+
+# Reorg and finality tests
+espresso-tests-reorg timeout=espresso_tests_timeout: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -parallel=4 -run 'TestBatcherWaitForFinality|TestCaffNodeWaitForFinality|TestE2eDevnetWithL1Reorg|TestConfirmationIntegrityWithReorgs' -v ./espresso/environment
+
+# Liveness and degradation tests
+espresso-tests-liveness timeout=espresso_tests_timeout: compile-contracts-fast
+ go test -timeout={{timeout}} -count=1 -parallel=2 -run 'TestE2eDevnetWithEspressoDegradedLiveness' -v ./espresso/environment
+
+espresso-enclave-tests:
+  ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{espresso_tests_timeout}} -count=1 ./espresso/enclave-tests/...
+
+smoke-tests: compile-contracts-fast
+ go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
+
+
+## Devnet tests
 devnet-tests: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v ./espresso/devnet-tests/...
 
@@ -38,10 +91,11 @@ devnet-batcher-switching-test: build-devnet
 devnet-batcher-active-publish-only-test: build-devnet
   U_ID={{uid}} GID={{gid}} go test -timeout 30m -p 1 -count 1 -v -run TestBatcherActivePublishOnly ./espresso/devnet-tests/...
 
-build-devnet: stop-containers compile-contracts
+build-devnet: stop-containers compile-contracts-fast
   rm -Rf espresso/deployment
   (cd op-deployer && just)
   (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
+
 
 golint:
  golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
@@ -56,30 +110,23 @@ run-l1-espresso-contracts-tests: compile-contracts
 compile-contracts-fast:
  (cd packages/contracts-bedrock && forge build --offline --skip "/**/test/**" && just fix-proxy-artifact)
 
+# Build the batcher enclave image for devnet tests.
 build-batcher-enclave-image:
  (cd kurtosis-devnet && just op-batcher-enclave-image)
-
-espresso_tests_timeout := "35m"
-espresso-tests timeout=espresso_tests_timeout: compile-contracts
- go test -timeout={{timeout}} -p=1 -count=1 ./espresso/environment
-
-espresso-enclave-tests:
-  ESPRESSO_RUN_ENCLAVE_TESTS=true go test -timeout={{espresso_tests_timeout}} -p=1 -count=1 ./espresso/enclave-tests/...
 
 
 IMAGE_NAME := "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-20251120-lip2p-tcp-3855"
 remove-espresso-containers:
   docker remove --force $(docker ps -q --filter ancestor={{IMAGE_NAME}})
 
+
+# Contracts
 forge_artifacts_dir:="packages/contracts-bedrock/forge-artifacts"
 bindings_dir:="op-batcher/bindings"
 gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
 gen-bindings:
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/OPSuccinctFaultDisputeGame.sol/OPSuccinctFaultDisputeGame.json > ./{{bindings_dir}}/opsuccinct_fault_dispute_game.go
-
-smoke-tests: compile-contracts
- go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
 
 # Clean up everything before running the tests
 nuke:

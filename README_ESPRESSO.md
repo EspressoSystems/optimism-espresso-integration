@@ -52,22 +52,46 @@ Run the Espresso smoke tests:
 > just smoke-tests
 ```
 
-Run the Espresso integration tests. Note, this can take up to 30min.
+Run the Espresso integration tests. Tests run in parallel (default 4 concurrent). Tune with `just espresso-tests parallel=2` on constrained machines.
 
 ```console
 > just espresso-tests
 ```
 
+To skip contract recompilation when artifacts already exist:
+
+```console
+> just espresso-tests-no-compile
+```
+
+To run a single integration test by name:
+
+```console
+> just espresso-test TestBatcherSwitching
+```
+
+#### Integration test groups
+
+For faster iteration during development, you can run a subset of related tests:
+
+```console
+> just espresso-tests-caff        # Caff node tests
+> just espresso-tests-batcher     # Batcher auth, inbox, stateless, fallback
+> just espresso-tests-derivation  # Pipeline and soft confirmation tests
+> just espresso-tests-reorg       # Reorg and finality tests
+> just espresso-tests-liveness    # Liveness and degradation tests
+```
+
 To run all the standard OP stack (w/o Espresso integration) tests (slow):
 
 ```console
-> just tests
+> just op-tests
 ```
 
 To run a subset of the tests above (fast):
 
 ```console
-> just fast-tests
+> just fast-op-tests
 ```
 
 To run the devnet tests:
@@ -137,7 +161,9 @@ just gen-bindings
 
 If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
 
-> just remove-containers
+```console
+> just remove-espresso-containers
+```
 
 ### Guide: Setting Up an Enclave-Enabled Nitro EC2 Instance
 
@@ -295,10 +321,10 @@ just
 cd ../
 ```
 
-* Build the contracts. This step needs to be re-run if the contracts are modified.
+* Build the contracts. This step needs to be re-run if the contracts are modified. Use `compile-contracts-fast` for faster builds (skips test contracts), or `compile-contracts` for a full build.
 
 ```console
-just compile-contracts
+just compile-contracts-fast
 ```
 
 * Go to the `espresso` directory.
