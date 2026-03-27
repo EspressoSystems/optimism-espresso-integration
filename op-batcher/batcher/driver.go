@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -93,7 +94,8 @@ type AltDAClient interface {
 	SetInput(ctx context.Context, data []byte) (altda.CommitmentData, error)
 }
 
-// batcherL1Adapter wraps the batcher's L1Client to implement espresso.L1Client (HeaderHashByNumber).
+// batcherL1Adapter wraps the batcher's L1Client to implement espresso.L1Client
+// (HeaderHashByNumber + bind.ContractCaller).
 type batcherL1Adapter struct {
 	L1Client L1Client
 }
@@ -104,6 +106,14 @@ func (a *batcherL1Adapter) HeaderHashByNumber(ctx context.Context, number *big.I
 		return common.Hash{}, err
 	}
 	return h.Hash(), nil
+}
+
+func (a *batcherL1Adapter) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	return a.L1Client.CodeAt(ctx, contract, blockNumber)
+}
+
+func (a *batcherL1Adapter) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	return a.L1Client.CallContract(ctx, call, blockNumber)
 }
 
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
@@ -185,21 +195,22 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	if batchSubmitter.EspressoLightClient != nil {
 		lightClientIface = batchSubmitter.EspressoLightClient
 	}
-	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(
-		espresso.NewEspressoStreamer(
-			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-			l1Adapter,
-			l1Adapter,
-			batchSubmitter.Espresso,
-			lightClientIface,
-			batchSubmitter.Log,
-			func(data []byte) (*derive.EspressoBatch, error) {
-				return derive.UnmarshalEspressoTransaction(data, batchSubmitter.SequencerAddress)
-			},
-			2*time.Second,
-			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
-		),
+	unbufferedStreamer, err := espresso.NewEspressoStreamer(
+		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
+		l1Adapter,
+		l1Adapter,
+		batchSubmitter.Espresso,
+		lightClientIface,
+		batchSubmitter.Log,
+		derive.CreateEspressoBatchUnmarshaler(),
+		2*time.Second,
+		setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
+		batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))
+	}
+	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
 	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 
 	return batchSubmitter
@@ -287,8 +298,8 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal) // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
 	} else {
 		l.wg.Add(3)
-		go l.receiptsLoop(l.wg, receiptsCh)                                            // ranges over receiptsCh channel
-		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal)                // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
+		go l.receiptsLoop(l.wg, receiptsCh)                                           // ranges over receiptsCh channel
+		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal)               // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
 		go l.blockLoadingLoop(l.shutdownCtx, l.wg, unsafeBytesUpdated, publishSignal) // sends on unsafeBytesUpdated (if throttling enabled), and publishSignal. Closes them both when done
 	}
 
