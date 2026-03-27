@@ -2,6 +2,7 @@ package espresso
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -422,7 +423,7 @@ func (s *BatchStreamer[B]) processEspressoTransaction(ctx context.Context, trans
 			"epochNum", header.Number,
 			"timestamp", header.Time)
 		err := s.BatchBuffer.Insert(*batch)
-		if err == ErrDuplicateBatch {
+		if errors.Is(err, ErrDuplicateBatch) {
 			s.Log.Warn("Dropping batch with duplicate hash")
 		}
 	}
