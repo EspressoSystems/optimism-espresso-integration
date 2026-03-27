@@ -6,6 +6,7 @@ import { Script } from "forge-std/Script.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
@@ -163,7 +164,7 @@ contract DeployEspresso is Script {
         // Initialize the proxy with explicit owner parameter
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (teeVerifier, input.teeBatcher(), input.systemConfig(), batchAuthenticatorOwner)
+            (teeVerifier, input.teeBatcher(), ISystemConfig(input.systemConfig()), batchAuthenticatorOwner)
         );
         vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);

@@ -8,6 +8,7 @@ import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { OwnableWithGuardiansUpgradeable } from "@espresso-tee-contracts/OwnableWithGuardiansUpgradeable.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
@@ -36,8 +37,8 @@ contract BatchAuthenticator is
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
     bool public activeIsTee;
 
-    /// @notice Address of the SystemConfig contract.
-    address public systemConfig;
+    /// @notice The SystemConfig contract, used to check the paused status.
+    ISystemConfig public systemConfig;
 
     /// @notice Constructor disables initializers on implementation
     constructor() ReinitializableBase(1) {
@@ -47,7 +48,7 @@ contract BatchAuthenticator is
     function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
-        address _systemConfig,
+        ISystemConfig _systemConfig,
         address _owner
     )
         external
@@ -60,7 +61,7 @@ contract BatchAuthenticator is
         __OwnableWithGuardians_init(_owner);
 
         if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
-        if (_systemConfig == address(0)) revert InvalidAddress(_systemConfig);
+        if (address(_systemConfig) == address(0)) revert InvalidAddress(address(_systemConfig));
         if (address(_espressoTEEVerifier) == address(0)) {
             revert InvalidAddress(address(_espressoTEEVerifier));
         }
@@ -75,6 +76,11 @@ contract BatchAuthenticator is
     /// @notice Returns the owner of the contract.
     function owner() public view override(IBatchAuthenticator, OwnableUpgradeable) returns (address) {
         return super.owner();
+    }
+
+    /// @notice Getter for the current paused status.
+    function paused() public view returns (bool) {
+        return systemConfig.paused();
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
@@ -92,6 +98,8 @@ contract BatchAuthenticator is
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
+        if (paused()) revert BatchAuthenticator_Paused();
+
         // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
         espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
 
@@ -99,6 +107,8 @@ contract BatchAuthenticator is
     }
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
+        if (paused()) revert BatchAuthenticator_Paused();
+
         espressoTEEVerifier.registerService(
             attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
         );
