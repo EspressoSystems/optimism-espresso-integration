@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	batcherCfg "github.com/ethereum-optimism/optimism/op-batcher/config"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"

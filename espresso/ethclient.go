@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 )
 
 // AdaptL1BlockRefClient is a wrapper around eth.L1BlockRef that implements the espresso.L1Client interface

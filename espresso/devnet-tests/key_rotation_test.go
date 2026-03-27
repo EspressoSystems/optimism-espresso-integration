@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	e2ebindings "github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

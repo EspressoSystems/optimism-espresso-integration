@@ -15,7 +15,7 @@ import (
 
 	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
