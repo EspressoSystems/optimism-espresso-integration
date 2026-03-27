@@ -188,30 +188,32 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		panic(err)
 	}
 
-	l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
-	// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
-	// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
-	var lightClientIface espresso.LightClientCallerInterface
-	if batchSubmitter.EspressoLightClient != nil {
-		lightClientIface = batchSubmitter.EspressoLightClient
+	if setup.Config.UseEspresso {
+		l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
+		// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
+		// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
+		var lightClientIface espresso.LightClientCallerInterface
+		if batchSubmitter.EspressoLightClient != nil {
+			lightClientIface = batchSubmitter.EspressoLightClient
+		}
+		unbufferedStreamer, err := espresso.NewEspressoStreamer(
+			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
+			l1Adapter,
+			l1Adapter,
+			batchSubmitter.Espresso,
+			lightClientIface,
+			batchSubmitter.Log,
+			derive.CreateEspressoBatchUnmarshaler(),
+			2*time.Second,
+			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
+			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
+		)
+		if err != nil {
+			panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))
+		}
+		batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
+		batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 	}
-	unbufferedStreamer, err := espresso.NewEspressoStreamer(
-		batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-		l1Adapter,
-		l1Adapter,
-		batchSubmitter.Espresso,
-		lightClientIface,
-		batchSubmitter.Log,
-		derive.CreateEspressoBatchUnmarshaler(),
-		2*time.Second,
-		setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
-		batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))
-	}
-	batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
-	batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 
 	return batchSubmitter
 }
