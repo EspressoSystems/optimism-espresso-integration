@@ -14,6 +14,7 @@ import (
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -740,6 +741,9 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	if cfg.Espresso.Namespace == 0 {
 		log.Info("Using L2 chain ID as namespace by default")
 		cfg.Espresso.Namespace = bs.RollupConfig.L2ChainID.Uint64()
+	}
+	if cfg.Espresso.BatchAuthenticatorAddr == (common.Address{}) {
+		cfg.Espresso.BatchAuthenticatorAddr = bs.RollupConfig.BatchAuthenticatorAddress
 	}
 
 	if err := cfg.Espresso.Check(); err != nil {
