@@ -2,10 +2,14 @@ package espresso
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 )
 
 // AdaptL1BlockRefClient is a wrapper around eth.L1BlockRef that implements the espresso.L1Client interface
@@ -28,4 +32,20 @@ func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *
 	}
 
 	return expectedL1BlockRef.Hash(), nil
+}
+
+// FetchTeeBatcherAddress reads the TEE batcher address from the BatchAuthenticator
+// contract on L1. This is used by the caff node to determine which address signed
+// Espresso batches, since the TEE batcher may use a different key than the
+// SystemConfig batcher (fallback batcher).
+func FetchTeeBatcherAddress(ctx context.Context, l1Client *ethclient.Client, batchAuthenticatorAddr common.Address) (common.Address, error) {
+	caller, err := bindings.NewBatchAuthenticatorCaller(batchAuthenticatorAddr, l1Client)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to bind BatchAuthenticator at %s: %w", batchAuthenticatorAddr, err)
+	}
+	addr, err := caller.TeeBatcher(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to call BatchAuthenticator.teeBatcher(): %w", err)
+	}
+	return addr, nil
 }

@@ -99,7 +99,7 @@ if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
 else
     echo "Using test mnemonic for authentication (local development mode)"
     BATCHER_ARGS="$BATCHER_ARGS,--mnemonic=test test test test test test test test test test test junk"
-    BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/0"
+    BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/6"
 fi
 
 BATCHER_ARGS="$BATCHER_ARGS,--throttle.unsafe-da-bytes-lower-threshold=0"

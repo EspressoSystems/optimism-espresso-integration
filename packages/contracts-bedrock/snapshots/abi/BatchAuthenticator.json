@@ -270,7 +270,7 @@
       },
       {
         "internalType": "address",
-        "name": "_nonTeeBatcher",
+        "name": "_systemConfig",
         "type": "address"
       },
       {
@@ -306,19 +306,6 @@
   {
     "inputs": [],
     "name": "nitroValidator",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "nonTeeBatcher",
     "outputs": [
       {
         "internalType": "address",
@@ -459,19 +446,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_newNonTeeBatcher",
-        "type": "address"
-      }
-    ],
-    "name": "setNonTeeBatcher",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_newTeeBatcher",
         "type": "address"
       }
@@ -505,6 +479,19 @@
     "name": "switchBatcher",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "systemConfig",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -554,12 +541,6 @@
         "internalType": "bytes32",
         "name": "commitment",
         "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
       }
     ],
     "name": "BatchInfoAuthenticated",
@@ -615,25 +596,6 @@
       }
     ],
     "name": "Initialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "oldNonTeeBatcher",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newNonTeeBatcher",
-        "type": "address"
-      }
-    ],
-    "name": "NonTeeBatcherUpdated",
     "type": "event"
   },
   {

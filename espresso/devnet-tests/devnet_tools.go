@@ -68,17 +68,16 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	d.ctx = ctx
 
 	mnemonics := *secrets.DefaultMnemonicConfig
-	mnemonics.Batcher = "m/44'/60'/0'/0/0"
 	secrets, err := mnemonics.Secrets()
 	if err != nil {
-		panic(fmt.Sprintf("failed to create default secrets: %e", err))
+		panic(fmt.Sprintf("failed to create default secrets: %v", err))
 	}
 	d.secrets = *secrets
 
 	if outageTime, ok := os.LookupEnv("ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD"); ok {
 		d.outageTime, err = time.ParseDuration(outageTime)
 		if err != nil {
-			panic(fmt.Sprintf("invalid value for ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: %e", err))
+			panic(fmt.Sprintf("invalid value for ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: %v", err))
 		}
 	} else {
 		d.outageTime = 10 * time.Second
@@ -86,7 +85,7 @@ func NewDevnet(ctx context.Context, t *testing.T) *Devnet {
 	if successTime, ok := os.LookupEnv("ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD"); ok {
 		d.successTime, err = time.ParseDuration(successTime)
 		if err != nil {
-			panic(fmt.Sprintf("invalid value for ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: %e", err))
+			panic(fmt.Sprintf("invalid value for ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: %v", err))
 		}
 	} else {
 		d.successTime = 10 * time.Second
@@ -134,9 +133,10 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		"docker", "compose", "up", "-d",
 	)
 	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
+	// TEE batcher uses HD index 6 (distinct from the SystemConfig/fallback batcher at index 2)
 	cmd.Env = append(
-		os.Environ(),
-		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.Batcher))),
+		cmd.Env,
+		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.AccountAtIdx(6)))),
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf

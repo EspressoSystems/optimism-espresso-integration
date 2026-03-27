@@ -9,6 +9,8 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -83,8 +85,31 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.BatchStr
 		cfg.CaffNodeConfig.Namespace = cfg.L2ChainID.Uint64()
 	}
 
+	// Determine the address used to verify Espresso batch signatures.
+	// When BatchAuthenticator is deployed, the TEE batcher signs Espresso batches
+	// with a dedicated key (distinct from the SystemConfig/fallback batcher).
+	// We read the TEE batcher address from the contract so the caff node validates
+	// against the correct signer.
+	batchSignerAddr := cfg.Genesis.SystemConfig.BatcherAddr
+	if cfg.BatchAuthenticatorAddress != (common.Address{}) {
+		l1Client, err := ethclient.Dial(cfg.CaffNodeConfig.RollupL1URL)
+		if err != nil {
+			log.Error("Failed to dial L1 for TEE batcher lookup", "err", err)
+			return nil
+		}
+		defer l1Client.Close()
+
+		teeBatcher, err := espresso.FetchTeeBatcherAddress(context.Background(), l1Client, cfg.BatchAuthenticatorAddress)
+		if err != nil {
+			log.Error("Failed to fetch TEE batcher address from BatchAuthenticator", "err", err)
+			return nil
+		}
+		log.Info("Resolved TEE batcher address from BatchAuthenticator", "teeBatcher", teeBatcher)
+		batchSignerAddr = teeBatcher
+	}
+
 	streamer, err := espresso.BatchStreamerFromCLIConfig(cfg.CaffNodeConfig, log, func(data []byte) (*EspressoBatch, error) {
-		return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
+		return UnmarshalEspressoTransaction(data, batchSignerAddr)
 	})
 	if err != nil {
 		log.Error("Failed to initialize Espresso streamer", "err", err)
