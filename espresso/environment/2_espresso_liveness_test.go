@@ -259,23 +259,20 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 		l := log.NewLogger(slog.Default().Handler())
 		lightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(env.ESPRESSO_LIGHT_CLIENT_ADDRESS), l1Client)
 		require.NoError(t, err, "light client creation failed")
-		// Resolve the TEE batcher address from BatchAuthenticator for signature validation
-		teeBatcherAddr, err := espresso.FetchTeeBatcherAddress(ctx, l1Client, system.RollupConfig.BatchAuthenticatorAddress)
-		require.NoError(t, err, "failed to fetch TEE batcher address")
-		streamer := espresso.NewEspressoStreamer(
+		streamer, err := espresso.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),
 			espresso.NewAdaptL1BlockRefClient(l1Client),
 			espresso.NewAdaptL1BlockRefClient(l1Client),
 			espressoClient.NewClient(server.URL),
 			lightClient,
 			l,
-			func(b []byte) (*derive.EspressoBatch, error) {
-				return derive.UnmarshalEspressoTransaction(b, teeBatcherAddr)
-			},
+			derive.CreateEspressoBatchUnmarshaler(),
 			100*time.Millisecond,
 			0,
 			1,
+			system.RollupConfig.BatchAuthenticatorAddress,
 		)
+		require.NoError(t, err, "failed to create Espresso streamer")
 
 		l1RPC, err := client.NewRPC(streamBlocksCtx, l, system.NodeEndpoint(e2esys.RoleL1).RPC())
 		require.NoError(t, err, "failed to create L1 RPC client")

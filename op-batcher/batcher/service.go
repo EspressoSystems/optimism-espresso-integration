@@ -53,7 +53,7 @@ type BatcherConfig struct {
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA    bool
+	UseAltDA bool
 	// GenericDA is true if the DA server generates commitments for the input
 	GenericDA   bool
 	UseEspresso bool
@@ -550,7 +550,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,
-		ChannelConfig:      bs.ChannelConfig,
+		ChannelConfig:       bs.ChannelConfig,
 		AltDA:               bs.AltDA,
 		SequencerAddress:    bs.TxManager.From(),
 		ChainSigner:         bs.ChainSigner,

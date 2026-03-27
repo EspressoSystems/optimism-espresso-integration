@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -32,6 +33,14 @@ func (c *AdaptL1BlockRefClient) HeaderHashByNumber(ctx context.Context, number *
 	}
 
 	return expectedL1BlockRef.Hash(), nil
+}
+
+func (c *AdaptL1BlockRefClient) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	return c.L1Client.CodeAt(ctx, contract, blockNumber)
+}
+
+func (c *AdaptL1BlockRefClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	return c.L1Client.CallContract(ctx, call, blockNumber)
 }
 
 // FetchTeeBatcherAddress reads the TEE batcher address from the BatchAuthenticator
