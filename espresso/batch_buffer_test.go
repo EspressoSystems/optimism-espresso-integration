@@ -35,6 +35,10 @@ func (m mockBatch) Hash() common.Hash {
 	return m.hash
 }
 
+func (m mockBatch) Signer() common.Address {
+	return common.Address{}
+}
+
 // newMockBatch creates a mock batch with the given number and a hash derived from the number
 func newMockBatch(number uint64) mockBatch {
 	return mockBatch{

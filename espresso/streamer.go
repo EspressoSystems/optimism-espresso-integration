@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/EspressoSystems/espresso-network/sdks/go/types"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -52,6 +54,7 @@ type EspressoClient interface {
 // the L1 client.
 type L1Client interface {
 	HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error)
+	bind.ContractCaller
 }
 
 // espresso-network go sdk's HeaderInterface currently lacks a function to get this info,
@@ -72,16 +75,25 @@ func GetFinalizedL1(header *espressoCommon.HeaderImpl) espressoCommon.L1BlockInf
 	panic("Unsupported header version")
 }
 
+// Subset of L1 state we're interested in for particular block number
+type l1State struct {
+	// Block hash
+	hash common.Hash
+	// TEE batchers addresses for signature verification
+	teeBatchers []common.Address
+}
+
 type BatchStreamer[B Batch] struct {
 	// Namespace of the rollup we're interested in
 	Namespace uint64
 
-	L1Client               L1Client
-	RollupL1Client         L1Client
-	EspressoClient         EspressoClient
-	EspressoLightClient    LightClientCallerInterface
-	Log                    log.Logger
-	HotShotPollingInterval time.Duration
+	L1Client                 L1Client
+	RollupL1Client           L1Client
+	EspressoClient           EspressoClient
+	EspressoLightClient      LightClientCallerInterface
+	BatchAuthenticatorCaller *bindings.BatchAuthenticatorCaller
+	Log                      log.Logger
+	HotShotPollingInterval   time.Duration
 
 	// Batch number we're to give out next
 	BatchPos uint64
@@ -107,7 +119,7 @@ type BatchStreamer[B Batch] struct {
 	BatchBuffer BatchBuffer[B]
 
 	// Cache for finalized L1 block hashes, keyed by block number.
-	finalizedL1HashCache *simplelru.LRU[uint64, common.Hash]
+	finalizedL1StateCache *simplelru.LRU[uint64, l1State]
 
 	unmarshalBatch func([]byte) (*B, error)
 }
@@ -127,28 +139,39 @@ func NewEspressoStreamer[B Batch](
 	hotShotPollingInterval time.Duration,
 	originHotShotPos uint64,
 	originBatchPos uint64,
-) *BatchStreamer[B] {
-	finalizedL1HashCache, _ := simplelru.NewLRU[uint64, common.Hash](1000, nil)
+	batchAuthenticatorAddress common.Address,
+) (*BatchStreamer[B], error) {
+	if batchAuthenticatorAddress == (common.Address{}) {
+		return nil, errors.New("BatchAuthenticator address must be set for Espresso streamer")
+	}
+
+	finalizedL1StateCache, _ := simplelru.NewLRU[uint64, l1State](1000, nil)
+
+	batchAuthenticatorCaller, err := bindings.NewBatchAuthenticatorCaller(batchAuthenticatorAddress, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind BatchAuthenticator at %s: %w", batchAuthenticatorAddress, err)
+	}
 
 	return &BatchStreamer[B]{
-		L1Client:            l1Client,
-		RollupL1Client:      rollupL1Client,
-		EspressoClient:      espressoClient,
-		EspressoLightClient: lightClient,
-		Log:                 log,
-		Namespace:           namespace,
+		L1Client:                 l1Client,
+		RollupL1Client:           rollupL1Client,
+		EspressoClient:           espressoClient,
+		EspressoLightClient:      lightClient,
+		BatchAuthenticatorCaller: batchAuthenticatorCaller,
+		Log:                      log,
+		Namespace:                namespace,
 		// Internally, BatchPos is the position of the batch we are to give out next, hence the +1
 		BatchPos:               originBatchPos + 1,
 		fallbackBatchPos:       originBatchPos + 1,
 		BatchBuffer:            NewBatchBuffer[B](BatchBufferCapacity),
 		HotShotPollingInterval: hotShotPollingInterval,
-		finalizedL1HashCache:   finalizedL1HashCache,
+		finalizedL1StateCache:  finalizedL1StateCache,
 		unmarshalBatch:         unmarshalBatch,
 		originHotShotPos:       originHotShotPos,
 		fallbackHotShotPos:     originHotShotPos,
 		hotShotPos:             originHotShotPos,
 		skipPos:                math.MaxUint64,
-	}
+	}, nil
 }
 
 // Reset the state to the last safe batch
@@ -212,18 +235,35 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidit
 		return BatchUndecided
 	}
 
-	l1headerHash, ok := s.finalizedL1HashCache.Get(origin.Number)
+	state, ok := s.finalizedL1StateCache.Get(origin.Number)
 	if !ok {
-		var err error
-		l1headerHash, err = s.RollupL1Client.HeaderHashByNumber(ctx, new(big.Int).SetUint64(origin.Number))
+		blockNumber := new(big.Int).SetUint64(origin.Number)
+		hash, err := s.RollupL1Client.HeaderHashByNumber(ctx, blockNumber)
 		if err != nil {
 			s.Log.Warn("Failed to fetch the L1 header, pending resync", "error", err)
 			return BatchUndecided
 		}
-		s.finalizedL1HashCache.Add(origin.Number, l1headerHash)
+
+		teeBatcher, err := s.BatchAuthenticatorCaller.TeeBatcher(&bind.CallOpts{BlockNumber: blockNumber})
+		if err != nil {
+			s.Log.Warn("Failed to fetch the TEE batcher address, pending resync", "error", err)
+			return BatchUndecided
+		}
+
+		state = l1State{
+			hash:        hash,
+			teeBatchers: []common.Address{teeBatcher},
+		}
+
+		s.finalizedL1StateCache.Add(origin.Number, state)
 	}
 
-	if l1headerHash != origin.Hash {
+	if !slices.Contains(state.teeBatchers, batch.Signer()) {
+		s.Log.Info("Dropping batch with invalid TEE batcher", "batch", batch.Hash(), "signer", batch.Signer())
+		return BatchDrop
+	}
+
+	if state.hash != origin.Hash {
 		s.Log.Warn("Dropping batch with invalid L1 origin hash")
 		return BatchDrop
 	}

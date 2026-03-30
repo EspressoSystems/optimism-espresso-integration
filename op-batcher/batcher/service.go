@@ -13,6 +13,7 @@ import (
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -50,7 +51,7 @@ type BatcherConfig struct {
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
-	UseAltDA    bool
+	UseAltDA bool
 	// GenericDA is true if the DA server generates commitments for the input
 	GenericDA   bool
 	UseEspresso bool
@@ -455,7 +456,7 @@ func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 		Txmgr:               bs.TxManager,
 		L1Client:            bs.L1Client,
 		EndpointProvider:    bs.EndpointProvider,
-		ChannelConfig:      bs.ChannelConfig,
+		ChannelConfig:       bs.ChannelConfig,
 		AltDA:               bs.AltDA,
 		SequencerAddress:    bs.TxManager.From(),
 		ChainSigner:         bs.ChainSigner,
@@ -632,6 +633,9 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	if cfg.Espresso.Namespace == 0 {
 		log.Info("Using L2 chain ID as namespace by default")
 		cfg.Espresso.Namespace = bs.RollupConfig.L2ChainID.Uint64()
+	}
+	if cfg.Espresso.BatchAuthenticatorAddr == (common.Address{}) {
+		cfg.Espresso.BatchAuthenticatorAddr = bs.RollupConfig.BatchAuthenticatorAddress
 	}
 
 	if err := cfg.Espresso.Check(); err != nil {

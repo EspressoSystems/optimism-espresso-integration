@@ -1,7 +1,7 @@
 {
   "src/L1/BatchAuthenticator.sol:BatchAuthenticator": {
-    "initCodeHash": "0xc2b6fca582454de21b81f884e789a7c02f2f6ff50331c33c56693d0ed6d0d3c0",
-    "sourceCodeHash": "0xe37056932b0548b5788214c21c758ed1eece6d16ebc7965dae54546af0afb910"
+    "initCodeHash": "0x105c898795a7167d71181356d86eb55ac651fe2260e50ae032504493f871fdff",
+    "sourceCodeHash": "0x5cf62824cab999c75b5aca712a99f207d84580292f64ceb2ddb6660b1f27308e"
   },
   "src/L1/DataAvailabilityChallenge.sol:DataAvailabilityChallenge": {
     "initCodeHash": "0xacbae98cc7c0f7ecbf36dc44bbf7cb0a011e6e6b781e28b9dbf947e31482b30d",

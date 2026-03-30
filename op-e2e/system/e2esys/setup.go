@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	gameTypes "github.com/ethereum-optimism/optimism/op-challenger/game/types"
 	"github.com/ethereum-optimism/optimism/espresso"
+	gameTypes "github.com/ethereum-optimism/optimism/op-challenger/game/types"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
 
@@ -734,13 +734,13 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 				L2Time:       uint64(cfg.DeployConfig.L1GenesisBlockTimestamp),
 				SystemConfig: e2eutils.SystemConfigFromDeployConfig(cfg.DeployConfig),
 			},
-			BlockTime:               cfg.DeployConfig.L2BlockTime,
-			MaxSequencerDrift:       cfg.DeployConfig.MaxSequencerDrift,
-			SeqWindowSize:           cfg.DeployConfig.SequencerWindowSize,
-			ChannelTimeoutBedrock:   cfg.DeployConfig.ChannelTimeoutBedrock,
-			L1ChainID:               cfg.L1ChainIDBig(),
-			L2ChainID:               cfg.L2ChainIDBig(),
-			BatchInboxAddress:       cfg.DeployConfig.BatchInboxAddress,
+			BlockTime:                 cfg.DeployConfig.L2BlockTime,
+			MaxSequencerDrift:         cfg.DeployConfig.MaxSequencerDrift,
+			SeqWindowSize:             cfg.DeployConfig.SequencerWindowSize,
+			ChannelTimeoutBedrock:     cfg.DeployConfig.ChannelTimeoutBedrock,
+			L1ChainID:                 cfg.L1ChainIDBig(),
+			L2ChainID:                 cfg.L2ChainIDBig(),
+			BatchInboxAddress:         cfg.DeployConfig.BatchInboxAddress,
 			BatchAuthenticatorAddress: cfg.DeployConfig.BatchAuthenticatorAddress,
 			DepositContractAddress:  cfg.DeployConfig.OptimismPortalProxy,
 			L1SystemConfigAddress:   cfg.DeployConfig.SystemConfigProxy,
@@ -764,8 +764,6 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 				EIP1559Denominator:       cfg.DeployConfig.EIP1559Denominator,
 				EIP1559DenominatorCanyon: &cfg.DeployConfig.EIP1559DenominatorCanyon,
 			},
-
-			FallbackBatcherAddress: cfg.DeployConfig.FallbackBatcherAddress,
 		}
 	}
 	defaultConfig := makeRollupConfig()
@@ -1032,6 +1030,13 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		TestingBatcherPrivateKey: testingBatcherPk,
 	}
 
+	// When Espresso is enabled, the primary batcher is the TEE batcher which uses
+	// a dedicated key (HD index 6) distinct from the SystemConfig batcher (HD index 2).
+	batcherKey := cfg.Secrets.Batcher
+	if cfg.AllocType.IsEspresso() {
+		batcherKey = cfg.Secrets.AccountAtIdx(6)
+	}
+
 	batcherCLIConfig := &bss.CLIConfig{
 		L1EthRpc:                 sys.EthInstances[RoleL1].UserRPC().RPC(),
 		L2EthRpc:                 []string{sys.EthInstances[RoleSeq].UserRPC().RPC()},
@@ -1044,7 +1049,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		ApproxComprRatio:         0.4,
 		SubSafetyMargin:          4,
 		PollInterval:             50 * time.Millisecond,
-		TxMgrConfig:              setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), cfg.Secrets.Batcher),
+		TxMgrConfig:              setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), batcherKey),
 		LogConfig: oplog.CLIConfig{
 			Level:  log.LevelInfo,
 			Format: oplog.FormatText,
@@ -1085,14 +1090,11 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	}
 
 	if cfg.AllocType.IsEspresso() {
-		fallbackBatcherKey, err := crypto.HexToECDSA(config.ESPRESSO_NON_TEE_BATCHER_PRIVATE_KEY)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse fallback batcher key: %w", err)
-		}
-		fallbackBatcherCliConfig := batcherCLIConfig
+		fallbackBatcherCliConfigVal := *batcherCLIConfig
+		fallbackBatcherCliConfig := &fallbackBatcherCliConfigVal
 		fallbackBatcherCliConfig.Stopped = true
 		fallbackBatcherCliConfig.Espresso.Enabled = false
-		fallbackBatcherCliConfig.TxMgrConfig = setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), fallbackBatcherKey)
+		fallbackBatcherCliConfig.TxMgrConfig = setuputils.NewTxMgrConfig(sys.EthInstances[RoleL1].UserRPC(), cfg.Secrets.Batcher)
 		fallbackBatcherCtx, fallbackBatcherCancel := context.WithCancel(context.Background())
 		fallbackCloseAppFn := func(cause error) {
 			t.Fatalf("fallback closeAppFn called: %v", cause)

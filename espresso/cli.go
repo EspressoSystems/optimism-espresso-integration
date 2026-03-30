@@ -37,6 +37,7 @@ var (
 	NamespaceFlagName                = espressoFlags("namespace")
 	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
 	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
+	BatchAuthenticatorAddrFlagName   = espressoFlags("batch-authenticator-addr")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -110,6 +111,12 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "ESPRESSO_ATTESTATION_SERVICE"),
 			Category: category,
 		},
+		&cli.StringFlag{
+			Name:     BatchAuthenticatorAddrFlagName,
+			Usage:    "Address of the Batch Authenticator contract",
+			EnvVars:  espressoEnvs(envPrefix, "BATCH_AUTHENTICATOR_ADDR"),
+			Category: category,
+		},
 	}
 }
 
@@ -118,6 +125,7 @@ type CLIConfig struct {
 	PollInterval               time.Duration
 	QueryServiceURLs           []string
 	LightClientAddr            common.Address
+	BatchAuthenticatorAddr     common.Address
 	L1URL                      string
 	RollupL1URL                string
 	TestingBatcherPrivateKey   *ecdsa.PrivateKey
@@ -180,6 +188,9 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 	addrStr := c.String(LightClientAddrFlagName)
 	config.LightClientAddr = common.HexToAddress(addrStr)
 
+	batchAuthenticatorAddrStr := c.String(BatchAuthenticatorAddrFlagName)
+	config.BatchAuthenticatorAddr = common.HexToAddress(batchAuthenticatorAddrStr)
+
 	pkStr := c.String(TestingBatcherPrivateKeyFlagName)
 	pkStr = strings.TrimPrefix(pkStr, "0x")
 	pk, err := crypto.HexToECDSA(pkStr)
@@ -217,7 +228,7 @@ func BatchStreamerFromCLIConfig[B Batch](
 		return nil, fmt.Errorf("failed to create Espresso light client")
 	}
 
-	streamer := NewEspressoStreamer(
+	return NewEspressoStreamer(
 		cfg.Namespace,
 		NewAdaptL1BlockRefClient(l1Client),
 		NewAdaptL1BlockRefClient(RollupL1Client),
@@ -228,7 +239,6 @@ func BatchStreamerFromCLIConfig[B Batch](
 		cfg.PollInterval,
 		cfg.CaffeinationHeightEspresso,
 		cfg.CaffeinationHeightL2,
+		cfg.BatchAuthenticatorAddr,
 	)
-
-	return streamer, nil
 }
