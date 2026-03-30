@@ -8,6 +8,7 @@ import { ISemver } from "interfaces/universal/ISemver.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { OwnableWithGuardiansUpgradeable } from "@espresso-tee-contracts/OwnableWithGuardiansUpgradeable.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
@@ -29,15 +30,15 @@ contract BatchAuthenticator is
     /// @notice Address of the TEE batcher whose signatures may authenticate batches.
     address public teeBatcher;
 
-    /// @notice Address of the non-TEE (fallback) batcher that can post when TEE is inactive.
-    address public nonTeeBatcher;
-
     /// @notice Address of the Espresso TEE Verifier contract.
     IEspressoTEEVerifier public espressoTEEVerifier;
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
     bool public activeIsTee;
+
+    /// @notice The SystemConfig contract, used to check the paused status.
+    ISystemConfig public systemConfig;
 
     /// @notice Constructor disables initializers on implementation
     constructor() ReinitializableBase(1) {
@@ -47,7 +48,7 @@ contract BatchAuthenticator is
     function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _teeBatcher,
-        address _nonTeeBatcher,
+        ISystemConfig _systemConfig,
         address _owner
     )
         external
@@ -60,14 +61,14 @@ contract BatchAuthenticator is
         __OwnableWithGuardians_init(_owner);
 
         if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
-        if (_nonTeeBatcher == address(0)) revert InvalidAddress(_nonTeeBatcher);
+        if (address(_systemConfig) == address(0)) revert InvalidAddress(address(_systemConfig));
         if (address(_espressoTEEVerifier) == address(0)) {
             revert InvalidAddress(address(_espressoTEEVerifier));
         }
 
         espressoTEEVerifier = _espressoTEEVerifier;
         teeBatcher = _teeBatcher;
-        nonTeeBatcher = _nonTeeBatcher;
+        systemConfig = _systemConfig;
         // By default, start with the TEE batcher active.
         activeIsTee = true;
     }
@@ -75,6 +76,11 @@ contract BatchAuthenticator is
     /// @notice Returns the owner of the contract.
     function owner() public view override(IBatchAuthenticator, OwnableUpgradeable) returns (address) {
         return super.owner();
+    }
+
+    /// @notice Getter for the current paused status.
+    function paused() public view returns (bool) {
+        return systemConfig.paused();
     }
 
     /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
@@ -91,17 +97,9 @@ contract BatchAuthenticator is
         emit TeeBatcherUpdated(oldTeeBatcher, _newTeeBatcher);
     }
 
-    /// @notice Updates the non-TEE batcher address.
-    function setNonTeeBatcher(address _newNonTeeBatcher) external onlyOwner {
-        if (_newNonTeeBatcher == address(0)) {
-            revert InvalidAddress(_newNonTeeBatcher);
-        }
-        address oldNonTeeBatcher = nonTeeBatcher;
-        nonTeeBatcher = _newNonTeeBatcher;
-        emit NonTeeBatcherUpdated(oldNonTeeBatcher, _newNonTeeBatcher);
-    }
-
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
+        if (paused()) revert BatchAuthenticator_Paused();
+
         // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
         espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
 
@@ -109,6 +107,8 @@ contract BatchAuthenticator is
     }
 
     function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
+        if (paused()) revert BatchAuthenticator_Paused();
+
         espressoTEEVerifier.registerService(
             attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
         );

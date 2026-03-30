@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -71,8 +71,7 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 
 	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(&bind.CallOpts{})
 	require.NoError(t, err)
-	nonTeeBatcherAddr, err := batchAuthenticator.NonTeeBatcher(&bind.CallOpts{})
-	require.NoError(t, err)
+	nonTeeBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
 
 	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
 	require.NoError(t, err)
