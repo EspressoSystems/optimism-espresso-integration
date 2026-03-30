@@ -100,6 +100,12 @@ jobs:
         with:
           name: deployment-artifacts
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -124,7 +130,7 @@ jobs:
         with:
           context: .
           file: espresso/docker/l1-geth/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -143,6 +149,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: deployment-artifacts
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -168,7 +180,7 @@ jobs:
         with:
           context: .
           file: espresso/docker/op-geth/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -193,6 +205,12 @@ jobs:
           mkdir -p espresso/deployment/l2-config
           echo "Created l2-config directory"
           ls -la espresso/deployment/
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -219,14 +237,12 @@ jobs:
           context: .
           file: espresso/docker/op-stack/Dockerfile
           target: op-node-target
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TARGET_BASE_IMAGE=alpine:3.22
-            TARGETOS=linux
-            TARGETARCH=amd64
 
   build-op-batcher:
     needs: prepare-deployment
@@ -248,6 +264,12 @@ jobs:
           mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
           # Copy any required config files here, or create placeholder
           echo "Config prepared for op-batcher"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -274,14 +296,12 @@ jobs:
           context: .
           file: espresso/docker/op-stack/Dockerfile
           target: op-batcher-target
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TARGET_BASE_IMAGE=alpine:3.22
-            TARGETOS=linux
-            TARGETARCH=amd64
 
   build-op-proposer:
     needs: prepare-deployment
@@ -310,6 +330,12 @@ jobs:
           mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
           echo "Config prepared for op-proposer"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -335,14 +361,12 @@ jobs:
           context: .
           file: espresso/docker/op-stack/Dockerfile
           target: op-proposer-target
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TARGET_BASE_IMAGE=alpine:3.22
-            TARGETOS=linux
-            TARGETARCH=amd64
 
   build-op-batcher-enclave-app:
     needs: prepare-deployment
@@ -480,6 +504,12 @@ jobs:
           mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
           echo "Config prepared for op-proposer"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -505,14 +535,12 @@ jobs:
           context: .
           file: espresso/docker/op-stack/Dockerfile
           target: op-proposer-target
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TARGET_BASE_IMAGE=alpine:3.22
-            TARGETOS=linux
-            TARGETARCH=amd64
 
   build-op-deployer:
     needs: prepare-deployment
@@ -534,6 +562,12 @@ jobs:
           echo "=== Verifying downloaded files ==="
           ls -la packages/contracts-bedrock/ || echo "No contracts-bedrock directory"
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -553,17 +587,15 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Proposer TEE
+      - name: Build and push OP Deployer
         uses: docker/build-push-action@v5
         with:
           context: .
           file: espresso/docker/op-stack/Dockerfile
           target: op-deployer-target
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TARGET_BASE_IMAGE=alpine:3.22
-            TARGETOS=linux
-            TARGETARCH=amd64
