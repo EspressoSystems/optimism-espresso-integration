@@ -378,7 +378,7 @@ services:
       - --espresso.espresso-attestation-service=http://attestation-service-zk:${ESPRESSO_ATTESTATION_VERIFIER_PORT}
       - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
-      - --private-key=${OP_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
+      - --private-key=${OP_BATCHER_PRIVATE_KEY:-$TEE_BATCHER_PRIVATE_KEY}
       - --throttle.unsafe-da-bytes-lower-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1
@@ -420,7 +420,7 @@ services:
     command:
       - op-batcher
       - --espresso.enabled=false
-      - --private-key=92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e
+      - --private-key=${FALLBACK_BATCHER_PRIVATE_KEY}
       - --throttle.unsafe-da-bytes-lower-threshold=0
       - --max-channel-duration=2
       - --target-num-frames=1

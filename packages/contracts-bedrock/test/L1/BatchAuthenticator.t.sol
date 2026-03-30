@@ -26,6 +26,20 @@ import {
 
 import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
+
+/// @notice Minimal mock of SystemConfig that exposes a settable paused() flag.
+contract MockSystemConfig {
+    bool private _paused;
+
+    function setPaused(bool val) external {
+        _paused = val;
+    }
+
+    function paused() external view returns (bool) {
+        return _paused;
+    }
+}
 
 /// @notice Tests for the upgradeable BatchAuthenticator contract using the Transparent Proxy pattern.
 contract BatchAuthenticator_Test is Test {
@@ -35,8 +49,8 @@ contract BatchAuthenticator_Test is Test {
     address public guardian = address(0xFACE);
 
     address public teeBatcher = address(0x1234);
-    address public nonTeeBatcher = address(0x5678);
 
+    MockSystemConfig public mockSystemConfig;
     EspressoTEEVerifierMock public teeVerifier;
     EspressoNitroTEEVerifierMock public nitroVerifier;
     EspressoSGXTEEVerifierMock public sgxVerifier;
@@ -64,6 +78,9 @@ contract BatchAuthenticator_Test is Test {
     }
 
     function setUp() public {
+        // Deploy the mock SystemConfig.
+        mockSystemConfig = new MockSystemConfig();
+
         // Deploy the mock TEE verifier with a mock Nitro verifier.
         // and the authenticator implementation.
         nitroVerifier = new EspressoNitroTEEVerifierMock();
@@ -109,7 +126,12 @@ contract BatchAuthenticator_Test is Test {
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
+            (
+                IEspressoTEEVerifier(address(teeVerifier)),
+                teeBatcher,
+                ISystemConfig(address(mockSystemConfig)),
+                proxyAdminOwner
+            )
         );
         vm.prank(proxyAdminOwner);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
@@ -125,7 +147,12 @@ contract BatchAuthenticator_Test is Test {
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
+            (
+                IEspressoTEEVerifier(address(teeVerifier)),
+                teeBatcher,
+                ISystemConfig(address(mockSystemConfig)),
+                proxyAdminOwner
+            )
         );
 
         // First initialization succeeds.
@@ -146,23 +173,12 @@ contract BatchAuthenticator_Test is Test {
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(teeVerifier)), address(0), nonTeeBatcher, proxyAdminOwner)
-        );
-
-        vm.prank(proxyAdminOwner);
-        vm.expectRevert("Proxy: delegatecall to new implementation contract failed");
-        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
-    }
-
-    /// @notice Test that initialize reverts when nonTeeBatcher is zero.
-    function test_constructor_revertsWhenNonTeeBatcherIsZero() external {
-        Proxy proxy = new Proxy(address(proxyAdmin));
-        vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
-
-        bytes memory initData = abi.encodeCall(
-            BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, address(0), proxyAdminOwner)
+            (
+                IEspressoTEEVerifier(address(teeVerifier)),
+                address(0),
+                ISystemConfig(address(mockSystemConfig)),
+                proxyAdminOwner
+            )
         );
 
         vm.prank(proxyAdminOwner);
@@ -178,7 +194,7 @@ contract BatchAuthenticator_Test is Test {
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(0)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
+            (IEspressoTEEVerifier(address(0)), teeBatcher, ISystemConfig(address(mockSystemConfig)), proxyAdminOwner)
         );
 
         vm.prank(proxyAdminOwner);
@@ -192,7 +208,6 @@ contract BatchAuthenticator_Test is Test {
 
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
         assertTrue(authenticator.activeIsTee());
     }
 
@@ -343,38 +358,6 @@ contract BatchAuthenticator_Test is Test {
         authenticator.setTeeBatcher(address(0));
     }
 
-    /// @notice Test that setNonTeeBatcher can only be called by ProxyAdmin owner.
-    function test_setNonTeeBatcher_onlyProxyAdminOwner() external {
-        BatchAuthenticator authenticator = _deployAndInitializeProxy();
-        address newNonTeeBatcher = address(0xAAAA);
-
-        // ProxyAdmin owner can set.
-        vm.expectEmit(true, true, false, false);
-        emit NonTeeBatcherUpdated(nonTeeBatcher, newNonTeeBatcher);
-        vm.prank(proxyAdminOwner);
-        authenticator.setNonTeeBatcher(newNonTeeBatcher);
-        assertEq(authenticator.nonTeeBatcher(), newNonTeeBatcher);
-
-        // Unauthorized cannot set.
-        vm.prank(unauthorized);
-        vm.expectRevert();
-        authenticator.setNonTeeBatcher(address(0xCCCC));
-
-        // ProxyAdmin cannot set.
-        vm.prank(address(proxyAdmin));
-        vm.expectRevert();
-        authenticator.setNonTeeBatcher(address(0xBBBB));
-    }
-
-    /// @notice Test that setNonTeeBatcher reverts when zero address is provided.
-    function test_setNonTeeBatcher_revertsWhenZeroAddress() external {
-        BatchAuthenticator authenticator = _deployAndInitializeProxy();
-
-        vm.prank(proxyAdminOwner);
-        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.InvalidAddress.selector, address(0)));
-        authenticator.setNonTeeBatcher(address(0));
-    }
-
     /// @notice Test upgrade to new implementation with comprehensive state preservation.
     function test_upgrade_preservesState() external {
         // Create and initialize a proxy.
@@ -406,7 +389,92 @@ contract BatchAuthenticator_Test is Test {
         // Verify state is preserved.
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
+        assertFalse(authenticator.activeIsTee());
+    }
+
+    /// @notice Test that paused() delegates to SystemConfig.
+    function test_paused_delegatesToSystemConfig() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Initially not paused.
+        assertFalse(authenticator.paused());
+
+        // Pause the mock SystemConfig.
+        mockSystemConfig.setPaused(true);
+        assertTrue(authenticator.paused());
+
+        // Unpause.
+        mockSystemConfig.setPaused(false);
+        assertFalse(authenticator.paused());
+    }
+
+    /// @notice Test that authenticateBatchInfo reverts when paused.
+    function test_authenticateBatchInfo_revertsWhenPaused() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        uint256 privateKey = 1;
+        bytes32 commitment = keccak256("test commitment");
+
+        // Register signer and create valid signature.
+        _registerNitroSigner(privateKey);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Pause the system.
+        mockSystemConfig.setPaused(true);
+
+        // Should revert with BatchAuthenticator_Paused.
+        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.BatchAuthenticator_Paused.selector));
+        authenticator.authenticateBatchInfo(commitment, signature);
+    }
+
+    /// @notice Test that authenticateBatchInfo succeeds when not paused.
+    function test_authenticateBatchInfo_succeedsWhenNotPaused() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        uint256 privateKey = 1;
+        bytes32 commitment = keccak256("test commitment");
+
+        // Register signer and create valid signature.
+        _registerNitroSigner(privateKey);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Ensure not paused.
+        mockSystemConfig.setPaused(false);
+
+        // Should succeed.
+        vm.expectEmit(true, false, false, false);
+        emit BatchInfoAuthenticated(commitment);
+        authenticator.authenticateBatchInfo(commitment, signature);
+    }
+
+    /// @notice Test that registerSigner reverts when paused.
+    function test_registerSigner_revertsWhenPaused() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        uint256 privateKey = 1;
+        bytes memory signerData = _nitroRegistrationOutputForPrivateKey(privateKey);
+        bytes memory proofBytes = "";
+
+        // Pause the system.
+        mockSystemConfig.setPaused(true);
+
+        // Should revert with BatchAuthenticator_Paused.
+        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.BatchAuthenticator_Paused.selector));
+        authenticator.registerSigner(signerData, proofBytes);
+    }
+
+    /// @notice Test that switchBatcher still works when paused (emergency recovery).
+    function test_switchBatcher_succeedsWhenPaused() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Pause the system.
+        mockSystemConfig.setPaused(true);
+
+        // Owner can still switch batcher while paused.
+        vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
         assertFalse(authenticator.activeIsTee());
     }
 
@@ -414,7 +482,6 @@ contract BatchAuthenticator_Test is Test {
     event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
     event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
-    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
     event BatcherSwitched(bool indexed activeIsTee);
 }
 
@@ -422,8 +489,8 @@ contract BatchAuthenticator_Test is Test {
 contract BatchAuthenticator_Fork_Test is Test {
     address public proxyAdminOwner = address(0xBEEF);
     address public teeBatcher = address(0x1234);
-    address public nonTeeBatcher = address(0x5678);
 
+    MockSystemConfig public mockSystemConfig;
     EspressoTEEVerifierMock public teeVerifier;
     EspressoNitroTEEVerifierMock public nitroVerifier;
     EspressoSGXTEEVerifierMock public sgxVerifier;
@@ -461,7 +528,8 @@ contract BatchAuthenticator_Fork_Test is Test {
         require(block.chainid == Chains.Sepolia, "Fork test must run on Sepolia");
         console.log("Forked Sepolia at block:", block.number);
 
-        // Deploy mock TEE verifier (standalone mode) and authenticator implementation.
+        // Deploy mock SystemConfig and TEE verifier (standalone mode) and authenticator implementation.
+        mockSystemConfig = new MockSystemConfig();
         nitroVerifier = new EspressoNitroTEEVerifierMock();
         sgxVerifier = new EspressoSGXTEEVerifierMock();
         teeVerifier = new EspressoTEEVerifierMock(
@@ -479,7 +547,12 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Initialize the proxy.
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(teeVerifier)), teeBatcher, nonTeeBatcher, proxyAdminOwner)
+            (
+                IEspressoTEEVerifier(address(teeVerifier)),
+                teeBatcher,
+                ISystemConfig(address(mockSystemConfig)),
+                proxyAdminOwner
+            )
         );
         vm.prank(proxyAdminOwner);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
@@ -521,7 +594,6 @@ contract BatchAuthenticator_Fork_Test is Test {
     function testFork_deployment_succeeds() external view {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
         assertTrue(authenticator.activeIsTee());
         assertEq(authenticator.version(), "1.1.0");
 
@@ -591,7 +663,6 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertFalse(authenticator.activeIsTee());
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertEq(authenticator.nonTeeBatcher(), nonTeeBatcher);
     }
 
     /// @notice Test that contract works with real Sepolia state
@@ -613,6 +684,5 @@ contract BatchAuthenticator_Fork_Test is Test {
     event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
     event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
-    event NonTeeBatcherUpdated(address indexed oldNonTeeBatcher, address indexed newNonTeeBatcher);
     event BatcherSwitched(bool indexed activeIsTee);
 }

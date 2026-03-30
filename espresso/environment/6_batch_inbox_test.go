@@ -55,8 +55,11 @@ func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 
 	// Substitute batcher's transaction manager with one that always sends transactions, even
 	// if they won't succeed. Otherwise batcher wouldn't submit transactions that would revert to
-	// batch inbox
-	txMgrCliConfig := setuputils.NewTxMgrConfig(system.NodeEndpoint(e2esys.RoleL1), system.Cfg.Secrets.Batcher)
+	// batch inbox.
+	// Use the TEE batcher key (HD index 6) — the same key the primary batcher signs with.
+	// This ensures the tx comes from an address that is NOT the SystemConfig batcher, so the
+	// derivation pipeline's fallback authorization won't accept it either.
+	txMgrCliConfig := setuputils.NewTxMgrConfig(system.NodeEndpoint(e2esys.RoleL1), system.Cfg.Secrets.AccountAtIdx(6))
 	txMgrConfig, err := txmgr.NewConfig(txMgrCliConfig, log.Root())
 	require.NoError(t, err)
 	txMgrConfig.Backend = AlwaysSendingETHBackend{

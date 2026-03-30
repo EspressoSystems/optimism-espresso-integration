@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"math/rand"
@@ -20,6 +21,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -32,15 +34,20 @@ import (
 // without any panic being thrown.
 
 func TestNewEspressoStreamer(t *testing.T) {
-	_ = espresso.NewEspressoStreamer(
+	mock := NewMockStreamerSource()
+	// Use a non-zero address for the BatchAuthenticator mock
+	batchAuthAddr := common.HexToAddress("0x0000000000000000000000000000000000000001")
+	_, err := espresso.NewEspressoStreamer(
 		1,
-		nil,
-		nil,
-		nil, nil, nil, derive.CreateEspressoBatchUnmarshaler(common.Address{}),
+		mock,
+		mock,
+		mock, mock, new(NoOpLogger), derive.CreateEspressoBatchUnmarshaler(),
 		50*time.Millisecond,
 		0,
 		1,
+		batchAuthAddr,
 	)
+	require.NoError(t, err)
 }
 
 // EspBlockAndNamespace is a struct that holds the height and namespace
@@ -84,6 +91,10 @@ type MockStreamerSource struct {
 	EspTransactionData     map[EspBlockAndNamespace]espressoClient.TransactionsInBlock
 	LatestEspHeight        uint64
 	finalizedHeightHistory map[uint64]uint64
+
+	// TeeBatcherAddr is the address returned by the mock BatchAuthenticator contract
+	// for teeBatcher() calls. Can be changed per-test to simulate TEE batcher rotation.
+	TeeBatcherAddr common.Address
 }
 
 // FetchNamespaceTransactionsInRange implements espresso.EspressoClient.
@@ -190,6 +201,24 @@ var _ espresso.L1Client = (*MockStreamerSource)(nil)
 func (m *MockStreamerSource) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
 	l1Ref := createL1BlockRef(number.Uint64())
 	return l1Ref.Hash, nil
+}
+
+// teeBatcherSelector is the 4-byte function selector for teeBatcher() — 0xd909ba7c
+var teeBatcherSelector = []byte{0xd9, 0x09, 0xba, 0x7c}
+
+func (m *MockStreamerSource) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	// Return non-empty bytes so the bindings consider the contract deployed
+	return []byte{0x01}, nil
+}
+
+func (m *MockStreamerSource) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	if len(call.Data) >= 4 && common.Bytes2Hex(call.Data[:4]) == common.Bytes2Hex(teeBatcherSelector) {
+		// ABI-encode the TEE batcher address as a 32-byte left-padded word
+		var result [32]byte
+		copy(result[12:], m.TeeBatcherAddr.Bytes())
+		return result[:], nil
+	}
+	return nil, fmt.Errorf("unexpected contract call: %x", call.Data)
 }
 
 // Espresso Client Methods
@@ -387,25 +416,34 @@ func createL2BlockRef(height uint64, l1Ref eth.L1BlockRef) eth.L2BlockRef {
 	}
 }
 
+// batchAuthenticatorAddr is a dummy non-zero address used as the BatchAuthenticator
+// contract address in unit tests. The mock L1Client intercepts calls to it.
+var batchAuthenticatorAddr = common.HexToAddress("0x0000000000000000000000000000000000000001")
+
 // setupStreamerTesting initializes a MockStreamerSource and an EspressoStreamer
 // for testing purposes. It sets up the initial state of the MockStreamerSource
 // and returns both the MockStreamerSource and the EspressoStreamer.
 func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*MockStreamerSource, *espresso.BatchStreamer[derive.EspressoBatch]) {
 	state := NewMockStreamerSource()
+	state.TeeBatcherAddr = batcherAddress
 
 	logger := new(NoOpLogger)
-	streamer := espresso.NewEspressoStreamer(
+	streamer, err := espresso.NewEspressoStreamer(
 		namespace,
 		state,
 		state,
 		state,
 		state,
 		logger,
-		derive.CreateEspressoBatchUnmarshaler(batcherAddress),
+		derive.CreateEspressoBatchUnmarshaler(),
 		50*time.Millisecond,
 		0,
 		1,
+		batchAuthenticatorAddr,
 	)
+	if err != nil {
+		panic(fmt.Sprintf("setupStreamerTesting: failed to create streamer: %v", err))
+	}
 
 	return state, streamer
 }
@@ -1032,25 +1070,28 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 		defer cancel()
 
 		state := NewMockStreamerSource()
+		state.TeeBatcherAddr = signerAddress
 		logger := new(NoOpLogger)
 
-		streamer := espresso.NewEspressoStreamer(
+		streamer, err := espresso.NewEspressoStreamer(
 			namespace,
 			state,
 			state,
 			state,
 			state,
 			logger,
-			derive.CreateEspressoBatchUnmarshaler(signerAddress),
+			derive.CreateEspressoBatchUnmarshaler(),
 			50*time.Millisecond,
 			0,
 			0, // originBatchPos=0, so BatchPos starts at 1
+			batchAuthenticatorAddr,
 		)
+		require.NoError(t, err)
 
 		rng := rand.New(rand.NewSource(99))
 
 		syncStatus := state.SyncStatus()
-		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+		err = streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 		require.NoError(t, err)
 
 		// Place enough batches to fill the buffer and overflow by one full
@@ -1108,27 +1149,30 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 		defer cancel()
 
 		state := NewMockStreamerSource()
+		state.TeeBatcherAddr = signerAddress
 		logger := new(NoOpLogger)
 
 		// Create streamer - after Refresh with SafeL2.Number=0, BatchPos becomes 1
-		streamer := espresso.NewEspressoStreamer(
+		streamer, err := espresso.NewEspressoStreamer(
 			namespace,
 			state,
 			state,
 			state,
 			state,
 			logger,
-			derive.CreateEspressoBatchUnmarshaler(signerAddress),
+			derive.CreateEspressoBatchUnmarshaler(),
 			50*time.Millisecond,
 			0,
 			0, // originBatchPos=0, so BatchPos starts at 1
+			batchAuthenticatorAddr,
 		)
+		require.NoError(t, err)
 
 		rng := rand.New(rand.NewSource(7))
 
 		// Refresh state - after this, BatchPos becomes 1
 		syncStatus := state.SyncStatus()
-		err := streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
+		err = streamer.Refresh(ctx, syncStatus.FinalizedL1, syncStatus.SafeL2.Number, syncStatus.SafeL2.L1Origin)
 		require.NoError(t, err)
 
 		// Fill buffer with future batches (2, 3, 4, ...)

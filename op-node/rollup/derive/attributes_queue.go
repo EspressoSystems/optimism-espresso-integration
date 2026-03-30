@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/espresso"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -82,9 +83,12 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.BatchStr
 		log.Info("Using L2 chain ID as namespace by default")
 		cfg.CaffNodeConfig.Namespace = cfg.L2ChainID.Uint64()
 	}
+	if cfg.CaffNodeConfig.BatchAuthenticatorAddr == (common.Address{}) {
+		cfg.CaffNodeConfig.BatchAuthenticatorAddr = cfg.BatchAuthenticatorAddress
+	}
 
 	streamer, err := espresso.BatchStreamerFromCLIConfig(cfg.CaffNodeConfig, log, func(data []byte) (*EspressoBatch, error) {
-		return UnmarshalEspressoTransaction(data, cfg.Genesis.SystemConfig.BatcherAddr)
+		return UnmarshalEspressoTransaction(data)
 	})
 	if err != nil {
 		log.Error("Failed to initialize Espresso streamer", "err", err)
