@@ -6,6 +6,7 @@ import { Script } from "forge-std/Script.sol";
 import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { Solarray } from "scripts/libraries/Solarray.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
@@ -18,8 +19,8 @@ import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _nitroTEEVerifier;
-    address internal _nonTeeBatcher;
     address internal _teeBatcher;
+    address internal _systemConfig;
     address internal _proxyAdminOwner;
     bool internal _useMockTEEVerifier;
 
@@ -36,10 +37,10 @@ contract DeployEspressoInput is BaseDeployIO {
     function set(bytes4 _sel, address _val) public {
         if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
-        } else if (_sel == this.nonTeeBatcher.selector) {
-            _nonTeeBatcher = _val;
         } else if (_sel == this.teeBatcher.selector) {
             _teeBatcher = _val;
+        } else if (_sel == this.systemConfig.selector) {
+            _systemConfig = _val;
         } else if (_sel == this.proxyAdminOwner.selector) {
             _proxyAdminOwner = _val;
         } else {
@@ -57,12 +58,12 @@ contract DeployEspressoInput is BaseDeployIO {
         return _nitroTEEVerifier;
     }
 
-    function nonTeeBatcher() public view returns (address) {
-        return _nonTeeBatcher;
-    }
-
     function teeBatcher() public view returns (address) {
         return _teeBatcher;
+    }
+
+    function systemConfig() public view returns (address) {
+        return _systemConfig;
     }
 
     /// @notice If true, deploy MockEspressoTEEVerifier instead of production EspressoTEEVerifier.
@@ -163,7 +164,7 @@ contract DeployEspresso is Script {
         // Initialize the proxy with explicit owner parameter
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (teeVerifier, input.teeBatcher(), input.nonTeeBatcher(), batchAuthenticatorOwner)
+            (teeVerifier, input.teeBatcher(), ISystemConfig(input.systemConfig()), batchAuthenticatorOwner)
         );
         vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);

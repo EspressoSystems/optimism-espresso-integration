@@ -56,7 +56,7 @@ func TestBatchRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = espresso_batch.UnmarshalEspressoTransaction(transaction.Payload, batcherAddress)
+	_, err = espresso_batch.UnmarshalEspressoTransaction(transaction.Payload)
 	if err != nil {
 		t.Fatal(err)
 	}
