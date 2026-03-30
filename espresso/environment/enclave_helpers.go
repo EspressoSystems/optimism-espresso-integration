@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	batcherCfg "github.com/ethereum-optimism/optimism/op-batcher/config"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
@@ -230,6 +230,7 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 							appendArg(&args, espresso.QueryServiceUrlsFlagName, url)
 						}
 						appendArg(&args, espresso.AttestationServiceFlagName, c.Espresso.EspressoAttestationService)
+						appendArg(&args, espresso.BatchAuthenticatorAddrFlagName, c.Espresso.BatchAuthenticatorAddr)
 
 						err := SetupEnclaver(ct.Ctx, sys, args...)
 						if err != nil {

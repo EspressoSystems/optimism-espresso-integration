@@ -125,9 +125,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 	rng := rand.New(rand.NewSource(9999))
 	privateKey := testutils.InsecureRandomKey(rng)
 	altKey := testutils.InsecureRandomKey(rng)
-	fallbackKey := testutils.InsecureRandomKey(rng)
 	batcherAddr := crypto.PubkeyToAddress(*privateKey.Public().(*ecdsa.PublicKey))
-	fallbackBatcherAddr := crypto.PubkeyToAddress(*fallbackKey.Public().(*ecdsa.PublicKey))
 	batchInboxAddr := testutils.RandomAddress(rng)
 	authenticatorAddr := testutils.RandomAddress(rng)
 	logger := testlog.Logger(t, log.LvlInfo)
@@ -138,7 +136,6 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		l1Signer:                  signer,
 		batchInboxAddress:         batchInboxAddr,
 		batchAuthenticatorAddress: authenticatorAddr,
-		fallbackBatcherAddress:    fallbackBatcherAddr,
 	}
 	require.True(t, config.BatchAuthEnabled())
 
@@ -192,7 +189,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		l1F.AssertExpectations(t)
 	})
 
-	t.Run("TEE batcher rejected without auth event", func(t *testing.T) {
+	t.Run("unknown sender rejected without auth event", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
 		txData := &types.LegacyTx{
 			Nonce:    rng.Uint64(),
@@ -202,7 +199,30 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 			Value:    big.NewInt(10),
 			Data:     testutils.RandomData(rng, 200),
 		}
-		// Signed by the TEE batcher key, but no auth event — should be rejected
+		// Signed by an unknown key (not batcherAddr), no auth event — should be rejected
+		calldataTx, _ := types.SignNewTx(altKey, signer, txData)
+
+		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
+		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
+
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(data), "unknown sender tx without auth event should be rejected")
+		require.Equal(t, 0, len(blobHashes))
+		l1F.AssertExpectations(t)
+	})
+
+	t.Run("fallback batcher (SystemConfig batcherAddr) accepted without auth event", func(t *testing.T) {
+		l1F := &testutils.MockL1Source{}
+		txData := &types.LegacyTx{
+			Nonce:    rng.Uint64(),
+			GasPrice: new(big.Int).SetUint64(rng.Uint64()),
+			Gas:      2_000_000,
+			To:       &batchInboxAddr,
+			Value:    big.NewInt(10),
+			Data:     testutils.RandomData(rng, 200),
+		}
+		// Signed by batcher key (SystemConfig batcherAddr), no auth event — should be accepted via sender
 		calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
@@ -210,30 +230,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(data), "TEE batcher tx without auth event should be rejected")
-		require.Equal(t, 0, len(blobHashes))
-		l1F.AssertExpectations(t)
-	})
-
-	t.Run("fallback batcher accepted without auth event", func(t *testing.T) {
-		l1F := &testutils.MockL1Source{}
-		txData := &types.LegacyTx{
-			Nonce:    rng.Uint64(),
-			GasPrice: new(big.Int).SetUint64(rng.Uint64()),
-			Gas:      2_000_000,
-			To:       &batchInboxAddr,
-			Value:    big.NewInt(10),
-			Data:     testutils.RandomData(rng, 200),
-		}
-		// Signed by fallback batcher key, no auth event — should be accepted via sender
-		calldataTx, _ := types.SignNewTx(fallbackKey, signer, txData)
-
-		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
-		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
-
-		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(data), "fallback batcher tx should be accepted via sender verification")
+		require.Equal(t, 1, len(data), "fallback batcher (SystemConfig batcherAddr) tx should be accepted via sender verification")
 		require.Equal(t, 0, len(blobHashes))
 		require.NotNil(t, data[0].calldata)
 		l1F.AssertExpectations(t)

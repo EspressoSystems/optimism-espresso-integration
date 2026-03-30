@@ -12,6 +12,19 @@ function generate_go_bindings() {
     return 1
   fi
 
+  # If exact file doesn't exist, try to find a versioned variant.
+  # Forge sometimes produces artifacts like Contract.0.8.25.json instead of Contract.json.
+  if [[ ! -f "$json_file" ]]; then
+    local dir name versioned_file
+    dir=$(dirname "$json_file")
+    name=$(basename "$json_file" .json)
+    versioned_file=$(ls "$dir/$name".*.json 2>/dev/null | sort -V | head -n1)
+    if [[ -n "$versioned_file" ]]; then
+      echo "Note: $json_file not found, using versioned artifact: $versioned_file" >&2
+      json_file="$versioned_file"
+    fi
+  fi
+
   if [[ ! -f "$json_file" ]]; then
     echo "Error: File not found: $json_file" >&2
     return 1

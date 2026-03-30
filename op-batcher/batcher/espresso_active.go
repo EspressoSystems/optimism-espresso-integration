@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 )
 
 // isBatcherActive checks if the current batcher is the active one by querying
@@ -19,7 +19,7 @@ import (
 //   - If activeIsTee is false, the non-TEE (fallback) batcher address is active
 //
 // This method compares the batcher's own address (from TxMgr) against the
-// contract's registered TEE and non-TEE batcher addresses.
+// contract's registered TEE batcher address and the SystemConfig batcher address.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 	// Check if contract code exists at the address
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
@@ -45,27 +45,16 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to check activeIsTee: %w", err)
 	}
 
-	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(callOpts)
-	if err != nil {
-		return false, fmt.Errorf("failed to get TEE batcher address: %w", err)
-	}
-
-	nonTeeBatcherAddr, err := batchAuthenticator.NonTeeBatcher(callOpts)
-	if err != nil {
-		return false, fmt.Errorf("failed to get non-TEE batcher address: %w", err)
-	}
-
 	batcherAddr := l.Txmgr.From()
 
-	isActive := (activeIsTee && batcherAddr == teeBatcherAddr) ||
-		(!activeIsTee && batcherAddr == nonTeeBatcherAddr)
+	isActive := (activeIsTee && l.Config.UseEspresso) ||
+		(!activeIsTee && !l.Config.UseEspresso)
 
 	if !isActive {
 		l.Log.Info("Batcher is not the active batcher, skipping publish",
 			"batcherAddr", batcherAddr,
 			"activeIsTee", activeIsTee,
-			"teeBatcher", teeBatcherAddr,
-			"nonTeeBatcher", nonTeeBatcherAddr,
+			"UseEspresso", l.Config.UseEspresso,
 		)
 	}
 

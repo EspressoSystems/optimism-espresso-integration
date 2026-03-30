@@ -89,6 +89,7 @@ BATCHER_ARGS="$BATCHER_ARGS,--espresso.enabled=true"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL1"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.urls=$ESPRESSO_URL2"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.espresso-attestation-service=$ESPRESSO_ATTESTATION_SERVICE_URL"
+BATCHER_ARGS="$BATCHER_ARGS,--espresso.batch-authenticator-addr=$BATCH_AUTHENTICATOR_ADDRESS"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.origin-height-espresso=$ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.origin-height-l2=$ESPRESSO_ORIGIN_HEIGHT_L2"
 
@@ -99,7 +100,7 @@ if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
 else
     echo "Using test mnemonic for authentication (local development mode)"
     BATCHER_ARGS="$BATCHER_ARGS,--mnemonic=test test test test test test test test test test test junk"
-    BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/0"
+    BATCHER_ARGS="$BATCHER_ARGS,--hd-path=m/44'/60'/0'/0/6"
 fi
 
 BATCHER_ARGS="$BATCHER_ARGS,--throttle.unsafe-da-bytes-lower-threshold=0"

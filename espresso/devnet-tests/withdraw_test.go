@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	espressobindings "github.com/ethereum-optimism/optimism/op-batcher/bindings"
+	espressobindings "github.com/ethereum-optimism/optimism/espresso/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	nodebindings "github.com/ethereum-optimism/optimism/op-node/bindings"

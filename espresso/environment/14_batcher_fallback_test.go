@@ -12,9 +12,9 @@ import (
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
+	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
-	"github.com/ethereum-optimism/optimism/op-batcher/bindings"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
