@@ -23,6 +23,8 @@ const (
 	ReadinessPort uint16 = 8338
 	// ArgDeliveryHostPort is the host-side TCP port docker --publish maps to ArgDeliveryPort.
 	ArgDeliveryHostPort = 9000
+	// ReadinessHostPort is the host-side TCP port docker --publish maps to ReadinessPort.
+	ReadinessHostPort = 9001
 )
 
 type EnclaverManifestSources struct {
@@ -149,6 +151,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"-d",
 		"--privileged",
 		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryHostPort, ArgDeliveryPort),
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ReadinessHostPort, ReadinessPort),
 		"--name=batcher-enclaver-"+nameSuffix,
 		"--device=/dev/nitro_enclaves",
 		name,
@@ -167,12 +170,48 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		return fmt.Errorf("enclave exited with an error: %w", err)
 	}
 
+	// Wait for the readiness signal before sending args. The enclave entrypoint sends "READY"
+	// on ReadinessPort only after nc on ArgDeliveryPort is listening and the Odyn egress proxy
+	// is verified, so this prevents sending args into a vsock bridge that isn't ready yet.
+	if err := waitForReadiness(ctx, ReadinessHostPort); err != nil {
+		return fmt.Errorf("enclave did not become ready: %w", err)
+	}
+
 	// Send arguments to enclave via nc listener
 	if err := sendArgsToEnclave(ctx, args); err != nil {
 		return fmt.Errorf("failed to send arguments to enclave: %w", err)
 	}
 
 	return nil
+}
+
+// waitForReadiness waits for the enclave to signal readiness on the given host port.
+// The enclave entrypoint sends "READY" on ReadinessPort once nc on ArgDeliveryPort is
+// listening and the Odyn egress proxy is confirmed functional.
+func waitForReadiness(ctx context.Context, hostPort int) error {
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	retryDuration := 120 * time.Second
+	retryInterval := 2 * time.Second
+	deadline := time.Now().Add(retryDuration)
+
+	for time.Now().Before(deadline) {
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", hostPort))
+		if err != nil {
+			if time.Now().Add(retryInterval).Before(deadline) {
+				time.Sleep(retryInterval)
+				continue
+			}
+			return fmt.Errorf("failed to connect to readiness port after %v: %w", retryDuration, err)
+		}
+		buf := make([]byte, 16)
+		n, _ := conn.Read(buf)
+		conn.Close()
+		if bytes.Contains(buf[:n], []byte("READY")) {
+			return nil
+		}
+		return fmt.Errorf("unexpected readiness response: %q", buf[:n])
+	}
+	return fmt.Errorf("enclave readiness timed out after %v", retryDuration)
 }
 
 // sendArgsToEnclave sends arguments to the enclave's nc listener as null-separated values
