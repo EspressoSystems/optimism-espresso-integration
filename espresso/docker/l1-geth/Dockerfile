@@ -71,7 +71,13 @@ RUN ARCH=$(dpkg --print-architecture) && \
     chmod +x /usr/local/bin/geth
 
 # Install lighthouse consensus tools
-RUN curl -sSL "https://github.com/sigp/lighthouse/releases/download/v5.3.0/lighthouse-v5.3.0-x86_64-unknown-linux-gnu.tar.gz" -o lighthouse.tar.gz && \
+RUN ARCH=$(dpkg --print-architecture) && \
+    case "$ARCH" in \
+    "amd64") LH_ARCH="x86_64-unknown-linux-gnu" ;; \
+    "arm64") LH_ARCH="aarch64-unknown-linux-gnu" ;; \
+    *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    curl -sSL "https://github.com/sigp/lighthouse/releases/download/v5.3.0/lighthouse-v5.3.0-${LH_ARCH}.tar.gz" -o lighthouse.tar.gz && \
     tar -xzf lighthouse.tar.gz && \
     mv lighthouse /usr/local/bin/ && \
     rm lighthouse.tar.gz && \
