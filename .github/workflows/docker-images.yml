@@ -85,9 +85,6 @@ jobs:
             packages/contracts-bedrock/
           retention-days: 1
 
-  # ============================================================
-  # L1 Geth
-  # ============================================================
   build-l1-geth-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -193,9 +190,6 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/l1-geth@${{ needs.build-l1-geth-amd64.outputs.digest }} \
             ${{ env.IMAGE_PREFIX }}/l1-geth@${{ needs.build-l1-geth-arm64.outputs.digest }}
 
-  # ============================================================
-  # OP Geth
-  # ============================================================
   build-op-geth-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -301,9 +295,6 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/op-geth@${{ needs.build-op-geth-amd64.outputs.digest }} \
             ${{ env.IMAGE_PREFIX }}/op-geth@${{ needs.build-op-geth-arm64.outputs.digest }}
 
-  # ============================================================
-  # OP Node
-  # ============================================================
   build-op-node-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -421,9 +412,6 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/op-node@${{ needs.build-op-node-amd64.outputs.digest }} \
             ${{ env.IMAGE_PREFIX }}/op-node@${{ needs.build-op-node-arm64.outputs.digest }}
 
-  # ============================================================
-  # OP Batcher
-  # ============================================================
   build-op-batcher-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -537,9 +525,6 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/op-batcher@${{ needs.build-op-batcher-amd64.outputs.digest }} \
             ${{ env.IMAGE_PREFIX }}/op-batcher@${{ needs.build-op-batcher-arm64.outputs.digest }}
 
-  # ============================================================
-  # OP Proposer
-  # ============================================================
   build-op-proposer-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -656,7 +641,7 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/op-proposer@${{ needs.build-op-proposer-arm64.outputs.digest }}
 
   # ============================================================
-  # OP Batcher Enclave App (amd64-only — Nitro enclave requirement)
+  # (amd64-only — Nitro enclave requirement)
   # ============================================================
   build-op-batcher-enclave-app:
     needs: prepare-deployment
@@ -709,7 +694,7 @@ jobs:
             TARGETARCH=amd64
 
   # ============================================================
-  # OP Batcher TEE (amd64-only — Nitro enclave requirement)
+  # (amd64-only — Nitro enclave requirement)
   # ============================================================
   build-op-batcher-tee:
     needs: prepare-deployment
@@ -761,9 +746,6 @@ jobs:
             TARGETOS=linux
             TARGETARCH=amd64
 
-  # ============================================================
-  # OP Proposer TEE
-  # ============================================================
   build-op-proposer-tee-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -879,9 +861,6 @@ jobs:
             ${{ env.IMAGE_PREFIX }}/op-proposer-tee@${{ needs.build-op-proposer-tee-amd64.outputs.digest }} \
             ${{ env.IMAGE_PREFIX }}/op-proposer-tee@${{ needs.build-op-proposer-tee-arm64.outputs.digest }}
 
-  # ============================================================
-  # OP Deployer
-  # ============================================================
   build-op-deployer-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
