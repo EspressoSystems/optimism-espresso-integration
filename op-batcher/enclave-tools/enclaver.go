@@ -139,9 +139,10 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 // --publish=127.0.0.1:ArgDeliveryHostPort:ArgDeliveryPort instead of --net=host keeps
 // the container off the host network stack, blocking EC2 metadata-service access
 // (requires IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
-func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
+func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) (retErr error) {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
+	containerName := "batcher-enclaver-" + nameSuffix
 
 	cmd := exec.CommandContext(
 		ctx,
@@ -152,7 +153,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--privileged",
 		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryHostPort, ArgDeliveryPort),
 		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ReadinessHostPort, ReadinessPort),
-		"--name=batcher-enclaver-"+nameSuffix,
+		"--name="+containerName,
 		"--device=/dev/nitro_enclaves",
 		name,
 	)
@@ -169,6 +170,14 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("enclave exited with an error: %w", err)
 	}
+
+	// Container is now running. Clean it up if anything below fails, so the caller doesn't
+	// inherit an orphaned container holding the fixed publish ports.
+	defer func() {
+		if retErr != nil {
+			exec.Command("docker", "rm", "-f", containerName).Run()
+		}
+	}()
 
 	// Wait for the readiness signal before sending args. The enclave entrypoint sends "READY"
 	// on ReadinessPort only after nc on ArgDeliveryPort is listening and the Odyn egress proxy
@@ -209,7 +218,13 @@ func waitForReadiness(ctx context.Context, hostPort int) error {
 		if bytes.Contains(buf[:n], []byte("READY")) {
 			return nil
 		}
-		return fmt.Errorf("unexpected readiness response: %q", buf[:n])
+		// Connection was accepted but no READY received — Enclaver's TCP listener may accept
+		// connections before the vsock bridge to the enclave is established. Retry rather than
+		// failing hard, so we wait out the ~30s Nitro Enclave launch time.
+		if time.Now().Add(retryInterval).Before(deadline) {
+			time.Sleep(retryInterval)
+			continue
+		}
 	}
 	return fmt.Errorf("enclave readiness timed out after %v", retryDuration)
 }
