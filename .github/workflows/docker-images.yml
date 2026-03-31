@@ -85,12 +85,17 @@ jobs:
             packages/contracts-bedrock/
           retention-days: 1
 
-  build-l1-geth:
+  # ============================================================
+  # L1 Geth
+  # ============================================================
+  build-l1-geth-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,12 +105,68 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push L1 Geth (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/l1-geth/Dockerfile
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/l1-geth,push-by-digest=true,name-canonical=true,push=true
+
+  build-l1-geth-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push L1 Geth (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/l1-geth/Dockerfile
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/l1-geth,push-by-digest=true,name-canonical=true,push=true
+
+  merge-l1-geth:
+    needs: [build-l1-geth-amd64, build-l1-geth-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -125,22 +186,24 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push L1 Geth
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/l1-geth/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/l1-geth@${{ needs.build-l1-geth-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/l1-geth@${{ needs.build-l1-geth-arm64.outputs.digest }}
 
-  build-op-geth:
+  # ============================================================
+  # OP Geth
+  # ============================================================
+  build-op-geth-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -150,12 +213,68 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Geth (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-geth/Dockerfile
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-geth,push-by-digest=true,name-canonical=true,push=true
+
+  build-op-geth-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Geth (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-geth/Dockerfile
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-geth,push-by-digest=true,name-canonical=true,push=true
+
+  merge-op-geth:
+    needs: [build-op-geth-amd64, build-op-geth-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -175,22 +294,24 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Geth
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/op-geth/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/op-geth@${{ needs.build-op-geth-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/op-geth@${{ needs.build-op-geth-arm64.outputs.digest }}
 
-  build-op-node:
+  # ============================================================
+  # OP Node
+  # ============================================================
+  build-op-node-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -201,17 +322,79 @@ jobs:
           name: deployment-artifacts
 
       - name: Create l2-config directory
-        run: |
-          mkdir -p espresso/deployment/l2-config
-          echo "Created l2-config directory"
-          ls -la espresso/deployment/
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        run: mkdir -p espresso/deployment/l2-config
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Node (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-node-target
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-node,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  build-op-node-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
+
+      - name: Create l2-config directory
+        run: mkdir -p espresso/deployment/l2-config
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Node (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-node-target
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-node,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  merge-op-node:
+    needs: [build-op-node-amd64, build-op-node-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -231,25 +414,24 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Node
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/op-stack/Dockerfile
-          target: op-node-target
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TARGET_BASE_IMAGE=alpine:3.22
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/op-node@${{ needs.build-op-node-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/op-node@${{ needs.build-op-node-arm64.outputs.digest }}
 
-  build-op-batcher:
+  # ============================================================
+  # OP Batcher
+  # ============================================================
+  build-op-batcher-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -259,18 +441,76 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Copy config for op-batcher
-        run: |
-          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
-          # Copy any required config files here, or create placeholder
-          echo "Config prepared for op-batcher"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Batcher (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-batcher-target
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-batcher,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  build-op-batcher-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
+
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Batcher (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-batcher-target
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-batcher,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  merge-op-batcher:
+    needs: [build-op-batcher-amd64, build-op-batcher-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -290,25 +530,24 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Batcher
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/op-stack/Dockerfile
-          target: op-batcher-target
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TARGET_BASE_IMAGE=alpine:3.22
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/op-batcher@${{ needs.build-op-batcher-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/op-batcher@${{ needs.build-op-batcher-arm64.outputs.digest }}
 
-  build-op-proposer:
+  # ============================================================
+  # OP Proposer
+  # ============================================================
+  build-op-proposer-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -318,24 +557,78 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Verify deployment files are present
-        run: |
-          echo "=== Verifying downloaded files ==="
-          ls -la espresso/deployment/ || echo "No deployment directory"
-          ls -la espresso/deployment/deployer/ || echo "No deployer directory"
-          ls -la packages/contracts-bedrock/ || echo "No contracts-bedrock directory"
 
-      - name: Copy config for op-proposer
-        run: |
-          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
-          echo "Config prepared for op-proposer"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Proposer (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-proposer-target
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-proposer,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  build-op-proposer-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
+
+
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Proposer (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-proposer-target
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-proposer,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  merge-op-proposer:
+    needs: [build-op-proposer-amd64, build-op-proposer-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -355,19 +648,16 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Proposer
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/op-stack/Dockerfile
-          target: op-proposer-target
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TARGET_BASE_IMAGE=alpine:3.22
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/op-proposer@${{ needs.build-op-proposer-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/op-proposer@${{ needs.build-op-proposer-arm64.outputs.digest }}
 
+  # ============================================================
+  # OP Batcher Enclave App (amd64-only — Nitro enclave requirement)
+  # ============================================================
   build-op-batcher-enclave-app:
     needs: prepare-deployment
     runs-on: ubuntu-latest
@@ -383,10 +673,6 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Copy config for op-batcher-enclave-app
-        run: |
-          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
-          echo "Config prepared for op-batcher-enclave-app"
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -422,6 +708,9 @@ jobs:
             TARGETOS=linux
             TARGETARCH=amd64
 
+  # ============================================================
+  # OP Batcher TEE (amd64-only — Nitro enclave requirement)
+  # ============================================================
   build-op-batcher-tee:
     needs: prepare-deployment
     runs-on: ubuntu-24.04-8core
@@ -437,11 +726,6 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Copy config for op-batcher
-        run: |
-          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
-          # Copy any required config files here, or create placeholder
-          echo "Config prepared for op-batcher"
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -477,12 +761,17 @@ jobs:
             TARGETOS=linux
             TARGETARCH=amd64
 
-  build-op-proposer-tee:
+  # ============================================================
+  # OP Proposer TEE
+  # ============================================================
+  build-op-proposer-tee-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -492,24 +781,78 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Verify deployment files are present
-        run: |
-          echo "=== Verifying downloaded files ==="
-          ls -la espresso/deployment/ || echo "No deployment directory"
-          ls -la espresso/deployment/deployer/ || echo "No deployer directory"
-          ls -la packages/contracts-bedrock/ || echo "No contracts-bedrock directory"
 
-      - name: Copy config for op-proposer
-        run: |
-          mkdir -p packages/contracts-bedrock/lib/superchain-registry/ops/testdata/monorepo
-          echo "Config prepared for op-proposer"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Proposer TEE (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-proposer-target
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-proposer-tee,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  build-op-proposer-tee-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
+
+
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Proposer TEE (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-proposer-target
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-proposer-tee,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  merge-op-proposer-tee:
+    needs: [build-op-proposer-tee-amd64, build-op-proposer-tee-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -529,25 +872,24 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Proposer TEE
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/op-stack/Dockerfile
-          target: op-proposer-target
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TARGET_BASE_IMAGE=alpine:3.22
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/op-proposer-tee@${{ needs.build-op-proposer-tee-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/op-proposer-tee@${{ needs.build-op-proposer-tee-arm64.outputs.digest }}
 
-  build-op-deployer:
+  # ============================================================
+  # OP Deployer
+  # ============================================================
+  build-op-deployer-amd64:
     needs: prepare-deployment
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -557,17 +899,76 @@ jobs:
         with:
           name: deployment-artifacts
 
-      - name: Verify deployment files are present
-        run: |
-          echo "=== Verifying downloaded files ==="
-          ls -la packages/contracts-bedrock/ || echo "No contracts-bedrock directory"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Deployer (amd64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-deployer-target
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-deployer,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  build-op-deployer-arm64:
+    needs: prepare-deployment
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-artifacts
+
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OP Deployer (arm64)
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: espresso/docker/op-stack/Dockerfile
+          target: op-deployer-target
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/op-deployer,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            TARGET_BASE_IMAGE=alpine:3.22
+
+  merge-op-deployer:
+    needs: [build-op-deployer-amd64, build-op-deployer-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -587,15 +988,9 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=pr-${{ github.event.number }},enable=${{ github.event_name == 'pull_request' }}
 
-      - name: Build and push OP Deployer
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: espresso/docker/op-stack/Dockerfile
-          target: op-deployer-target
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TARGET_BASE_IMAGE=alpine:3.22
+      - name: Create manifest and push
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.IMAGE_PREFIX }}/op-deployer@${{ needs.build-op-deployer-amd64.outputs.digest }} \
+            ${{ env.IMAGE_PREFIX }}/op-deployer@${{ needs.build-op-deployer-arm64.outputs.digest }}
