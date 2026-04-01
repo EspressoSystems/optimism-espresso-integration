@@ -34,8 +34,8 @@ github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e h1:ZIWapoIRN1VqT8GR
 github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
 github.com/EspressoSystems/espresso-network/sdks/go v0.3.4 h1:1hf/k2rGqIGEGQW8O3fQFltPIyxSmumph8aKIa6AjCk=
 github.com/EspressoSystems/espresso-network/sdks/go v0.3.4/go.mod h1:kaxR08mJb5Mijy7a2RhWCIWOevFI4PcXwDkzoEbsVTk=
-github.com/EspressoSystems/espresso-streamers v0.0.2-0.20260401081343-27bb500e7ae5 h1:mGr/8saH5yPO+OVaPX/kVZHeB5R1AmQr5Dc2D9jkqkw=
-github.com/EspressoSystems/espresso-streamers v0.0.2-0.20260401081343-27bb500e7ae5/go.mod h1:ILpQB1KtxL4/l5DFdUuEXPEbxVaiC8AmB5uRZaThUqU=
+github.com/EspressoSystems/espresso-streamers v0.0.2-0.20260401083845-6106312fbfd2 h1:QSDzLrdK6vbRv7R0yUd1RGRI3uJuDdJg/vVdkFdOsAM=
+github.com/EspressoSystems/espresso-streamers v0.0.2-0.20260401083845-6106312fbfd2/go.mod h1:Op3SNwQnZ3bqwrUXMAORnL2/pNiFzpfOED4ltYs5o/U=
 github.com/Masterminds/semver/v3 v3.3.1 h1:QtNSWtVZ3nBfk8mAOu/B6v7FMJ+NHTIgUPi7rj+4nv4=
 github.com/Masterminds/semver/v3 v3.3.1/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=

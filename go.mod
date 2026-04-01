@@ -1,6 +1,8 @@
 module github.com/ethereum-optimism/optimism
 
-go 1.25.1
+go 1.24.0
+
+toolchain go1.24.10
 
 require (
 	github.com/BurntSushi/toml v1.5.0
@@ -81,7 +83,7 @@ require (
 )
 
 require (
-	github.com/EspressoSystems/espresso-streamers v0.0.2-0.20260401081343-27bb500e7ae5
+	github.com/EspressoSystems/espresso-streamers v0.0.2-0.20260401083845-6106312fbfd2
 	github.com/joho/godotenv v1.5.1
 )
 
