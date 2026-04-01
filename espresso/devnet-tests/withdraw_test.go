@@ -33,9 +33,13 @@ func TestWithdrawal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
+	profile := ProfileFromEnv(t)
+
+	d := NewDevnet(ctx, t, profile)
+	require.NoError(t, d.Up())
 	defer func() { require.NoError(t, d.Down()) }()
+
+	require.NoError(t, d.WaitForBatcher(ctx, t))
 
 	alice := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)
 	callOpts := &bind.CallOpts{Context: ctx}

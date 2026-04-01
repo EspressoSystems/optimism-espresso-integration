@@ -8,29 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSmokeWithFallback(t *testing.T) {
+func TestSmoke(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
+	profile := ProfileFromEnv(t)
+
+	d := NewDevnet(ctx, t, profile)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
 
-	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
-}
-
-func TestSmokeWithEspresso(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
-	defer cancel()
-
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(ESPRESSO))
-	defer func() {
-		require.NoError(t, d.Down())
-	}()
+	require.NoError(t, d.WaitForBatcher(ctx, t))
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())

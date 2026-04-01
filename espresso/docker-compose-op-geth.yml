@@ -5,18 +5,17 @@ services:
       interval: 3s
       timeout: 2s
       retries: 40
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
     depends_on:
       l2-genesis:
         condition: service_completed_successfully
-      l1-geth:
+      l1-anvil:
         condition: service_healthy
     volumes:
+      - ./deployment:/deployment:ro
+      - ./deployment/deployer:/deployer:ro
       - ./deployment/l2-config:/config:ro
     environment:
-      L1_RPC: http://l1-geth:${L1_HTTP_PORT:?err}
+      L1_RPC: http://l1-anvil:${L1_HTTP_PORT:?err}
       OP_HTTP_PORT: ${OP_HTTP_PORT:?err}
       OP_ENGINE_PORT: ${OP_ENGINE_PORT:?err}

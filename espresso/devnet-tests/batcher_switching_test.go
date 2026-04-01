@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBatcherSwitching tests that the batcher can be switched from the Espresso
-// batcher to a fallback batcher using the BatchAuthenticator contract.
+// TestBatcherSwitching tests that the batcher can be switched from the TEE-enabled
+// batcher to a fallback non-TEE batcher using the BatchAuthenticator contract.
 //
 // This is the devnet equivalent of TestBatcherSwitching from the E2E tests.
 // The test runs two batchers in parallel:
@@ -21,12 +21,15 @@ func TestBatcherSwitching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize devnet with FALLBACK profile (starts both batchers)
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
+	profile := ProfileFromEnv(t)
+
+	d := NewDevnet(ctx, t, profile)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
+
+	require.NoError(t, d.WaitForBatcher(ctx, t))
 
 	// Send initial transaction to verify everything has started up ok
 	require.NoError(t, d.RunSimpleL2Burn())
@@ -52,9 +55,15 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Before switch: activeIsEspresso = %v", activeIsEspresso)
 
-	// Stop the Espresso batcher (op-batcher with Espresso enabled)
-	require.NoError(t, d.StopBatcherSubmitting("op-batcher"))
-	t.Logf("Stopped op-batcher batch submission")
+	// Stop the primary batcher.  In TEE mode the admin RPC is not reachable
+	// from outside the enclave, so we kill the container instead.
+	if profile == TEE {
+		require.NoError(t, d.ServiceDown(OpBatcher))
+		t.Logf("Killed op-batcher-tee container")
+	} else {
+		require.NoError(t, d.StopBatcherSubmitting(OpBatcher))
+		t.Logf("Stopped op-batcher batch submission via admin RPC")
+	}
 
 	// Switch active batcher via BatchAuthenticator contract
 	tx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
@@ -73,7 +82,7 @@ func TestBatcherSwitching(t *testing.T) {
 	t.Logf("After switch: activeIsEspresso = %v", activeIsEspressoAfter)
 
 	// Start the fallback batcher
-	require.NoError(t, d.StartBatcherSubmitting("op-batcher-fallback"))
+	require.NoError(t, d.StartBatcherSubmitting(OpBatcherFallback))
 	t.Logf("Started op-batcher-fallback batch submission")
 
 	// Verify everything still works with the fallback batcher

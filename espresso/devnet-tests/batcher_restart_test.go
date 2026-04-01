@@ -1,7 +1,6 @@
 package devnet_tests
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
@@ -9,20 +8,23 @@ import (
 )
 
 func TestBatcherRestart(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
+	profile := ProfileFromEnv(t)
+
+	d := NewDevnet(ctx, t, profile)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
+
+	require.NoError(t, d.WaitForBatcher(ctx, t))
 
 	// Send a transaction just to check that everything has started up ok.
 	require.NoError(t, d.RunSimpleL2Burn())
 
 	// Shut down the batcher and have another transaction submitted while it is down.
-	require.NoError(t, d.ServiceDown("op-batcher"))
+	require.NoError(t, d.ServiceDown(OpBatcher))
 	d.SleepOutageDuration()
 
 	receipt, err := d.SubmitSimpleL2Burn()
@@ -35,7 +37,8 @@ func TestBatcherRestart(t *testing.T) {
 
 	// Bring the batcher back up and check that it processes the transaction which was submitted
 	// while it was down.
-	require.NoError(t, d.ServiceUp("op-batcher"))
+	require.NoError(t, d.ServiceUp(OpBatcher))
+	require.NoError(t, d.WaitForBatcher(ctx, t))
 	require.NoError(t, d.VerifySimpleL2Burn(receipt))
 
 	// Submit another transaction at the end just to check that things stay working.

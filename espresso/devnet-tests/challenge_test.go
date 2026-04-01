@@ -18,11 +18,18 @@ func TestChallengeGame(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
+	profile := ProfileFromEnv(t)
+	if profile == TEE {
+		t.Skip("challenge test requires succinct-proposer/challenger, not available in TEE profile")
+	}
+
+	d := NewDevnet(ctx, t, profile)
+	require.NoError(t, d.Up())
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
+
+	require.NoError(t, d.WaitForBatcher(ctx, t))
 
 	// Verify devnet is running and generate some L2 activity
 	require.NoError(t, d.RunSimpleL2Burn())

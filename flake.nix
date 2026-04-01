@@ -2,7 +2,13 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    foundry.url = "github:shazow/foundry.nix/main";
+
+    # Pinned to commit that has Go 1.23.8
+    pkgs-go.url = "github:nixos/nixpkgs/ebe4301";
+    # Foundry 1.2.3 — pinned for the Solidity compiler (forge)
+    pkgs-foundry.url = "github:nixos/nixpkgs/648f701";
+    # Foundry 1.5.1 — newer anvil with built-in Beacon REST API
+    pkgs-anvil.url = "github:nixos/nixpkgs/6201e203d09599479a3b3450ed24fa81537ebc4e";
   };
 
   outputs =
@@ -10,19 +16,18 @@
     inputs.flake-utils.lib.eachDefaultSystem (
       system:
       let
-        overlays = [
-          inputs.foundry.overlay
-        ];
-        pkgs = import inputs.nixpkgs { inherit overlays system; };
+        pkgs = import inputs.nixpkgs { inherit system; };
 
-        go_1_23_8 = pkgs.go_1_23.overrideAttrs (oldAttrs: {
-          version = "1.23.8";
+        go_1_23_8 = (import inputs.pkgs-go { inherit system; }).go_1_23;
+        foundry_1_2_3 = (import inputs.pkgs-foundry { inherit system; }).foundry;
 
-          src = pkgs.fetchurl {
-            url = "https://go.dev/dl/go1.23.8.src.tar.gz";
-            sha256 = "sha256-DKHx436iVePOKDrz9OYoUC+0RFh9qYelu5bWxvFZMNQ=";
-          };
-        });
+        # Newer Foundry (1.5.1) for anvil only — includes built-in Beacon REST API
+        # needed by the devnet L1.  We extract just the anvil binary so it doesn't
+        # shadow forge/cast from the pinned 1.2.3 package.
+        anvil_1_5_1 = pkgs.runCommand "anvil-1.5.1" { } ''
+          mkdir -p $out/bin
+          ln -s ${(import inputs.pkgs-anvil { inherit system; }).foundry}/bin/anvil $out/bin/anvil
+        '';
 
         espressoGoLibFile = pkgs.stdenv.mkDerivation rec {
           pname = "libespresso_crypto_helper";
@@ -91,60 +96,18 @@
           doCheck = false;
         };
 
-        # Pinned to stable 1.2.3 rather than the nightly used elsewhere.
-        # The nightly (654c8f01) added strict vm.getCode artifact matching that errors
-        # when two contracts share the same name (e.g. src/universal/Proxy.sol and
-        # OZ v5's proxy/Proxy.sol). Fixing every upstream call-site would touch many
-        # Celo/OP-stack files.
-        foundry-bin-1_2_3 =
-          let
-            version = "1.2.3";
-            srcs = {
-              "x86_64-linux" = pkgs.fetchurl {
-                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_linux_amd64.tar.gz";
-                sha256 = "sha256-ggLzjxY1wnk7LRpP5EOub3MVGQ3G7tIZ15aaQKt4ooY=";
-              };
-              "aarch64-linux" = pkgs.fetchurl {
-                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_linux_arm64.tar.gz";
-                sha256 = "sha256-cGEv0dqd86izVIQhTk8rN7odbEEVCElJBkLXoFPDHqo=";
-              };
-              "x86_64-darwin" = pkgs.fetchurl {
-                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_darwin_amd64.tar.gz";
-                sha256 = "sha256-4+K0JcfhuMhT7UVCdrIP9QD6gtZcyVrK0iW0twY63Uo=";
-              };
-              "aarch64-darwin" = pkgs.fetchurl {
-                url = "https://github.com/foundry-rs/foundry/releases/download/v${version}/foundry_v${version}_darwin_arm64.tar.gz";
-                sha256 = "sha256-o/PxQXp6AqFpQun8hkGNASHC2QTBE/6xsmydadxvKH0=";
-              };
-            };
-          in
-          pkgs.stdenv.mkDerivation {
-            pname = "foundry-bin";
-            inherit version;
-            src = srcs.${system};
-            nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook ];
-            buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.stdenv.cc.cc.lib ];
-            dontUnpack = true;
-            installPhase = ''
-              mkdir -p $out/bin
-              tar -xzf $src -C $out/bin forge cast anvil chisel
-              chmod +x $out/bin/forge $out/bin/cast $out/bin/anvil $out/bin/chisel
-            '';
-          };
-
         enclaver = pkgs.rustPlatform.buildRustPackage rec {
           pname = "enclaver";
-          version = "0.5.0";
+          version = "0.6.1";
 
           src = pkgs.fetchFromGitHub {
             owner = "enclaver-io";
             repo = pname;
             rev = "v${version}";
-            hash = "sha256-gfzfgcnVDRqywAJ/SC2Af6VfHPELDkoVlkhaKElMP2g=";
+            hash = "sha256-TdwfTJR2k3/y01l6fuke5MUxQLH8DU0nqfq3mGY1C9Y=";
           };
 
-          useFetchCargoVendor = true;
-          cargoHash = "sha256-o+CzTn5++Mj6SP9yFeTOBn4feapnL2m1EsYmXQBqTuc=";
+          cargoHash = "sha256-qhZBxj1lAY6vRe3/3mRHKhPk+mrUW/99ZPaVKOAnHj8=";
           cargoRoot = "enclaver";
           buildAndTestSubdir = cargoRoot;
         };
@@ -161,18 +124,19 @@
             ];
 
             packages = [
+              go_1_23_8
+              foundry_1_2_3
+              anvil_1_5_1
+
               enclaver
               eth-beacon-genesis
               eth2-val-tools
-              go_1_23_8
 
               pkgs.awscli2
               pkgs.cargo
               pkgs.dasel
-              foundry-bin-1_2_3
               pkgs.go-ethereum
               pkgs.jq
-              pkgs.just
               pkgs.just
               pkgs.pnpm
               pkgs.python311
@@ -184,7 +148,6 @@
             ];
 
             shellHook = ''
-              export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
               export MACOSX_DEPLOYMENT_TARGET=14.5
               export PATH=$PATH:$PWD/op-deployer/bin
             '';
