@@ -52,8 +52,10 @@ evm_version = 'cancun'
 
 remappings = [
   # Espresso-tee-contracts context-specific remappings (must come before general @openzeppelin remappings)
+  'lib/espresso-tee-contracts/:@espresso-tee/=lib/espresso-tee-contracts/src/',
   'lib/espresso-tee-contracts/:@openzeppelin/contracts/=lib/espresso-tee-contracts/lib/openzeppelin-contracts/contracts',
   'lib/espresso-tee-contracts/:@openzeppelin/contracts-upgradeable/=lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts',
+  'lib/espresso-tee-contracts/:aws-nitro-enclave-attestation/=lib/espresso-tee-contracts/lib/aws-nitro-enclave-attestation/contracts/src/',
   'lib/espresso-tee-contracts/:solady/=lib/solady/src',
   # General remappings
   '@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts',
