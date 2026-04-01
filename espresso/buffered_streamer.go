@@ -3,6 +3,7 @@ package espresso
 import (
 	"context"
 
+	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -23,7 +24,7 @@ import (
 // all batches  from the safe position to whatever the current latest batch is.
 // This allows us to avoid needing to rewind the streamer, and instead just
 // adjust the read position of the buffered streamer.
-type BufferedEspressoStreamer[B Batch] struct {
+type BufferedEspressoStreamer[B op.Batch] struct {
 	streamer EspressoStreamer[B]
 
 	batches []*B
@@ -37,10 +38,10 @@ type BufferedEspressoStreamer[B Batch] struct {
 
 // Compile time assertion to ensure BufferedEspressoStreamer implements
 // EspressoStreamerIFace
-var _ EspressoStreamer[Batch] = (*BufferedEspressoStreamer[Batch])(nil)
+var _ EspressoStreamer[op.Batch] = (*BufferedEspressoStreamer[op.Batch])(nil)
 
 // NewBufferedEspressoStreamer creates a new BufferedEspressoStreamer instance.
-func NewBufferedEspressoStreamer[B Batch](streamer EspressoStreamer[B]) *BufferedEspressoStreamer[B] {
+func NewBufferedEspressoStreamer[B op.Batch](streamer EspressoStreamer[B]) *BufferedEspressoStreamer[B] {
 	return &BufferedEspressoStreamer[B]{
 		streamer: streamer,
 	}

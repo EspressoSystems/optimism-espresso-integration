@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -192,11 +193,11 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
 		// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
 		// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
-		var lightClientIface espresso.LightClientCallerInterface
+		var lightClientIface op.LightClientCallerInterface
 		if batchSubmitter.EspressoLightClient != nil {
 			lightClientIface = batchSubmitter.EspressoLightClient
 		}
-		unbufferedStreamer, err := espresso.NewEspressoStreamer(
+		unbufferedStreamer, err := op.NewEspressoStreamer(
 			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
 			l1Adapter,
 			l1Adapter,
@@ -204,7 +205,6 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 			lightClientIface,
 			batchSubmitter.Log,
 			derive.CreateEspressoBatchUnmarshaler(),
-			2*time.Second,
 			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
 			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
 		)
