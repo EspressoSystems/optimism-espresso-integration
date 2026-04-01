@@ -211,7 +211,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		if err != nil {
 			panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))
 		}
-		batchSubmitter.espressoStreamer = espresso.NewBufferedEspressoStreamer(unbufferedStreamer)
+		batchSubmitter.espressoStreamer = op.NewBufferedEspressoStreamer(unbufferedStreamer)
 		batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
 	}
 
