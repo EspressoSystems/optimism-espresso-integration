@@ -108,9 +108,6 @@ services:
       interval: 3s
       timeout: 2s
       retries: 40
-    build:
-      context: ../
-      dockerfile: espresso/docker/l1-geth/Dockerfile
     image: l1-geth:espresso
     environment:
       L1_HTTP_PORT: ${L1_HTTP_PORT:-8545}
@@ -125,9 +122,6 @@ services:
 
   l2-rollup:
     restart: on-failure
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
     environment:
       - MODE=rollup
@@ -152,9 +146,6 @@ services:
         condition: service_completed_successfully
       l1-geth:
         condition: service_healthy
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-geth/Dockerfile
     image: op-geth:espresso
     environment:
       - MODE=genesis
@@ -168,6 +159,9 @@ services:
     extends:
       file: docker-compose-op-geth.yml
       service: op-geth
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-geth/Dockerfile
     volumes:
       - op-data-seq:/data
     ports:
@@ -394,10 +388,6 @@ services:
 
   op-batcher-fallback:
     profiles: [ "default" ]
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-batcher-target
     image: op-batcher:espresso
     depends_on:
       l1-geth:

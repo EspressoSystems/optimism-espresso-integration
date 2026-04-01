@@ -110,11 +110,15 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
   cd /app/op-deployer && just build-go
 
 
+# Download Aztec SRS once; COPY --from into each target that needs it.
+FROM $TARGET_BASE_IMAGE AS aztec-srs
+ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+
 # Final runtime images
 FROM $TARGET_BASE_IMAGE AS op-node-target
-RUN apk add gcc
+RUN apk add libgcc
 ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
-ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=aztec-srs /aztec/kzg10-aztec20-srs-1048584.bin /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
 
 # Create config directory
@@ -126,38 +130,39 @@ COPY espresso/deployment/ /deployment/
 CMD ["op-node"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-target
-RUN apk add gcc
+RUN apk add libgcc
 ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
-ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=aztec-srs /aztec/kzg10-aztec20-srs-1048584.bin /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 CMD ["op-batcher"]
 
 # Inner image that Enclaver wraps into the EIF. Contains only the batcher
 # binary and the enclave entrypoint (socat proxying, arg routing via nc).
 FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-app
-RUN apk add gcc bash socat trurl
+RUN apk add libgcc bash socat trurl
 ENV AZTEC_SRS_PATH /aztec/kzg10-aztec20-srs-1048584.bin
-ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=aztec-srs /aztec/kzg10-aztec20-srs-1048584.bin /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=op-batcher-builder /app/op-batcher/bin/op-batcher /usr/local/bin/
 COPY op-batcher/enclave-entrypoint.bash /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 FROM $TARGET_BASE_IMAGE AS op-batcher-enclave-target
-RUN apk add gcc docker bash jq curl wget
+RUN apk add libgcc docker bash jq curl wget
 # Install enclaver for EIF creation
 RUN curl -L https://github.com/enclaver-io/enclaver/releases/download/v0.5.0/enclaver-linux-x86_64-v0.5.0.tar.gz | tar xz --strip-components=1 -C /usr/local/bin enclaver-linux-x86_64-v0.5.0/enclaver
 # Copy source code
 COPY --from=builder /app /source
 WORKDIR /source
-# Include the deployment state for contract addresses
+# Re-copy deployment artifacts from the build context so they reflect the
+# output of prepare-allocs.sh, which runs after the builder's `COPY . /app`.
 COPY espresso/deployment/ /source/espresso/deployment/
 # run-enclave.sh — build from source + register PCR0 + run (local/dev)
 # run-eif.sh lives in the infra repo (not shipped in this image)
 COPY espresso/docker/op-batcher-tee/run-enclave.sh ./espresso/docker/op-batcher-tee/run-enclave.sh
 RUN chmod +x ./espresso/docker/op-batcher-tee/run-enclave.sh
 ENV AZTEC_SRS_PATH=/aztec/kzg10-aztec20-srs-1048584.bin
-ADD "https://github.com/EspressoSystems/ark-srs/releases/download/v0.2.0/kzg10-aztec20-srs-1048584.bin" /aztec/kzg10-aztec20-srs-1048584.bin
+COPY --from=aztec-srs /aztec/kzg10-aztec20-srs-1048584.bin /aztec/kzg10-aztec20-srs-1048584.bin
 COPY --from=enclave-tools-builder /app/op-batcher/bin/enclave-tools /usr/local/bin/
 CMD ["enclave-tools"]
 
