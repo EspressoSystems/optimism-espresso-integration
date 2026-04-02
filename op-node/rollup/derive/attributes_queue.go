@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -196,7 +197,16 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		}
 		aq.batch = batch
 		aq.concluding = concluding
-		aq.batch.LogContext(aq.log).Info("singular batch from op-node", "concluding", concluding)
+		// Log tx hashes instead of raw bytes, since hashes are compact whereas raw tx bytes can
+		// be large and truncated by DataDog.
+		txHashes := make([]common.Hash, 0, len(aq.batch.Transactions))
+		for _, rawTx := range aq.batch.Transactions {
+			var tx types.Transaction
+			if err := tx.UnmarshalBinary(rawTx); err == nil {
+				txHashes = append(txHashes, tx.Hash())
+			}
+		}
+		aq.batch.LogContext(aq.log).Info("singular batch from op-node", "tx_hashes", txHashes, "concluding", concluding)
 	}
 
 	// Actually generate the next attributes
