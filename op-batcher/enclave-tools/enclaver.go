@@ -21,8 +21,6 @@ const (
 	ArgDeliveryPort uint16 = 8337
 	// ReadinessPort is the vsock port for the readiness handshake. Must match READY_PORT in enclave-entrypoint.bash.
 	ReadinessPort uint16 = 8338
-	// ArgDeliveryHostPort is the host-side TCP port docker --publish maps to ArgDeliveryPort.
-	ArgDeliveryHostPort = 9000
 )
 
 type EnclaverManifestSources struct {
@@ -134,12 +132,12 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 
 // RunEnclave runs an enclaver EIF image `name` with the provided arguments.
 // Uses 'docker run' directly (not 'enclaver run') to support --publish.
-// --publish=127.0.0.1:ArgDeliveryHostPort:ArgDeliveryPort instead of --net=host keeps
-// the container off the host network stack, blocking EC2 metadata-service access
-// (requires IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
-func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) error {
+// --publish=127.0.0.1:port:port instead of --net=host keeps the container off the host network
+// stack, blocking EC2 metadata-service access (requires IMDSv2 with HttpPutResponseHopLimit=1).
+func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) (retErr error) {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
+	containerName := "batcher-enclaver-" + nameSuffix
 
 	cmd := exec.CommandContext(
 		ctx,
@@ -148,8 +146,9 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--rm",
 		"-d",
 		"--privileged",
-		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryHostPort, ArgDeliveryPort),
-		"--name=batcher-enclaver-"+nameSuffix,
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryPort, ArgDeliveryPort),
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ReadinessPort, ReadinessPort),
+		"--name="+containerName,
 		"--device=/dev/nitro_enclaves",
 		name,
 	)
@@ -167,12 +166,62 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		return fmt.Errorf("enclave exited with an error: %w", err)
 	}
 
+	// Container is now running. Clean it up if anything below fails, so the caller doesn't
+	// inherit an orphaned container holding the fixed publish ports.
+	defer func() {
+		if retErr != nil {
+			exec.Command("docker", "rm", "-f", containerName).Run()
+		}
+	}()
+
+	// Wait for the readiness signal before sending args. The enclave entrypoint sends "READY"
+	// on ReadinessPort only after nc on ArgDeliveryPort is listening and the Odyn egress proxy
+	// is verified, so this prevents sending args into a vsock bridge that isn't ready yet.
+	if err := waitForReadiness(ctx, ReadinessPort); err != nil {
+		return fmt.Errorf("enclave did not become ready: %w", err)
+	}
+
 	// Send arguments to enclave via nc listener
 	if err := sendArgsToEnclave(ctx, args); err != nil {
 		return fmt.Errorf("failed to send arguments to enclave: %w", err)
 	}
 
 	return nil
+}
+
+// waitForReadiness waits for the enclave to signal readiness on the given host port.
+// The enclave entrypoint sends "READY" on ReadinessPort once nc on ArgDeliveryPort is
+// listening and the Odyn egress proxy is confirmed functional.
+func waitForReadiness(ctx context.Context, hostPort uint16) error {
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	retryDuration := 120 * time.Second
+	retryInterval := 2 * time.Second
+	deadline := time.Now().Add(retryDuration)
+
+	for time.Now().Before(deadline) {
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", hostPort))
+		if err != nil {
+			if time.Now().Add(retryInterval).Before(deadline) {
+				time.Sleep(retryInterval)
+				continue
+			}
+			return fmt.Errorf("failed to connect to readiness port after %v: %w", retryDuration, err)
+		}
+		buf := make([]byte, 16)
+		n, _ := conn.Read(buf)
+		conn.Close()
+		if bytes.Contains(buf[:n], []byte("READY")) {
+			return nil
+		}
+		// Connection was accepted but no READY received — Enclaver's TCP listener may accept
+		// connections before the vsock bridge to the enclave is established. Retry rather than
+		// failing hard, so we wait out the ~30s Nitro Enclave launch time.
+		if time.Now().Add(retryInterval).Before(deadline) {
+			time.Sleep(retryInterval)
+			continue
+		}
+	}
+	return fmt.Errorf("enclave readiness timed out after %v", retryDuration)
 }
 
 // sendArgsToEnclave sends arguments to the enclave's nc listener as null-separated values
@@ -197,7 +246,7 @@ func sendArgsToEnclave(ctx context.Context, args []string) error {
 
 	for time.Now().Before(deadline) {
 		// Connect to the enclave's listener
-		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", ArgDeliveryHostPort))
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", ArgDeliveryPort))
 		if err != nil {
 			// If we still have time, wait and retry
 			if time.Now().Add(retryInterval).Before(deadline) {
