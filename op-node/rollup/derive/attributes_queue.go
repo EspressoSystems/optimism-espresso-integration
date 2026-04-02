@@ -196,7 +196,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		}
 		aq.batch = batch
 		aq.concluding = concluding
-		aq.log.Info("singular batch from op-node is ", "batch", aq.batch, "concluding", concluding)
+		aq.batch.LogContext(aq.log).Info("singular batch from op-node", "concluding", concluding)
 	}
 
 	// Actually generate the next attributes
