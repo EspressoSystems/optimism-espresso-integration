@@ -9,8 +9,8 @@ import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { DeployTEEVerifierImpl } from "lib/espresso-tee-contracts/scripts/DeployTEEVerifierImpl.s.sol";
 import { DeployNitroTEEVerifier } from "lib/espresso-tee-contracts/scripts/DeployNitroTEEVerifier.s.sol";
-import { DeployTEEVerifier } from "lib/espresso-tee-contracts/scripts/DeployTEEVerifier.s.sol";
 import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
 import { Proxy } from "src/universal/Proxy.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
@@ -105,10 +105,6 @@ contract DeployEspressoOutput is BaseDeployIO {
 }
 
 contract DeployEspresso is Script {
-    /// @dev ERC-1967 admin slot: keccak256("eip1967.proxy.admin") - 1
-    ///      Used to read the ProxyAdmin address auto-deployed by OZ v5 TransparentUpgradeableProxy.
-    bytes32 internal constant ERC1967_ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
-
     function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
         IEspressoTEEVerifier teeVerifier = deployTEEContracts(input, output, deployerAddress);
         deployBatchAuthenticator(input, output, teeVerifier);
@@ -154,11 +150,9 @@ contract DeployEspresso is Script {
         return IBatchAuthenticator(address(proxy));
     }
 
-    /// @notice Deploys NitroTEEVerifier and TEEVerifier by calling the deployment scripts from
-    ///         the espresso-tee-contracts repository directly. Deployment order follows
-    ///         DeployAllTEEVerifiers.s.sol in that repo:
-    ///         1. Deploy TEEVerifier with placeholder nitro address
-    ///         2. Deploy NitroTEEVerifier pointing to the TEEVerifier
+    /// @notice Deploys NitroTEEVerifier and TEEVerifier (behind an OP-style proxy). Order:
+    ///         1. Deploy TEEVerifier impl + OP ProxyAdmin + Proxy, initialize with placeholder nitro address
+    ///         2. Deploy NitroTEEVerifier pointing to the TEEVerifier proxy
     ///         3. Update TEEVerifier with the actual NitroTEEVerifier address
     ///
     ///         If nitroEnclaveVerifier is address(0), deploys our local mocks (dev/test only).
@@ -220,11 +214,38 @@ contract DeployEspresso is Script {
         address proxyAdminOwner = input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) proxyAdminOwner = deployerAddress;
 
-        // Deploy TEEVerifier with placeholder nitro address; wire it in after NitroTEEVerifier is deployed.
-        vm.startBroadcast(msg.sender);
-        (address teeProxy,) = new DeployTEEVerifier().deploy(proxyAdminOwner, address(0), address(0));
-        vm.stopBroadcast();
-        vm.label(teeProxy, "TEEVerifierProxy");
+        // Deploy EspressoTEEVerifier implementation via the submodule script (no proxy).
+        // We use DeployTEEVerifierImpl (not DeployTEEVerifier) to avoid importing OZ v5
+        // TransparentUpgradeableProxy, which would compile OZ v5 ProxyAdmin and cause an
+        // artifact collision with src/universal/ProxyAdmin.sol.
+        vm.broadcast(msg.sender);
+        address teeVerifierImpl = new DeployTEEVerifierImpl().deploy();
+        vm.label(teeVerifierImpl, "TEEVerifierImpl");
+
+        // Wrap in an OP-style proxy — same pattern used by deployBatchAuthenticator above.
+        vm.broadcast(msg.sender);
+        ProxyAdmin teeProxyAdmin = new ProxyAdmin(msg.sender);
+        vm.label(address(teeProxyAdmin), "TEEVerifierProxyAdmin");
+
+        vm.broadcast(msg.sender);
+        Proxy teeProxyRaw = new Proxy(address(teeProxyAdmin));
+        vm.label(address(teeProxyRaw), "TEEVerifierProxy");
+
+        vm.broadcast(msg.sender);
+        teeProxyAdmin.setProxyType(address(teeProxyRaw), ProxyAdmin.ProxyType.ERC1967);
+
+        // Initialize with placeholder verifier addresses; nitro address is wired in below.
+        bytes memory initData =
+            abi.encodeWithSignature("initialize(address,address,address)", proxyAdminOwner, address(0), address(0));
+        vm.broadcast(msg.sender);
+        teeProxyAdmin.upgradeAndCall(payable(address(teeProxyRaw)), teeVerifierImpl, initData);
+
+        if (proxyAdminOwner != msg.sender) {
+            vm.broadcast(msg.sender);
+            teeProxyAdmin.transferOwnership(proxyAdminOwner);
+        }
+
+        address teeProxy = address(teeProxyRaw);
 
         // NitroTEEVerifier is deployed without a proxy; it stores teeProxy for access control.
         vm.startBroadcast(msg.sender);
@@ -235,19 +256,16 @@ contract DeployEspresso is Script {
         vm.broadcast(msg.sender);
         IEspressoTEEVerifier(teeProxy).setEspressoNitroTEEVerifier(IEspressoNitroTEEVerifier(nitroVerifier));
 
-        address teeProxyAdmin = address(uint160(uint256(vm.load(teeProxy, ERC1967_ADMIN_SLOT))));
-
         output.set(output.teeVerifierProxy.selector, teeProxy);
-        output.set(output.teeVerifierProxyAdmin.selector, teeProxyAdmin);
+        output.set(output.teeVerifierProxyAdmin.selector, address(teeProxyAdmin));
         output.set(output.nitroTEEVerifier.selector, nitroVerifier);
 
         return IEspressoTEEVerifier(teeProxy);
     }
 
     function checkOutput(DeployEspressoOutput output) public view {
-        address[] memory addresses = Solarray.addresses(
-            output.batchAuthenticatorAddress(), output.teeVerifierProxy(), output.nitroTEEVerifier()
-        );
+        address[] memory addresses =
+            Solarray.addresses(output.batchAuthenticatorAddress(), output.teeVerifierProxy(), output.nitroTEEVerifier());
         DeployUtils.assertValidContractAddresses(addresses);
         require(
             output.teeVerifierProxy() != output.teeVerifierProxyAdmin(),
