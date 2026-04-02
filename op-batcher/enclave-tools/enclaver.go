@@ -21,10 +21,6 @@ const (
 	ArgDeliveryPort uint16 = 8337
 	// ReadinessPort is the vsock port for the readiness handshake. Must match READY_PORT in enclave-entrypoint.bash.
 	ReadinessPort uint16 = 8338
-	// ArgDeliveryHostPort is the host-side TCP port docker --publish maps to ArgDeliveryPort.
-	ArgDeliveryHostPort = 9000
-	// ReadinessHostPort is the host-side TCP port docker --publish maps to ReadinessPort.
-	ReadinessHostPort = 9001
 )
 
 type EnclaverManifestSources struct {
@@ -136,9 +132,8 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 
 // RunEnclave runs an enclaver EIF image `name` with the provided arguments.
 // Uses 'docker run' directly (not 'enclaver run') to support --publish.
-// --publish=127.0.0.1:ArgDeliveryHostPort:ArgDeliveryPort instead of --net=host keeps
-// the container off the host network stack, blocking EC2 metadata-service access
-// (requires IMDSv2 with HttpPutResponseHopLimit=1 on the instance).
+// --publish=127.0.0.1:port:port instead of --net=host keeps the container off the host network
+// stack, blocking EC2 metadata-service access (requires IMDSv2 with HttpPutResponseHopLimit=1).
 func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) (retErr error) {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
@@ -151,8 +146,8 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--rm",
 		"-d",
 		"--privileged",
-		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryHostPort, ArgDeliveryPort),
-		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ReadinessHostPort, ReadinessPort),
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryPort, ArgDeliveryPort),
+		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ReadinessPort, ReadinessPort),
 		"--name="+containerName,
 		"--device=/dev/nitro_enclaves",
 		name,
@@ -182,7 +177,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	// Wait for the readiness signal before sending args. The enclave entrypoint sends "READY"
 	// on ReadinessPort only after nc on ArgDeliveryPort is listening and the Odyn egress proxy
 	// is verified, so this prevents sending args into a vsock bridge that isn't ready yet.
-	if err := waitForReadiness(ctx, ReadinessHostPort); err != nil {
+	if err := waitForReadiness(ctx, ReadinessPort); err != nil {
 		return fmt.Errorf("enclave did not become ready: %w", err)
 	}
 
@@ -197,7 +192,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 // waitForReadiness waits for the enclave to signal readiness on the given host port.
 // The enclave entrypoint sends "READY" on ReadinessPort once nc on ArgDeliveryPort is
 // listening and the Odyn egress proxy is confirmed functional.
-func waitForReadiness(ctx context.Context, hostPort int) error {
+func waitForReadiness(ctx context.Context, hostPort uint16) error {
 	dialer := &net.Dialer{Timeout: 5 * time.Second}
 	retryDuration := 120 * time.Second
 	retryInterval := 2 * time.Second
@@ -251,7 +246,7 @@ func sendArgsToEnclave(ctx context.Context, args []string) error {
 
 	for time.Now().Before(deadline) {
 		// Connect to the enclave's listener
-		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", ArgDeliveryHostPort))
+		conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", ArgDeliveryPort))
 		if err != nil {
 			// If we still have time, wait and retry
 			if time.Now().Add(retryInterval).Before(deadline) {
