@@ -321,6 +321,9 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch latest block height: %w", err)
 	}
+	if currentBlockHeight == math.MaxUint64 {
+		return fmt.Errorf("Espresso block height overflows uint64")
+	}
 
 	// Fetch API implementation
 	for i := 0; ; i++ {
