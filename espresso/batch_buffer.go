@@ -86,11 +86,10 @@ func (b *BatchBuffer[B]) Insert(batch B) error {
 }
 
 func (b *BatchBuffer[B]) Get(i int) *B {
-	if i < b.Len() {
+	if i >= 0 && i < b.Len() {
 		return &b.batches[i]
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (b *BatchBuffer[B]) Peek() *B {
