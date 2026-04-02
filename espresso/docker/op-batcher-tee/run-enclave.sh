@@ -125,6 +125,12 @@ if [ "$ENCLAVE_DEBUG" = "true" ]; then
     echo "Debug logging enabled"
 fi
 
+# Remove any stale enclave containers from previous runs.
+if stale=$(docker ps -q --filter "name=batcher-enclaver") && [ -n "$stale" ]; then
+    echo "Removing stale enclave containers: $stale"
+    docker rm -f $stale
+fi
+
 # Build the enclave image
 echo "Building enclave image with tag: $TAG"
 cd /source
