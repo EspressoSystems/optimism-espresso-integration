@@ -87,7 +87,11 @@ func (b *BufferedEspressoStreamer[B]) handleL2PositionUpdate(nextPosition uint64
 			// If the adjustment is within the bounds of the current buffer,
 			// we can simply adjust the read position and starting batch position.
 			b.batches = b.batches[positionAdjustment:]
-			b.readPos -= positionAdjustment
+			if b.readPos >= positionAdjustment {
+				b.readPos -= positionAdjustment
+			} else {
+				b.readPos = 0
+			}
 		} else {
 			b.batches = make([]*B, 0)
 			b.readPos = 0
