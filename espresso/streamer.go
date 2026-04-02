@@ -376,6 +376,9 @@ func (s *BatchStreamer[B]) Update(ctx context.Context) error {
 // to effectively keep track of the last block we have successfully fetched,
 // and therefore processed from Hotshot.
 func (s *BatchStreamer[B]) fetchHotShotRange(ctx context.Context, start, finish uint64) error {
+	if finish == 0 {
+		return fmt.Errorf("fetchHotShotRange: finish must be > 0")
+	}
 	// Process the new batches fetched from Espresso
 	s.Log.Trace("Fetching HotShot block range", "start", start, "finish", finish)
 
