@@ -200,11 +200,14 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		// Log tx hashes instead of raw bytes, since hashes are compact whereas raw tx bytes can
 		// be large and truncated by DataDog.
 		txHashes := make([]common.Hash, 0, len(aq.batch.Transactions))
-		for _, rawTx := range aq.batch.Transactions {
+		for i, rawTx := range aq.batch.Transactions {
 			var tx types.Transaction
 			if err := tx.UnmarshalBinary(rawTx); err == nil {
 				txHashes = append(txHashes, tx.Hash())
+			} else {
+				aq.log.Warn("failed to unmarshal transaction", "index", i, "err", err)
 			}
+		}
 		}
 		aq.batch.LogContext(aq.log).Info("singular batch from op-node", "tx_hashes", txHashes, "concluding", concluding)
 	}
