@@ -58,8 +58,14 @@ func BuildEifFromImage(ctx context.Context, appImage string, eifTag string, cpuC
 	return new(EnclaverCli).BuildEnclave(ctx, manifest)
 }
 
-// getNitroVerifier retrieves the Nitro TEE verifier instance and L1 client by traversing the contract chain.
-func getNitroVerifier(ctx context.Context, authenticatorAddress common.Address, L1Url string) (*bindings.EspressoNitroTEEVerifier, *ethclient.Client, error) {
+// TeeType enum values from IEspressoTEEVerifier (SGX=0, NITRO=1).
+const teeTypeNitro uint8 = 1
+
+// ServiceType enum values from espresso-tee-contracts/src/types/Types.sol (BatchPoster=0, CaffNode=1).
+const serviceTypeBatchPoster uint8 = 0
+
+// getVerifier retrieves the EspressoTEEVerifier instance and L1 client by traversing the contract chain.
+func getVerifier(ctx context.Context, authenticatorAddress common.Address, L1Url string) (*bindings.EspressoTEEVerifier, *ethclient.Client, error) {
 	l1Client, err := ethclient.DialContext(ctx, L1Url)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to L1 client: %w", err)
@@ -80,22 +86,12 @@ func getNitroVerifier(ctx context.Context, authenticatorAddress common.Address, 
 		return nil, nil, fmt.Errorf("failed to create verifier: %w", err)
 	}
 
-	nitroVerifierAddress, err := verifier.EspressoNitroTEEVerifier(&bind.CallOpts{})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get nitro verifier address: %w", err)
-	}
-
-	nitroVerifier, err := bindings.NewEspressoNitroTEEVerifier(nitroVerifierAddress, l1Client)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create nitro verifier: %w", err)
-	}
-
-	return nitroVerifier, l1Client, nil
+	return verifier, l1Client, nil
 }
 
-// RegisterEnclaveHash registers the enclave PCR0 hash with the EspressoNitroTEEVerifier.
+// RegisterEnclaveHash registers the enclave PCR0 hash with the EspressoTEEVerifier.
 func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Address, L1Url string, key *ecdsa.PrivateKey, pcr0Bytes []byte) error {
-	nitroVerifier, l1Client, err := getNitroVerifier(ctx, authenticatorAddress, L1Url)
+	verifier, l1Client, err := getVerifier(ctx, authenticatorAddress, L1Url)
 	if err != nil {
 		return err
 	}
@@ -109,7 +105,10 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 	if err != nil {
 		return fmt.Errorf("failed to create transactor: %w", err)
 	}
-	registrationTx, err := nitroVerifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true)
+	// Call EspressoTEEVerifier.setEnclaveHash, not EspressoNitroTEEVerifier.setEnclaveHash
+	// directly. The nitro verifier's setEnclaveHash is onlyTEEVerifier, so only the TEE verifier
+	// contract can call it, not an EOA operator key.
+	registrationTx, err := verifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, teeTypeNitro, serviceTypeBatchPoster)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}
@@ -128,17 +127,17 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 	return nil
 }
 
-// IsEnclaveHashRegistered checks if the given PCR0 hash is already registered with the EspressoNitroTEEVerifier
+// IsEnclaveHashRegistered checks if the given PCR0 hash is already registered with the EspressoTEEVerifier
 func IsEnclaveHashRegistered(ctx context.Context, authenticatorAddress common.Address, L1Url string, pcr0Bytes []byte) (bool, error) {
-	nitroVerifier, _, err := getNitroVerifier(ctx, authenticatorAddress, L1Url)
+	verifier, _, err := getVerifier(ctx, authenticatorAddress, L1Url)
 	if err != nil {
-		return false, fmt.Errorf("failed to get nitro verifier: %w", err)
+		return false, fmt.Errorf("failed to get verifier: %w", err)
 	}
 
-	isRegisteredTx, err := nitroVerifier.RegisteredEnclaveHash(&bind.CallOpts{}, crypto.Keccak256Hash(pcr0Bytes))
+	isRegistered, err := verifier.RegisteredEnclaveHashes(&bind.CallOpts{}, crypto.Keccak256Hash(pcr0Bytes), teeTypeNitro, serviceTypeBatchPoster)
 	if err != nil {
-		return false, fmt.Errorf("failed to call registeredEnclaveHash function: %w", err)
+		return false, fmt.Errorf("failed to call registeredEnclaveHashes function: %w", err)
 	}
 
-	return isRegisteredTx, nil
+	return isRegistered, nil
 }
