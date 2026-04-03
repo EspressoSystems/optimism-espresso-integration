@@ -107,6 +107,7 @@ jobs:
       - name: Warm up Nix dev shell
         run: |
           . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          export NIX_CONFIG="extra-experimental-features = nix-command flakes"
           nix develop --command echo "Nix dev shell ready"
 
       - name: Download forge-artifacts
@@ -130,6 +131,7 @@ jobs:
       - name: Run tests (${{ inputs.group-name }})
         run: |
           . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          export NIX_CONFIG="extra-experimental-features = nix-command flakes"
           nix develop --command bash -c '
             go install gotest.tools/gotestsum@latest
             gotestsum --format github-actions -- -timeout 35m -p 1 -count 1 -run '"'"'${{ inputs.tests }}'"'"' ./espresso/devnet-tests/...
