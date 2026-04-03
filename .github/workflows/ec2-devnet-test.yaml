@@ -1,0 +1,147 @@
+name: EC2 Devnet Test (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      tests:
+        description: "Go test -run regex pattern"
+        required: true
+        type: string
+      group-name:
+        description: "Human-readable name for this test group"
+        required: true
+        type: string
+    secrets:
+      GH_PERSONAL_ACCESS_TOKEN:
+        required: true
+      AWS_EC2_SUBNET_ID:
+        required: true
+      AWS_EC2_SECURITY_GROUP_ID:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  start-runner:
+    name: Start EC2 runner (${{ inputs.group-name }})
+    runs-on: ubuntu-latest
+    environment: tee-testing
+    outputs:
+      label: ${{ steps.start-ec2-runner.outputs.label }}
+      ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::324783324287:role/github-optimism-espresso-integration-access
+          role-duration-seconds: 10800
+          aws-region: us-east-2
+
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: EspressoSystems/ec2-github-runner@v2-enclave
+        with:
+          mode: start
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          ec2-image-id: ami-0d259f3ae020af5f9
+          ec2-instance-type: m6a.2xlarge
+          subnet-id: ${{ secrets.AWS_EC2_SUBNET_ID }}
+          security-group-id: ${{ secrets.AWS_EC2_SECURITY_GROUP_ID }}
+          enclave-options: true
+          ec2-volume-size: 100
+          ec2-volume-type: gp3
+          run-runner-as-user: ec2-user
+          startup-timeout-minutes: 10
+          pre-runner-script: |
+            # Ensure Docker is running
+            sudo systemctl enable --now docker
+            sudo usermod -aG docker ec2-user
+            sudo chown ec2-user /var/run/docker.sock
+
+            # Configure Nitro Enclaves allocator (4 GiB, 2 vCPUs)
+            sudo systemctl stop nitro-enclaves-allocator.service || true
+            echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
+            sudo systemctl start nitro-enclaves-allocator.service
+          aws-resource-tags: >
+            [
+              {"Key": "Name", "Value": "tee-devnet-${{ inputs.group-name }}"},
+              {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
+            ]
+
+  run-tests:
+    name: Run tests (${{ inputs.group-name }})
+    needs: start-runner
+    runs-on: ${{ needs.start-runner.outputs.label }}
+    timeout-minutes: 40
+    env:
+      ESPRESSO_RUN_ENCLAVE_TESTS: "true"
+      ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
+      ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache submodules
+        uses: ./.github/actions/cache-submodules
+
+      # Nix is pre-installed on the AMI; configure it for this session.
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v30
+        with:
+          nix_conf: |
+            keep-env-derivations = true
+            keep-outputs = true
+      - name: Set up Nix environment
+        uses: nicknovitski/nix-develop@v1
+
+      - name: Cache Go modules
+        uses: actions/setup-go@v5
+
+      - name: Download forge-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-artifacts
+          path: packages/contracts-bedrock/forge-artifacts/
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: devnet-deployment
+          path: espresso/deployment/
+
+      - name: Build Docker images (TEE profile)
+        run: |
+          cd espresso
+          COMPOSE_PROFILES=tee docker compose build
+          COMPOSE_PROFILES=tee docker compose pull --ignore-buildable
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Run tests (${{ inputs.group-name }})
+        run: gotestsum --format github-actions -- -timeout 35m -p 1 -count 1 -run '${{ inputs.tests }}' ./espresso/devnet-tests/...
+
+  stop-runner:
+    name: Stop EC2 runner (${{ inputs.group-name }})
+    needs:
+      - start-runner
+      - run-tests
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::324783324287:role/github-optimism-espresso-integration-access
+          role-duration-seconds: 10800
+          aws-region: us-east-2
+
+      - name: Stop EC2 runner
+        uses: EspressoSystems/ec2-github-runner@v2-enclave
+        with:
+          mode: stop
+          github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          label: ${{ needs.start-runner.outputs.label }}
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
