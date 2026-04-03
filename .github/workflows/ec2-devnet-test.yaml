@@ -122,13 +122,9 @@ jobs:
           name: devnet-deployment
           path: espresso/deployment/
 
-      - name: Build Docker images
+      - name: Build Docker images (TEE profile)
         run: |
           cd espresso
-          # Build default profile first (op-batcher:espresso, op-geth:espresso, etc.)
-          # then TEE profile (op-batcher-tee, op-batcher-enclave-app).
-          # TEE services like op-batcher-fallback depend on images from the default profile.
-          docker compose build
           COMPOSE_PROFILES=tee docker compose build
           COMPOSE_PROFILES=tee docker compose pull --ignore-buildable
 

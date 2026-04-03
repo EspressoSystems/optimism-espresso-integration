@@ -272,11 +272,8 @@ services:
 
   op-batcher:
     profiles: [ "default" ]
-    build:
-      context: ../
-      dockerfile: espresso/docker/op-stack/Dockerfile
-      target: op-batcher-target
     image: op-batcher:espresso
+    pull_policy: never  # built by op-batcher-fallback
     # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
       l1-anvil:
@@ -326,8 +323,11 @@ services:
 
   op-batcher-fallback:
     profiles: [ "default", "tee" ]
+    build:
+      context: ../
+      dockerfile: espresso/docker/op-stack/Dockerfile
+      target: op-batcher-target
     image: op-batcher:espresso
-    pull_policy: never  # built by op-batcher
     depends_on:
       l1-anvil:
         condition: service_healthy
