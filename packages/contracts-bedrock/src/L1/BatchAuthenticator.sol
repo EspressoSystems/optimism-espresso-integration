@@ -15,7 +15,7 @@ import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
 /// @notice Upgradeable contract that authenticates batch information using the Transparent Proxy
 ///         pattern.
-///         Supports switching between TEE and non-TEE batchers.
+///         Supports switching between Espresso and fallback batchers.
 contract BatchAuthenticator is
     IBatchAuthenticator,
     ISemver,
@@ -27,14 +27,14 @@ contract BatchAuthenticator is
     /// @custom:semver 1.1.0
     string public constant version = "1.1.0";
 
-    /// @notice Address of the TEE batcher whose signatures may authenticate batches.
-    address public teeBatcher;
+    /// @notice Address of the Espresso batcher whose signatures may authenticate batches.
+    address public espressoBatcher;
 
     /// @notice Address of the Espresso TEE Verifier contract.
     IEspressoTEEVerifier public espressoTEEVerifier;
 
     /// @notice Flag indicating which batcher is currently active.
-    /// @dev When true the TEE batcher is active; when false the non-TEE batcher is active.
+    /// @dev When true the Espresso batcher is active; when false the fallback batcher is active.
     bool public activeIsTee;
 
     /// @notice The SystemConfig contract, used to check the paused status.
@@ -47,7 +47,7 @@ contract BatchAuthenticator is
 
     function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
-        address _teeBatcher,
+        address _espressoBatcher,
         ISystemConfig _systemConfig,
         address _owner
     )
@@ -60,16 +60,16 @@ contract BatchAuthenticator is
         // Initialize OwnableWithGuardians with the provided owner address
         __OwnableWithGuardians_init(_owner);
 
-        if (_teeBatcher == address(0)) revert InvalidAddress(_teeBatcher);
+        if (_espressoBatcher == address(0)) revert InvalidAddress(_espressoBatcher);
         if (address(_systemConfig) == address(0)) revert InvalidAddress(address(_systemConfig));
         if (address(_espressoTEEVerifier) == address(0)) {
             revert InvalidAddress(address(_espressoTEEVerifier));
         }
 
         espressoTEEVerifier = _espressoTEEVerifier;
-        teeBatcher = _teeBatcher;
+        espressoBatcher = _espressoBatcher;
         systemConfig = _systemConfig;
-        // By default, start with the TEE batcher active.
+        // By default, start with the Espresso batcher active.
         activeIsTee = true;
     }
 
@@ -83,18 +83,18 @@ contract BatchAuthenticator is
         return systemConfig.paused();
     }
 
-    /// @notice Toggles the active batcher between the TEE and non-TEE batcher.
+    /// @notice Toggles the active batcher between the Espresso and fallback batcher.
     function switchBatcher() external onlyGuardianOrOwner {
         activeIsTee = !activeIsTee;
         emit BatcherSwitched(activeIsTee);
     }
 
-    /// @notice Updates the TEE batcher address.
-    function setTeeBatcher(address _newTeeBatcher) external onlyOwner {
-        if (_newTeeBatcher == address(0)) revert InvalidAddress(_newTeeBatcher);
-        address oldTeeBatcher = teeBatcher;
-        teeBatcher = _newTeeBatcher;
-        emit TeeBatcherUpdated(oldTeeBatcher, _newTeeBatcher);
+    /// @notice Updates the Espresso batcher address.
+    function setEspressoBatcher(address _newEspressoBatcher) external onlyOwner {
+        if (_newEspressoBatcher == address(0)) revert InvalidAddress(_newEspressoBatcher);
+        address oldEspressoBatcher = espressoBatcher;
+        espressoBatcher = _newEspressoBatcher;
+        emit EspressoBatcherUpdated(oldEspressoBatcher, _newEspressoBatcher);
     }
 
     function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
@@ -106,11 +106,11 @@ contract BatchAuthenticator is
         emit BatchInfoAuthenticated(commitment);
     }
 
-    function registerSigner(bytes calldata attestationTbs, bytes calldata signature) external {
+    function registerSigner(bytes calldata verificationData, bytes calldata data) external {
         if (paused()) revert BatchAuthenticator_Paused();
 
         espressoTEEVerifier.registerService(
-            attestationTbs, signature, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
+            verificationData, data, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
         );
         emit SignerRegistrationInitiated(msg.sender);
     }

@@ -278,13 +278,13 @@ func initAllocType(root string, allocType AllocType) {
 			}
 
 			// Configure Espresso allocation types.
-			// The TEE batcher uses a separate key (HD index 6) from the standard
+			// The Espresso batcher uses a separate key (HD index 6) from the standard
 			// OP stack batcher (Roles.Batcher, HD index 2). The fallback batcher
 			// uses the SystemConfig batcher address (Roles.Batcher).
 			if allocType.IsEspresso() {
 				intent.Chains[0].EspressoEnabled = true
-				teeBatcherKey := secrets.DefaultSecrets.AccountAtIdx(6)
-				intent.Chains[0].TeeBatcher = crypto.PubkeyToAddress(teeBatcherKey.PublicKey)
+				espressoBatcherKey := secrets.DefaultSecrets.AccountAtIdx(6)
+				intent.Chains[0].EspressoBatcher = crypto.PubkeyToAddress(espressoBatcherKey.PublicKey)
 			}
 
 			baseUpgradeSchedule := map[string]any{

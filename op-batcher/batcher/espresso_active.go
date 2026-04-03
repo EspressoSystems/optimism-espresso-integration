@@ -15,11 +15,11 @@ import (
 // be publishing batches, false if it should stay idle.
 //
 // The active batcher is determined by the contract's activeIsTee flag:
-//   - If activeIsTee is true, the TEE batcher address is active
-//   - If activeIsTee is false, the non-TEE (fallback) batcher address is active
+//   - If activeIsTee is true, the Espresso batcher address is active
+//   - If activeIsTee is false, the fallback batcher address is active
 //
 // This method compares the batcher's own address (from TxMgr) against the
-// contract's registered TEE batcher address and the SystemConfig batcher address.
+// contract's registered Espresso batcher address and the SystemConfig batcher address.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 	// Check if contract code exists at the address
 	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)

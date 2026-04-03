@@ -17,10 +17,10 @@ interface IBatchAuthenticator {
     /// @notice Emitted when a signer registration is initiated through this contract.
     event SignerRegistrationInitiated(address indexed caller);
 
-    /// @notice Emitted when the TEE batcher address is updated.
-    event TeeBatcherUpdated(
-        address indexed oldTeeBatcher,
-        address indexed newTeeBatcher
+    /// @notice Emitted when the Espresso batcher address is updated.
+    event EspressoBatcherUpdated(
+        address indexed oldEspressoBatcher,
+        address indexed newEspressoBatcher
     );
 
     /// @notice Emitted when the active batcher is switched.
@@ -34,9 +34,9 @@ interface IBatchAuthenticator {
 
     function owner() external view returns (address);
 
-    function teeBatcher() external view returns (address);
+    function espressoBatcher() external view returns (address);
 
-    function registerSigner(bytes memory attestationTbs, bytes memory signature) external;
+    function registerSigner(bytes memory verificationData, bytes memory data) external;
 
     function activeIsTee() external view returns (bool);
 
@@ -46,5 +46,5 @@ interface IBatchAuthenticator {
 
     function switchBatcher() external;
 
-    function setTeeBatcher(address _newTeeBatcher) external;
+    function setEspressoBatcher(address _newEspressoBatcher) external;
 }

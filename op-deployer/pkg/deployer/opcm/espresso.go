@@ -22,7 +22,7 @@ type DeployAWSNitroVerifierOutput struct {
 type DeployEspressoInput struct {
 	Salt               common.Hash
 	NitroTEEVerifier   common.Address
-	TeeBatcher         common.Address
+	EspressoBatcher    common.Address
 	SystemConfig       common.Address
 	ProxyAdminOwner    common.Address
 	UseMockTEEVerifier bool

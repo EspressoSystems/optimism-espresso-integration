@@ -19,7 +19,7 @@ import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol
 contract DeployEspressoInput is BaseDeployIO {
     bytes32 internal _salt;
     address internal _nitroTEEVerifier;
-    address internal _teeBatcher;
+    address internal _espressoBatcher;
     address internal _systemConfig;
     address internal _proxyAdminOwner;
     bool internal _useMockTEEVerifier;
@@ -37,8 +37,8 @@ contract DeployEspressoInput is BaseDeployIO {
     function set(bytes4 _sel, address _val) public {
         if (_sel == this.nitroTEEVerifier.selector) {
             _nitroTEEVerifier = _val;
-        } else if (_sel == this.teeBatcher.selector) {
-            _teeBatcher = _val;
+        } else if (_sel == this.espressoBatcher.selector) {
+            _espressoBatcher = _val;
         } else if (_sel == this.systemConfig.selector) {
             _systemConfig = _val;
         } else if (_sel == this.proxyAdminOwner.selector) {
@@ -58,8 +58,8 @@ contract DeployEspressoInput is BaseDeployIO {
         return _nitroTEEVerifier;
     }
 
-    function teeBatcher() public view returns (address) {
-        return _teeBatcher;
+    function espressoBatcher() public view returns (address) {
+        return _espressoBatcher;
     }
 
     function systemConfig() public view returns (address) {
@@ -164,7 +164,7 @@ contract DeployEspresso is Script {
         // Initialize the proxy with explicit owner parameter
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (teeVerifier, input.teeBatcher(), ISystemConfig(input.systemConfig()), batchAuthenticatorOwner)
+            (teeVerifier, input.espressoBatcher(), ISystemConfig(input.systemConfig()), batchAuthenticatorOwner)
         );
         vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);

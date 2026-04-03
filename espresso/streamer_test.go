@@ -92,9 +92,9 @@ type MockStreamerSource struct {
 	LatestEspHeight        uint64
 	finalizedHeightHistory map[uint64]uint64
 
-	// TeeBatcherAddr is the address returned by the mock BatchAuthenticator contract
-	// for teeBatcher() calls. Can be changed per-test to simulate TEE batcher rotation.
-	TeeBatcherAddr common.Address
+	// EspressoBatcherAddr is the address returned by the mock BatchAuthenticator contract
+	// for espressoBatcher() calls. Can be changed per-test to simulate Espresso batcher rotation.
+	EspressoBatcherAddr common.Address
 }
 
 // FetchNamespaceTransactionsInRange implements espresso.EspressoClient.
@@ -203,8 +203,8 @@ func (m *MockStreamerSource) HeaderHashByNumber(ctx context.Context, number *big
 	return l1Ref.Hash, nil
 }
 
-// teeBatcherSelector is the 4-byte function selector for teeBatcher() — 0xd909ba7c
-var teeBatcherSelector = []byte{0xd9, 0x09, 0xba, 0x7c}
+// espressoBatcherSelector is the 4-byte function selector for espressoBatcher() — 0x030650d2
+var espressoBatcherSelector = []byte{0x03, 0x06, 0x50, 0xd2}
 
 func (m *MockStreamerSource) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
 	// Return non-empty bytes so the bindings consider the contract deployed
@@ -212,10 +212,10 @@ func (m *MockStreamerSource) CodeAt(ctx context.Context, contract common.Address
 }
 
 func (m *MockStreamerSource) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	if len(call.Data) >= 4 && common.Bytes2Hex(call.Data[:4]) == common.Bytes2Hex(teeBatcherSelector) {
-		// ABI-encode the TEE batcher address as a 32-byte left-padded word
+	if len(call.Data) >= 4 && common.Bytes2Hex(call.Data[:4]) == common.Bytes2Hex(espressoBatcherSelector) {
+		// ABI-encode the Espresso batcher address as a 32-byte left-padded word
 		var result [32]byte
-		copy(result[12:], m.TeeBatcherAddr.Bytes())
+		copy(result[12:], m.EspressoBatcherAddr.Bytes())
 		return result[:], nil
 	}
 	return nil, fmt.Errorf("unexpected contract call: %x", call.Data)
@@ -425,7 +425,7 @@ var batchAuthenticatorAddr = common.HexToAddress("0x0000000000000000000000000000
 // and returns both the MockStreamerSource and the EspressoStreamer.
 func setupStreamerTesting(namespace uint64, batcherAddress common.Address) (*MockStreamerSource, *espresso.BatchStreamer[derive.EspressoBatch]) {
 	state := NewMockStreamerSource()
-	state.TeeBatcherAddr = batcherAddress
+	state.EspressoBatcherAddr = batcherAddress
 
 	logger := new(NoOpLogger)
 	streamer, err := espresso.NewEspressoStreamer(
@@ -1070,7 +1070,7 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 		defer cancel()
 
 		state := NewMockStreamerSource()
-		state.TeeBatcherAddr = signerAddress
+		state.EspressoBatcherAddr = signerAddress
 		logger := new(NoOpLogger)
 
 		streamer, err := espresso.NewEspressoStreamer(
@@ -1149,7 +1149,7 @@ func TestStreamerBufferCapacityAndSkipPos(t *testing.T) {
 		defer cancel()
 
 		state := NewMockStreamerSource()
-		state.TeeBatcherAddr = signerAddress
+		state.EspressoBatcherAddr = signerAddress
 		logger := new(NoOpLogger)
 
 		// Create streamer - after Refresh with SafeL2.Number=0, BatchPos becomes 1

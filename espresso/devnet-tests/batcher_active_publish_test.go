@@ -69,9 +69,9 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
 	require.NoError(t, err)
 
-	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(&bind.CallOpts{})
+	espressoBatcherAddr, err := batchAuthenticator.EspressoBatcher(&bind.CallOpts{})
 	require.NoError(t, err)
-	nonTeeBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
+	fallbackBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
 
 	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
 	require.NoError(t, err)
@@ -100,19 +100,19 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("Checking blocks %d-%d", startBlock, endBlock)
 
-		teePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, teeBatcherAddr, startBlock, endBlock)
+		espressoPublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, espressoBatcherAddr, startBlock, endBlock)
 		require.NoError(t, err)
-		nonTeePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, nonTeeBatcherAddr, startBlock, endBlock)
+		fallbackPublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, fallbackBatcherAddr, startBlock, endBlock)
 		require.NoError(t, err)
 
-		t.Logf("TEE batcher published: %v, non-TEE batcher published: %v", teePublished, nonTeePublished)
+		t.Logf("Espresso batcher published: %v, non-Espresso batcher published: %v", espressoPublished, fallbackPublished)
 
 		if expectTeeActive {
-			require.True(t, teePublished, "TEE batcher should publish when active")
-			require.False(t, nonTeePublished, "non-TEE batcher should NOT publish when inactive")
+			require.True(t, espressoPublished, "Espresso batcher should publish when active")
+			require.False(t, fallbackPublished, "fallback batcher should NOT publish when inactive")
 		} else {
-			require.True(t, nonTeePublished, "non-TEE batcher should publish when active")
-			require.False(t, teePublished, "TEE batcher should NOT publish when inactive")
+			require.True(t, fallbackPublished, "fallback batcher should publish when active")
+			require.False(t, espressoPublished, "Espresso batcher should NOT publish when inactive")
 		}
 	}
 

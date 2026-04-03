@@ -79,8 +79,8 @@ func GetFinalizedL1(header *espressoCommon.HeaderImpl) espressoCommon.L1BlockInf
 type l1State struct {
 	// Block hash
 	hash common.Hash
-	// TEE batchers addresses for signature verification
-	teeBatchers []common.Address
+	// Espresso batcher addresses for signature verification
+	espressoBatchers []common.Address
 }
 
 type BatchStreamer[B Batch] struct {
@@ -244,22 +244,22 @@ func (s *BatchStreamer[B]) CheckBatch(ctx context.Context, batch B) BatchValidit
 			return BatchUndecided
 		}
 
-		teeBatcher, err := s.BatchAuthenticatorCaller.TeeBatcher(&bind.CallOpts{BlockNumber: blockNumber})
+		espressoBatcher, err := s.BatchAuthenticatorCaller.EspressoBatcher(&bind.CallOpts{BlockNumber: blockNumber})
 		if err != nil {
-			s.Log.Warn("Failed to fetch the TEE batcher address, pending resync", "error", err)
+			s.Log.Warn("Failed to fetch the Espresso batcher address, pending resync", "error", err)
 			return BatchUndecided
 		}
 
 		state = l1State{
-			hash:        hash,
-			teeBatchers: []common.Address{teeBatcher},
+			hash:             hash,
+			espressoBatchers: []common.Address{espressoBatcher},
 		}
 
 		s.finalizedL1StateCache.Add(origin.Number, state)
 	}
 
-	if !slices.Contains(state.teeBatchers, batch.Signer()) {
-		s.Log.Info("Dropping batch with invalid TEE batcher", "batch", batch.Hash(), "signer", batch.Signer())
+	if !slices.Contains(state.espressoBatchers, batch.Signer()) {
+		s.Log.Info("Dropping batch with invalid Espresso batcher", "batch", batch.Hash(), "signer", batch.Signer())
 		return BatchDrop
 	}
 
