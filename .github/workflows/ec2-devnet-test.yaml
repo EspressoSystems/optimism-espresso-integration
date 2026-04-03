@@ -90,15 +90,18 @@ jobs:
       - name: Cache submodules
         uses: ./.github/actions/cache-submodules
 
-      # Nix is pre-installed on the AMI; configure it for this session.
-      - name: Install Nix
-        uses: nixbuild/nix-quick-install-action@v30
-        with:
-          nix_conf: |
-            keep-env-derivations = true
-            keep-outputs = true
+      # Nix is pre-installed on the AMI for ec2-user; add it to PATH
+      # and source the dev shell instead of using nix-quick-install-action
+      # (which fails because /nix already exists and isn't writable by the action).
       - name: Set up Nix environment
-        uses: nicknovitski/nix-develop@v1
+        run: |
+          echo "/nix/var/nix/profiles/default/bin" >> $GITHUB_PATH
+          echo "$HOME/.nix-profile/bin" >> $GITHUB_PATH
+      - name: Enter Nix dev shell
+        run: |
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
+          nix develop --command bash -c 'echo "$PATH"' | tr ':' '\n' >> "$GITHUB_PATH"
+          nix develop --command bash -c 'env' | grep -v '^PATH=' >> "$GITHUB_ENV" || true
 
       - name: Cache Go modules
         uses: actions/setup-go@v5
