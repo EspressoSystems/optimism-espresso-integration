@@ -6,6 +6,7 @@ services:
       timeout: 2s
       retries: 40
     image: op-geth:espresso
+    pull_policy: never  # built by op-geth-sequencer
     depends_on:
       l2-genesis:
         condition: service_completed_successfully

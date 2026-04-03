@@ -58,6 +58,7 @@ services:
   l2-rollup:
     restart: on-failure
     image: op-geth:espresso
+    pull_policy: never  # built by op-geth-sequencer
     environment:
       - MODE=rollup
       - L1_RPC=http://l1-anvil:${L1_HTTP_PORT:?err}
@@ -80,6 +81,7 @@ services:
       l1-anvil:
         condition: service_healthy
     image: op-geth:espresso
+    pull_policy: never  # built by op-geth-sequencer
     environment:
       - MODE=genesis
       - HOME=/tmp
@@ -325,6 +327,7 @@ services:
   op-batcher-fallback:
     profiles: [ "default", "tee" ]
     image: op-batcher:espresso
+    pull_policy: never  # built by op-batcher
     depends_on:
       l1-anvil:
         condition: service_healthy

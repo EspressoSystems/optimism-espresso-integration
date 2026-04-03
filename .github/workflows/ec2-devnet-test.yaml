@@ -118,7 +118,7 @@ jobs:
         run: |
           cd espresso
           COMPOSE_PROFILES=tee docker compose build
-          COMPOSE_PROFILES=tee docker compose pull --ignore-buildable --ignore-pull-failures
+          COMPOSE_PROFILES=tee docker compose pull --ignore-buildable
 
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
