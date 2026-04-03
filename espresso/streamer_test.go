@@ -203,8 +203,8 @@ func (m *MockStreamerSource) HeaderHashByNumber(ctx context.Context, number *big
 	return l1Ref.Hash, nil
 }
 
-// espressoBatcherSelector is the 4-byte function selector for espressoBatcher() — 0x030650d2
-var espressoBatcherSelector = []byte{0x03, 0x06, 0x50, 0xd2}
+// espressoBatcherSelector is the 4-byte function selector for espressoBatcher() — 0x88da3bb7
+var espressoBatcherSelector = []byte{0x88, 0xda, 0x3b, 0xb7}
 
 func (m *MockStreamerSource) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
 	// Return non-empty bytes so the bindings consider the contract deployed
