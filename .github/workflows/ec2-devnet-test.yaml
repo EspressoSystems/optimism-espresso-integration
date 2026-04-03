@@ -52,6 +52,11 @@ jobs:
           run-runner-as-user: ec2-user
           startup-timeout-minutes: 10
           pre-runner-script: |
+            # Safety net: self-terminate after 50 minutes in case the
+            # stop-runner job never fires (workflow cancelled, GitHub outage, etc.).
+            # InstanceInitiatedShutdownBehavior=terminate ensures shutdown = termination.
+            sudo shutdown -h +50
+
             # Install libicu — required by the GitHub Actions runner (.NET Core dependency)
             sudo dnf install -y libicu
 
