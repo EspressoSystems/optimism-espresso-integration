@@ -6,7 +6,7 @@ name: Run Espresso Devnet tests (TEE)
 #
 # Prerequisites:
 #   - EspressoSystems/ec2-github-runner fork with enclave-options support
-#   - Repository secrets: GH_PERSONAL_ACCESS_TOKEN, AWS_EC2_SUBNET_ID, AWS_EC2_SECURITY_GROUP_ID
+#   - Environment secrets (tee-testing): GH_PERSONAL_ACCESS_TOKEN, AWS_EC2_SUBNET_ID, AWS_EC2_SECURITY_GROUP_ID
 #   - AMI ami-0d259f3ae020af5f9 (Amazon Linux 2023 with Nix, Docker, nitro-cli)
 
 on:
@@ -99,7 +99,6 @@ jobs:
     with:
       tests: "TestSmoke/tee|TestBatcherRestart/tee"
       group-name: "group-0"
-    secrets: inherit
 
   tee-group-1:
     needs: prepare
@@ -107,7 +106,6 @@ jobs:
     with:
       tests: "TestWithdrawal/tee|TestBatcherSwitching/tee"
       group-name: "group-1"
-    secrets: inherit
 
   tee-group-2:
     needs: prepare
@@ -115,7 +113,6 @@ jobs:
     with:
       tests: "TestForcedTransaction/tee|TestChangeBatchAuthenticatorOwner/tee"
       group-name: "group-2"
-    secrets: inherit
 
   tee-group-3:
     needs: prepare
@@ -123,4 +120,3 @@ jobs:
     with:
       tests: "TestBatcherActivePublishOnly/tee"
       group-name: "group-3"
-    secrets: inherit

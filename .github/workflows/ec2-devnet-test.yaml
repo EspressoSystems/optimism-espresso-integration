@@ -11,13 +11,10 @@ on:
         description: "Human-readable name for this test group"
         required: true
         type: string
-    secrets:
-      GH_PERSONAL_ACCESS_TOKEN:
-        required: true
-      AWS_EC2_SUBNET_ID:
-        required: true
-      AWS_EC2_SECURITY_GROUP_ID:
-        required: true
+    # Secrets (GH_PERSONAL_ACCESS_TOKEN, AWS_EC2_SUBNET_ID, AWS_EC2_SECURITY_GROUP_ID)
+    # are sourced from the tee-testing environment, not passed as workflow inputs.
+    # This keeps the PAT off the EC2 self-hosted runner (only start-runner and
+    # stop-runner jobs reference the environment).
 
 permissions:
   id-token: write
@@ -132,6 +129,7 @@ jobs:
       - start-runner
       - run-tests
     runs-on: ubuntu-latest
+    environment: tee-testing
     if: ${{ always() }}
     steps:
       - name: Configure AWS credentials
