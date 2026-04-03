@@ -208,7 +208,6 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 				aq.log.Warn("failed to unmarshal transaction", "index", i, "err", err)
 			}
 		}
-		}
 		aq.batch.LogContext(aq.log).Info("singular batch from op-node", "tx_hashes", txHashes, "concluding", concluding)
 	}
 
