@@ -6,7 +6,7 @@ name: Run Espresso Devnet tests (TEE)
 #
 # Prerequisites:
 #   - EspressoSystems/ec2-github-runner fork with enclave-options support
-#   - Environment secrets (tee-testing): GH_PERSONAL_ACCESS_TOKEN, AWS_EC2_SUBNET_ID, AWS_EC2_SECURITY_GROUP_ID
+#   - Repository secrets: GH_PERSONAL_ACCESS_TOKEN, AWS_EC2_SUBNET_ID, AWS_EC2_SECURITY_GROUP_ID
 #   - AMI ami-0d259f3ae020af5f9 (Amazon Linux 2023 with Nix, Docker, nitro-cli)
 
 on:

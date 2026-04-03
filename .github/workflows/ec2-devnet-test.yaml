@@ -12,9 +12,9 @@ on:
         required: true
         type: string
     # Secrets (GH_PERSONAL_ACCESS_TOKEN, AWS_EC2_SUBNET_ID, AWS_EC2_SECURITY_GROUP_ID)
-    # are sourced from the tee-testing environment, not passed as workflow inputs.
-    # This keeps the PAT off the EC2 self-hosted runner (only start-runner and
-    # stop-runner jobs reference the environment).
+    # are repository-level secrets. The run-tests job on the EC2 self-hosted runner
+    # does not reference them — only start-runner and stop-runner (on GitHub-hosted
+    # runners) use them.
 
 permissions:
   id-token: write
@@ -24,7 +24,6 @@ jobs:
   start-runner:
     name: Start EC2 runner (${{ inputs.group-name }})
     runs-on: ubuntu-latest
-    environment: tee-testing
     outputs:
       label: ${{ steps.start-ec2-runner.outputs.label }}
       ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
@@ -134,7 +133,6 @@ jobs:
       - start-runner
       - run-tests
     runs-on: ubuntu-latest
-    environment: tee-testing
     if: ${{ always() }}
     steps:
       - name: Configure AWS credentials
