@@ -134,7 +134,7 @@
 
               pkgs.awscli2
               pkgs.cargo
-              pkgs.dasel
+              (import inputs.pkgs-go { inherit system; }).dasel
               pkgs.go-ethereum
               pkgs.jq
               pkgs.just
