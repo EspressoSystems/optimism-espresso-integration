@@ -57,7 +57,13 @@ jobs:
             sudo shutdown -h +50
 
             # Install libicu — required by the GitHub Actions runner (.NET Core dependency)
-            sudo dnf install -y libicu docker-compose-plugin
+            sudo dnf install -y libicu
+
+            # Install docker compose plugin (not available in AL2023 repos)
+            sudo mkdir -p /usr/libexec/docker/cli-plugins
+            sudo curl -SL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" \
+              -o /usr/libexec/docker/cli-plugins/docker-compose
+            sudo chmod +x /usr/libexec/docker/cli-plugins/docker-compose
 
             # Ensure Docker is running
             sudo systemctl enable --now docker
