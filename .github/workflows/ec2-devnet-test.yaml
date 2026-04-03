@@ -133,6 +133,7 @@ jobs:
           . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
           export NIX_CONFIG="extra-experimental-features = nix-command flakes"
           nix develop --command bash -c '
+            export PATH="$(go env GOPATH)/bin:$PATH"
             go install gotest.tools/gotestsum@latest
             gotestsum --format github-actions -- -timeout 35m -p 1 -count 1 -run '"'"'${{ inputs.tests }}'"'"' ./espresso/devnet-tests/...
           '
