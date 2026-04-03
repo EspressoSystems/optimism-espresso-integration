@@ -103,9 +103,6 @@ jobs:
           nix develop --command bash -c 'echo "$PATH"' | tr ':' '\n' >> "$GITHUB_PATH"
           nix develop --command bash -c 'env' | grep -v '^PATH=' >> "$GITHUB_ENV" || true
 
-      - name: Cache Go modules
-        uses: actions/setup-go@v5
-
       - name: Download forge-artifacts
         uses: actions/download-artifact@v4
         with:
