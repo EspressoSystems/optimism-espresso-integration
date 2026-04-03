@@ -55,6 +55,9 @@ jobs:
           run-runner-as-user: ec2-user
           startup-timeout-minutes: 10
           pre-runner-script: |
+            # Install libicu — required by the GitHub Actions runner (.NET Core dependency)
+            sudo dnf install -y libicu
+
             # Ensure Docker is running
             sudo systemctl enable --now docker
             sudo usermod -aG docker ec2-user
