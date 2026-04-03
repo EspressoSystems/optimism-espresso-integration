@@ -11,7 +11,7 @@ import (
 )
 
 // TestBatcherSwitching tests that the batcher can be switched from the TEE-enabled
-// batcher to a fallback non-Espresso batcher using the BatchAuthenticator contract.
+// batcher to a fallback batcher using the BatchAuthenticator contract.
 //
 // This is the devnet equivalent of TestBatcherSwitching from the E2E tests.
 // The test runs two batchers in parallel:

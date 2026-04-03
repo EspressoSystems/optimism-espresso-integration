@@ -105,7 +105,7 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 		fallbackPublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, fallbackBatcherAddr, startBlock, endBlock)
 		require.NoError(t, err)
 
-		t.Logf("Espresso batcher published: %v, non-Espresso batcher published: %v", espressoPublished, fallbackPublished)
+		t.Logf("Espresso batcher published: %v, fallback batcher published: %v", espressoPublished, fallbackPublished)
 
 		if expectTeeActive {
 			require.True(t, espressoPublished, "Espresso batcher should publish when active")
