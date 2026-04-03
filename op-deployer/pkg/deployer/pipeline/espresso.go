@@ -28,51 +28,41 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 	}
 
 	lgr.Info("deploying espresso contracts")
-	// read the nitro enclaver verifier address from environment variable, fallback to empty address
+
+	// Read the underlying AWS NitroEnclaveVerifier address (from Automata).
+	// If not set, address(0) triggers mock deployment — dev/test only.
 	var nitroEnclaveVerifierAddress common.Address
 	if envVar := os.Getenv("NITRO_ENCLAVE_VERIFIER_ADDRESS"); envVar != "" {
 		nitroEnclaveVerifierAddress = common.HexToAddress(envVar)
-		lgr.Info("Using nitro enclave verifier address from NITRO_ENCLAVE_VERIFIER_ADDRESS env var", "address", nitroEnclaveVerifierAddress.Hex())
+		lgr.Info("using nitro enclave verifier from NITRO_ENCLAVE_VERIFIER_ADDRESS", "address", nitroEnclaveVerifierAddress.Hex())
 	} else {
-		lgr.Info("NITRO_ENCLAVE_VERIFIER_ADDRESS env var not set, using empty address")
-		// this means we should deploy a mock verifier ( should only be used in dev / test environments
-		nitroEnclaveVerifierAddress = common.Address{}
+		lgr.Info("NITRO_ENCLAVE_VERIFIER_ADDRESS not set — deploying mock TEE verifiers")
 	}
 
-	var nvo opcm.DeployAWSNitroVerifierOutput
-	nvo, err = opcm.DeployAWSNitroVerifier(env.L1ScriptHost, opcm.DeployAWSNitroVerifierInput{
+	var batchAuthOwner common.Address
+	if envVar := os.Getenv("BATCH_AUTHENTICATOR_OWNER_ADDRESS"); envVar != "" {
+		batchAuthOwner = common.HexToAddress(envVar)
+		lgr.Info("using batch authenticator owner from BATCH_AUTHENTICATOR_OWNER_ADDRESS", "address", batchAuthOwner.Hex())
+	} else {
+		batchAuthOwner = env.Deployer
+		lgr.Info("using deployer as batch authenticator owner", "address", batchAuthOwner.Hex())
+	}
+
+	eo, err := opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		NitroEnclaveVerifier: nitroEnclaveVerifierAddress,
-		TeeVerifierAddress:   common.Address{}, // Will be set after TEEVerifier deployment if needed
-		ProxyAdminOwner:      env.Deployer,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to deploy nitro verifier contracts: %w", err)
-	}
-
-	var eo opcm.DeployEspressoOutput
-	// Read batch authenticator owner address from environment variable, fallback to env.Deployer
-	var batchAuthenticatorOwnwerAddress common.Address
-	if batchAuthenticatorOwnerEnv := os.Getenv("BATCH_AUTHENTICATOR_OWNER_ADDRESS"); batchAuthenticatorOwnerEnv != "" {
-		batchAuthenticatorOwnwerAddress = common.HexToAddress(batchAuthenticatorOwnerEnv)
-		lgr.Info("Using batch authenticator owner address from BATCH_AUTHENTICATOR_OWNER_ADDRESS env var", "address", batchAuthenticatorOwnwerAddress.Hex())
-	} else {
-		batchAuthenticatorOwnwerAddress = env.Deployer
-		lgr.Info("Using deployer address from env.Deployer", "address", batchAuthenticatorOwnwerAddress.Hex())
-	}
-
-	eo, err = opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
-		Salt:               st.Create2Salt,
-		NitroTEEVerifier:   nvo.NitroTEEVerifierProxy,
-		EspressoBatcher:    chainIntent.EspressoBatcher,
-		SystemConfig:       chainState.SystemConfigProxy,
-		ProxyAdminOwner:    batchAuthenticatorOwnwerAddress,
-		UseMockTEEVerifier: nitroEnclaveVerifierAddress == common.Address{},
-	}, batchAuthenticatorOwnwerAddress)
+		EspressoBatcher:      chainIntent.EspressoBatcher,
+		SystemConfig:         chainState.SystemConfigProxy,
+		ProxyAdminOwner:      batchAuthOwner,
+	}, batchAuthOwner)
 	if err != nil {
 		return fmt.Errorf("failed to deploy espresso contracts: %w", err)
 	}
 
 	chainState.BatchAuthenticatorAddress = eo.BatchAuthenticatorAddress
-	lgr.Info("Espresso BatchAuthenticator deployed at", "address", eo.BatchAuthenticatorAddress)
+	lgr.Info("espresso contracts deployed",
+		"batchAuthenticator", eo.BatchAuthenticatorAddress,
+		"teeVerifier", eo.TeeVerifierProxy,
+		"nitroTEEVerifier", eo.NitroTEEVerifier,
+	)
 	return nil
 }
