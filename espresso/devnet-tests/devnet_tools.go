@@ -260,7 +260,7 @@ func (d *Devnet) Up() (err error) {
 
 	return nil
 }
-func (d *Devnet) WaitForBatcher(ctx context.Context, t *testing.T) error {
+func (d *Devnet) WaitForBatcher(ctx context.Context) error {
 	safeBlockNumber := big.NewInt(rpc.SafeBlockNumber.Int64())
 
 	current, err := d.L2Verif.BlockByNumber(ctx, safeBlockNumber)
@@ -298,7 +298,7 @@ func (d *Devnet) WaitForBatcher(ctx context.Context, t *testing.T) error {
 				}
 				return err
 			}
-			if next.Number().Cmp(currentNum) == 1 {
+			if next.Number().Cmp(currentNum) > 0 {
 				return nil
 			}
 			time.Sleep(500 * time.Millisecond)

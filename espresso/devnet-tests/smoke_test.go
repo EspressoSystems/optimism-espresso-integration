@@ -9,19 +9,20 @@ import (
 )
 
 func TestSmoke(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
-	defer cancel()
-
 	profile := ProfileFromEnv(t)
+	t.Run(string(profile), func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		defer cancel()
 
-	d := NewDevnet(ctx, t, profile)
-	require.NoError(t, d.Up())
-	defer func() {
-		require.NoError(t, d.Down())
-	}()
+		d := NewDevnet(ctx, t, profile)
+		require.NoError(t, d.Up())
+		defer func() {
+			require.NoError(t, d.Down())
+		}()
 
-	require.NoError(t, d.WaitForBatcher(ctx, t))
+		require.NoError(t, d.WaitForBatcher(ctx))
 
-	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+		// Send a transaction just to check that everything has started up ok.
+		require.NoError(t, d.RunSimpleL2Burn())
+	})
 }
