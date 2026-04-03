@@ -59,17 +59,6 @@ jobs:
             # Install libicu — required by the GitHub Actions runner (.NET Core dependency)
             sudo dnf install -y libicu
 
-            # Install docker compose plugin (not available in AL2023 repos)
-            sudo mkdir -p /usr/libexec/docker/cli-plugins
-            sudo curl -SL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" \
-              -o /usr/libexec/docker/cli-plugins/docker-compose
-            sudo chmod +x /usr/libexec/docker/cli-plugins/docker-compose
-
-            # Ensure Docker is running
-            sudo systemctl enable --now docker
-            sudo usermod -aG docker ec2-user
-            sudo chown ec2-user /var/run/docker.sock
-
             # Configure Nitro Enclaves allocator (4 GiB, 2 vCPUs)
             sudo systemctl stop nitro-enclaves-allocator.service || true
             echo -e '---\nmemory_mib: 4096\ncpu_count: 2' | sudo tee /etc/nitro_enclaves/allocator.yaml
@@ -96,18 +85,29 @@ jobs:
       - name: Cache submodules
         uses: ./.github/actions/cache-submodules
 
-      # Nix is pre-installed on the AMI for ec2-user; add it to PATH
-      # and source the dev shell instead of using nix-quick-install-action
-      # (which fails because /nix already exists and isn't writable by the action).
-      - name: Set up Nix environment
+      - name: Set up Docker
         run: |
-          echo "/nix/var/nix/profiles/default/bin" >> $GITHUB_PATH
-          echo "$HOME/.nix-profile/bin" >> $GITHUB_PATH
-      - name: Enter Nix dev shell
+          # Ensure Docker is running and accessible
+          sudo systemctl enable --now docker
+          sudo usermod -aG docker ec2-user
+          sudo chown ec2-user /var/run/docker.sock
+
+          # Install docker compose plugin (not available in AL2023 repos)
+          sudo mkdir -p /usr/libexec/docker/cli-plugins
+          sudo curl -SL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" \
+            -o /usr/libexec/docker/cli-plugins/docker-compose
+          sudo chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+
+          docker compose version
+
+      # Nix is pre-installed on the AMI for ec2-user. We use
+      # `nix develop --command` to run commands inside the dev shell
+      # rather than trying to export the environment into GITHUB_PATH/ENV,
+      # which is fragile on self-hosted runners.
+      - name: Warm up Nix dev shell
         run: |
-          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh 2>/dev/null || true
-          nix develop --command bash -c 'echo "$PATH"' | tr ':' '\n' >> "$GITHUB_PATH"
-          nix develop --command bash -c 'env' | grep -v '^PATH=' >> "$GITHUB_ENV" || true
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          nix develop --command echo "Nix dev shell ready"
 
       - name: Download forge-artifacts
         uses: actions/download-artifact@v4
@@ -127,11 +127,13 @@ jobs:
           COMPOSE_PROFILES=tee docker compose build
           COMPOSE_PROFILES=tee docker compose pull --ignore-buildable
 
-      - name: Install gotestsum
-        run: go install gotest.tools/gotestsum@latest
-
       - name: Run tests (${{ inputs.group-name }})
-        run: gotestsum --format github-actions -- -timeout 35m -p 1 -count 1 -run '${{ inputs.tests }}' ./espresso/devnet-tests/...
+        run: |
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          nix develop --command bash -c '
+            go install gotest.tools/gotestsum@latest
+            gotestsum --format github-actions -- -timeout 35m -p 1 -count 1 -run '"'"'${{ inputs.tests }}'"'"' ./espresso/devnet-tests/...
+          '
 
   stop-runner:
     name: Stop EC2 runner (${{ inputs.group-name }})
