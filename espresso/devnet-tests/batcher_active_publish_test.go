@@ -73,9 +73,9 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.NoError(t, err)
 	fallbackBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
 
-	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
+	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("Initial state: activeIsTee = %v", activeIsTee)
+	t.Logf("Initial state: activeIsEspresso = %v", activeIsEspresso)
 
 	// verifyPublishing helper function
 	verifyPublishing := func(expectTeeActive bool) {
@@ -117,7 +117,7 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	}
 
 	// 1. Verify initial state
-	verifyPublishing(activeIsTee)
+	verifyPublishing(activeIsEspresso)
 
 	// 2. Switch state
 	t.Logf("Switching batcher state...")
@@ -128,8 +128,8 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 
 	// Update expected state
-	activeIsTee = !activeIsTee
-	t.Logf("Switched state to: activeIsTee=%v", activeIsTee)
+	activeIsEspresso = !activeIsEspresso
+	t.Logf("Switched state to: activeIsEspresso=%v", activeIsEspresso)
 
 	// Wait for services to stabilize after switch. In-flight sendTxWithEspresso goroutines
 	// spawned before deactivation can take ~25s to drain their queued Txmgr.Send calls,
@@ -138,5 +138,5 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	time.Sleep(60 * time.Second)
 
 	// 3. Verify new state
-	verifyPublishing(activeIsTee)
+	verifyPublishing(activeIsEspresso)
 }

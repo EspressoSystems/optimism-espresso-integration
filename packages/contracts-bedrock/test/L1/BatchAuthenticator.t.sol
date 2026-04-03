@@ -213,7 +213,7 @@ contract BatchAuthenticator_Test is Test {
 
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
     }
 
     /// @notice Test that switchBatcher can be called by owner or guardian.
@@ -225,14 +225,14 @@ contract BatchAuthenticator_Test is Test {
         emit BatcherSwitched(false);
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Switch back.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(true);
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         // Add a guardian.
         vm.prank(proxyAdminOwner);
@@ -244,14 +244,14 @@ contract BatchAuthenticator_Test is Test {
         emit BatcherSwitched(false);
         vm.prank(guardian);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Guardian can switch back.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(true);
         vm.prank(guardian);
         authenticator.switchBatcher();
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         // Unauthorized cannot switch.
         vm.prank(unauthorized);
@@ -380,7 +380,7 @@ contract BatchAuthenticator_Test is Test {
         // Switch batcher to test boolean flag preservation.
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Deploy new implementation and upgrade.
         BatchAuthenticator newImpl = new BatchAuthenticator();
@@ -394,7 +394,7 @@ contract BatchAuthenticator_Test is Test {
         // Verify state is preserved.
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
     }
 
     /// @notice Test that paused() delegates to SystemConfig.
@@ -480,14 +480,14 @@ contract BatchAuthenticator_Test is Test {
         // Owner can still switch batcher while paused.
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
     }
 
     // Event declarations for expectEmit.
     event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
     event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
-    event BatcherSwitched(bool indexed activeIsTee);
+    event BatcherSwitched(bool indexed activeIsEspresso);
 }
 
 /// @notice Fork tests for BatchAuthenticator on Sepolia.
@@ -599,7 +599,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     function testFork_deployment_succeeds() external view {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
         assertEq(authenticator.version(), "1.1.0");
 
         // Verify proxy admin.
@@ -609,17 +609,17 @@ contract BatchAuthenticator_Fork_Test is Test {
 
     /// @notice Test switchBatcher on Sepolia fork.
     function testFork_switchBatcher_succeeds() external {
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
 
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
 
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
     }
 
     /// @notice Test authenticateBatchInfo on Sepolia fork.
@@ -657,7 +657,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Switch batcher
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Deploy new implementation and upgrade.
         BatchAuthenticator newImpl = new BatchAuthenticator();
@@ -665,7 +665,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         proxyAdmin.upgrade(payable(address(proxy)), address(newImpl));
 
         // Verify state is preserved.
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
     }
@@ -677,7 +677,7 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         // Verify contract is functional.
         assertEq(authenticator.version(), "1.1.0");
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         // Verify the fork is working by testing that we can read the block number.
         uint256 blockNum = block.number;
@@ -689,5 +689,5 @@ contract BatchAuthenticator_Fork_Test is Test {
     event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
     event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
-    event BatcherSwitched(bool indexed activeIsTee);
+    event BatcherSwitched(bool indexed activeIsEspresso);
 }

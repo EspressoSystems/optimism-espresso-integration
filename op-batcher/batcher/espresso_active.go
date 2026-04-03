@@ -14,9 +14,9 @@ import (
 // the BatchAuthenticator contract. Returns true if this batcher instance should
 // be publishing batches, false if it should stay idle.
 //
-// The active batcher is determined by the contract's activeIsTee flag:
-//   - If activeIsTee is true, the Espresso batcher address is active
-//   - If activeIsTee is false, the fallback batcher address is active
+// The active batcher is determined by the contract's activeIsEspresso flag:
+//   - If activeIsEspresso is true, the Espresso batcher address is active
+//   - If activeIsEspresso is false, the fallback batcher address is active
 //
 // This method compares the batcher's own address (from TxMgr) against the
 // contract's registered Espresso batcher address and the SystemConfig batcher address.
@@ -40,20 +40,20 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 
 	callOpts := &bind.CallOpts{Context: cCtx}
 
-	activeIsTee, err := batchAuthenticator.ActiveIsTee(callOpts)
+	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(callOpts)
 	if err != nil {
-		return false, fmt.Errorf("failed to check activeIsTee: %w", err)
+		return false, fmt.Errorf("failed to check activeIsEspresso: %w", err)
 	}
 
 	batcherAddr := l.Txmgr.From()
 
-	isActive := (activeIsTee && l.Config.UseEspresso) ||
-		(!activeIsTee && !l.Config.UseEspresso)
+	isActive := (activeIsEspresso && l.Config.UseEspresso) ||
+		(!activeIsEspresso && !l.Config.UseEspresso)
 
 	if !isActive {
 		l.Log.Info("Batcher is not the active batcher, skipping publish",
 			"batcherAddr", batcherAddr,
-			"activeIsTee", activeIsTee,
+			"activeIsEspresso", activeIsEspresso,
 			"UseEspresso", l.Config.UseEspresso,
 		)
 	}

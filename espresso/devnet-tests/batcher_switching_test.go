@@ -48,9 +48,9 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check current active batcher state before switching
-	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
+	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("Before switch: activeIsTee = %v", activeIsTee)
+	t.Logf("Before switch: activeIsEspresso = %v", activeIsEspresso)
 
 	// Stop the primary "TEE" batcher (op-batcher with Espresso enabled)
 	require.NoError(t, d.StopBatcherSubmitting("op-batcher"))
@@ -67,10 +67,10 @@ func TestBatcherSwitching(t *testing.T) {
 	t.Logf("SwitchBatcher transaction confirmed in block %d", receipt.BlockNumber.Uint64())
 
 	// Verify the switch happened
-	activeIsTeeAfter, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
+	activeIsEspressoAfter, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.NotEqual(t, activeIsTee, activeIsTeeAfter, "activeIsTee should have toggled")
-	t.Logf("After switch: activeIsTee = %v", activeIsTeeAfter)
+	require.NotEqual(t, activeIsEspresso, activeIsEspressoAfter, "activeIsEspresso should have toggled")
+	t.Logf("After switch: activeIsEspresso = %v", activeIsEspressoAfter)
 
 	// Start the fallback batcher
 	require.NoError(t, d.StartBatcherSubmitting("op-batcher-fallback"))

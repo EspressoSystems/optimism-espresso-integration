@@ -35,7 +35,7 @@ contract BatchAuthenticator is
 
     /// @notice Flag indicating which batcher is currently active.
     /// @dev When true the Espresso batcher is active; when false the fallback batcher is active.
-    bool public activeIsTee;
+    bool public activeIsEspresso;
 
     /// @notice The SystemConfig contract, used to check the paused status.
     ISystemConfig public systemConfig;
@@ -70,7 +70,7 @@ contract BatchAuthenticator is
         espressoBatcher = _espressoBatcher;
         systemConfig = _systemConfig;
         // By default, start with the Espresso batcher active.
-        activeIsTee = true;
+        activeIsEspresso = true;
     }
 
     /// @notice Returns the owner of the contract.
@@ -85,8 +85,8 @@ contract BatchAuthenticator is
 
     /// @notice Toggles the active batcher between the Espresso and fallback batcher.
     function switchBatcher() external onlyGuardianOrOwner {
-        activeIsTee = !activeIsTee;
-        emit BatcherSwitched(activeIsTee);
+        activeIsEspresso = !activeIsEspresso;
+        emit BatcherSwitched(activeIsEspresso);
     }
 
     /// @notice Updates the Espresso batcher address.
