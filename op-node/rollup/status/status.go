@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
@@ -69,7 +70,7 @@ func (st *StatusTracker) OnEvent(ctx context.Context, ev event.Event) bool {
 	case engine.CrossSafeUpdateEvent:
 		// TODO: Fix upstream compatibility for logs.
 		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
-		st.log.Info("Cross safe head updated", "cross_safe", x.CrossSafe, "local_safe", x.LocalSafe)
+		st.log.Info(logmodule.CrossSafeHeadUpdated, "cross_safe", x.CrossSafe, "local_safe", x.LocalSafe)
 		st.data.SafeL2 = x.CrossSafe
 		st.data.LocalSafeL2 = x.LocalSafe
 	case derive.DeriverL1StatusEvent:
@@ -129,7 +130,7 @@ func (st *StatusTracker) OnL1Unsafe(x eth.L1BlockRef) {
 }
 
 func (st *StatusTracker) OnL1Safe(x eth.L1BlockRef) {
-	st.log.Info("New L1 safe block", "l1_safe", x)
+	st.log.Info(logmodule.NewL1SafeBlock, "l1_safe", x)
 	st.metrics.RecordL1Ref("l1_safe", x)
 	st.data.SafeL1 = x
 	st.UpdateSyncStatus()

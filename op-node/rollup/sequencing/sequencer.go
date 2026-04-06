@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/attributes"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
@@ -271,7 +272,7 @@ func (d *Sequencer) onBuildSealed(x engine.BuildSealedEvent) {
 	if d.latest.Info != x.Info {
 		return // not our payload, should be ignored.
 	}
-	d.log.Info("Sequencer sealed block", "payloadID", x.Info.ID,
+	d.log.Info(logmodule.SequencerSealedBlock, "payloadID", x.Info.ID,
 		"block", x.Envelope.ExecutionPayload.ID(),
 		"parent", x.Envelope.ExecutionPayload.ParentID(),
 		"txs", len(x.Envelope.ExecutionPayload.Transactions),
@@ -400,7 +401,7 @@ func (d *Sequencer) onEngineTemporaryError(x rollup.EngineTemporaryErrorEvent) {
 	if d.latest == (BuildingState{}) {
 		d.log.Debug("Engine reported temporary error while building state is empty", "err", x.Err)
 	}
-	d.log.Error("Engine failed temporarily, backing off sequencer", "err", x.Err)
+	d.log.Error(logmodule.EngineFailedTemporarily, "err", x.Err)
 	if errors.Is(x.Err, engine.ErrEngineSyncing) { // if it is syncing we can back off by more
 		d.nextAction = d.timeNow().Add(30 * time.Second)
 	} else {
@@ -437,7 +438,7 @@ func (d *Sequencer) onEngineResetConfirmedEvent(engine.EngineResetConfirmedEvent
 	// assuming the execution-engine just churned through some work for the reset.
 	// This will also prevent any potential reset-loop from running too hot.
 	d.nextAction = d.timeNow().Add(time.Second * time.Duration(d.rollupCfg.BlockTime))
-	d.log.Info("Engine reset confirmed, sequencer may continue", "next", d.nextActionOK)
+	d.log.Info(logmodule.EngineResetConfirmed, "next", d.nextActionOK)
 }
 
 func (d *Sequencer) onForkchoiceUpdate(x engine.ForkchoiceUpdateEvent) {

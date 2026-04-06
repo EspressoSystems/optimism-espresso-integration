@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-core/forks"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -77,7 +78,7 @@ func (fq *FrameQueue) loadNextFrames(ctx context.Context) error {
 	if frames, err := ParseFrames(data); err == nil {
 		fq.frames = append(fq.frames, frames...)
 	} else {
-		fq.log.Warn("Failed to parse frames", "origin", fq.prev.Origin(), "err", err)
+		fq.log.Warn(logmodule.FailedToParseFrames, "origin", fq.prev.Origin(), "err", err)
 		return nil
 	}
 
