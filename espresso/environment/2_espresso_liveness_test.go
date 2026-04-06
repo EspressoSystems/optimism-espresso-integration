@@ -11,6 +11,7 @@ import (
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
+	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum-optimism/optimism/espresso"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -259,7 +260,7 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 		l := log.NewLogger(slog.Default().Handler())
 		lightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(env.ESPRESSO_LIGHT_CLIENT_ADDRESS), l1Client)
 		require.NoError(t, err, "light client creation failed")
-		streamer, err := espresso.NewEspressoStreamer(
+		streamer, err := op.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),
 			espresso.NewAdaptL1BlockRefClient(l1Client),
 			espresso.NewAdaptL1BlockRefClient(l1Client),
@@ -267,7 +268,6 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 			lightClient,
 			l,
 			derive.CreateEspressoBatchUnmarshaler(),
-			100*time.Millisecond,
 			0,
 			1,
 			system.RollupConfig.BatchAuthenticatorAddress,
