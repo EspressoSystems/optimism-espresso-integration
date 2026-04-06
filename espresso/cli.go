@@ -28,18 +28,21 @@ func espressoEnvs(envprefix, v string) []string {
 }
 
 var (
-	EnabledFlagName                  = espressoFlags("enabled")
-	PollIntervalFlagName             = espressoFlags("poll-interval")
-	QueryServiceUrlsFlagName         = espressoFlags("urls")
-	LightClientAddrFlagName          = espressoFlags("light-client-addr")
-	L1UrlFlagName                    = espressoFlags("l1-url")
-	TestingBatcherPrivateKeyFlagName = espressoFlags("testing-batcher-private-key")
-	CaffeinationHeightEspresso       = espressoFlags("origin-height-espresso")
-	CaffeinationHeightL2             = espressoFlags("origin-height-l2")
-	NamespaceFlagName                = espressoFlags("namespace")
-	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
-	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
-	BatchAuthenticatorAddrFlagName   = espressoFlags("batch-authenticator-addr")
+	EnabledFlagName                    = espressoFlags("enabled")
+	PollIntervalFlagName               = espressoFlags("poll-interval")
+	QueryServiceUrlsFlagName           = espressoFlags("urls")
+	LightClientAddrFlagName            = espressoFlags("light-client-addr")
+	L1UrlFlagName                      = espressoFlags("l1-url")
+	TestingBatcherPrivateKeyFlagName   = espressoFlags("testing-batcher-private-key")
+	CaffeinationHeightEspresso         = espressoFlags("origin-height-espresso")
+	CaffeinationHeightL2               = espressoFlags("origin-height-l2")
+	NamespaceFlagName                  = espressoFlags("namespace")
+	RollupL1UrlFlagName                = espressoFlags("rollup-l1-url")
+	AttestationServiceFlagName         = espressoFlags("espresso-attestation-service")
+	BatchAuthenticatorAddrFlagName     = espressoFlags("batch-authenticator-addr")
+	VerifyReceiptMaxBlocksFlagName     = espressoFlags("verify-receipt-max-blocks")
+	VerifyReceiptSafetyTimeoutFlagName = espressoFlags("verify-receipt-safety-timeout")
+	VerifyReceiptRetryDelayFlagName    = espressoFlags("verify-receipt-retry-delay")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -119,6 +122,27 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "BATCH_AUTHENTICATOR_ADDR"),
 			Category: category,
 		},
+		&cli.Uint64Flag{
+			Name:     VerifyReceiptMaxBlocksFlagName,
+			Usage:    "Number of HotShot blocks to wait for a submitted transaction to become queryable before re-submitting",
+			Value:    5,
+			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_MAX_BLOCKS"),
+			Category: category,
+		},
+		&cli.DurationFlag{
+			Name:     VerifyReceiptSafetyTimeoutFlagName,
+			Usage:    "Wall-clock backstop for receipt verification; re-submits the transaction if this duration is exceeded",
+			Value:    5 * time.Minute,
+			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_SAFETY_TIMEOUT"),
+			Category: category,
+		},
+		&cli.DurationFlag{
+			Name:     VerifyReceiptRetryDelayFlagName,
+			Usage:    "Delay between receipt verification retries",
+			Value:    100 * time.Millisecond,
+			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_RETRY_DELAY"),
+			Category: category,
+		},
 	}
 }
 
@@ -135,6 +159,11 @@ type CLIConfig struct {
 	CaffeinationHeightEspresso uint64
 	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
+
+	// Batch submission receipt verification tuning
+	VerifyReceiptMaxBlocks     uint64
+	VerifyReceiptSafetyTimeout time.Duration
+	VerifyReceiptRetryDelay    time.Duration
 
 	// Non directly configurable option
 	allowEmptyAttestationService bool `json:"-"`
@@ -183,6 +212,9 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
 		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
 		EspressoAttestationService: c.String(AttestationServiceFlagName),
+		VerifyReceiptMaxBlocks:     c.Uint64(VerifyReceiptMaxBlocksFlagName),
+		VerifyReceiptSafetyTimeout: c.Duration(VerifyReceiptSafetyTimeoutFlagName),
+		VerifyReceiptRetryDelay:    c.Duration(VerifyReceiptRetryDelayFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)

@@ -73,6 +73,11 @@ type BatcherConfig struct {
 	// Starting position for the Espresso streamer.
 	CaffeinationHeightEspresso uint64
 	CaffeinationHeightL2       uint64
+
+	// Receipt verification tuning for the Espresso transaction submitter.
+	VerifyReceiptMaxBlocks     uint64
+	VerifyReceiptSafetyTimeout time.Duration
+	VerifyReceiptRetryDelay    time.Duration
 }
 
 // BatcherService represents a full batch-submitter instance and its resources,
@@ -755,6 +760,9 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 	bs.CaffeinationHeightEspresso = cfg.Espresso.CaffeinationHeightEspresso
 	bs.CaffeinationHeightL2 = cfg.Espresso.CaffeinationHeightL2
+	bs.VerifyReceiptMaxBlocks = cfg.Espresso.VerifyReceiptMaxBlocks
+	bs.VerifyReceiptSafetyTimeout = cfg.Espresso.VerifyReceiptSafetyTimeout
+	bs.VerifyReceiptRetryDelay = cfg.Espresso.VerifyReceiptRetryDelay
 
 	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
 	if err != nil {
