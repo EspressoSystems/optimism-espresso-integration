@@ -1,5 +1,10 @@
 # Metrics
 
+> **Log constants**: Log message strings referenced in this document are defined as Go constants in
+> [`espresso/logmodule/dashboard_keys.go`](../logmodule/dashboard_keys.go) (DataDog dashboard logs) and
+> [`espresso/logmodule/log_keys.go`](../logmodule/log_keys.go) (debugging logs). If you change a dashboard
+> log string you must update the corresponding DataDog queries and alerts at the same time.
+
 This document outlines the monitoring framework for our system components, organized into the following categories:
 
 - **Key Metrics**: Metrics that belong on the dashboard for operational visibility
@@ -16,26 +21,32 @@ Each indicator points to a log event to monitor.
 Metrics that belong on the dashboard:
 
 - Blocks enqueued for batching to L1/AltDA:
-  `"Added L2 block to channel manager"`
+  `logmodule.AddedL2BlockToChannelManager`
 - Espresso batch submissions
-  `"Submitted transaction to Espresso"`
+  `logmodule.SubmittedTransactionToEspresso`
+- Espresso transaction confirmations
+  `logmodule.TransactionConfirmedOnEspresso`
+- Blocks received from Espresso
+  `logmodule.ReceivedBlockFromEspresso`
+- Channel sealed for L1 submission
+  `logmodule.ChannelClosed`
 - L1 batch submissions
-  `"Transaction confirmed"`
+  `logmodule.TransactionSuccessfullyPublished`
 
 ### Recoverable Errors
 
 Events that we need to monitor and raise alerts if they're encountered often:
 
 - State reset (even once is suspicious)
-  `"Clearing state"`
+  `logmodule.ClearingState`
 - Espresso transaction creation failed
-  `"Failed to derive batch from block"`
+  `logmodule.FailedToDeriveBatchFromBlock`
 - L1 submission failed
-  `"Transaction failed to send"`
+  `logmodule.TransactionFailedToSend`
 - AltDA submission failed
-  `"DA request failed"`
+  `logmodule.DARequestFailed`
 - L2 reorg detected
-  `"Found L2 reorg"`
+  `logmodule.FoundL2Reorg`
 
 ### Critical Errors
 
@@ -48,7 +59,7 @@ Events that we need to monitor and raise alerts if they're encountered often:
 Non-errors that can indicate preconditions for a problem to occur:
 
 - Gas price too high
-  `effectiveGasPrice` field of `"Transaction confirmed"` log
+  `effectiveGasPrice` field of `logmodule.TransactionSuccessfullyPublished` log
 - Espresso transaction backlog is growing
   can be derived from Espresso transaction queue metrics above
 
@@ -57,18 +68,18 @@ Non-errors that can indicate preconditions for a problem to occur:
 ### Key Metrics
 
 - New L1 safe blocks
-  `"New L1 safe block"`
+  `logmodule.NewL1SafeBlock`
 - New L2 unsafe blocks
-  `"Inserted new L2 unsafe block"`
+  `logmodule.InsertedNewL2UnsafeBlock`
 - New L2 safe blocks
-  `"safe head updated"`
+  `logmodule.CrossSafeHeadUpdated`
 
 ### Recoverable Errors
 
 - Pipeline errors
-  `"Derivation process error"`
+  `logmodule.DerivationProcessError`
 - Malformed batch
-  `"Dropping batch"`, `"Failed to parse frames"`
+  `logmodule.DroppingBatch`, `logmodule.FailedToParseFrames`
 
 ### Critical Errors
 
@@ -83,19 +94,19 @@ Events that need to raise urgent alerts as they indicate full chain stall:
 ### Key Metrics
 
 - New L1 safe blocks
-  `"New L1 safe block"`
+  `logmodule.NewL1SafeBlock`
 - New L2 unsafe blocks
-  `"Inserted new L2 unsafe block"`
+  `logmodule.InsertedNewL2UnsafeBlock`
 - New L2 safe blocks
-  Either `"safe head updated"` or `"Hit finalized L2 head, returning immediately"` with increasing
-  L2 safe number. The former is the normal case, and the latter happens after a reset.
+  Either `logmodule.CrossSafeHeadUpdated` or `logmodule.HitFinalizedL2Head` with increasing L2 safe
+  number. The former is the normal case, and the latter happens after a reset.
 
 ### Recoverable Errors
 
 - Pipeline errors
-  `"Derivation process error"`
+  `logmodule.DerivationProcessError`
 - Malformed batch
-  `"Dropping batch"`, `"Failed to parse frames"`
+  `logmodule.DroppingBatch`, `logmodule.FailedToParseFrames`
 
 ### Critical Errors
 
@@ -112,11 +123,11 @@ All events of Decaff Validator Node, and:
 ### Key Metrics
 
 - Blocks produced
-  `"Sequencer sealed block"`
+  `logmodule.SequencerSealedBlock`
 
 ### Recoverable Errors
 
 - Engine failure
-  `"Engine failed temporarily, backing off sequencer"`
+  `logmodule.EngineFailedTemporarily`
 - Engine reset
-  `"Engine reset confirmed, sequencer may continue"`
+  `logmodule.EngineResetConfirmed`
