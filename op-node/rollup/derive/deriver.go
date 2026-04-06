@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/event"
@@ -162,7 +163,7 @@ func (d *PipelineDeriver) OnEvent(ctx context.Context, ev event.Event) bool {
 			// don't do a backoff for this error
 			d.emitter.Emit(ctx, DeriverMoreEvent{})
 		} else if err != nil {
-			d.pipeline.log.Error("Derivation process error", "err", err)
+			d.pipeline.log.Error(logmodule.DerivationProcessError, "err", err)
 			d.emitter.Emit(ctx, rollup.EngineTemporaryErrorEvent{Err: err})
 		} else {
 			if attrib != nil {

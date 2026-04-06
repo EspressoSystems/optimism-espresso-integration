@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
 	"github.com/ethereum-optimism/optimism/espresso/bindings"
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -426,7 +427,7 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 		// confirmed that the transaction was submitted to Espresso
 		commitment := jobResp.job.transaction.transaction.Commit()
 		hash, _ := tagged_base64.New("TX", commitment[:])
-		log.Info("Transaction confirmed on Espresso", "hash", hash.String())
+		log.Info(logmodule.TransactionConfirmedOnEspresso, "hash", hash.String())
 	}
 }
 
@@ -568,7 +569,7 @@ func espressoSubmitTransactionWorker(
 		// Submit the transaction to Espresso
 		hash, err := cli.SubmitTransaction(ctx, *jobAttempt.job.transaction)
 		if err == nil {
-			log.Info("submitted transaction to Espresso", "hash", hash)
+			log.Info(logmodule.SubmittedTransactionToEspresso, "hash", hash)
 		}
 
 		jobAttempt.job.attempts++
@@ -716,7 +717,7 @@ func (s *espressoTransactionSubmitter) Start() {
 func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.Block) error {
 	espressoBatch, err := derive.BlockToEspressoBatch(l.RollupConfig, block)
 	if err != nil {
-		l.Log.Warn("Failed to derive batch from block", "err", err)
+		l.Log.Warn(logmodule.FailedToDeriveBatchFromBlock, "err", err)
 		return fmt.Errorf("failed to derive batch from block: %w", err)
 	}
 
@@ -799,7 +800,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				}
 
 				l.Log.Info(
-					"Received block from Espresso",
+					logmodule.ReceivedBlockFromEspresso,
 					"blockNr", block.NumberU64(),
 					"blockHash", block.Hash(),
 					"parentHash", block.ParentHash(),
@@ -815,7 +816,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.EspressoStreamer().Reset()
 				}
 
-				l.Log.Info("Added L2 block to channel manager")
+				l.Log.Info(logmodule.AddedL2BlockToChannelManager)
 			}
 
 			l.tryPublishSignal(publishSignal, pubInfo{})
@@ -859,7 +860,7 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 		}
 
 		if len(l.queuedBlocks) > 0 && block.ParentHash() != l.queuedBlocks[len(l.queuedBlocks)-1].Hash {
-			l.batcher.Log.Warn("Found L2 reorg", "block_number", i)
+			l.batcher.Log.Warn(logmodule.FoundL2Reorg, "block_number", i)
 			l.reset(ctx)
 			break
 		}
