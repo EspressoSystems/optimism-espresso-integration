@@ -6,10 +6,12 @@ import (
 	"strings"
 	"time"
 
+	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/urfave/cli/v2"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
@@ -201,11 +203,11 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 	return config
 }
 
-func BatchStreamerFromCLIConfig[B Batch](
+func BatchStreamerFromCLIConfig[B op.Batch](
 	cfg CLIConfig,
 	log log.Logger,
 	unmarshalBatch func([]byte) (*B, error),
-) (*BatchStreamer[B], error) {
+) (*op.BatchStreamer[B], error) {
 	if !cfg.Enabled {
 		return nil, fmt.Errorf("Espresso is not enabled")
 	}
@@ -228,7 +230,7 @@ func BatchStreamerFromCLIConfig[B Batch](
 		return nil, fmt.Errorf("failed to create Espresso light client")
 	}
 
-	return NewEspressoStreamer(
+	return op.NewEspressoStreamer(
 		cfg.Namespace,
 		NewAdaptL1BlockRefClient(l1Client),
 		NewAdaptL1BlockRefClient(RollupL1Client),
@@ -236,7 +238,6 @@ func BatchStreamerFromCLIConfig[B Batch](
 		espressoLightClient,
 		log,
 		unmarshalBatch,
-		cfg.PollInterval,
 		cfg.CaffeinationHeightEspresso,
 		cfg.CaffeinationHeightL2,
 		cfg.BatchAuthenticatorAddr,

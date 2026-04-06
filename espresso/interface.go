@@ -3,11 +3,12 @@ package espresso
 import (
 	"context"
 
+	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // EspressoStreamer defines the interface for the Espresso streamer.
-type EspressoStreamer[B Batch] interface {
+type EspressoStreamer[B op.Batch] interface {
 	// Update will update the `EspressoStreamer“ by attempting to ensure that
 	// the next call to the `Next` method will return a `Batch`.
 	//
