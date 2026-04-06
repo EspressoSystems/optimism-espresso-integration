@@ -72,9 +72,9 @@ op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
 
 # Configure the Espresso batcher for devnet. The Espresso batcher uses HD index 6
-# (TEE_BATCHER_ADDRESS). The fallback batcher uses the standard OP stack
+# (ESPRESSO_BATCHER_ADDRESS). The fallback batcher uses the standard OP stack
 # batcher address from SystemConfig.batcherHash (FALLBACK_BATCHER_ADDRESS, HD index 2).
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoBatcher -v "${TEE_BATCHER_ADDRESS}"
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoBatcher -v "${ESPRESSO_BATCHER_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`
