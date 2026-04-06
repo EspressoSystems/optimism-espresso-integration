@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ethereum-optimism/optimism/espresso"
+	op "github.com/EspressoSystems/espresso-streamers/op"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -293,6 +293,6 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 	dp.engineIsReset = true
 }
 
-func (dp *DerivationPipeline) EspressoStreamer() *espresso.BatchStreamer[EspressoBatch] {
+func (dp *DerivationPipeline) EspressoStreamer() *op.BatchStreamer[EspressoBatch] {
 	return dp.attrib.espressoStreamer
 }

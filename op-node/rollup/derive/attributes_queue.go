@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum-optimism/optimism/espresso"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -63,7 +64,7 @@ type AttributesQueue struct {
 
 	isCaffNode           bool
 	caffeinationHeightL2 uint64
-	espressoStreamer     *espresso.BatchStreamer[EspressoBatch]
+	espressoStreamer     *op.BatchStreamer[EspressoBatch]
 }
 
 type SingularBatchProvider interface {
@@ -73,7 +74,7 @@ type SingularBatchProvider interface {
 	NextBatch(context.Context, eth.L2BlockRef) (*SingularBatch, bool, error)
 }
 
-func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *espresso.BatchStreamer[EspressoBatch] {
+func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *op.BatchStreamer[EspressoBatch] {
 	if !cfg.CaffNodeConfig.Enabled {
 		log.Info("Espresso streamer not initialized: Caff node is not enabled")
 		return nil
@@ -123,7 +124,7 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 // but with a few key differences:
 // - It only calls Update() when needed and everytime only calls Next() once. While the batcher calls Next() in a loop.
 // - It performs additional checks, such as validating the timestamp and parent hash, which does not apply to the batcher.
-func CaffNextBatch(s *espresso.BatchStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
+func CaffNextBatch(s *op.BatchStreamer[EspressoBatch], ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher) (*SingularBatch, bool, error) {
 	// Get the L1 finalized block
 	finalizedL1Block, err := l1Fetcher.L1BlockRefByLabel(ctx, eth.Finalized)
 	if err != nil {
