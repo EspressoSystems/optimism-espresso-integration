@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/holiman/uint256"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-service/bigs"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
@@ -796,9 +797,9 @@ func (m *SimpleTxManager) publishTx(ctx context.Context, tx *types.Transaction, 
 		if err == nil || errStringContainsAny(err, m.cfg.AlreadyPublishedCustomErrs) {
 			m.metr.TxPublished("")
 			if err == nil {
-				l.Info("Transaction successfully published", "tx", tx.Hash())
+				l.Info(logmodule.TransactionSuccessfullyPublished, "tx", tx.Hash())
 			} else {
-				l.Info("Transaction successfully published (custom RPC error)", "tx", tx.Hash(), "err", err)
+				l.Info(logmodule.TransactionSuccessfullyPublished+" (custom RPC error)", "tx", tx.Hash(), "err", err)
 			}
 			return tx, true, nil
 		}

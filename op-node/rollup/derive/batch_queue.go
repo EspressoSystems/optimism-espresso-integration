@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
@@ -175,7 +176,7 @@ batchLoop:
 			remaining = append(remaining, batch)
 			continue
 		case BatchDrop:
-			batch.Batch.LogContext(bq.log).Warn("Dropping batch",
+			batch.Batch.LogContext(bq.log).Warn(logmodule.DroppingBatch,
 				"parent", parent.ID(),
 				"parent_time", parent.Time,
 			)

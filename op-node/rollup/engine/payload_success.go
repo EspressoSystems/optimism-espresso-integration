@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -86,7 +87,7 @@ func (e *EngineController) logBlockProcessingMetrics(updateEngineFinish time.Tim
 		mgasps = mgas / totalTime.Seconds()
 	}
 
-	e.log.Info("Inserted new L2 unsafe block",
+	e.log.Info(logmodule.InsertedNewL2UnsafeBlock,
 		"hash", ev.Envelope.ExecutionPayload.BlockHash,
 		"number", uint64(ev.Envelope.ExecutionPayload.BlockNumber),
 		"build_time", common.PrettyDuration(buildTime),

@@ -26,6 +26,7 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
 	config "github.com/ethereum-optimism/optimism/op-batcher/config"
@@ -405,7 +406,7 @@ func (l *BatchSubmitter) loadBlocksIntoState(ctx context.Context, start, end uin
 	for i := start; i <= end; i++ {
 		block, err := l.loadBlockIntoState(ctx, i)
 		if errors.Is(err, ErrReorg) {
-			l.Log.Warn("Found L2 reorg", "block_number", i)
+			l.Log.Warn(logmodule.FoundL2Reorg, "block_number", i)
 			return err
 		} else if err != nil {
 			l.Log.Warn("Failed to load block into state", "err", err)
@@ -946,7 +947,7 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 
 // clearState clears the state of the channel manager
 func (l *BatchSubmitter) clearState(ctx context.Context) {
-	l.Log.Info("Clearing state")
+	l.Log.Info(logmodule.ClearingState)
 	defer l.Log.Info("State cleared")
 
 	clearStateWithL1Origin := func() bool {
@@ -1216,7 +1217,7 @@ func (l *BatchSubmitter) recordFailedDARequest(id txID, err error) {
 	defer l.channelMgrMutex.Unlock()
 	failover := errors.Is(err, altda.ErrAltDADown)
 	if err != nil {
-		l.Log.Warn("DA request failed", append([]interface{}{"failoverToEthDA", failover}, logFields(id, err)...)...)
+		l.Log.Warn(logmodule.DARequestFailed, append([]interface{}{"failoverToEthDA", failover}, logFields(id, err)...)...)
 	}
 	l.channelMgr.AltDASubmissionFailed(id, failover)
 }
@@ -1224,7 +1225,7 @@ func (l *BatchSubmitter) recordFailedDARequest(id txID, err error) {
 func (l *BatchSubmitter) recordFailedTx(id txID, err error) {
 	l.channelMgrMutex.Lock()
 	defer l.channelMgrMutex.Unlock()
-	l.Log.Warn("Transaction failed to send", logFields(id, err)...)
+	l.Log.Warn(logmodule.TransactionFailedToSend, logFields(id, err)...)
 	l.channelMgr.TxFailed(id)
 }
 
