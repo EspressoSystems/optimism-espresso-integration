@@ -207,6 +207,15 @@ func (c CLIConfig) Check() error {
 		if !c.allowEmptyAttestationService && c.EspressoAttestationService == "" {
 			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
 		}
+		if c.VerifyReceiptMaxBlocks == 0 {
+			return fmt.Errorf("verify-receipt-max-blocks must be > 0")
+		}
+		if c.VerifyReceiptSafetyTimeout <= 0 {
+			return fmt.Errorf("verify-receipt-safety-timeout must be > 0")
+		}
+		if c.VerifyReceiptRetryDelay <= 0 {
+			return fmt.Errorf("verify-receipt-retry-delay must be > 0")
+		}
 	}
 	return nil
 }
