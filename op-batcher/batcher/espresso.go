@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -210,9 +211,9 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 		SubmitResponseQueueCapacity:        10,
 		VerifyReceiptJobQueueCapacity:      1024,
 		VerifyReceiptResponseQueueCapacity: 10,
-		VerifyReceiptMaxBlocks:             VERIFY_RECEIPT_MAX_BLOCKS,
-		VerifyReceiptSafetyTimeout:         VERIFY_RECEIPT_SAFETY_TIMEOUT,
-		VerifyReceiptRetryDelay:            VERIFY_RECEIPT_RETRY_DELAY,
+		VerifyReceiptMaxBlocks:             espresso.DefaultVerifyReceiptMaxBlocks,
+		VerifyReceiptSafetyTimeout:         espresso.DefaultVerifyReceiptSafetyTimeout,
+		VerifyReceiptRetryDelay:            espresso.DefaultVerifyReceiptRetryDelay,
 	}
 
 	for _, option := range options {
@@ -351,20 +352,9 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 	}
 }
 
-// VERIFY_RECEIPT_MAX_BLOCKS is the number of HotShot blocks we will wait
-// for a submitted transaction to become queryable before re-submitting.
-// Using block count instead of wall-clock time makes us resilient to
-// variable block times across different Espresso networks.
-const VERIFY_RECEIPT_MAX_BLOCKS uint64 = 5
-
-// VERIFY_RECEIPT_SAFETY_TIMEOUT is a wall-clock backstop for receipt
-// verification. If the block height tracker is stale or broken, we fall
-// back to this generous timeout before re-submitting.
-const VERIFY_RECEIPT_SAFETY_TIMEOUT = 5 * time.Minute
-
-// VERIFY_RECEIPT_RETRY_DELAY is the amount of time we will wait before
-// retrying a job that failed to verify the receipt.
-const VERIFY_RECEIPT_RETRY_DELAY = 100 * time.Millisecond
+// Default values for receipt verification tuning are defined as exported
+// constants in the espresso package (espresso.DefaultVerifyReceipt*) so that
+// the CLI flag defaults and this batcher logic share a single source of truth.
 
 // evaluateVerification evaluates the verification job response.
 //
@@ -728,7 +718,7 @@ func (s *espressoTransactionSubmitter) trackBlockHeight() {
 
 		// Wait for the next interval or until context is done.
 		select {
-		case <-time.After(VERIFY_RECEIPT_RETRY_DELAY):
+		case <-time.After(s.verifyReceiptRetryDelay):
 		case <-s.ctx.Done():
 			return
 		}

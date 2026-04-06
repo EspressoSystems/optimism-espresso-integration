@@ -27,6 +27,15 @@ func espressoEnvs(envprefix, v string) []string {
 	return []string{envprefix + "_ESPRESSO_" + v}
 }
 
+// Default values for batch submission receipt verification tuning.
+// Defined here so that both the CLI flag defaults and the batcher logic
+// can reference a single source of truth.
+const (
+	DefaultVerifyReceiptMaxBlocks     uint64        = 5
+	DefaultVerifyReceiptSafetyTimeout time.Duration = 5 * time.Minute
+	DefaultVerifyReceiptRetryDelay    time.Duration = 100 * time.Millisecond
+)
+
 var (
 	EnabledFlagName                    = espressoFlags("enabled")
 	PollIntervalFlagName               = espressoFlags("poll-interval")
@@ -125,21 +134,21 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 		&cli.Uint64Flag{
 			Name:     VerifyReceiptMaxBlocksFlagName,
 			Usage:    "Number of HotShot blocks to wait for a submitted transaction to become queryable before re-submitting",
-			Value:    5,
+			Value:    DefaultVerifyReceiptMaxBlocks,
 			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_MAX_BLOCKS"),
 			Category: category,
 		},
 		&cli.DurationFlag{
 			Name:     VerifyReceiptSafetyTimeoutFlagName,
 			Usage:    "Wall-clock backstop for receipt verification; re-submits the transaction if this duration is exceeded",
-			Value:    5 * time.Minute,
+			Value:    DefaultVerifyReceiptSafetyTimeout,
 			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_SAFETY_TIMEOUT"),
 			Category: category,
 		},
 		&cli.DurationFlag{
 			Name:     VerifyReceiptRetryDelayFlagName,
 			Usage:    "Delay between receipt verification retries",
-			Value:    100 * time.Millisecond,
+			Value:    DefaultVerifyReceiptRetryDelay,
 			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_RETRY_DELAY"),
 			Category: category,
 		},
