@@ -114,8 +114,8 @@ func (d *Devnet) isRunning() bool {
 type ComposeProfile string
 
 const (
-	TEE     ComposeProfile = "tee"
-	NON_TEE ComposeProfile = "default"
+	ESPRESSO ComposeProfile = "tee"
+	FALLBACK ComposeProfile = "default"
 )
 
 func (d *Devnet) Up(profile ComposeProfile) (err error) {

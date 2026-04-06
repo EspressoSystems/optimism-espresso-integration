@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBatcherSwitching tests that the batcher can be switched from the TEE-enabled
+// TestBatcherSwitching tests that the batcher can be switched from the Espresso
 // batcher to a fallback batcher using the BatchAuthenticator contract.
 //
 // This is the devnet equivalent of TestBatcherSwitching from the E2E tests.
@@ -21,9 +21,9 @@ func TestBatcherSwitching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize devnet with NON_TEE profile (starts both batchers)
+	// Initialize devnet with FALLBACK profile (starts both batchers)
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -52,7 +52,7 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("Before switch: activeIsEspresso = %v", activeIsEspresso)
 
-	// Stop the primary "TEE" batcher (op-batcher with Espresso enabled)
+	// Stop the Espresso batcher (op-batcher with Espresso enabled)
 	require.NoError(t, d.StopBatcherSubmitting("op-batcher"))
 	t.Logf("Stopped op-batcher batch submission")
 

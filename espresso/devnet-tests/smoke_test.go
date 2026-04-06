@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSmokeWithoutTEE(t *testing.T) {
+func TestSmokeWithFallback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -22,12 +22,12 @@ func TestSmokeWithoutTEE(t *testing.T) {
 	require.NoError(t, d.RunSimpleL2Burn())
 }
 
-func TestSmokeWithTEE(t *testing.T) {
+func TestSmokeWithEspresso(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(TEE))
+	require.NoError(t, d.Up(ESPRESSO))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()

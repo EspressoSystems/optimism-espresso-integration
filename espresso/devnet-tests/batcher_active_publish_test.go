@@ -48,9 +48,9 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	// Initialize devnet with NON_TEE profile (starts both batchers)
+	// Initialize devnet with FALLBACK profile (starts both batchers)
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
