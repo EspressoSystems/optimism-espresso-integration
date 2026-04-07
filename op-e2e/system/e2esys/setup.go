@@ -1023,11 +1023,14 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, fmt.Errorf("failed to parse pre-approved batcher private key: %w", err)
 	}
 	espressoCfg := espresso.CLIConfig{
-		Enabled:                  cfg.AllocType.IsEspresso(),
-		PollInterval:             250 * time.Millisecond,
-		L1URL:                    sys.EthInstances[RoleL1].UserRPC().RPC(),
-		RollupL1URL:              sys.EthInstances[RoleL1].UserRPC().RPC(),
-		TestingBatcherPrivateKey: testingBatcherPk,
+		Enabled:                    cfg.AllocType.IsEspresso(),
+		PollInterval:               250 * time.Millisecond,
+		L1URL:                      sys.EthInstances[RoleL1].UserRPC().RPC(),
+		RollupL1URL:                sys.EthInstances[RoleL1].UserRPC().RPC(),
+		TestingBatcherPrivateKey:   testingBatcherPk,
+		VerifyReceiptMaxBlocks:     espresso.DefaultVerifyReceiptMaxBlocks,
+		VerifyReceiptSafetyTimeout: espresso.DefaultVerifyReceiptSafetyTimeout,
+		VerifyReceiptRetryDelay:    espresso.DefaultVerifyReceiptRetryDelay,
 	}
 
 	// When Espresso is enabled, the primary batcher is the Espresso batcher which uses

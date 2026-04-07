@@ -284,6 +284,9 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
 			WithEspressoClient(l.Espresso),
+			WithVerifyReceiptMaxBlocks(l.Config.VerifyReceiptMaxBlocks),
+			WithVerifyReceiptSafetyTimeout(l.Config.VerifyReceiptSafetyTimeout),
+			WithVerifyReceiptRetryDelay(l.Config.VerifyReceiptRetryDelay),
 		)
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
