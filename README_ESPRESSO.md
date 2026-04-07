@@ -2,8 +2,8 @@
 
 Notes:
 
-* For deployment configuration, read `README_ESPRESSO_DEPLOY_CONFIG.md`.
-* For code sync with upstreams, read `README_ESPRESSO_CODE_SYNC_PROCEDURE.md`.
+* For deployment configuration, read `espresso/docs/README_ESPRESSO_DEPLOY_CONFIG.md`.
+* For code sync with upstreams, read `espresso/docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md`.
 
 ## Development environment
 
@@ -519,7 +519,7 @@ Note importantly that OP Succinct (both in the case of Celo and Espresso) import
 The OP Succinct repository for Espresso generates using Github actions the docker images for the challenger and proposer services.
 
 
-![image](docs/op-succinct-repos.png)
+![image](espresso/docs/op-succinct-repos.png)
 
 The table below is more specific regarding which branches of these repositories are used.
 
@@ -549,12 +549,9 @@ Note that periodically we need to merge upstream changes in the `kona`, `celo-ko
 
 # Testnet Migration
 
-We are working on a set of scripts to handle the migration from a Celo Testnet to a version integrated with Espresso.
 
-Some relevant documents:
+* [Documentation of configuration parameters](espresso/docs/README_ESPRESSO_DEPLOY_CONFIG.md)
 
-* [Documentation of configuration parameters](docs/README_ESPRESSO_DEPLOY_CONFIG.md)
-* [Celo Testnet Migration Guide](docs/CELO_TESTNET_MIGRATION.md) (WIP)
 
 ## Generating alloc.json file
 
