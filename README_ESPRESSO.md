@@ -549,12 +549,9 @@ Note that periodically we need to merge upstream changes in the `kona`, `celo-ko
 
 # Testnet Migration
 
-We are working on a set of scripts to handle the migration from a Celo Testnet to a version integrated with Espresso.
-
-Some relevant documents:
 
 * [Documentation of configuration parameters](espresso/docs/README_ESPRESSO_DEPLOY_CONFIG.md)
-* [Celo Testnet Migration Guide](espresso/docs/CELO_TESTNET_MIGRATION.md) (WIP)
+
 
 ## Generating alloc.json file
 
