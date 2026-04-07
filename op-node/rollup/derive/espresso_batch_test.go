@@ -92,8 +92,7 @@ func TestUnmarshalEspressoTransactionTooShort(t *testing.T) {
 	}
 	for _, data := range cases {
 		_, err := derive.UnmarshalEspressoTransaction(data)
-		if err == nil {
-			t.Errorf("expected error for %d-byte input, got nil", len(data))
+		require.Error(t, err, "expected error for %d-byte input", len(data))
 		}
 	}
 }
