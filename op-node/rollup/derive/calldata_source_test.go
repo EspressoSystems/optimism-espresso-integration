@@ -232,7 +232,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 
 	t.Run("mixed: TEE authenticated and fallback sender", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		// tx1: TEE batcher with auth event
+		// tx1: Espresso batcher with auth event
 		txData1 := testutils.RandomData(rng, 100)
 		tx1, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
 			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,

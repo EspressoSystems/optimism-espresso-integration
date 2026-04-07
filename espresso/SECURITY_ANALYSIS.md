@@ -60,7 +60,7 @@ The following sections detail the technical implementation, validation mechanism
 
 The integration introduces three primary components:
 1. **L1 Smart Contracts** (`BatchInbox` and `BatchAuthenticator`) - On-chain verification layer
-2. **TEE Batcher** - Trusted execution environment for batch processing
+2. **Espresso Batcher** - Trusted execution environment for batch processing
 3. **Espresso Streamer** - Batch verification and ordering service
 
 Each component operates within well-defined trust boundaries with multiple layers of validation.
@@ -130,7 +130,7 @@ The system has two parallel derivation paths that both validate batches:
    ↓
 2. Sequencer creates L2 block and bundles into batch
    ↓
-3. TEE Batcher (inside AWS Nitro Enclave):
+3. Espresso Batcher (inside AWS Nitro Enclave):
    - Reads batch from sequencer
    - Signs batch with batcher private key
    - Submits to Espresso (for fast confirmation)
@@ -166,7 +166,7 @@ After submission, batches flow through two independent paths:
 ```
 
 **Key Points:**
-- The **TEE Batcher** submits to both Espresso and L1
+- The **Espresso Batcher** submits to both Espresso and L1
 - The **Espresso Streamer** is used by the Caff Node for fast derivation from Espresso
 - The **OP Node** uses standard L1-based derivation
 - Both paths independently validate batches
@@ -180,7 +180,7 @@ The implementation uses two distinct private keys with separate roles:
 
 #### **Batcher Key** (Long-lived, managed by operator)
 ```solidity
-address public immutable teeBatcher;  // E.g., 0x1234...
+address public immutable espressoBatcher;  // E.g., 0x1234...
 ```
 - Registered in the rollup configuration
 - Gives authority to post batches to L1
@@ -218,12 +218,12 @@ The implementation includes mechanisms for handling Espresso component failures.
 
 ### 2.1 Fallback Mechanism
 
-The system includes a non-TEE batcher that can be activated when TEE components are unavailable. The owner can switch between TEE and non-TEE modes:
+The system includes a fallback batcher that can be activated when TEE components are unavailable. The owner can switch between Espresso and fallback modes:
 
 **Fallback Batcher Activation**
 ```solidity
 function switchBatcher() external onlyOwner {
-    activeIsTee = !activeIsTee;  // Toggle between TEE and non-TEE mode
+    activeIsEspresso = !activeIsEspresso;  // Toggle between Espresso and fallback mode
 }
 ```
 
@@ -231,25 +231,25 @@ function switchBatcher() external onlyOwner {
 
 The fallback batcher is activated when any Espresso or TEE component fails:
 
-- AWS Nitro Enclave failure (TEE batcher cannot start)
+- AWS Nitro Enclave failure (Espresso batcher cannot start)
 - Espresso network unavailable (cannot get fast confirmations)
 - TEE attestation service down (cannot register new keys)
 - Succinct Network unavailable (cannot generate ZK proofs)
 
 #### Fallback Mode Behavior
 
-When operating in non-TEE mode:
+When operating in fallback mode:
 - Batcher posts directly to L1 without TEE attestation
 - No Espresso confirmation required before L1 posting
-- BatchInbox accepts batches from the non-TEE batcher address
+- BatchInbox accepts batches from the fallback batcher address
 - Derivation continues using standard OP Stack mechanisms
 
 **Switching Procedure**
 1. Owner calls `switchBatcher()` on the BatchAuthenticator contract
-2. Non-TEE batcher begins posting to L1
-3. When ready to resume TEE mode, update caffeinated height
-4. Owner calls `switchBatcher()` again to re-enable TEE mode
-5. TEE batcher resumes operation from the new heights
+2. Fallback batcher begins posting to L1
+3. When ready to resume Espresso mode, update caffeinated height
+4. Owner calls `switchBatcher()` again to re-enable Espresso mode
+5. Espresso batcher resumes operation from the new heights
 
 
 References:
@@ -262,10 +262,10 @@ References:
 
 #### Degradation Scenarios
 
-The Espresso integration adds fast finality capabilities without compromising the baseline security of the standard OP Stack. All component failures are handled by switching to the fallback (non-TEE) batcher, which operates identically to the vanilla Celo L2 rollup:
+The Espresso integration adds fast finality capabilities without compromising the baseline security of the standard OP Stack. All component failures are handled by switching to the fallback batcher, which operates identically to the vanilla Celo L2 rollup:
 
 - **Espresso network unavailable** - Cannot retrieve batches for fast confirmation
-- **TEE enclave failure** - Cannot generate attestations or run TEE batcher
+- **TEE enclave failure** - Cannot generate attestations or run Espresso batcher
 - **Succinct Network down** - Cannot generate ZK proofs for attestation verification
 - **Attestation service failure** - Cannot verify new TEE attestations
 
@@ -283,17 +283,17 @@ OP Node → L1 BatchInbox → Standard Derivation Pipeline → L2 Blocks
 
 This path operates independently of:
 - Espresso network availability
-- TEE batcher status
+- Espresso batcher status
 - Fast finality features
 
-**2. Non-TEE Batcher is Pre-Configured**
+**2. Fallback Batcher is Pre-Configured**
 
 ```solidity
-address public immutable teeBatcher;     // Espresso-enhanced batcher
-address public immutable nonTeeBatcher;  // Fallback (standard) batcher
+address public immutable espressoBatcher;  // Espresso-enhanced batcher
+address public immutable fallbackBatcher;  // Fallback (standard) batcher
 ```
 
-The non-TEE batcher address is immutably configured in the contracts. The owner can activate it instantly via `switchBatcher()`.
+The fallback batcher address is immutably configured in the contracts. The owner can activate it instantly via `switchBatcher()`.
 
 **3. Espresso Features are Additive, Not Replacement**
 
@@ -313,8 +313,8 @@ The integration **adds** capabilities without **replacing** core functionality:
 When operating in fallback mode:
 
 ```solidity
-if (!activeIsTee) {
-    // Non-TEE batcher posts to BatchInbox
+if (!activeIsEspresso) {
+    // Fallback batcher posts to BatchInbox
     // No TEE attestation required
     // No Espresso submission required
     // Identical to standard OP Stack
@@ -387,8 +387,8 @@ The sender verification hasn't been removed—it's been **moved to a more secure
 ```solidity
 // BatchInbox.sol
 fallback() external payable {
-    if (msg.sender != batchAuthenticator.teeBatcher() &&
-        msg.sender != batchAuthenticator.nonTeeBatcher()) {
+    if (msg.sender != batchAuthenticator.espressoBatcher() &&
+        msg.sender != batchAuthenticator.fallbackBatcher()) {
         revert("Not authorized");
     }
     // ... store batch data ...
@@ -402,20 +402,20 @@ The test suite validates degradation behavior:
 
 | Test | What It Validates |
 |------|-------------------|
-| `TestBatcherSwitching` | Switching between TEE and non-TEE modes maintains correctness |
+| `TestBatcherSwitching` | Switching between Espresso and fallback modes maintains correctness |
 | `TestBatcherRestart` | Batcher failures don't compromise chain state |
-| `TestSmokeWithoutTEE` | System operates correctly in non-TEE mode |
+| `TestSmokeWithFallback` | System operates correctly in fallback mode |
 | Fallback tests | Manual switch to vanilla mode preserves all functionality |
 
 #### Operational Guarantees
 
 **Guarantee 1: No Additional Liveness Risk**
 - If Espresso fails → system continues via L1
-- If TEE fails → system continues via non-TEE batcher
+- If TEE fails → system continues via fallback batcher
 - Worst case: vanilla Celo rollup liveness
 
 **Guarantee 2: No Additional Safety Risk**
-- L1 contracts validate all batches (TEE or non-TEE)
+- L1 contracts validate all batches (Espresso or fallback)
 - Standard derivation path validates all blocks
 - Fault proof system covers all state transitions
 - Worst case: vanilla Celo rollup safety
@@ -466,10 +466,10 @@ These tests run against a full Docker-based devnet with real Espresso nodes:
 
 | Test | What It Tests | Environment |
 |------|---------------|-------------|
-| `TestSmokeWithoutTEE` | Basic operation without TEE | Standard mode |
-| `TestSmokeWithTEE` | Basic operation with TEE | AWS Nitro Enclave |
+| `TestSmokeWithFallback` | Basic operation with fallback batcher | Standard mode |
+| `TestSmokeWithEspresso` | Basic operation with Espresso batcher | AWS Nitro Enclave |
 | `TestBatcherRestart` | Batcher restart resilience | Failure recovery |
-| `TestBatcherSwitching` | Switch between TEE/non-TEE | Fallback activation |
+| `TestBatcherSwitching` | Switch between Espresso/fallback | Fallback activation |
 | `TestBatcherActivePublishOnly` | Active batch publishing | Data availability |
 | `TestForcedTransaction` | Force inclusion via L1 | Censorship resistance |
 | `TestWithdrawal` | L2→L1 withdrawals | Bridge security |
@@ -506,7 +506,7 @@ Each security validation layer has corresponding test coverage:
 
 | Validation Property | Test Coverage | Validation Method |
 |-------------------|-----------|-----------|
-| Authenticity | Test 5, 6, TestSmokeWithTEE | TEE attestation verification |
+| Authenticity | Test 5, 6, TestSmokeWithEspresso | TEE attestation verification |
 | Integrity | Test 7, 10, TestBatcherRestart | State consistency across restarts |
 | Liveness | Test 2, 14, TestBatcherSwitching | Operation under component failures |
 | Consistency | Test 3.2, 4, 8 | Deterministic state across nodes |
@@ -524,7 +524,7 @@ Tests include various failure scenarios and recovery mechanisms:
 | Failure Scenario | Test Coverage | Recovery Mechanism Tested |
 |------------------|---------------|-------------------|
 | Batcher crash | Test 7, TestBatcherRestart | Stateless recovery |
-| TEE unavailable | Test 14, TestBatcherSwitching | Fallback to non-TEE |
+| TEE unavailable | Test 14, TestBatcherSwitching | Fallback to fallback batcher |
 | Espresso unavailable | Test 14 | Direct L1 posting |
 | L2 reorg | Test 4, 8 | Automatic state reset |
 | Invalid attestation | Test 5 | Contract rejection |
@@ -536,7 +536,7 @@ Tests include various failure scenarios and recovery mechanisms:
 
 The devnet tests differ from environment tests in their setup:
 
-- **AWS Nitro Enclaves**: `TestSmokeWithTEE` runs against actual Nitro hardware
+- **AWS Nitro Enclaves**: `TestSmokeWithEspresso` runs against actual Nitro hardware
 - **Espresso Nodes**: Tests interact with running Espresso consensus nodes
 - **L1 Interaction**: Full Ethereum L1 deployment using actual contracts
 - **Docker Networking**: Inter-service communication over Docker networks
@@ -621,34 +621,34 @@ The Espresso integration includes Foundry-based smart contract tests that valida
 
 #### BatchInbox Contract Tests
 
-The `BatchInbox` contract enforces batcher authentication based on operating mode (TEE vs non-TEE). Test coverage includes:
+The `BatchInbox` contract enforces batcher authentication based on operating mode (Espresso vs fallback). Test coverage includes:
 
-**TEE Mode Authentication**
+**Espresso Mode Authentication**
 
 ```solidity
-// TEE batcher requires valid attestation
-function test_fallback_teeBatcherRequiresAuthentication() external
+// Espresso batcher requires valid attestation
+function test_fallback_espressoBatcherRequiresAuthentication() external
 
-// TEE batcher succeeds with authenticated batch
-function test_fallback_teeBatcherSucceedsWithValidAuth() external
+// Espresso batcher succeeds with authenticated batch
+function test_fallback_espressoBatcherSucceedsWithValidAuth() external
 
-// Non-TEE batcher cannot post when TEE is active
-function test_fallback_nonTeeBatcherRevertsWhenTeeActiveAndUnauthenticated() external
+// Fallback batcher cannot post when Espresso mode is active
+function test_fallback_fallbackBatcherRevertsWhenEspressoActiveAndUnauthenticated() external
 ```
 
-These tests verify that when the system operates in TEE mode:
-- Only the designated TEE batcher address can submit batches
+These tests verify that when the system operates in Espresso mode:
+- Only the designated Espresso batcher address can submit batches
 - Batches must be pre-authenticated via the `BatchAuthenticator` contract
-- The non-TEE batcher is rejected even if attempting to submit authenticated batches
+- The fallback batcher is rejected even if attempting to submit authenticated batches
 
-**Fallback Mode (Non-TEE) Authentication**
+**Fallback Mode Authentication**
 
 ```solidity
-// Non-TEE batcher can post after mode switch
-function test_fallback_nonTeeBatcherCanPostAfterSwitch() external
+// Fallback batcher can post after mode switch
+function test_fallback_fallbackBatcherCanPostAfterSwitch() external
 
-// Non-TEE batcher doesn't require attestation
-function test_fallback_nonTeeBatcherDoesNotRequireAuth() external
+// Fallback batcher doesn't require attestation
+function test_fallback_fallbackBatcherDoesNotRequireAuth() external
 
 // Inactive batcher (TEE) reverts in fallback mode
 function test_fallback_inactiveBatcherReverts() external
@@ -658,9 +658,9 @@ function test_fallback_unauthorizedAddressReverts() external
 ```
 
 These tests verify that when switched to fallback mode:
-- Only the designated non-TEE batcher can submit batches
+- Only the designated fallback batcher can submit batches
 - No attestation or pre-authentication is required
-- The TEE batcher cannot post (even with valid attestations)
+- The Espresso batcher cannot post (even with valid attestations)
 - Random unauthorized addresses are rejected
 
 **Security Properties Validated:**
@@ -871,7 +871,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 
 | Attack Vector | Mitigation | Test Coverage |
 |---------------|------------|---------------|
-| Malicious batcher operator | TEE attestation proves code integrity | [Test 5](espresso/environment/5_batch_authentication_test.go), [TestSmokeWithTEE](espresso/devnet-tests/smoke_test.go) |
+| Malicious batcher operator | TEE attestation proves code integrity | [Test 5](espresso/environment/5_batch_authentication_test.go), [TestSmokeWithEspresso](espresso/devnet-tests/smoke_test.go) |
 | Invalid TEE attestation | On-chain ZK proof verification rejects unauthorized batches | [TestE2eDevnetWithInvalidAttestation](espresso/environment/5_batch_authentication_test.go) |
 | Unattested batcher key | Unsafe blocks produced; safe blocks require valid attestation | [TestE2eDevnetWithUnattestedBatcherKey](espresso/environment/5_batch_authentication_test.go) |
 | Forged batch signature | BatchAuthenticator validates ECDSA signatures against registered signers | [BatchAuthenticator.t.sol](packages/contracts-bedrock/test/L1/BatchAuthenticator.t.sol) |
@@ -883,7 +883,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 |---------------|------------|---------------|
 | Compromised Espresso node | Majority voting across multiple query service nodes | [Test 12](espresso/environment/12_enforce_majority_rule_test.go) |
 | Espresso query service disagreement | 2/3 majority rule; inconsistent responses trigger re-query | [Test 12](espresso/environment/12_enforce_majority_rule_test.go) |
-| TEE/Espresso unavailability | Fallback to non-TEE batcher with standard OP Stack security | [Test 14](espresso/environment/14_batcher_fallback_test.go), [TestBatcherSwitching](espresso/devnet-tests/batcher_switching_test.go) |
+| TEE/Espresso unavailability | Fallback to fallback batcher with standard OP Stack security | [Test 14](espresso/environment/14_batcher_fallback_test.go), [TestBatcherSwitching](espresso/devnet-tests/batcher_switching_test.go) |
 | Succinct Network unavailability | Batcher cannot register new attestations until service restored; existing keys continue | - |
 | Execution engine crash | Stateless restart recovery; no persistent state required | [Test 7](espresso/environment/7_stateless_batcher_test.go) |
 
@@ -908,8 +908,8 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 |---------------|------------|---------------|
 | Unauthorized batcher switch | Only contract owner can call switchBatcher() | [test_switchBatcher_revertsForNonOwner](packages/contracts-bedrock/test/L1/BatchAuthenticator.t.sol) |
 | Zero address configuration | Constructor rejects zero addresses for batchers | [test_constructor_revertsWhen*IsZero](packages/contracts-bedrock/test/L1/BatchAuthenticator.t.sol) |
-| Wrong batcher in TEE mode | BatchInbox enforces only TEE batcher can post in TEE mode | [test_fallback_teeBatcherRequiresAuthentication](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
-| Wrong batcher in fallback mode | BatchInbox enforces only non-TEE batcher can post in fallback mode | [test_fallback_unauthorizedAddressReverts](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
+| Wrong batcher in Espresso mode | BatchInbox enforces only Espresso batcher can post in Espresso mode | [test_fallback_espressoBatcherRequiresAuthentication](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
+| Wrong batcher in fallback mode | BatchInbox enforces only fallback batcher can post in fallback mode | [test_fallback_unauthorizedAddressReverts](packages/contracts-bedrock/test/L1/BatchInbox.t.sol) |
 | Unauthenticated batch in TEE mode | Derivation pipeline checks BatchInfoAuthenticated events in lookback window | [test_authenticateBatchInfo_succeeds](packages/contracts-bedrock/test/L1/BatchAuthenticator.t.sol) |
 
 **Future Threat Vectors**
@@ -918,7 +918,7 @@ The Celo-Espresso integration has undergone comprehensive internal security audi
 |---------------|------------------|-------------------|
 | Operator network MitM | Operator controls enclave networking | SSL certificate pinning or in-enclave L1 light client |
 | Espresso query service trust | Majority voting across operators | Direct QC and namespace proof verification |
-| Centralized batcher operation | Single TEE batcher address | Permissionless batching with stake-based selection |
+| Centralized batcher operation | Single Espresso batcher address | Permissionless batching with stake-based selection |
 
 
 ## 9. Next steps

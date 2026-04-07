@@ -27,7 +27,7 @@ func TestForcedTransaction(t *testing.T) {
 
 	// Launch docker compose devnet
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
