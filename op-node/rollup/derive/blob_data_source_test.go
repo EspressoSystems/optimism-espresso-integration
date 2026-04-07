@@ -381,7 +381,7 @@ func TestBlobDataSourceL1FetcherErrors(t *testing.T) {
 	blob := new(eth.Blob)
 	err = blob.FromData(blobInput)
 	require.NoError(t, err)
-	_, blobHashes, err := txmgr.MakeSidecar([]*eth.Blob{blob})
+	_, blobHashes, err := txmgr.MakeSidecar([]*eth.Blob{blob}, false)
 	require.NoError(t, err)
 	blobTxData := &types.BlobTx{
 		Nonce:      rng.Uint64(),
