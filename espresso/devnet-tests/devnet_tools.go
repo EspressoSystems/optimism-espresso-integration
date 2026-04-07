@@ -114,8 +114,8 @@ func (d *Devnet) isRunning() bool {
 type ComposeProfile string
 
 const (
-	TEE     ComposeProfile = "tee"
-	NON_TEE ComposeProfile = "default"
+	ESPRESSO ComposeProfile = "tee"
+	FALLBACK ComposeProfile = "default"
 )
 
 func (d *Devnet) Up(profile ComposeProfile) (err error) {
@@ -133,7 +133,7 @@ func (d *Devnet) Up(profile ComposeProfile) (err error) {
 		"docker", "compose", "up", "-d",
 	)
 	cmd.Env = append(os.Environ(), "COMPOSE_PROFILES="+string(profile))
-	// TEE batcher uses HD index 6 (distinct from the SystemConfig/fallback batcher at index 2)
+	// Espresso batcher uses HD index 6 (distinct from the SystemConfig/fallback batcher at index 2)
 	cmd.Env = append(
 		cmd.Env,
 		fmt.Sprintf("OP_BATCHER_PRIVATE_KEY=%s", hex.EncodeToString(crypto.FromECDSA(d.secrets.AccountAtIdx(6)))),

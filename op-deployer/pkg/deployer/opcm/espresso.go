@@ -9,7 +9,7 @@ import (
 
 type DeployEspressoInput struct {
 	NitroEnclaveVerifier common.Address
-	TeeBatcher           common.Address
+	EspressoBatcher      common.Address
 	SystemConfig         common.Address
 	ProxyAdminOwner      common.Address
 }
@@ -34,13 +34,13 @@ func DeployEspresso(
 	inputAddr := host.NewScriptAddress()
 	outputAddr := host.NewScriptAddress()
 
-	cleanupInput, err := script.WithPrecompileAtAddress[*DeployEspressoInput](host, inputAddr, &input)
+	cleanupInput, err := script.WithPrecompileAtAddress(host, inputAddr, &input)
 	if err != nil {
 		return output, fmt.Errorf("failed to insert DeployEspressoInput precompile: %w", err)
 	}
 	defer cleanupInput()
 
-	cleanupOutput, err := script.WithPrecompileAtAddress[*DeployEspressoOutput](host, outputAddr, &output,
+	cleanupOutput, err := script.WithPrecompileAtAddress(host, outputAddr, &output,
 		script.WithFieldSetter[*DeployEspressoOutput])
 	if err != nil {
 		return output, fmt.Errorf("failed to insert DeployEspressoOutput precompile: %w", err)

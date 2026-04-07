@@ -128,7 +128,7 @@ For example:
 
 #### Q9: What access does Espresso need from Celo?
 
-Espresso needs the following to operate the TEE batcher:
+Espresso needs the following to operate the Espresso batcher:
 
 | Requirement | Description |
 |-------------|-------------|
