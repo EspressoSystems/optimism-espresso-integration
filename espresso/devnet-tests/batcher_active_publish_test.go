@@ -48,9 +48,9 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	// Initialize devnet with NON_TEE profile (starts both batchers)
+	// Initialize devnet with FALLBACK profile (starts both batchers)
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -69,13 +69,13 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
 	require.NoError(t, err)
 
-	teeBatcherAddr, err := batchAuthenticator.TeeBatcher(&bind.CallOpts{})
+	espressoBatcherAddr, err := batchAuthenticator.EspressoBatcher(&bind.CallOpts{})
 	require.NoError(t, err)
-	nonTeeBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
+	fallbackBatcherAddr := config.Genesis.SystemConfig.BatcherAddr
 
-	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
+	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("Initial state: activeIsTee = %v", activeIsTee)
+	t.Logf("Initial state: activeIsEspresso = %v", activeIsEspresso)
 
 	// verifyPublishing helper function
 	verifyPublishing := func(expectTeeActive bool) {
@@ -100,24 +100,24 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("Checking blocks %d-%d", startBlock, endBlock)
 
-		teePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, teeBatcherAddr, startBlock, endBlock)
+		espressoPublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, espressoBatcherAddr, startBlock, endBlock)
 		require.NoError(t, err)
-		nonTeePublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, nonTeeBatcherAddr, startBlock, endBlock)
+		fallbackPublished, err := hasBatchTransactions(ctx, d.L1, config.BatchInboxAddress, fallbackBatcherAddr, startBlock, endBlock)
 		require.NoError(t, err)
 
-		t.Logf("TEE batcher published: %v, non-TEE batcher published: %v", teePublished, nonTeePublished)
+		t.Logf("Espresso batcher published: %v, fallback batcher published: %v", espressoPublished, fallbackPublished)
 
 		if expectTeeActive {
-			require.True(t, teePublished, "TEE batcher should publish when active")
-			require.False(t, nonTeePublished, "non-TEE batcher should NOT publish when inactive")
+			require.True(t, espressoPublished, "Espresso batcher should publish when active")
+			require.False(t, fallbackPublished, "fallback batcher should NOT publish when inactive")
 		} else {
-			require.True(t, nonTeePublished, "non-TEE batcher should publish when active")
-			require.False(t, teePublished, "TEE batcher should NOT publish when inactive")
+			require.True(t, fallbackPublished, "fallback batcher should publish when active")
+			require.False(t, espressoPublished, "Espresso batcher should NOT publish when inactive")
 		}
 	}
 
 	// 1. Verify initial state
-	verifyPublishing(activeIsTee)
+	verifyPublishing(activeIsEspresso)
 
 	// 2. Switch state
 	t.Logf("Switching batcher state...")
@@ -128,8 +128,8 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 
 	// Update expected state
-	activeIsTee = !activeIsTee
-	t.Logf("Switched state to: activeIsTee=%v", activeIsTee)
+	activeIsEspresso = !activeIsEspresso
+	t.Logf("Switched state to: activeIsEspresso=%v", activeIsEspresso)
 
 	// Wait for services to stabilize after switch. In-flight sendTxWithEspresso goroutines
 	// spawned before deactivation can take ~25s to drain their queued Txmgr.Send calls,
@@ -138,5 +138,5 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 	time.Sleep(60 * time.Second)
 
 	// 3. Verify new state
-	verifyPublishing(activeIsTee)
+	verifyPublishing(activeIsEspresso)
 }

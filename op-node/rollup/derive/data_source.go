@@ -143,13 +143,13 @@ func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batch
 // once per L1 block via CollectAuthenticatedBatches.
 //
 // When batch auth is enabled, there are two authorization paths:
-//  1. TEE batcher: must have a matching BatchInfoAuthenticated event (event-based auth)
+//  1. Espresso batcher: must have a matching BatchInfoAuthenticated event (event-based auth)
 //  2. Fallback batcher: authorized via sender verification against batcherAddr, which is
 //     the standard OP stack batcher address from SystemConfig.batcherHash. This allows
 //     the fallback batcher address to be changed dynamically via SystemConfig.setBatcherHash().
 //
 // This dual-mode approach allows the fallback (non-TEE) batcher to post batches without
-// calling authenticateBatchInfo on L1, while still requiring the TEE batcher to authenticate
+// calling authenticateBatchInfo on L1, while still requiring the Espresso batcher to authenticate
 // its batches via on-chain events.
 func isBatchTxAuthorized(
 	tx *types.Transaction,
@@ -160,7 +160,7 @@ func isBatchTxAuthorized(
 	logger log.Logger,
 ) bool {
 	if dsCfg.BatchAuthEnabled() {
-		// Event-based authentication: TEE batcher must have an auth event
+		// Event-based authentication: Espresso batcher must have an auth event
 		if authenticatedHashes[batchHash] {
 			return true
 		}

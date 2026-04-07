@@ -1,7 +1,7 @@
 [
   {
     "bytes": "20",
-    "label": "teeBatcher",
+    "label": "espressoBatcher",
     "offset": 0,
     "slot": "0",
     "type": "address"
@@ -15,7 +15,7 @@
   },
   {
     "bytes": "1",
-    "label": "activeIsTee",
+    "label": "activeIsEspresso",
     "offset": 20,
     "slot": "1",
     "type": "bool"

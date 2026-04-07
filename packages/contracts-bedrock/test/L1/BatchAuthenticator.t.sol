@@ -48,7 +48,7 @@ contract BatchAuthenticator_Test is Test {
     address public unauthorized = address(0xDEAD);
     address public guardian = address(0xFACE);
 
-    address public teeBatcher = address(0x1234);
+    address public espressoBatcher = address(0x1234);
 
     MockSystemConfig public mockSystemConfig;
     EspressoTEEVerifierMock public teeVerifier;
@@ -128,7 +128,7 @@ contract BatchAuthenticator_Test is Test {
             BatchAuthenticator.initialize,
             (
                 IEspressoTEEVerifier(address(teeVerifier)),
-                teeBatcher,
+                espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
                 proxyAdminOwner
             )
@@ -149,7 +149,7 @@ contract BatchAuthenticator_Test is Test {
             BatchAuthenticator.initialize,
             (
                 IEspressoTEEVerifier(address(teeVerifier)),
-                teeBatcher,
+                espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
                 proxyAdminOwner
             )
@@ -165,8 +165,8 @@ contract BatchAuthenticator_Test is Test {
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
     }
 
-    /// @notice Test that initialize reverts when teeBatcher is zero.
-    function test_constructor_revertsWhenTeeBatcherIsZero() external {
+    /// @notice Test that initialize reverts when espressoBatcher is zero.
+    function test_constructor_revertsWhenEspressoBatcherIsZero() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
@@ -194,7 +194,12 @@ contract BatchAuthenticator_Test is Test {
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (IEspressoTEEVerifier(address(0)), teeBatcher, ISystemConfig(address(mockSystemConfig)), proxyAdminOwner)
+            (
+                IEspressoTEEVerifier(address(0)),
+                espressoBatcher,
+                ISystemConfig(address(mockSystemConfig)),
+                proxyAdminOwner
+            )
         );
 
         vm.prank(proxyAdminOwner);
@@ -207,8 +212,8 @@ contract BatchAuthenticator_Test is Test {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
-        assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertTrue(authenticator.activeIsTee());
+        assertEq(authenticator.espressoBatcher(), espressoBatcher);
+        assertTrue(authenticator.activeIsEspresso());
     }
 
     /// @notice Test that switchBatcher can be called by owner or guardian.
@@ -220,14 +225,14 @@ contract BatchAuthenticator_Test is Test {
         emit BatcherSwitched(false);
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Switch back.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(true);
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         // Add a guardian.
         vm.prank(proxyAdminOwner);
@@ -239,14 +244,14 @@ contract BatchAuthenticator_Test is Test {
         emit BatcherSwitched(false);
         vm.prank(guardian);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Guardian can switch back.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(true);
         vm.prank(guardian);
         authenticator.switchBatcher();
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         // Unauthorized cannot switch.
         vm.prank(unauthorized);
@@ -326,36 +331,36 @@ contract BatchAuthenticator_Test is Test {
         authenticator.registerSigner(signerData, proofBytes);
     }
 
-    /// @notice Test that setTeeBatcher can only be called by ProxyAdmin owner.
-    function test_setTeeBatcher_onlyProxyAdminOwner() external {
+    /// @notice Test that setEspressoBatcher can only be called by ProxyAdmin owner.
+    function test_setEspressoBatcher_onlyProxyAdminOwner() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
-        address newTeeBatcher = address(0x9999);
+        address newEspressoBatcher = address(0x9999);
 
         // ProxyAdmin owner can set.
         vm.expectEmit(true, true, false, false);
-        emit TeeBatcherUpdated(teeBatcher, newTeeBatcher);
+        emit EspressoBatcherUpdated(espressoBatcher, newEspressoBatcher);
         vm.prank(proxyAdminOwner);
-        authenticator.setTeeBatcher(newTeeBatcher);
-        assertEq(authenticator.teeBatcher(), newTeeBatcher);
+        authenticator.setEspressoBatcher(newEspressoBatcher);
+        assertEq(authenticator.espressoBatcher(), newEspressoBatcher);
 
         // Unauthorized cannot set.
         vm.prank(unauthorized);
         vm.expectRevert();
-        authenticator.setTeeBatcher(address(0x7777));
+        authenticator.setEspressoBatcher(address(0x7777));
 
         // ProxyAdmin cannot set.
         vm.prank(address(proxyAdmin));
         vm.expectRevert();
-        authenticator.setTeeBatcher(address(0x8888));
+        authenticator.setEspressoBatcher(address(0x8888));
     }
 
-    /// @notice Test that setTeeBatcher reverts when zero address is provided.
-    function test_setTeeBatcher_revertsWhenZeroAddress() external {
+    /// @notice Test that setEspressoBatcher reverts when zero address is provided.
+    function test_setEspressoBatcher_revertsWhenZeroAddress() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         vm.prank(proxyAdminOwner);
         vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.InvalidAddress.selector, address(0)));
-        authenticator.setTeeBatcher(address(0));
+        authenticator.setEspressoBatcher(address(0));
     }
 
     /// @notice Test upgrade to new implementation with comprehensive state preservation.
@@ -375,7 +380,7 @@ contract BatchAuthenticator_Test is Test {
         // Switch batcher to test boolean flag preservation.
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Deploy new implementation and upgrade.
         BatchAuthenticator newImpl = new BatchAuthenticator();
@@ -388,8 +393,8 @@ contract BatchAuthenticator_Test is Test {
 
         // Verify state is preserved.
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
-        assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertFalse(authenticator.activeIsTee());
+        assertEq(authenticator.espressoBatcher(), espressoBatcher);
+        assertFalse(authenticator.activeIsEspresso());
     }
 
     /// @notice Test that paused() delegates to SystemConfig.
@@ -475,20 +480,20 @@ contract BatchAuthenticator_Test is Test {
         // Owner can still switch batcher while paused.
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
     }
 
     // Event declarations for expectEmit.
     event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
-    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
-    event BatcherSwitched(bool indexed activeIsTee);
+    event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
+    event BatcherSwitched(bool indexed activeIsEspresso);
 }
 
 /// @notice Fork tests for BatchAuthenticator on Sepolia.
 contract BatchAuthenticator_Fork_Test is Test {
     address public proxyAdminOwner = address(0xBEEF);
-    address public teeBatcher = address(0x1234);
+    address public espressoBatcher = address(0x1234);
 
     MockSystemConfig public mockSystemConfig;
     EspressoTEEVerifierMock public teeVerifier;
@@ -549,7 +554,7 @@ contract BatchAuthenticator_Fork_Test is Test {
             BatchAuthenticator.initialize,
             (
                 IEspressoTEEVerifier(address(teeVerifier)),
-                teeBatcher,
+                espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
                 proxyAdminOwner
             )
@@ -593,8 +598,8 @@ contract BatchAuthenticator_Fork_Test is Test {
     /// @notice Test deployment and initialization on Sepolia fork.
     function testFork_deployment_succeeds() external view {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
-        assertEq(authenticator.teeBatcher(), teeBatcher);
-        assertTrue(authenticator.activeIsTee());
+        assertEq(authenticator.espressoBatcher(), espressoBatcher);
+        assertTrue(authenticator.activeIsEspresso());
         assertEq(authenticator.version(), "1.1.0");
 
         // Verify proxy admin.
@@ -604,17 +609,17 @@ contract BatchAuthenticator_Fork_Test is Test {
 
     /// @notice Test switchBatcher on Sepolia fork.
     function testFork_switchBatcher_succeeds() external {
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
 
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
 
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
     }
 
     /// @notice Test authenticateBatchInfo on Sepolia fork.
@@ -652,7 +657,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Switch batcher
         vm.prank(proxyAdminOwner);
         authenticator.switchBatcher();
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
 
         // Deploy new implementation and upgrade.
         BatchAuthenticator newImpl = new BatchAuthenticator();
@@ -660,9 +665,9 @@ contract BatchAuthenticator_Fork_Test is Test {
         proxyAdmin.upgrade(payable(address(proxy)), address(newImpl));
 
         // Verify state is preserved.
-        assertFalse(authenticator.activeIsTee());
+        assertFalse(authenticator.activeIsEspresso());
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
-        assertEq(authenticator.teeBatcher(), teeBatcher);
+        assertEq(authenticator.espressoBatcher(), espressoBatcher);
     }
 
     /// @notice Test that contract works with real Sepolia state
@@ -672,7 +677,7 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         // Verify contract is functional.
         assertEq(authenticator.version(), "1.1.0");
-        assertTrue(authenticator.activeIsTee());
+        assertTrue(authenticator.activeIsEspresso());
 
         // Verify the fork is working by testing that we can read the block number.
         uint256 blockNum = block.number;
@@ -683,6 +688,6 @@ contract BatchAuthenticator_Fork_Test is Test {
     // Event declarations for expectEmit.
     event BatchInfoAuthenticated(bytes32 indexed commitment);
     event SignerRegistrationInitiated(address indexed caller);
-    event TeeBatcherUpdated(address indexed oldTeeBatcher, address indexed newTeeBatcher);
-    event BatcherSwitched(bool indexed activeIsTee);
+    event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
+    event BatcherSwitched(bool indexed activeIsEspresso);
 }

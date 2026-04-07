@@ -50,7 +50,7 @@ func DeployEspresso(env *Env, intent *state.Intent, st *state.State, chainID com
 
 	eo, err := opcm.DeployEspresso(env.L1ScriptHost, opcm.DeployEspressoInput{
 		NitroEnclaveVerifier: nitroEnclaveVerifierAddress,
-		TeeBatcher:           chainIntent.TeeBatcher,
+		EspressoBatcher:      chainIntent.EspressoBatcher,
 		SystemConfig:         chainState.SystemConfigProxy,
 		ProxyAdminOwner:      batchAuthOwner,
 	}, batchAuthOwner)
