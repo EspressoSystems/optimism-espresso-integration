@@ -260,4 +260,3 @@ Changes to the derivation pipeline are made in the [kona-celo-fork](https://gith
    - [op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
    
    Update the image tags in [`espresso/docker-compose.yml`](../../espresso/docker-compose.yml). E.g.: [bd90858](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
-    - It is expected to be done by EOD next Monday, but we do not usually have a hard deadline for this, so just make sure to communicate with the team about the progress.

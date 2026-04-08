@@ -2,12 +2,12 @@
 
 > See also: [deployment configuration](espresso/docs/README_ESPRESSO_DEPLOY_CONFIG.md) · [code sync procedure](espresso/docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md)
 
-# Development environment
+## Development environment
 
 ### Clone the repository and initialize the submodules
 
 ```console
-> git clone git@GitHub.com:EspressoSystems/optimism-espresso-integration.git
+> git clone git@github.com:EspressoSystems/optimism-espresso-integration.git
 > git submodule update --init --recursive
 ```
 
@@ -25,7 +25,7 @@
 
 In order to download the docker images required by this project you may need to authenticate using a PAT.
 
-Create a [Github Personal Access Token (PAT)](https://docs.GitHub.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic) following Creating a personal access token (classic).
+Create a [Github Personal Access Token (PAT)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic) following Creating a personal access token (classic).
 
 Provide Docker with the PAT:
 
@@ -211,7 +211,7 @@ sudo systemctl start nitro-enclaves-allocator.service
 * Clone repository and update submodules:
 
 ```console
-git clone https://GitHub.com/EspressoSystems/optimism-espresso-integration.git
+git clone https://github.com/EspressoSystems/optimism-espresso-integration.git
 cd optimism-espresso-integration
 git submodule update --init --recursive
 ```
@@ -472,10 +472,10 @@ In order to run the tests for the enclave in EC2 via GitHub actions one must cre
 }
 ```
 
-Currently, the GitHub workflow in `.GitHub/workflows/espresso-enclave.yaml` relies on AWS AMI with id `ami-0d259f3ae020af5f9` under `arn:aws:iam::324783324287`.
+Currently, the GitHub workflow in `.github/workflows/espresso-enclave.yaml` relies on AWS AMI with id `ami-0d259f3ae020af5f9` under `arn:aws:iam::324783324287`.
 In order to refresh this AMI one needs to:
 
-1. Create an AWS EC2 instance with the characteristics described in (see `.GitHub/workflows/espresso-enclave.yaml` *Launch EC2 Instance* job).
+1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/espresso-enclave.yaml` *Launch EC2 Instance* job).
 2. Copy the script `espresso/scripts/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
