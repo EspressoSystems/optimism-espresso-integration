@@ -34,14 +34,20 @@ contract DeployBatchAuthenticator is Script {
         require(systemConfig != address(0), "systemConfig required");
         require(teeVerifier != address(0), "teeVerifier required");
 
-        if (proxyAdminOwner == address(0)) proxyAdminOwner = msg.sender;
+        if (proxyAdminOwner == address(0)) {
+            proxyAdminOwner = msg.sender;
+            console.log("WARN: proxyAdminOwner not set, defaulting to msg.sender");
+        }
 
         vm.startBroadcast(msg.sender);
 
         ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
+        vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         Proxy proxy = new Proxy(address(proxyAdmin));
+        vm.label(address(proxy), "BatchAuthenticatorProxy");
         proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
         BatchAuthenticator impl = new BatchAuthenticator();
+        vm.label(address(impl), "BatchAuthenticatorImpl");
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
