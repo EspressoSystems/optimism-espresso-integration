@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
 )
 
 var defaultTestRollUpConfig = &rollup.Config{
@@ -79,6 +81,20 @@ func compareBody(a, b *gethTypes.Body) int {
 	}
 
 	return 0
+}
+
+// TestUnmarshalEspressoTransactionTooShort verifies that UnmarshalEspressoTransaction
+// returns an error (rather than panicking) when the input is shorter than a signature.
+func TestUnmarshalEspressoTransactionTooShort(t *testing.T) {
+	cases := [][]byte{
+		nil,
+		{},
+		make([]byte, crypto.SignatureLength-1),
+	}
+	for _, data := range cases {
+		_, err := derive.UnmarshalEspressoTransaction(data)
+		require.Error(t, err, "expected error for %d-byte input", len(data))
+	}
 }
 
 // TestEspressoBatchConversion tests the conversion of a block to an Espresso
