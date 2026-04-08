@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
 )
 
 var defaultTestRollUpConfig = &rollup.Config{
@@ -93,7 +94,6 @@ func TestUnmarshalEspressoTransactionTooShort(t *testing.T) {
 	for _, data := range cases {
 		_, err := derive.UnmarshalEspressoTransaction(data)
 		require.Error(t, err, "expected error for %d-byte input", len(data))
-		}
 	}
 }
 
