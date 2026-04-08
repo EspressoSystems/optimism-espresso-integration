@@ -137,7 +137,7 @@ just gen-bindings
 
 If some containers are still running (due to failed tests) run this command to stop and delete all the Espresso containers:
 
-> just remove-containers
+> just remove-espresso-containers
 
 ### Guide: Setting Up an Enclave-Enabled Nitro EC2 Instance
 
@@ -447,11 +447,11 @@ In order to run the tests for the enclave in EC2 via github actions one must cre
 }
 ```
 
-Currently, the github workflow in `.github/workflows/enclave.yaml` relies on AWS AMI with id `ami-0d259f3ae020af5f9` under `arn:aws:iam::324783324287`.
+Currently, the github workflow in `.github/workflows/espresso-enclave.yaml` relies on AWS AMI with id `ami-0d259f3ae020af5f9` under `arn:aws:iam::324783324287`.
 In order to refresh this AMI one needs to:
 
-1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/enclave.yaml` *Launch EC2 Instance* job).
-2. Copy the script `espresso/scrips/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
+1. Create an AWS EC2 instance with the characteristics described in (see `.github/workflows/espresso-enclave.yaml` *Launch EC2 Instance* job).
+2. Copy the script `espresso/scripts/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
 # Celo Deployment
@@ -562,8 +562,8 @@ docker run -it --rm ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node
 This will print out the `allocs.json` file to STDOUT
 To copy it to `environment/allocs.json` run the following:
 ```
-./scripts/reshape-allocs.jq /path/to/devnode/generated/allocs.json > environment/allocs.json
+./espresso/scripts/reshape-allocs.jq /path/to/devnode/generated/allocs.json > environment/allocs.json
 ```
 To update the env variables in ./espresso/.env run:
 ```
-./scripts/espresso-allocs-to-env.jq ./environment/allocs.json
+./espresso/scripts/espresso-allocs-to-env.jq ./environment/allocs.json
