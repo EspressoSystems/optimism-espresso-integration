@@ -14,7 +14,7 @@ services:
     image: busybox
     command: >
       sh -c '
-        mkdir -p /deployment/l1-config /deployment/l2-config /deployment/deployer
+        mkdir -p /deployment/l1-config /deployment/deployer
         chown -R ${U_ID:-1000}:${GID:-1000} /deployment
         '
     volumes:
@@ -30,12 +30,16 @@ services:
       l1-data-init:
         condition: service_completed_successfully
     healthcheck:
-      test: [ "CMD-SHELL", "cast bn --rpc-url http://localhost:${L1_HTTP_PORT} > /dev/null 2>&1 || exit 1" ]
+      test:
+        [
+          "CMD-SHELL",
+          "cast bn --rpc-url http://localhost:${L1_HTTP_PORT} > /dev/null 2>&1 || exit 1",
+        ]
       interval: 3s
       timeout: 2s
       retries: 40
     image: ghcr.io/foundry-rs/foundry:v1.5.1
-    entrypoint: [ "sh", "-c" ]
+    entrypoint: ["sh", "-c"]
     command:
       - |
         anvil \
@@ -58,7 +62,7 @@ services:
   l2-rollup:
     restart: on-failure
     image: op-geth:espresso
-    pull_policy: never  # built by op-geth-sequencer
+    pull_policy: never # built by op-geth-sequencer
     environment:
       - MODE=rollup
       - L1_RPC=http://l1-anvil:${L1_HTTP_PORT:?err}
@@ -81,13 +85,13 @@ services:
       l1-anvil:
         condition: service_healthy
     image: op-geth:espresso
-    pull_policy: never  # built by op-geth-sequencer
+    pull_policy: never # built by op-geth-sequencer
     environment:
       - MODE=genesis
       - HOME=/tmp
       - L1_RPC=http://l1-anvil:${L1_HTTP_PORT:?err}
     volumes:
-      - ./deployment/l2-config:/config
+      - l2-config:/config
       - ./deployment/deployer:/deployer:ro
 
   op-geth-sequencer:
@@ -129,7 +133,7 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:${ROLLUP_PORT}" ]
+      test: ["CMD", "curl", "-f", "http://localhost:${ROLLUP_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -159,7 +163,7 @@ services:
     ports:
       - "${ROLLUP_PORT}:${ROLLUP_PORT}"
     volumes:
-      - ./deployment/l2-config:/config:ro
+      - l2-config:/config:ro
       - /etc/localtime:/etc/localtime:ro
       - op-node-seq:/data
     command:
@@ -180,7 +184,7 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:${VERIFIER_PORT}" ]
+      test: ["CMD", "curl", "-f", "http://localhost:${VERIFIER_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -210,7 +214,7 @@ services:
     ports:
       - "${VERIFIER_PORT}:${VERIFIER_PORT}"
     volumes:
-      - ./deployment/l2-config:/config:ro
+      - l2-config:/config:ro
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
@@ -227,7 +231,7 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-node-target
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:${CAFF_PORT}" ]
+      test: ["CMD", "curl", "-f", "http://localhost:${CAFF_PORT}"]
       interval: 3s
       timeout: 2s
       retries: 40
@@ -250,7 +254,7 @@ services:
     ports:
       - "${CAFF_PORT}:${CAFF_PORT}"
     volumes:
-      - ./deployment/l2-config:/config:ro
+      - l2-config:/config:ro
     command:
       - op-node
       - --l2.jwt-secret=/config/jwt.txt
@@ -271,9 +275,9 @@ services:
     restart: "no"
 
   op-batcher:
-    profiles: [ "default" ]
+    profiles: ["default"]
     image: op-batcher:espresso
-    pull_policy: never  # built by op-batcher-fallback
+    pull_policy: never # built by op-batcher-fallback
     # It is not necessary to specify all dependencies, but a good practice.
     depends_on:
       l1-anvil:
@@ -322,7 +326,7 @@ services:
       - --rpc.enable-admin
 
   op-batcher-fallback:
-    profiles: [ "default", "tee" ]
+    profiles: ["default", "tee"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -361,7 +365,7 @@ services:
   # `docker compose build` so the TEE batcher can skip the expensive
   # rebuild-from-source step at runtime and jump straight to EIF conversion.
   op-batcher-enclave-app:
-    profiles: [ "tee" ]
+    profiles: ["tee"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -369,14 +373,18 @@ services:
     image: op-batcher-enclave-app:espresso
 
   op-batcher-tee:
-    profiles: [ "tee" ]
+    profiles: ["tee"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-enclave-target
     image: op-batcher-tee:espresso
     healthcheck:
-      test: [ "CMD-SHELL", "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1" ]
+      test:
+        [
+          "CMD-SHELL",
+          "test -f /tmp/enclave-tools.pid && kill -0 $(cat /tmp/enclave-tools.pid) 2>/dev/null || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -431,7 +439,7 @@ services:
 
   # Legacy op-proposer (for non-succinct mode)
   op-proposer:
-    profiles: [ "legacy" ]
+    profiles: ["legacy"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -491,7 +499,7 @@ services:
     restart: unless-stopped
 
   op-proposer-tee:
-    profiles: [ "tee" ]
+    profiles: ["tee"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -519,7 +527,7 @@ services:
 
   # Legacy op-challenger (for non-succinct mode)
   op-challenger:
-    profiles: [ "legacy" ]
+    profiles: ["legacy"]
     build:
       context: ../
       dockerfile: espresso/docker/op-stack/Dockerfile
@@ -534,7 +542,7 @@ services:
         condition: service_started
     volumes:
       - ./deployment/deployer:/deployer:ro
-      - ./deployment/l2-config:/config:ro
+      - l2-config:/config:ro
       - op-data-challenger:/data
     environment:
       OP_CHALLENGER_L1_ETH_RPC: http://l1-anvil:${L1_HTTP_PORT}
@@ -599,7 +607,7 @@ services:
       # PORT configuration
       PORT: "3100"
     healthcheck:
-      test: [ "CMD-SHELL", "nc -z localhost 3100 || exit 1" ]
+      test: ["CMD-SHELL", "nc -z localhost 3100 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -612,7 +620,11 @@ services:
     ports:
       - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
     healthcheck:
-      test: [ "CMD-SHELL", "timeout 2 bash -c 'cat < /dev/null > /dev/tcp/localhost/${ESPRESSO_ATTESTATION_VERIFIER_PORT}' || exit 1" ]
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 2 bash -c 'cat < /dev/null > /dev/tcp/localhost/${ESPRESSO_ATTESTATION_VERIFIER_PORT}' || exit 1",
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -657,7 +669,7 @@ services:
       ESPRESSO_DEV_NODE_VERSION: "0.4"
 
   blockscout-db:
-    profiles: [ "default" ]
+    profiles: ["default"]
     image: postgres:14
     restart: on-failure
     environment:
@@ -668,7 +680,7 @@ services:
       - blockscout-db-data:/var/lib/postgresql/data
 
   blockscout:
-    profiles: [ "default" ]
+    profiles: ["default"]
     image: ghcr.io/blockscout/blockscout@sha256:7659f168e4e2f6b73dd559ae5278fe96ba67bc2905ea01b57a814c68adf5a9dc
     restart: always
     depends_on:
@@ -694,7 +706,7 @@ services:
       MIX_ENV: "prod"
 
   blockscout-frontend:
-    profiles: [ "default" ]
+    profiles: ["default"]
     image: ghcr.io/blockscout/frontend@sha256:4b69f44148414b55c6b8550bc3270c63c9f99e923d54ef0b307e762af6bac90a
     restart: always
     depends_on:
@@ -720,6 +732,7 @@ services:
       NEXT_PUBLIC_NETWORK_CURRENCY_DECIMALS: "18"
 
 volumes:
+  l2-config:
   op-data-seq:
   op-data-verifier:
   op-data-caff-node:
