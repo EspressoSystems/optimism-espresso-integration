@@ -97,6 +97,9 @@ func CreateEspressoBatchUnmarshaler() func(data []byte) (*EspressoBatch, error) 
 }
 
 func UnmarshalEspressoTransaction(data []byte) (*EspressoBatch, error) {
+	if len(data) < crypto.SignatureLength {
+		return nil, fmt.Errorf("transaction data too short: %d bytes, need at least %d", len(data), crypto.SignatureLength)
+	}
 	signatureData, batchData := data[:crypto.SignatureLength], data[crypto.SignatureLength:]
 	batchHash := crypto.Keccak256(batchData)
 
