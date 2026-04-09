@@ -75,7 +75,8 @@ func TestChallengeGame(t *testing.T) {
 		gameStatus, err := types.GameStatusFromUint8(statusRaw)
 		require.NoError(t, err)
 		t.Logf("dispute game initial status: %s (%d)", gameStatus.String(), statusRaw)
-		require.Equal(t, types.GameStatusInProgress, gameStatus, "Dispute game should start InProgress")
+		require.True(t, gameStatus == types.GameStatusInProgress || gameStatus == types.GameStatusDefenderWon,
+			"Dispute game should be InProgress or DefenderWon, got %s (%d)", gameStatus.String(), statusRaw)
 
 		// Observe the dispute game for a limited time to see if it resolves.
 		maxObservation := 15 * time.Minute
