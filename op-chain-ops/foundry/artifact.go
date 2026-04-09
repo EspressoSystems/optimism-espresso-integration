@@ -92,7 +92,7 @@ type Metadata struct {
 		// Libraries data
 		Libraries json.RawMessage `json:"libraries"`
 		// ViaIR indicates whether the contract was compiled with the IR compiler.
-		ViaIR bool `json:"viaIR"`
+		ViaIR bool `json:"viaIR,omitempty"`
 	} `json:"settings"`
 
 	Sources map[string]ContractSource `json:"sources"`

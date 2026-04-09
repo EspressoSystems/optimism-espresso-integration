@@ -85,14 +85,14 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 		&cli.Uint64Flag{
 			Name:     CaffeinationHeightEspresso,
 			Usage:    "Espresso transactions below this height will not be considered",
-			EnvVars:  espressoEnvs(envPrefix, "CAFFEINATION_HEIGHT_ESPRESSO"),
+			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT_ESPRESSO"),
 			Category: category,
 		},
 		&cli.Uint64Flag{
 			Name:     CaffeinationHeightL2,
 			Usage:    "L2 height at which derivation pipeline of Caff node switches to Espresso",
 			Value:    0,
-			EnvVars:  espressoEnvs(envPrefix, "CAFFEINATION_HEIGHT_L2"),
+			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT_L2"),
 			Category: category,
 		},
 		&cli.Uint64Flag{

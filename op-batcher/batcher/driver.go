@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -1162,6 +1163,12 @@ type TxSender[T any] interface {
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
+	if floorGas, err := core.FloorDataGas(candidate.TxData); err != nil {
+		l.Log.Warn("Failed to compute FloorDataGas, continuing without floor", "err", err)
+	} else if floorGas > candidate.GasLimit {
+		candidate.GasLimit = floorGas
+	}
+
 	if l.Config.UseEspresso && !isCancel {
 		l.teeAuthGroup.Go(
 			func() error {
