@@ -2851,7 +2851,11 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
           check_changed_patterns: contracts-bedrock,op-node
       - contracts-bedrock-coverage:
-          filters: "false"
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              ignore: /.*/
           # Generate coverage reports.
           name: contracts-bedrock-coverage <<matrix.features>>
           test_timeout: 1h
@@ -2895,7 +2899,11 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks:
-          filters: "false"
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              ignore: /.*/
           requires:
             - contracts-bedrock-build
           context:
@@ -2963,7 +2971,6 @@ workflows:
             - contracts-bedrock-build
             - cannon-prestate-quick
       - go-tests:
-          filters: "false"
           name: go-tests-short
           parallelism: 12
           no_output_timeout: 19m
@@ -3010,7 +3017,9 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
           filters:
             branches:
-              ignore: develop # Run on all branches EXCEPT develop (PR branches only)
+              ignore: /.*/
+            tags:
+              ignore: /.*/
       - go-tests:
           name: go-tests-full
           rule: "go-tests-ci" # Run full test suite instead of short
@@ -3663,7 +3672,11 @@ workflows:
       # KURTOSIS (Simple)
       - op-acceptance-tests:
           # Acceptance Testing params
-          filters: "false"
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              ignore: /.*/
           name: kurtosis-simple
           devnet: simple
           gate: base
