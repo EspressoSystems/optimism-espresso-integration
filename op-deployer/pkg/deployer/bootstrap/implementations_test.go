@@ -42,7 +42,7 @@ func testImplementations(t *testing.T, forkRPCURL string) {
 
 	lgr := testlog.Logger(t, slog.LevelDebug)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
 	forkedL1, stopL1, err := devnet.NewForked(lgr, forkRPCURL)

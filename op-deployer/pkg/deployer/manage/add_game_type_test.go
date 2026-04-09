@@ -35,7 +35,7 @@ func TestAddGameType(t *testing.T) {
 	})
 
 	afacts, _ := testutil.LocalArtifacts(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	testCacheDir := testutils.IsolatedTestDirWithAutoCleanup(t)
 

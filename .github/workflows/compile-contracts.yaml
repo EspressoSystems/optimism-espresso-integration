@@ -55,3 +55,23 @@ jobs:
           name: forge-artifacts
           path: packages/contracts-bedrock/forge-artifacts/
           retention-days: 1
+
+      - name: Set up Go for mktar
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Generate embedded artifacts bundle
+        run: |
+          go run ./op-deployer/pkg/deployer/artifacts/cmd/mktar/main.go \
+            -base packages/contracts-bedrock \
+            -out op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst
+
+      - name: Upload embedded artifacts bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: embedded-artifacts
+          path: op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst
+          retention-days: 1

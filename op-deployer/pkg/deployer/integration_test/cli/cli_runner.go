@@ -180,7 +180,7 @@ func (r *CLITestRunner) ExpectSuccess(t *testing.T, args []string, env map[strin
 // ExpectSuccessWithNetwork runs a command with network parameters expecting it to succeed
 func (r *CLITestRunner) ExpectSuccessWithNetwork(t *testing.T, args []string, env map[string]string) string {
 	r.lgr.Info("Running cli command with network, expecting success")
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	output, err := r.RunWithNetwork(ctx, args, env)

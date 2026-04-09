@@ -30,8 +30,11 @@ jobs:
       - name: Build cannon binary
         run: make cannon
 
-      - name: Build op-program host binary
-        run: make -C op-program op-program-host
+      - name: Build op-program (host + MIPS64 client)
+        run: make op-program
+
+      - name: Build cannon prestates
+        run: make cannon-prestates
 
       - name: Upload op-binaries
         uses: actions/upload-artifact@v4
@@ -40,6 +43,9 @@ jobs:
           path: |
             cannon/bin/cannon
             op-program/bin/op-program
+            op-program/bin/prestate-*.bin.gz
+            op-program/bin/prestate-proof-*.json
+            op-program/bin/meta-*.json
           retention-days: 1
 
   test:
@@ -102,11 +108,11 @@ jobs:
           GOFLAGS: -mod=mod
         run: make -C cannon/testdata
 
-      - name: Generate embedded artifacts for op-deployer CLI tests
-        run: |
-          go run ./op-deployer/pkg/deployer/artifacts/cmd/mktar/main.go \
-            -base packages/contracts-bedrock \
-            -out op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst
+      - name: Download embedded artifacts bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: embedded-artifacts
+          path: op-deployer/pkg/deployer/artifacts/forge-artifacts/
 
       - name: Select package slice (group ${{ matrix.group }} of 5)
         id: packages

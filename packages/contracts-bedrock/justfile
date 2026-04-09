@@ -86,6 +86,7 @@ fix-proxy-artifact:
           if len(bytecode) > 2 and "src/universal" in src:
               print(f"{contract}.json already has correct OP bytecode, skipping fix")
               continue
+          main["abi"] = ref["abi"]
           main["bytecode"] = ref["bytecode"]
           main["deployedBytecode"] = ref["deployedBytecode"]
           main["ast"] = ref["ast"]

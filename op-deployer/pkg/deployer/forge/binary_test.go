@@ -52,6 +52,10 @@ func TestStandardBinary_ForgeBins(t *testing.T) {
 }
 
 func TestStandardBinary_Downloads(t *testing.T) {
+	// Clear PATH so that any system/nix forge binary is not found, forcing the
+	// download path that this test exercises.
+	t.Setenv("PATH", "")
+
 	expChecksum, err := os.ReadFile("testdata/foundry.tgz.sha256")
 	require.NoError(t, err)
 
