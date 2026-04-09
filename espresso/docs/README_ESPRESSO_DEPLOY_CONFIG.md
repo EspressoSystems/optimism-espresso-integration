@@ -132,3 +132,23 @@ In `espresso/deployment/deployer/`:
 - Rarely updated:
     - JWT secret
     - Validator keys
+
+## Generating allocs.json
+
+To generate the `allocs.json` file:
+
+```console
+docker run -it --rm ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:tag /bin/espresso-dev-node --sequencer-api-port 24000 --l1-deployment dump --path .
+```
+
+This prints the `allocs.json` file to STDOUT. To copy it to `environment/allocs.json`:
+
+```console
+./espresso/scripts/reshape-allocs.jq /path/to/devnode/generated/allocs.json > environment/allocs.json
+```
+
+To update the env variables in `espresso/.env`:
+
+```console
+./espresso/scripts/espresso-allocs-to-env.jq ./environment/allocs.json
+```
