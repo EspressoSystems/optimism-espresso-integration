@@ -91,7 +91,7 @@ jobs:
           primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
 
   # Each test group runs on its own Nitro-enabled EC2 instance.
-  # TestChallengeGame is excluded — it skips under the TEE profile.
+  # TestChallengeGame and TestWithdrawal are excluded — they require the succinct-proposer, not available in TEE profile.
   # TestChangeBatchAuthenticatorOwner is included; it loads env vars from espresso/.env.
   tee-group-0:
     needs: prepare
@@ -105,7 +105,7 @@ jobs:
     needs: prepare
     uses: ./.github/workflows/ec2-devnet-test.yaml
     with:
-      tests: "TestWithdrawal/tee|TestBatcherSwitching/tee"
+      tests: "TestBatcherSwitching/tee"
       group-name: "group-1"
     secrets: inherit
 
