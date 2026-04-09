@@ -88,10 +88,10 @@ parameters:
 orbs:
   go: circleci/go@1.8.0
   gcp-cli: circleci/gcp-cli@3.0.1
-  slack: circleci/slack@6.0.0
+  slack: circleci/slack@4.10.1
   shellcheck: circleci/shellcheck@3.2.0
   codecov: codecov/codecov@5.0.3
-  utils: piersy/circleci-utils@1.0.23
+  utils: ethereum-optimism/circleci-utils@1.0.8
   docker: circleci/docker@2.8.2
   github-cli: circleci/github-cli@2.7.0
 
