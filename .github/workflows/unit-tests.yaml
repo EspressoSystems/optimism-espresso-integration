@@ -98,6 +98,8 @@ jobs:
         run: chmod +x cannon/bin/cannon op-program/bin/op-program
 
       - name: Build cannon testdata ELF binaries
+        env:
+          GOFLAGS: -mod=mod
         run: make -C cannon/testdata
 
       - name: Generate embedded artifacts for op-deployer CLI tests
