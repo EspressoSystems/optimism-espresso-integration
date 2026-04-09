@@ -43,6 +43,9 @@ jobs:
         if: steps.forge-cache.outputs.cache-hit != 'true'
         run: just compile-contracts
 
+      - name: Apply proxy artifact fix
+        run: cd packages/contracts-bedrock && just fix-proxy-artifact
+
       - name: Save Nix cache
         if: always() && steps.forge-cache.outputs.cache-hit != 'true' && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
         uses: nix-community/cache-nix-action/save@v6

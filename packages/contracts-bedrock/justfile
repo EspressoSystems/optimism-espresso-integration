@@ -69,15 +69,21 @@ clean:
 # Fixes Proxy and ProxyAdmin artifact bytecode when Foundry's unversioned .json is missing,
 # empty, or overwritten by a third-party library (e.g. OZ v5 ProxyAdmin shadowing
 # src/universal/ProxyAdmin.sol). Restores from the pinned src/universal versioned artifact.
+# Also removes duplicate versioned artifacts that cause vm.getCode: multiple matching artifacts.
 fix-proxy-artifact:
   #!/usr/bin/env python3
-  import json, os
+  import glob, json, os
   FIXES = [("Proxy", "0.8.15"), ("ProxyAdmin", "0.8.25")]
   for contract, ref_ver in FIXES:
       ref_path  = f"forge-artifacts/{contract}.sol/{contract}.{ref_ver}.json"
       main_path = f"forge-artifacts/{contract}.sol/{contract}.json"
       if not os.path.exists(ref_path):
           continue
+      # Remove any extra versioned artifacts (e.g. ProxyAdmin.0.8.28.json from OZ v5 compilation)
+      for extra in glob.glob(f"forge-artifacts/{contract}.sol/{contract}.*.json"):
+          if extra != ref_path:
+              os.remove(extra)
+              print(f"Removed duplicate artifact: {extra}")
       ref = json.load(open(ref_path))
       if os.path.exists(main_path):
           main = json.load(open(main_path))
