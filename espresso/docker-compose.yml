@@ -73,7 +73,7 @@ services:
       op-geth-sequencer:
         condition: service_healthy
     volumes:
-      - ./deployment/l2-config:/config
+      - l2-config:/config
       - ./deployment/deployer:/deployer:ro
 
   l2-genesis:

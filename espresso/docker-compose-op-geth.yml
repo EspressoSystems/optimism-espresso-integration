@@ -15,7 +15,7 @@ services:
     volumes:
       - ./deployment:/deployment:ro
       - ./deployment/deployer:/deployer:ro
-      - ./deployment/l2-config:/config:ro
+      - l2-config:/config:ro
     environment:
       L1_RPC: http://l1-anvil:${L1_HTTP_PORT:?err}
       OP_HTTP_PORT: ${OP_HTTP_PORT:?err}
