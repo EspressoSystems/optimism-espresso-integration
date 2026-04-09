@@ -120,13 +120,15 @@ jobs:
           SLICE=$(go list ./... | grep -v \
             -e '/espresso/' \
             -e '/packages/contracts-bedrock/' \
+            -e '/deployer/pkg/deployer/pipeline' \
+            -e '/deployer/pkg/deployer/bootstrap' \
+            -e '/deployer/pkg/deployer/manage' \
+            -e '/deployer/pkg/deployer/opcm' \
+            -e '/deployer/pkg/deployer/integration_test' \
           | awk 'NR % 5 == ${{ matrix.group }}' | tr '\n' ' ')
           echo "list=$SLICE" >> $GITHUB_OUTPUT
 
       - name: Run unit tests (group ${{ matrix.group }})
-        env:
-          MAINNET_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/zQQB-jIV9lexdWbkkUH88vgalCaV7maq
-          SEPOLIA_RPC_URL: https://eth-sepolia.g.alchemy.com/v2/zQQB-jIV9lexdWbkkUH88vgalCaV7maq
         run: |
           gotestsum --junitfile junit-summary-${{ matrix.group }}.xml --format github-actions \
             -- -timeout 30m -count 1 \
@@ -146,10 +148,85 @@ jobs:
         with:
           primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
 
+  fork-tests:
+    name: Fork-dependent tests
+    needs: [build-contracts, build-op-binaries]
+    runs-on: ubuntu-24.04-8core
+    env:
+      SEPOLIA_RPC_URL: https://ethereum-sepolia-rpc.publicnode.com
+      MAINNET_RPC_URL: https://ethereum-rpc.publicnode.com
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v30
+        with:
+          nix_conf: |
+            keep-env-derivations = true
+            keep-outputs = true
+
+      - name: Restore Nix cache
+        id: cache-nix-restore
+        uses: nix-community/cache-nix-action/restore@v6
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+
+      - name: Set up Nix environment
+        uses: nicknovitski/nix-develop@v1
+
+      - name: Set up Go and cache modules
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Download forge-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-artifacts
+          path: packages/contracts-bedrock/forge-artifacts/
+
+      - name: Download embedded artifacts bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: embedded-artifacts
+          path: op-deployer/pkg/deployer/artifacts/forge-artifacts/
+
+      - name: Run fork-dependent tests
+        run: |
+          gotestsum --junitfile junit-summary-fork.xml --format github-actions \
+            -- -timeout 30m -count 1 -p 1 \
+            github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/pipeline \
+            github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/bootstrap \
+            github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/manage \
+            github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/opcm
+
+      - name: Upload JUnit test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-test-summary-fork
+          path: junit-summary-fork.xml
+          retention-days: 7
+
+      - name: Save Nix cache
+        uses: nix-community/cache-nix-action/save@v6
+        if: always() && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
+        with:
+          primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
+
   combine-summaries:
     name: Combine test reports
     if: always()
-    needs: test
+    needs: [test, fork-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v4
