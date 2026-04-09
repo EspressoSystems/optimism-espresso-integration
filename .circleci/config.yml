@@ -3670,7 +3670,7 @@ workflows:
         equal: [<< pipeline.git.branch >>, "develop"]
     jobs:
       # KURTOSIS (Simple)
-      - op-acceptance-tests:
+      - op-acceptance-tests-kurtosis:
           # Acceptance Testing params
           filters:
             branches:
