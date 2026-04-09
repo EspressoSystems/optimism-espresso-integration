@@ -10,10 +10,46 @@ jobs:
   build-contracts:
     uses: ./.github/workflows/compile-contracts.yaml
 
-  unit-tests:
-    name: Unit tests
-    needs: build-contracts
+  build-op-binaries:
+    name: Build op-program and cannon binaries
     runs-on: ubuntu-24.04-8core
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go and cache modules
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build cannon binary
+        run: make cannon
+
+      - name: Build op-program host binary
+        run: make -C op-program op-program-host
+
+      - name: Upload op-binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: op-binaries
+          path: |
+            cannon/bin/cannon
+            op-program/bin/op-program
+          retention-days: 1
+
+  test:
+    name: Unit tests (group ${{ matrix.group }})
+    needs: [build-contracts, build-op-binaries]
+    runs-on: ubuntu-24.04-8core
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [0, 1, 2, 3, 4]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,22 +89,80 @@ jobs:
           name: forge-artifacts
           path: packages/contracts-bedrock/forge-artifacts/
 
+      - name: Download op-binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: op-binaries
+
+      - name: Make op-binaries executable
+        run: chmod +x cannon/bin/cannon op-program/bin/op-program
+
       - name: Build cannon testdata ELF binaries
         run: make -C cannon/testdata
 
-      - name: Run unit tests
+      - name: Generate embedded artifacts for op-deployer CLI tests
+        run: |
+          go run ./op-deployer/pkg/deployer/artifacts/cmd/mktar/main.go \
+            -base packages/contracts-bedrock \
+            -out op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst
+
+      - name: Select package slice (group ${{ matrix.group }} of 5)
+        id: packages
+        run: |
+          SLICE=$(go list ./... | grep -v \
+            -e '/espresso/' \
+            -e '/packages/contracts-bedrock/' \
+          | awk 'NR % 5 == ${{ matrix.group }}' | tr '\n' ' ')
+          echo "list=$SLICE" >> $GITHUB_OUTPUT
+
+      - name: Run unit tests (group ${{ matrix.group }})
         env:
           MAINNET_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/zQQB-jIV9lexdWbkkUH88vgalCaV7maq
           SEPOLIA_RPC_URL: https://eth-sepolia.g.alchemy.com/v2/zQQB-jIV9lexdWbkkUH88vgalCaV7maq
         run: |
-          gotestsum --format github-actions -- -timeout 30m -count 1 \
-            $(go list ./... | grep -v \
-              -e '/espresso/' \
-              -e '/packages/contracts-bedrock/' \
-            )
+          gotestsum --junitfile junit-summary-${{ matrix.group }}.xml --format github-actions \
+            -- -timeout 30m -count 1 \
+            ${{ steps.packages.outputs.list }}
+
+      - name: Upload JUnit test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-test-summary-${{ matrix.group }}
+          path: junit-summary-${{ matrix.group }}.xml
+          retention-days: 7
 
       - name: Save Nix cache
         uses: nix-community/cache-nix-action/save@v6
         if: always() && steps.cache-nix-restore.outputs.hit-primary-key != 'true'
         with:
           primary-key: ${{ steps.cache-nix-restore.outputs.primary-key }}
+
+  combine-summaries:
+    name: Combine test reports
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download all JUnit artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-test-summary-*
+          merge-multiple: true
+
+      - name: Install junit-report-merger
+        run: npm install -g junit-report-merger
+
+      - name: Merge reports
+        run: jrm ./junit-test-summary.xml "junit-summary-*.xml"
+
+      - name: Upload merged summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-test-summary
+          path: ./junit-test-summary.xml
+          retention-days: 7
