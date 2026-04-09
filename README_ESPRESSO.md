@@ -479,7 +479,7 @@ In order to refresh this AMI one needs to:
 2. Copy the script `espresso/scripts/enclave-prepare-ami.sh` in the EC2 instance (e.g. using scp) and run it.
 3. [Export the AMI instance](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/tkv-create-ami-from-instance.html).
 
-# OP Succinct Lite dependencies
+# OP Succinct Lite and derivation pipeline dependencies
 
 For the OP Succinct repository overview, branch table, and the procedure for propagating derivation pipeline changes through kona → celo-kona → op-succinct, see [`espresso/docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md`](espresso/docs/README_ESPRESSO_CODE_SYNC_PROCEDURE.md).
 
