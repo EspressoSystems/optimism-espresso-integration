@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBatcherSwitching tests that the batcher can be switched from the TEE-enabled
-// batcher to a fallback non-TEE batcher using the BatchAuthenticator contract.
+// TestBatcherSwitching tests that the batcher can be switched from the Espresso
+// batcher to a fallback batcher using the BatchAuthenticator contract.
 //
 // This is the devnet equivalent of TestBatcherSwitching from the E2E tests.
 // The test runs two batchers in parallel:
@@ -21,9 +21,9 @@ func TestBatcherSwitching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize devnet with NON_TEE profile (starts both batchers)
+	// Initialize devnet with FALLBACK profile (starts both batchers)
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() {
 		require.NoError(t, d.Down())
 	}()
@@ -48,11 +48,11 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check current active batcher state before switching
-	activeIsTee, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
+	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
 	require.NoError(t, err)
-	t.Logf("Before switch: activeIsTee = %v", activeIsTee)
+	t.Logf("Before switch: activeIsEspresso = %v", activeIsEspresso)
 
-	// Stop the primary "TEE" batcher (op-batcher with Espresso enabled)
+	// Stop the Espresso batcher (op-batcher with Espresso enabled)
 	require.NoError(t, d.StopBatcherSubmitting("op-batcher"))
 	t.Logf("Stopped op-batcher batch submission")
 
@@ -67,10 +67,10 @@ func TestBatcherSwitching(t *testing.T) {
 	t.Logf("SwitchBatcher transaction confirmed in block %d", receipt.BlockNumber.Uint64())
 
 	// Verify the switch happened
-	activeIsTeeAfter, err := batchAuthenticator.ActiveIsTee(&bind.CallOpts{})
+	activeIsEspressoAfter, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
 	require.NoError(t, err)
-	require.NotEqual(t, activeIsTee, activeIsTeeAfter, "activeIsTee should have toggled")
-	t.Logf("After switch: activeIsTee = %v", activeIsTeeAfter)
+	require.NotEqual(t, activeIsEspresso, activeIsEspressoAfter, "activeIsEspresso should have toggled")
+	t.Logf("After switch: activeIsEspresso = %v", activeIsEspressoAfter)
 
 	// Start the fallback batcher
 	require.NoError(t, d.StartBatcherSubmitting("op-batcher-fallback"))

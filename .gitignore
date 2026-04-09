@@ -69,3 +69,6 @@ config/jwt.txt
 *.pem
 
 packages/contracts-bedrock/lib/automate/
+
+# AI tools
+.claude

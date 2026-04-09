@@ -825,7 +825,7 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 
 			l1EthRpcURLPtr, err := url.Parse(c.L1EthRpc)
 			if err != nil {
-				ct.Error = FailedToDetermineL1RPCURL{Cause: err}
+				ct.T.Fatalf("failed to parse L1 RPC URL %q: %v", c.L1EthRpc, err)
 				return
 			}
 
@@ -834,13 +834,13 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			// Let's spin up the espresso-dev-node
 			l1EthRpcURL, err := translateContainerToNodeURL(*l1EthRpcURLPtr, network)
 			if err != nil {
-				ct.Error = err
+				ct.T.Fatalf("failed to translate L1 RPC URL for Docker: %v", err)
 				return
 			}
 
 			dockerConfig, portRemapping, err := determineEspressoDevNodeDockerContainerConfig(l1EthRpcURL, network)
 			if err != nil {
-				ct.Error = err
+				ct.T.Fatalf("failed to build espresso dev node Docker config: %v", err)
 				return
 			}
 
@@ -848,7 +848,7 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 
 			espressoDevNodeContainerInfo, err := containerCli.LaunchContainer(ct.Ctx, dockerConfig)
 			if err != nil {
-				ct.Error = FailedToLaunchDockerContainer{Cause: err}
+				ct.T.Fatalf("failed to launch espresso dev node container: %v", err)
 				return
 			}
 
@@ -856,7 +856,7 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 
 			// Wait for Espresso to be ready
 			if err := waitForEspressoToFinishSpinningUp(ct, espressoDevNodeContainerInfo); err != nil {
-				ct.Error = err
+				ct.T.Fatalf("espresso dev node failed to become ready: %v", err)
 				return
 			}
 

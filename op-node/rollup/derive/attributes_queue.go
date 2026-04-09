@@ -9,6 +9,7 @@ import (
 
 	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum-optimism/optimism/espresso"
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -162,7 +163,7 @@ func CaffNextBatch(s *op.BatchStreamer[EspressoBatch], ctx context.Context, pare
 		nextTimestamp := parent.Time + blockTime
 
 		if batch.Timestamp != nextTimestamp {
-			s.Log.Error("Dropping batch", "batch", espressoBatch.Number(), "timestamp", batch.Timestamp, "expected", nextTimestamp)
+			s.Log.Error(logmodule.DroppingBatch, "batch", espressoBatch.Number(),"timestamp", batch.Timestamp, "expected", nextTimestamp)
 			return nil, false, ErrTemporary
 		}
 

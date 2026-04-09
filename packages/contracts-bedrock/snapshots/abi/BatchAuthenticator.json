@@ -39,7 +39,7 @@
   },
   {
     "inputs": [],
-    "name": "activeIsTee",
+    "name": "activeIsEspresso",
     "outputs": [
       {
         "internalType": "bool",
@@ -265,7 +265,7 @@
       },
       {
         "internalType": "address",
-        "name": "_teeBatcher",
+        "name": "_espressoBatcher",
         "type": "address"
       },
       {
@@ -446,11 +446,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_newTeeBatcher",
+        "name": "_newEspressoBatcher",
         "type": "address"
       }
     ],
-    "name": "setTeeBatcher",
+    "name": "setEspressoBatcher",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -496,7 +496,7 @@
   },
   {
     "inputs": [],
-    "name": "teeBatcher",
+    "name": "espressoBatcher",
     "outputs": [
       {
         "internalType": "address",
@@ -552,7 +552,7 @@
       {
         "indexed": true,
         "internalType": "bool",
-        "name": "activeIsTee",
+        "name": "activeIsEspresso",
         "type": "bool"
       }
     ],
@@ -730,17 +730,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "oldTeeBatcher",
+        "name": "oldEspressoBatcher",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "newTeeBatcher",
+        "name": "newEspressoBatcher",
         "type": "address"
       }
     ],
-    "name": "TeeBatcherUpdated",
+    "name": "EspressoBatcherUpdated",
     "type": "event"
   },
   {

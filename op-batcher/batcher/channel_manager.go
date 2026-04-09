@@ -7,6 +7,7 @@ import (
 	"math"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
+	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -524,7 +525,7 @@ func (s *channelManager) outputFrames() error {
 		comprRatio = float64(outBytes) / float64(inBytes)
 	}
 
-	s.log.Info("Channel closed",
+	s.log.Info(logmodule.ChannelClosed,
 		"id", s.currentChannel.ID(),
 		"blocks_pending", s.pendingBlocks(),
 		"block_cursor", s.blockCursor,

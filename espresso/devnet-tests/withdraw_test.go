@@ -34,7 +34,7 @@ func TestWithdrawal(t *testing.T) {
 	defer cancel()
 
 	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(NON_TEE))
+	require.NoError(t, d.Up(FALLBACK))
 	defer func() { require.NoError(t, d.Down()) }()
 
 	alice := crypto.PubkeyToAddress(d.secrets.Alice.PublicKey)

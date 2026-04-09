@@ -27,19 +27,31 @@ func espressoEnvs(envprefix, v string) []string {
 	return []string{envprefix + "_ESPRESSO_" + v}
 }
 
+// Default values for batch submission receipt verification tuning.
+// Defined here so that both the CLI flag defaults and the batcher logic
+// can reference a single source of truth.
+const (
+	DefaultVerifyReceiptMaxBlocks     uint64        = 5
+	DefaultVerifyReceiptSafetyTimeout time.Duration = 5 * time.Minute
+	DefaultVerifyReceiptRetryDelay    time.Duration = 100 * time.Millisecond
+)
+
 var (
-	EnabledFlagName                  = espressoFlags("enabled")
-	PollIntervalFlagName             = espressoFlags("poll-interval")
-	QueryServiceUrlsFlagName         = espressoFlags("urls")
-	LightClientAddrFlagName          = espressoFlags("light-client-addr")
-	L1UrlFlagName                    = espressoFlags("l1-url")
-	TestingBatcherPrivateKeyFlagName = espressoFlags("testing-batcher-private-key")
-	CaffeinationHeightEspresso       = espressoFlags("origin-height-espresso")
-	CaffeinationHeightL2             = espressoFlags("origin-height-l2")
-	NamespaceFlagName                = espressoFlags("namespace")
-	RollupL1UrlFlagName              = espressoFlags("rollup-l1-url")
-	AttestationServiceFlagName       = espressoFlags("espresso-attestation-service")
-	BatchAuthenticatorAddrFlagName   = espressoFlags("batch-authenticator-addr")
+	EnabledFlagName                    = espressoFlags("enabled")
+	PollIntervalFlagName               = espressoFlags("poll-interval")
+	QueryServiceUrlsFlagName           = espressoFlags("urls")
+	LightClientAddrFlagName            = espressoFlags("light-client-addr")
+	L1UrlFlagName                      = espressoFlags("l1-url")
+	TestingBatcherPrivateKeyFlagName   = espressoFlags("testing-batcher-private-key")
+	CaffeinationHeightEspresso         = espressoFlags("origin-height-espresso")
+	CaffeinationHeightL2               = espressoFlags("origin-height-l2")
+	NamespaceFlagName                  = espressoFlags("namespace")
+	RollupL1UrlFlagName                = espressoFlags("rollup-l1-url")
+	AttestationServiceFlagName         = espressoFlags("espresso-attestation-service")
+	BatchAuthenticatorAddrFlagName     = espressoFlags("batch-authenticator-addr")
+	VerifyReceiptMaxBlocksFlagName     = espressoFlags("verify-receipt-max-blocks")
+	VerifyReceiptSafetyTimeoutFlagName = espressoFlags("verify-receipt-safety-timeout")
+	VerifyReceiptRetryDelayFlagName    = espressoFlags("verify-receipt-retry-delay")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -119,6 +131,27 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "BATCH_AUTHENTICATOR_ADDR"),
 			Category: category,
 		},
+		&cli.Uint64Flag{
+			Name:     VerifyReceiptMaxBlocksFlagName,
+			Usage:    "Number of HotShot blocks to wait for a submitted transaction to become queryable before re-submitting",
+			Value:    DefaultVerifyReceiptMaxBlocks,
+			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_MAX_BLOCKS"),
+			Category: category,
+		},
+		&cli.DurationFlag{
+			Name:     VerifyReceiptSafetyTimeoutFlagName,
+			Usage:    "Wall-clock backstop for receipt verification; re-submits the transaction if this duration is exceeded",
+			Value:    DefaultVerifyReceiptSafetyTimeout,
+			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_SAFETY_TIMEOUT"),
+			Category: category,
+		},
+		&cli.DurationFlag{
+			Name:     VerifyReceiptRetryDelayFlagName,
+			Usage:    "Delay between receipt verification retries",
+			Value:    DefaultVerifyReceiptRetryDelay,
+			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_RETRY_DELAY"),
+			Category: category,
+		},
 	}
 }
 
@@ -135,6 +168,11 @@ type CLIConfig struct {
 	CaffeinationHeightEspresso uint64
 	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
+
+	// Batch submission receipt verification tuning
+	VerifyReceiptMaxBlocks     uint64
+	VerifyReceiptSafetyTimeout time.Duration
+	VerifyReceiptRetryDelay    time.Duration
 
 	// Non directly configurable option
 	allowEmptyAttestationService bool `json:"-"`
@@ -169,6 +207,15 @@ func (c CLIConfig) Check() error {
 		if !c.allowEmptyAttestationService && c.EspressoAttestationService == "" {
 			return fmt.Errorf("attestation service URL is required when Espresso is enabled")
 		}
+		if c.VerifyReceiptMaxBlocks == 0 {
+			return fmt.Errorf("verify-receipt-max-blocks must be > 0")
+		}
+		if c.VerifyReceiptSafetyTimeout <= 0 {
+			return fmt.Errorf("verify-receipt-safety-timeout must be > 0")
+		}
+		if c.VerifyReceiptRetryDelay <= 0 {
+			return fmt.Errorf("verify-receipt-retry-delay must be > 0")
+		}
 	}
 	return nil
 }
@@ -183,6 +230,9 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
 		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
 		EspressoAttestationService: c.String(AttestationServiceFlagName),
+		VerifyReceiptMaxBlocks:     c.Uint64(VerifyReceiptMaxBlocksFlagName),
+		VerifyReceiptSafetyTimeout: c.Duration(VerifyReceiptSafetyTimeoutFlagName),
+		VerifyReceiptRetryDelay:    c.Duration(VerifyReceiptRetryDelayFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
