@@ -3646,7 +3646,6 @@ workflows:
       - cannon-kona-prestate: # needed for sysgo tests (if any package is in-memory)
           context:
             - circleci-repo-readonly-authenticated-github-token
-            - discord
       - cannon-kona-host: # needed for sysgo tests (if any package is in-memory)
           context:
             - circleci-repo-readonly-authenticated-github-token
@@ -3656,32 +3655,6 @@ workflows:
           binaries: "kona-node kona-supervisor"
           build_command: cargo build --release --bin kona-node --bin kona-supervisor
           needs_clang: true
-      # Generate flaky test report : CircleCI API token not configured TODO: https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1211927036399950?focus=true
-      # - generate-flaky-report:
-      #     name: generate-flaky-tests-report
-      #     context:
-      #       - circleci-repo-readonly-authenticated-github-token
-      #       - circleci-api-token
-
-  # Acceptance tests (pre-merge to develop)
-  acceptance-tests-pr:
-    when:
-      not:
-        equal: [<< pipeline.git.branch >>, "develop"]
-    jobs:
-      # KURTOSIS (Simple)
-      - op-acceptance-tests-kurtosis:
-          # Acceptance Testing params
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              ignore: /.*/
-          name: kurtosis-simple
-          devnet: simple
-          gate: base
-          # CircleCI params
-          no_output_timeout: 30m
           context:
             - circleci-repo-readonly-authenticated-github-token
       - rust-binary-build:
@@ -3725,6 +3698,14 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
             - circleci-api-token
+
+  # Acceptance tests (pre-merge to develop) - not in Celo rebase-16, disabled
+  acceptance-tests-pr:
+    when: false
+    jobs:
+      - contracts-bedrock-build:
+          context:
+            - circleci-repo-readonly-authenticated-github-token
 
   close-issue-workflow:
     # celo disable unwanted jobs/workflows
