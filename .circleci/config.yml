@@ -3615,14 +3615,11 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
 
   # Acceptance tests
+  # espresso: disabled - jobs in this workflow use celo-org/xlarge and celo-org/2xlarge self-hosted
+  # runner resource classes that are not registered in the EspressoSystems CircleCI org, causing
+  # all jobs to show as "task information unavailable". Re-enable if/when those runners are set up.
   acceptance-tests:
-    when:
-      or:
-        - equal: ["webhook", << pipeline.trigger_source >>]
-        # Manual dispatch
-        - and:
-            - equal: [true, <<pipeline.parameters.acceptance_tests_dispatch>>]
-            - equal: ["api", << pipeline.trigger_source >>]
+    when: false
     jobs:
       - contracts-bedrock-build: # needed for sysgo tests
           build_args: --skip test
