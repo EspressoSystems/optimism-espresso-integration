@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail
 
 # Set default values.
@@ -14,11 +14,11 @@ if [ "$MODE" = "genesis" ]; then
   echo "=== Running L2 Genesis Mode ==="
 
   echo "Generating genesis..."
-  op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json $L2_CHAIN_ID
+  op-deployer inspect genesis --workdir /deployer --outfile /config/genesis.json "$L2_CHAIN_ID"
 
   echo "Updating genesis timestamp..."
   # Use environment variable or fallback to the current time.
-  GENESIS_TIMESTAMP=${GENESIS_TIMESTAMP:-$(printf '0x%x\n' $(date +%s))}
+  GENESIS_TIMESTAMP=${GENESIS_TIMESTAMP:-$(printf '0x%x\n' "$(date +%s)")}
   dasel put -f /config/genesis.json -s .timestamp -v "$GENESIS_TIMESTAMP"
 
   if [[ ! -f /config/jwt.txt ]]; then
@@ -74,15 +74,15 @@ elif [ "$MODE" = "geth" ]; then
     --datadir=/data/geth \
     --gcmode=archive \
     --state.scheme=hash \
-    --networkid=${L2_CHAIN_ID} \
+    --networkid="${L2_CHAIN_ID}" \
     --http \
     --http.addr=0.0.0.0 \
-    --http.port=${OP_HTTP_PORT} \
+    --http.port="${OP_HTTP_PORT}" \
     --http.api=eth,net,web3,debug,admin,txpool \
     --http.vhosts=* \
     --http.corsdomain=* \
     --authrpc.addr=0.0.0.0 \
-    --authrpc.port=${OP_ENGINE_PORT} \
+    --authrpc.port="${OP_ENGINE_PORT}" \
     --authrpc.vhosts=* \
     --authrpc.jwtsecret=/config/jwt.txt \
     --rollup.disabletxpoolgossip=true \
@@ -97,7 +97,7 @@ elif [ "$MODE" = "rollup" ]; then
     cp /deployment/l2-config/rollup.json /config/rollup.json
   else
     echo "Pre-built rollup config not found, generating new one..."
-    op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json $L2_CHAIN_ID
+    op-deployer inspect rollup --workdir /deployer --outfile /config/rollup.json "$L2_CHAIN_ID"
   fi
 
   # Update rollup.json with current L1/L2 state.
@@ -107,7 +107,7 @@ elif [ "$MODE" = "rollup" ]; then
           -H 'Content-Type: application/json' \
           -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
           | jq -r ".result.hash")
-  dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v $L1_HASH
+  dasel put -f /config/rollup.json -s .genesis.l1.hash -t string -v "$L1_HASH"
   dasel put -f /config/rollup.json -s .genesis.l1.number -t int -v 0
 
   echo "Updating L2 genesis info..."
@@ -116,11 +116,11 @@ elif [ "$MODE" = "rollup" ]; then
           -H 'Content-Type: application/json' \
           -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' \
           | jq -r ".result.hash")
-  dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v $L2_HASH
+  dasel put -f /config/rollup.json -s .genesis.l2.hash -t string -v "$L2_HASH"
   dasel put -f /config/rollup.json -s .genesis.l2.number -t int -v 0
 
   echo "Updating rollup l2_time..."
-  dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v $(date +%s)
+  dasel put -f /config/rollup.json -s .genesis.l2_time -t int -v "$(date +%s)"
   # Remove Celo/Espresso-specific fields not known to the succinct-proposer image.
   dasel delete -f /config/rollup.json -s .genesis.system_config.daFootprintGasScalar 2>/dev/null || true
 

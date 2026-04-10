@@ -118,9 +118,7 @@ fi
 INPUT_NAME="$1"
 
 # Resolve the service name
-SERVICE_NAME=$(resolve_service_name "$INPUT_NAME")
-
-if [[ $? -ne 0 ]]; then
+if ! SERVICE_NAME=$(resolve_service_name "$INPUT_NAME"); then
     echo "❌ Error: Invalid service name or alias '$INPUT_NAME'"
     echo ""
     show_usage
@@ -135,4 +133,4 @@ fi
 # Run docker compose logs
 echo "📋 Showing logs for $SERVICE_NAME (Press Ctrl+C to exit)"
 echo "----------------------------------------"
-docker compose logs -f $SERVICE_NAME
+docker compose logs -f "$SERVICE_NAME"

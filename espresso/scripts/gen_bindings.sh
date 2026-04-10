@@ -18,7 +18,7 @@ function generate_go_bindings() {
     local dir name versioned_file
     dir=$(dirname "$json_file")
     name=$(basename "$json_file" .json)
-    versioned_file=$(ls "$dir/$name".*.json 2>/dev/null | sort -V | head -n1)
+    versioned_file=$(find "$dir" -maxdepth 1 -name "$name.*.json" 2>/dev/null | sort -V | head -n1)
     if [[ -n "$versioned_file" ]]; then
       echo "Note: $json_file not found, using versioned artifact: $versioned_file" >&2
       json_file="$versioned_file"

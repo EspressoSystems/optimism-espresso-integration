@@ -65,7 +65,7 @@ if [[ "$MODE" == "genesis" ]]; then
       /config/deposit_contract_block.txt /config/deposit_contract.txt
 
     echo "Updating genesis timestamp..."
-    dasel put -f /config/genesis.json -s .timestamp -v $(printf '0x%x\n' $(date +%s))
+    dasel put -f /config/genesis.json -s .timestamp -v "$(printf '0x%x\n' "$(date +%s)")"
 
     echo "Generating consensus layer genesis..."
     eth-beacon-genesis devnet \
@@ -135,16 +135,16 @@ elif [[ "$MODE" == "geth" ]]; then
     --http \
     --http.addr=0.0.0.0 \
     --http.api=eth,net,web3,admin,engine,miner,debug \
-    --http.port=${L1_HTTP_PORT} \
+    --http.port="${L1_HTTP_PORT}" \
     --http.vhosts=* \
     --http.corsdomain=* \
     --authrpc.addr=0.0.0.0 \
-    --authrpc.port=${L1_ENGINE_PORT} \
+    --authrpc.port="${L1_ENGINE_PORT}" \
     --authrpc.vhosts=* \
     --authrpc.jwtsecret=/config/jwt.txt \
     --nodiscover \
     --maxpeers 0 \
-    --networkid ${L1_CHAIN_ID} \
+    --networkid "${L1_CHAIN_ID}" \
     --syncmode=full \
     --gcmode=archive
 
