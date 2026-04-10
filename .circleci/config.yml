@@ -622,7 +622,7 @@ jobs:
   contracts-bedrock-build:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     parameters:
       build_args:
         description: Forge build arguments
@@ -933,7 +933,7 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     parameters:
       test_list:
         description: List of test files to run
@@ -1114,7 +1114,7 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     parameters:
       test_timeout:
         description: Timeout for running tests
@@ -1230,7 +1230,7 @@ jobs:
         default: ""
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1382,7 +1382,7 @@ jobs:
   contracts-bedrock-checks-fast:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1525,7 +1525,7 @@ jobs:
         default: 1
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     # circleci_ip_ranges: true
     parallelism: <<parameters.parallelism>>
     steps:
@@ -1796,7 +1796,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -2571,7 +2571,7 @@ jobs:
   publish-contract-artifacts:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - gcp-cli/install
       - gcp-oidc-authenticate:
