@@ -25,17 +25,17 @@ import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
 ///     <PROXY_ADMIN_OWNER>
 contract DeployBatchAuthenticator is Script {
     function run(
-        address espressoBatcher,
-        address systemConfig,
-        address teeVerifier,
-        address proxyAdminOwner
+        address _espressoBatcher,
+        address _systemConfig,
+        address _teeVerifier,
+        address _proxyAdminOwner
     ) public {
-        require(espressoBatcher != address(0), "espressoBatcher required");
-        require(systemConfig != address(0), "systemConfig required");
-        require(teeVerifier != address(0), "teeVerifier required");
+        require(_espressoBatcher != address(0), "DeployBatchAuthenticator: espressoBatcher required");
+        require(_systemConfig != address(0), "DeployBatchAuthenticator: systemConfig required");
+        require(_teeVerifier != address(0), "DeployBatchAuthenticator: teeVerifier required");
 
-        if (proxyAdminOwner == address(0)) {
-            proxyAdminOwner = msg.sender;
+        if (_proxyAdminOwner == address(0)) {
+            _proxyAdminOwner = msg.sender;
             console.log("WARN: proxyAdminOwner not set, defaulting to msg.sender");
         }
 
@@ -52,10 +52,10 @@ contract DeployBatchAuthenticator is Script {
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
             (
-                IEspressoTEEVerifier(teeVerifier),
-                espressoBatcher,
-                ISystemConfig(systemConfig),
-                proxyAdminOwner
+                IEspressoTEEVerifier(_teeVerifier),
+                _espressoBatcher,
+                ISystemConfig(_systemConfig),
+                _proxyAdminOwner
             )
         );
         proxyAdmin.upgradeAndCall(
@@ -64,8 +64,8 @@ contract DeployBatchAuthenticator is Script {
             initData
         );
 
-        if (proxyAdminOwner != msg.sender) {
-            proxyAdmin.transferOwnership(proxyAdminOwner);
+        if (_proxyAdminOwner != msg.sender) {
+            proxyAdmin.transferOwnership(_proxyAdminOwner);
         }
 
         vm.stopBroadcast();

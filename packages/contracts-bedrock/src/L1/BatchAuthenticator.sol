@@ -99,20 +99,20 @@ contract BatchAuthenticator is
         emit EspressoBatcherUpdated(oldEspressoBatcher, _newEspressoBatcher);
     }
 
-    function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
+    function authenticateBatchInfo(bytes32 _commitment, bytes calldata _signature) external {
         if (paused()) revert BatchAuthenticator_Paused();
 
         // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
-        espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
+        espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
 
-        emit BatchInfoAuthenticated(commitment);
+        emit BatchInfoAuthenticated(_commitment);
     }
 
-    function registerSigner(bytes calldata verificationData, bytes calldata data) external {
+    function registerSigner(bytes calldata _verificationData, bytes calldata _data) external {
         if (paused()) revert BatchAuthenticator_Paused();
 
         espressoTEEVerifier.registerService(
-            verificationData, data, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
+            _verificationData, _data, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
         );
         emit SignerRegistrationInitiated(msg.sender);
     }

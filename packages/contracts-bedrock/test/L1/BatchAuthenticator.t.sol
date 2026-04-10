@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
+import { Test } from "test/setup/Test.sol";
 import { console2 as console } from "forge-std/console2.sol";
 import { Vm } from "forge-std/Vm.sol";
 
@@ -27,6 +27,10 @@ import {
 import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable-v5/proxy/utils/Initializable.sol";
+import { OwnableWithGuardiansUpgradeable } from
+    "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
 
 /// @notice Minimal mock of SystemConfig that exposes a settable paused() flag.
 contract MockSystemConfig {
@@ -161,7 +165,7 @@ contract BatchAuthenticator_Test is Test {
 
         // Second initialization should revert.
         vm.prank(proxyAdminOwner);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
     }
 
@@ -255,12 +259,14 @@ contract BatchAuthenticator_Test is Test {
 
         // Unauthorized cannot switch.
         vm.prank(unauthorized);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(OwnableWithGuardiansUpgradeable.NotGuardianOrOwner.selector, unauthorized));
         authenticator.switchBatcher();
 
         // ProxyAdmin cannot switch.
         vm.prank(address(proxyAdmin));
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableWithGuardiansUpgradeable.NotGuardianOrOwner.selector, address(proxyAdmin))
+        );
         authenticator.switchBatcher();
     }
 
@@ -313,7 +319,7 @@ contract BatchAuthenticator_Test is Test {
         bytes memory invalidSignature = new bytes(65);
 
         // OpenZeppelin's ECDSA.recover reverts with its own error for invalid signatures
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 65));
         authenticator.authenticateBatchInfo(commitment, invalidSignature);
     }
 
@@ -345,12 +351,12 @@ contract BatchAuthenticator_Test is Test {
 
         // Unauthorized cannot set.
         vm.prank(unauthorized);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
         authenticator.setEspressoBatcher(address(0x7777));
 
         // ProxyAdmin cannot set.
         vm.prank(address(proxyAdmin));
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(proxyAdmin)));
         authenticator.setEspressoBatcher(address(0x8888));
     }
 
@@ -530,7 +536,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         vm.createSelectFork(forkUrl);
 
         // Verify we're on Sepolia.
-        require(block.chainid == Chains.Sepolia, "Fork test must run on Sepolia");
+        require(block.chainid == Chains.Sepolia, "BatchAuthenticatorForkTest: fork test must run on Sepolia");
         console.log("Forked Sepolia at block:", block.number);
 
         // Deploy mock SystemConfig and TEE verifier (standalone mode) and authenticator implementation.
