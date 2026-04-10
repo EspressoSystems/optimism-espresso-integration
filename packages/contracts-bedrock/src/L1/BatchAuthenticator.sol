@@ -2,14 +2,16 @@
 pragma solidity ^0.8.0;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { OwnableUpgradeable } from
-    "lib/espresso-tee-contracts/lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
-import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
+// espresso: use direct paths (not @espresso-tee-contracts/ remapping) so that Foundry's
+// context-specific remappings correctly apply to files within lib/espresso-tee-contracts/.
+import { IEspressoTEEVerifier } from "lib/espresso-tee-contracts/src/interface/IEspressoTEEVerifier.sol";
+import { ServiceType } from "lib/espresso-tee-contracts/src/types/Types.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
-import { OwnableWithGuardiansUpgradeable } from "@espresso-tee-contracts/OwnableWithGuardiansUpgradeable.sol";
+import { OwnableWithGuardiansUpgradeable } from
+    "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 

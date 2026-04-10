@@ -211,6 +211,20 @@ commands:
             # Manually craft the submodule update command in order to take advantage
             # of the -j parameter, which speeds it up a lot.
             git submodule update --init --recursive --single-branch --force -j 8
+            # espresso: Patch OwnableWithGuardiansUpgradeable.sol to use our top-level OZ v5
+            # alias (@openzeppelin/contracts-upgradeable-v5/) instead of the bare
+            # @openzeppelin/contracts-upgradeable/ prefix. Forge adds lib/espresso-tee-contracts/
+            # as a solc include path, so any file inside it is compiled with a canonical path
+            # relative to that include path (e.g. src/Ownable...sol, not
+            # lib/espresso-tee-contracts/src/Ownable...sol). That strips the espresso-tee-contracts
+            # context prefix, making context-specific foundry.toml remappings ineffective.
+            # The nested OZ libs are intentionally left in place; removing them triggers Forge's
+            # dependency auto-installer which re-compiles the library with its own foundry.toml
+            # (which doesn't know about our -v5 aliases). Keeping them means Forge uses the
+            # parent project's remappings for the patched import, resolving to the correct
+            # top-level lib/openzeppelin-contracts-upgradeable-v5/ without ambiguity.
+            sed -i 's|@openzeppelin/contracts-upgradeable/|@openzeppelin/contracts-upgradeable-v5/|g' \
+              lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol
           working_directory: packages/contracts-bedrock
 
   # Notifies us on Slack a build fails on develop
