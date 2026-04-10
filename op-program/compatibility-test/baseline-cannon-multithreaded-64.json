@@ -15151,5 +15151,443 @@
     "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
     "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
     "hash": "fe0e8198246dba85fee58db76a53a30a8a7b3f84577b00a56e77b4fa7114e827"
+  },
+  {
+    "callStack": {
+      "file": "temp_assembly_output",
+      "line": 85766,
+      "function": "runtime.netpollinit",
+      "absPath": "/tmp/temp_assembly_output",
+      "callStack": {
+        "file": "temp_assembly_output",
+        "line": 84787,
+        "function": "runtime.netpollGenericInit",
+        "absPath": "/tmp/temp_assembly_output",
+        "callStack": {
+          "file": "temp_assembly_output",
+          "line": 141049,
+          "function": "runtime.(*timers).addHeap",
+          "absPath": "/tmp/temp_assembly_output",
+          "callStack": {
+            "file": "temp_assembly_output",
+            "line": 141836,
+            "function": "runtime.(*timer).maybeAdd",
+            "absPath": "/tmp/temp_assembly_output",
+            "callStack": {
+              "file": "temp_assembly_output",
+              "line": 141548,
+              "function": "runtime.(*timer).modify",
+              "absPath": "/tmp/temp_assembly_output",
+              "callStack": {
+                "file": "temp_assembly_output",
+                "line": 178377,
+                "function": "time.newTimer",
+                "absPath": "/tmp/temp_assembly_output",
+                "callStack": {
+                  "file": "temp_assembly_output",
+                  "line": 325771,
+                  "function": "time.NewTicker",
+                  "absPath": "/tmp/temp_assembly_output",
+                  "callStack": {
+                    "file": "temp_assembly_output",
+                    "line": 4011540,
+                    "function": "github.com/ethereum-optimism/optimism/op-service/log.NewDebouncingHandler",
+                    "absPath": "/tmp/temp_assembly_output",
+                    "callStack": {
+                      "file": "temp_assembly_output",
+                      "line": 4011458,
+                      "function": "github.com/ethereum-optimism/optimism/op-service/log.SetGlobalLogHandler",
+                      "absPath": "/tmp/temp_assembly_output",
+                      "callStack": {
+                        "file": "temp_assembly_output",
+                        "line": 4041514,
+                        "function": "github.com/ethereum-optimism/optimism/op-program/client.Main",
+                        "absPath": "/tmp/temp_assembly_output",
+                        "callStack": {
+                          "file": "temp_assembly_output",
+                          "line": 4042027,
+                          "function": "main.main",
+                          "absPath": "/tmp/temp_assembly_output"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "message": "Potential NOOP Syscall Detected: 5285",
+    "severity": "WARNING",
+    "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
+    "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
+    "hash": "3be955d96cab4fc1aa1ce7046c58a61c5a11535d20e956e6ecc575fa486af963"
+  },
+  {
+    "callStack": {
+      "file": "temp_assembly_output",
+      "line": 85766,
+      "function": "runtime.netpollinit",
+      "absPath": "/tmp/temp_assembly_output",
+      "callStack": {
+        "file": "temp_assembly_output",
+        "line": 84787,
+        "function": "runtime.netpollGenericInit",
+        "absPath": "/tmp/temp_assembly_output",
+        "callStack": {
+          "file": "temp_assembly_output",
+          "line": 141049,
+          "function": "runtime.(*timers).addHeap",
+          "absPath": "/tmp/temp_assembly_output",
+          "callStack": {
+            "file": "temp_assembly_output",
+            "line": 141836,
+            "function": "runtime.(*timer).maybeAdd",
+            "absPath": "/tmp/temp_assembly_output",
+            "callStack": {
+              "file": "temp_assembly_output",
+              "line": 141548,
+              "function": "runtime.(*timer).modify",
+              "absPath": "/tmp/temp_assembly_output",
+              "callStack": {
+                "file": "temp_assembly_output",
+                "line": 178377,
+                "function": "time.newTimer",
+                "absPath": "/tmp/temp_assembly_output",
+                "callStack": {
+                  "file": "temp_assembly_output",
+                  "line": 325771,
+                  "function": "time.NewTicker",
+                  "absPath": "/tmp/temp_assembly_output",
+                  "callStack": {
+                    "file": "temp_assembly_output",
+                    "line": 4011540,
+                    "function": "github.com/ethereum-optimism/optimism/op-service/log.NewDebouncingHandler",
+                    "absPath": "/tmp/temp_assembly_output",
+                    "callStack": {
+                      "file": "temp_assembly_output",
+                      "line": 4011458,
+                      "function": "github.com/ethereum-optimism/optimism/op-service/log.SetGlobalLogHandler",
+                      "absPath": "/tmp/temp_assembly_output",
+                      "callStack": {
+                        "file": "temp_assembly_output",
+                        "line": 4041514,
+                        "function": "github.com/ethereum-optimism/optimism/op-program/client.Main",
+                        "absPath": "/tmp/temp_assembly_output",
+                        "callStack": {
+                          "file": "temp_assembly_output",
+                          "line": 4042027,
+                          "function": "main.main",
+                          "absPath": "/tmp/temp_assembly_output"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "message": "Potential NOOP Syscall Detected: 5284",
+    "severity": "WARNING",
+    "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
+    "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
+    "hash": "8949b73197bd309e2bbce811346c8f4aac0e07725a275333c08e33d9e6575587"
+  },
+  {
+    "callStack": {
+      "file": "temp_assembly_output",
+      "line": 85766,
+      "function": "runtime.netpollinit",
+      "absPath": "/tmp/temp_assembly_output",
+      "callStack": {
+        "file": "temp_assembly_output",
+        "line": 84787,
+        "function": "runtime.netpollGenericInit",
+        "absPath": "/tmp/temp_assembly_output",
+        "callStack": {
+          "file": "temp_assembly_output",
+          "line": 141049,
+          "function": "runtime.(*timers).addHeap",
+          "absPath": "/tmp/temp_assembly_output",
+          "callStack": {
+            "file": "temp_assembly_output",
+            "line": 141836,
+            "function": "runtime.(*timer).maybeAdd",
+            "absPath": "/tmp/temp_assembly_output",
+            "callStack": {
+              "file": "temp_assembly_output",
+              "line": 141548,
+              "function": "runtime.(*timer).modify",
+              "absPath": "/tmp/temp_assembly_output",
+              "callStack": {
+                "file": "temp_assembly_output",
+                "line": 178377,
+                "function": "time.newTimer",
+                "absPath": "/tmp/temp_assembly_output",
+                "callStack": {
+                  "file": "temp_assembly_output",
+                  "line": 325771,
+                  "function": "time.NewTicker",
+                  "absPath": "/tmp/temp_assembly_output",
+                  "callStack": {
+                    "file": "temp_assembly_output",
+                    "line": 4011540,
+                    "function": "github.com/ethereum-optimism/optimism/op-service/log.NewDebouncingHandler",
+                    "absPath": "/tmp/temp_assembly_output",
+                    "callStack": {
+                      "file": "temp_assembly_output",
+                      "line": 4011348,
+                      "function": "github.com/ethereum-optimism/optimism/op-service/log.NewLogger",
+                      "absPath": "/tmp/temp_assembly_output",
+                      "callStack": {
+                        "file": "temp_assembly_output",
+                        "line": 4041514,
+                        "function": "github.com/ethereum-optimism/optimism/op-program/client.Main",
+                        "absPath": "/tmp/temp_assembly_output",
+                        "callStack": {
+                          "file": "temp_assembly_output",
+                          "line": 4042027,
+                          "function": "main.main",
+                          "absPath": "/tmp/temp_assembly_output"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "message": "Potential NOOP Syscall Detected: 5285",
+    "severity": "WARNING",
+    "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
+    "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
+    "hash": "a5290870aa6eabc16faa28dee73533bb9defe1710b9442bb7498b0bbb32ebb36"
+  },
+  {
+    "callStack": {
+      "file": "temp_assembly_output",
+      "line": 85766,
+      "function": "runtime.netpollinit",
+      "absPath": "/tmp/temp_assembly_output",
+      "callStack": {
+        "file": "temp_assembly_output",
+        "line": 84787,
+        "function": "runtime.netpollGenericInit",
+        "absPath": "/tmp/temp_assembly_output",
+        "callStack": {
+          "file": "temp_assembly_output",
+          "line": 141049,
+          "function": "runtime.(*timers).addHeap",
+          "absPath": "/tmp/temp_assembly_output",
+          "callStack": {
+            "file": "temp_assembly_output",
+            "line": 141836,
+            "function": "runtime.(*timer).maybeAdd",
+            "absPath": "/tmp/temp_assembly_output",
+            "callStack": {
+              "file": "temp_assembly_output",
+              "line": 141548,
+              "function": "runtime.(*timer).modify",
+              "absPath": "/tmp/temp_assembly_output",
+              "callStack": {
+                "file": "temp_assembly_output",
+                "line": 178377,
+                "function": "time.newTimer",
+                "absPath": "/tmp/temp_assembly_output",
+                "callStack": {
+                  "file": "temp_assembly_output",
+                  "line": 325771,
+                  "function": "time.NewTicker",
+                  "absPath": "/tmp/temp_assembly_output",
+                  "callStack": {
+                    "file": "temp_assembly_output",
+                    "line": 4011540,
+                    "function": "github.com/ethereum-optimism/optimism/op-service/log.NewDebouncingHandler",
+                    "absPath": "/tmp/temp_assembly_output",
+                    "callStack": {
+                      "file": "temp_assembly_output",
+                      "line": 4011348,
+                      "function": "github.com/ethereum-optimism/optimism/op-service/log.NewLogger",
+                      "absPath": "/tmp/temp_assembly_output",
+                      "callStack": {
+                        "file": "temp_assembly_output",
+                        "line": 4041514,
+                        "function": "github.com/ethereum-optimism/optimism/op-program/client.Main",
+                        "absPath": "/tmp/temp_assembly_output",
+                        "callStack": {
+                          "file": "temp_assembly_output",
+                          "line": 4042027,
+                          "function": "main.main",
+                          "absPath": "/tmp/temp_assembly_output"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "message": "Potential NOOP Syscall Detected: 5208",
+    "severity": "WARNING",
+    "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
+    "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
+    "hash": "b22d6fe02b9848c07564c97cc695bb060b3267dded450b6fc568f577bbdbaf5e"
+  },
+  {
+    "callStack": {
+      "file": "temp_assembly_output",
+      "line": 85766,
+      "function": "runtime.netpollinit",
+      "absPath": "/tmp/temp_assembly_output",
+      "callStack": {
+        "file": "temp_assembly_output",
+        "line": 84787,
+        "function": "runtime.netpollGenericInit",
+        "absPath": "/tmp/temp_assembly_output",
+        "callStack": {
+          "file": "temp_assembly_output",
+          "line": 141049,
+          "function": "runtime.(*timers).addHeap",
+          "absPath": "/tmp/temp_assembly_output",
+          "callStack": {
+            "file": "temp_assembly_output",
+            "line": 141836,
+            "function": "runtime.(*timer).maybeAdd",
+            "absPath": "/tmp/temp_assembly_output",
+            "callStack": {
+              "file": "temp_assembly_output",
+              "line": 141548,
+              "function": "runtime.(*timer).modify",
+              "absPath": "/tmp/temp_assembly_output",
+              "callStack": {
+                "file": "temp_assembly_output",
+                "line": 178377,
+                "function": "time.newTimer",
+                "absPath": "/tmp/temp_assembly_output",
+                "callStack": {
+                  "file": "temp_assembly_output",
+                  "line": 325771,
+                  "function": "time.NewTicker",
+                  "absPath": "/tmp/temp_assembly_output",
+                  "callStack": {
+                    "file": "temp_assembly_output",
+                    "line": 4011540,
+                    "function": "github.com/ethereum-optimism/optimism/op-service/log.NewDebouncingHandler",
+                    "absPath": "/tmp/temp_assembly_output",
+                    "callStack": {
+                      "file": "temp_assembly_output",
+                      "line": 4011348,
+                      "function": "github.com/ethereum-optimism/optimism/op-service/log.NewLogger",
+                      "absPath": "/tmp/temp_assembly_output",
+                      "callStack": {
+                        "file": "temp_assembly_output",
+                        "line": 4041514,
+                        "function": "github.com/ethereum-optimism/optimism/op-program/client.Main",
+                        "absPath": "/tmp/temp_assembly_output",
+                        "callStack": {
+                          "file": "temp_assembly_output",
+                          "line": 4042027,
+                          "function": "main.main",
+                          "absPath": "/tmp/temp_assembly_output"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "message": "Potential NOOP Syscall Detected: 5284",
+    "severity": "WARNING",
+    "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
+    "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
+    "hash": "d4f9987e1ca4274770f668c236bb252972f831c08fca8de6b8115ab475e32499"
+  },
+  {
+    "callStack": {
+      "file": "temp_assembly_output",
+      "line": 85766,
+      "function": "runtime.netpollinit",
+      "absPath": "/tmp/temp_assembly_output",
+      "callStack": {
+        "file": "temp_assembly_output",
+        "line": 84787,
+        "function": "runtime.netpollGenericInit",
+        "absPath": "/tmp/temp_assembly_output",
+        "callStack": {
+          "file": "temp_assembly_output",
+          "line": 141049,
+          "function": "runtime.(*timers).addHeap",
+          "absPath": "/tmp/temp_assembly_output",
+          "callStack": {
+            "file": "temp_assembly_output",
+            "line": 141836,
+            "function": "runtime.(*timer).maybeAdd",
+            "absPath": "/tmp/temp_assembly_output",
+            "callStack": {
+              "file": "temp_assembly_output",
+              "line": 141548,
+              "function": "runtime.(*timer).modify",
+              "absPath": "/tmp/temp_assembly_output",
+              "callStack": {
+                "file": "temp_assembly_output",
+                "line": 178377,
+                "function": "time.newTimer",
+                "absPath": "/tmp/temp_assembly_output",
+                "callStack": {
+                  "file": "temp_assembly_output",
+                  "line": 325771,
+                  "function": "time.NewTicker",
+                  "absPath": "/tmp/temp_assembly_output",
+                  "callStack": {
+                    "file": "temp_assembly_output",
+                    "line": 4011540,
+                    "function": "github.com/ethereum-optimism/optimism/op-service/log.NewDebouncingHandler",
+                    "absPath": "/tmp/temp_assembly_output",
+                    "callStack": {
+                      "file": "temp_assembly_output",
+                      "line": 4011458,
+                      "function": "github.com/ethereum-optimism/optimism/op-service/log.SetGlobalLogHandler",
+                      "absPath": "/tmp/temp_assembly_output",
+                      "callStack": {
+                        "file": "temp_assembly_output",
+                        "line": 4041514,
+                        "function": "github.com/ethereum-optimism/optimism/op-program/client.Main",
+                        "absPath": "/tmp/temp_assembly_output",
+                        "callStack": {
+                          "file": "temp_assembly_output",
+                          "line": 4042027,
+                          "function": "main.main",
+                          "absPath": "/tmp/temp_assembly_output"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "message": "Potential NOOP Syscall Detected: 5208",
+    "severity": "WARNING",
+    "impact": "This syscall is present in the program, but its execution depends on the actual runtime behavior. \n             If the execution path does not reach this syscall, it may not affect execution.",
+    "reference": "https://github.com/ChainSafe/vm-compat?tab=readme-ov-file#how-it-works",
+    "hash": "f79caa230507902f28dd9cd2afd9fe9ccc14e835d1d3fa110877048c0baa0206"
   }
 ]
