@@ -294,5 +294,5 @@ func (dp *DerivationPipeline) ConfirmEngineReset() {
 }
 
 func (dp *DerivationPipeline) EspressoStreamer() *op.BatchStreamer[EspressoBatch] {
-	return dp.attrib.espressoStreamer
+	return dp.attrib.espresso.espressoStreamer
 }
