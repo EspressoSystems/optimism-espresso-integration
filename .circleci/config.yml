@@ -2419,7 +2419,7 @@ jobs:
     parameters:
       diff_branch:
         type: string
-        default: celo-rebase-15-upstream
+        default: ""
       scan_command:
         type: string
         default: semgrep ci --timeout=100
@@ -2442,7 +2442,9 @@ jobs:
                 # Do a full scan when scanning develop, otherwise do an incremental scan.
                 name: "Conditionally set BASELINE env var"
                 command: |
-                  echo 'export SEMGREP_BASELINE_REF=${TEMPORARY_BASELINE_REF}' >> $BASH_ENV
+                  if [ -n "${TEMPORARY_BASELINE_REF}" ]; then
+                    echo "export SEMGREP_BASELINE_REF=${TEMPORARY_BASELINE_REF}" >> $BASH_ENV
+                  fi
       - run:
           name: "Set environment variables" # for PR comments and in-app hyperlinks to findings
           command: |
