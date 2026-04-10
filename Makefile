@@ -298,10 +298,11 @@ _go-tests-ci-internal:
 	@echo "Running Go tests with gotestsum..."
 	$(DEFAULT_TEST_ENV_VARS) && \
 	$(CI_ENV_VARS) && \
+	export EFFECTIVE_PKGS="$${TEST_PKGS:-$(ALL_TEST_PACKAGES)}" && \
 	if [ -n "$$CIRCLE_NODE_TOTAL" ] && [ "$$CIRCLE_NODE_TOTAL" -gt 1 ]; then \
 		export NODE_INDEX=$${CIRCLE_NODE_INDEX:-0} && \
 		export NODE_TOTAL=$${CIRCLE_NODE_TOTAL:-1} && \
-		export PARALLEL_PACKAGES=$$(echo "$(ALL_TEST_PACKAGES)" | tr ' ' '\n' | awk -v idx=$$NODE_INDEX -v total=$$NODE_TOTAL 'NR % total == idx' | tr '\n' ' ') && \
+		export PARALLEL_PACKAGES=$$(echo "$$EFFECTIVE_PKGS" | tr ' ' '\n' | grep -v '^$$' | awk -v idx=$$NODE_INDEX -v total=$$NODE_TOTAL 'NR % total == idx' | tr '\n' ' ') && \
 		if [ -n "$$PARALLEL_PACKAGES" ]; then \
 			echo "Node $$NODE_INDEX/$$NODE_TOTAL running packages: $$PARALLEL_PACKAGES"; \
 			gotestsum --format=testname \
@@ -312,7 +313,7 @@ _go-tests-ci-internal:
 				--packages="$$PARALLEL_PACKAGES" \
 				-- -parallel=$$PARALLEL -coverprofile=coverage-$$NODE_INDEX.out $(GO_TEST_FLAGS) -timeout=$(TEST_TIMEOUT) -tags="ci"; \
 		else \
-			echo "ERROR: Node $$NODE_INDEX/$$NODE_TOTAL has no packages to run! Perhaps parallelism is set too high? (ALL_TEST_PACKAGES has $$(echo '$(ALL_TEST_PACKAGES)' | wc -w) packages)"; \
+			echo "ERROR: Node $$NODE_INDEX/$$NODE_TOTAL has no packages to run! Perhaps parallelism is set too high? (EFFECTIVE_PKGS has $$(echo "$$EFFECTIVE_PKGS" | wc -w) packages)"; \
 			exit 1; \
 		fi; \
 	else \
@@ -321,7 +322,7 @@ _go-tests-ci-internal:
 			--jsonfile=./tmp/testlogs/log.json \
 			--rerun-fails=3 \
 			--rerun-fails-max-failures=50 \
-			--packages="$(ALL_TEST_PACKAGES)" \
+			--packages="$$EFFECTIVE_PKGS" \
 			-- -parallel=$$PARALLEL -coverprofile=coverage.out $(GO_TEST_FLAGS) -timeout=$(TEST_TIMEOUT) -tags="ci"; \
 	fi
 .PHONY: _go-tests-ci-internal

@@ -202,22 +202,35 @@ func init() {
 	oplog.SetGlobalLogHandler(errHandler)
 
 	for _, allocType := range allocTypes {
-		initAllocType(root, allocType)
+		if err := initAllocType(root, allocType); err != nil {
+			if allocType.IsEspresso() {
+				// Espresso alloc types require mock TEE contracts that are compiled only when
+				// forge builds include test contracts (i.e. without --skip test). Standard CI
+				// builds skip test contracts, so these types may fail to initialize. Non-Espresso
+				// op-e2e tests are unaffected. Espresso-specific tests will fail with
+				// "unknown alloc type" if they attempt to use these types without a full build.
+				fmt.Fprintf(os.Stderr, "WARNING: Espresso alloc type %q initialization failed "+
+					"(mock TEE contracts may not be available; rebuild with `just compile-contracts` "+
+					"to enable Espresso op-e2e tests): %v\n", allocType, err)
+			} else {
+				panic(fmt.Errorf("failed to init alloc type %q: %w", allocType, err))
+			}
+		}
 	}
 
 	// Use regular level going forward.
 	oplog.SetGlobalLogHandler(handler)
 }
 
-func initAllocType(root string, allocType AllocType) {
+func initAllocType(root string, allocType AllocType) error {
 	artifactsPath := path.Join(root, "packages", "contracts-bedrock", "forge-artifacts")
 	if err := ensureDir(artifactsPath); err != nil {
-		panic(fmt.Errorf("invalid artifacts path: %w (run `just compile-contracts` or `cd packages/contracts-bedrock && just build` to build contracts first)", err))
+		return fmt.Errorf("invalid artifacts path: %w (run `just compile-contracts` or `cd packages/contracts-bedrock && just build` to build contracts first)", err)
 	}
 
 	loc, err := artifacts.NewFileLocator(artifactsPath)
 	if err != nil {
-		panic(fmt.Errorf("failed to create artifacts locator: %w", err))
+		return fmt.Errorf("failed to create artifacts locator: %w", err)
 	}
 
 	lgr := log.New()
@@ -235,6 +248,12 @@ func initAllocType(root string, allocType AllocType) {
 
 	l2Alloc := make(map[genesis.L2AllocsMode]*foundry.ForgeAllocs)
 	var wg sync.WaitGroup
+	var initErr error
+	var errMu sync.Mutex
+	var localMu sync.Mutex
+	var localDC *genesis.DeployConfig
+	var localL1StateDump *foundry.ForgeAllocs
+	var localL1Deployments *genesis.L1Deployments
 
 	pk := secrets.DefaultSecrets.Deployer
 	deployerAddr := crypto.PubkeyToAddress(pk.PublicKey)
@@ -244,6 +263,13 @@ func initAllocType(root string, allocType AllocType) {
 		wg.Add(1)
 		go func(mode genesis.L2AllocsMode) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errMu.Lock()
+					initErr = fmt.Errorf("panic initializing alloc type %q mode %q: %v", allocType, mode, r)
+					errMu.Unlock()
+				}
+			}()
 
 			intent := defaultIntent(root, loc, deployerAddr, allocType)
 			if allocType == AllocTypeAltDA {
@@ -331,9 +357,9 @@ func initAllocType(root string, allocType AllocType) {
 				panic(fmt.Errorf("failed to apply pipeline: %w", err))
 			}
 
-			mtx.Lock()
+			localMu.Lock()
 			l2Alloc[mode] = st.Chains[0].Allocs.Data
-			mtx.Unlock()
+			localMu.Unlock()
 
 			// This needs to be updated whenever the latest hardfork is changed.
 			if mode == genesis.L2AllocsGranite {
@@ -354,18 +380,28 @@ func initAllocType(root string, allocType AllocType) {
 				dc.L1BlockTime = 2
 				dc.L2BlockTime = 1
 				dc.SetContracts(l1Contracts)
-				mtx.Lock()
-				deployConfigsByType[allocType] = dc
-				l1AllocsByType[allocType] = st.L1StateDump.Data
-
-				l1Deployments := genesis.CreateL1DeploymentsFromContracts(l1Contracts)
-				l1DeploymentsByType[allocType] = l1Deployments
-				mtx.Unlock()
+				localMu.Lock()
+				localDC = dc
+				localL1StateDump = st.L1StateDump.Data
+				localL1Deployments = genesis.CreateL1DeploymentsFromContracts(l1Contracts)
+				localMu.Unlock()
 			}
 		}(mode)
 	}
 	wg.Wait()
+	if initErr != nil {
+		return initErr
+	}
+	// Write all results to package-level state atomically once all goroutines have succeeded.
+	mtx.Lock()
 	l2AllocsByType[allocType] = l2Alloc
+	if localDC != nil {
+		deployConfigsByType[allocType] = localDC
+		l1AllocsByType[allocType] = localL1StateDump
+		l1DeploymentsByType[allocType] = localL1Deployments
+	}
+	mtx.Unlock()
+	return nil
 }
 
 func defaultIntent(root string, loc *artifacts.Locator, deployer common.Address, allocType AllocType) *state.Intent {
