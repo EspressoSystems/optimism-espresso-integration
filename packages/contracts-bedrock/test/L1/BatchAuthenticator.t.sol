@@ -29,8 +29,10 @@ import { Chains } from "scripts/libraries/Chains.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable-v5/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
 import { OwnableWithGuardiansUpgradeable } from
     "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
+import { ECDSA } from "@openzeppelin/contracts-v5/utils/cryptography/ECDSA.sol";
 
 /// @notice Minimal mock of SystemConfig that exposes a settable paused() flag.
 contract MockSystemConfig {
@@ -319,7 +321,7 @@ contract BatchAuthenticator_Test is Test {
         bytes memory invalidSignature = new bytes(65);
 
         // OpenZeppelin's ECDSA.recover reverts with its own error for invalid signatures
-        vm.expectRevert(abi.encodeWithSignature("ECDSAInvalidSignatureLength(uint256)", 65));
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 65));
         authenticator.authenticateBatchInfo(commitment, invalidSignature);
     }
 
@@ -351,12 +353,12 @@ contract BatchAuthenticator_Test is Test {
 
         // Unauthorized cannot set.
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized));
         authenticator.setEspressoBatcher(address(0x7777));
 
         // ProxyAdmin cannot set.
         vm.prank(address(proxyAdmin));
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(proxyAdmin)));
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(proxyAdmin)));
         authenticator.setEspressoBatcher(address(0x8888));
     }
 
