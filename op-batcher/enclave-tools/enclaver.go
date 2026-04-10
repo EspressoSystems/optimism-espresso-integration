@@ -170,7 +170,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	// inherit an orphaned container holding the fixed publish ports.
 	defer func() {
 		if retErr != nil {
-			exec.Command("docker", "rm", "-f", containerName).Run()
+			_ = exec.Command("docker", "rm", "-f", containerName).Run()
 		}
 	}()
 

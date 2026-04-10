@@ -89,7 +89,6 @@ func (f *FakePoS) FakeBeaconBlockRoot(time uint64) common.Hash {
 	return crypto.Keccak256Hash(dat[:])
 }
 
-
 func (f *FakePoS) Start() error {
 	if advancing, ok := f.clock.(*clock.AdvancingClock); ok {
 		advancing.Start()

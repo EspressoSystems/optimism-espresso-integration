@@ -8,7 +8,6 @@ import (
 	"math/big"
 	_ "net/http/pprof"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -149,8 +148,6 @@ type BatchSubmitter struct {
 
 	mutex   sync.Mutex
 	running bool
-
-	throttling atomic.Bool // whether the batcher is throttling sequencers and additional endpoints
 
 	txpoolMutex       sync.Mutex // guards txpoolState and txpoolBlockedBlob
 	txpoolState       TxPoolState
