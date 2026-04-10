@@ -88,7 +88,7 @@ parameters:
 orbs:
   go: circleci/go@1.8.0
   gcp-cli: circleci/gcp-cli@3.0.1
-  slack: circleci/slack@4.10.1
+  slack: circleci/slack@6.0.0
   shellcheck: circleci/shellcheck@3.2.0
   codecov: codecov/codecov@5.0.3
   utils: piersy/circleci-utils@1.0.23
@@ -2851,11 +2851,6 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
           check_changed_patterns: contracts-bedrock,op-node
       - contracts-bedrock-coverage:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              ignore: /.*/
           # Generate coverage reports.
           name: contracts-bedrock-coverage <<matrix.features>>
           test_timeout: 1h
@@ -2899,11 +2894,6 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              ignore: /.*/
           requires:
             - contracts-bedrock-build
           context:
@@ -3017,9 +3007,7 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
           filters:
             branches:
-              ignore: /.*/
-            tags:
-              ignore: /.*/
+              ignore: develop # Run on all branches EXCEPT develop (PR branches only)
       - go-tests:
           name: go-tests-full
           rule: "go-tests-ci" # Run full test suite instead of short
@@ -3698,14 +3686,6 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
             - circleci-api-token
-
-  # Acceptance tests (pre-merge to develop) - not in Celo rebase-16, disabled
-  acceptance-tests-pr:
-    when: false
-    jobs:
-      - contracts-bedrock-build:
-          context:
-            - circleci-repo-readonly-authenticated-github-token
 
   close-issue-workflow:
     # celo disable unwanted jobs/workflows
