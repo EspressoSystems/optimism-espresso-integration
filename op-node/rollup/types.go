@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-core/forks"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -65,6 +64,26 @@ type AltDAConfig struct {
 	// DA resolve window value set on the DAC contract. Used in alt-da mode
 	// to compute when a challenge expires and trigger a reorg if needed.
 	DAResolveWindow uint64 `json:"da_resolve_window"`
+}
+
+// CaffNodeConfig holds Espresso (Caff Node) configuration embedded in rollup.Config.
+// Fields mirror espresso.CLIConfig without importing the espresso package, keeping
+// the fault-proof program (op-program) import graph free of Espresso network dependencies.
+type CaffNodeConfig struct {
+	Enabled                    bool
+	PollInterval               time.Duration
+	QueryServiceURLs           []string
+	LightClientAddr            common.Address
+	BatchAuthenticatorAddr     common.Address
+	L1URL                      string
+	RollupL1URL                string
+	Namespace                  uint64
+	CaffeinationHeightEspresso uint64
+	CaffeinationHeightL2       uint64
+	EspressoAttestationService string
+	VerifyReceiptMaxBlocks     uint64
+	VerifyReceiptSafetyTimeout time.Duration
+	VerifyReceiptRetryDelay    time.Duration
 }
 
 type Config struct {
@@ -168,7 +187,7 @@ type Config struct {
 	PectraBlobScheduleTime *uint64 `json:"pectra_blob_schedule_time,omitempty"`
 
 	// Caff Node config
-	CaffNodeConfig espresso.CLIConfig `json:"caff_node_config,omitempty"`
+	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
 
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
 }

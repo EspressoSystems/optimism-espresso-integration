@@ -1,3 +1,5 @@
+//go:build !mips64
+
 package derive
 
 import (
@@ -17,7 +19,26 @@ import (
 type espressoAttributesQueue struct {
 	isCaffNode           bool
 	caffeinationHeightL2 uint64
-	espressoStreamer      *op.BatchStreamer[EspressoBatch]
+	espressoStreamer     *op.BatchStreamer[EspressoBatch]
+}
+
+func newEspressoAttributesQueue(logger log.Logger, cfg *rollup.Config) espressoAttributesQueue {
+	return espressoAttributesQueue{
+		isCaffNode:           cfg.CaffNodeConfig.Enabled,
+		caffeinationHeightL2: cfg.CaffNodeConfig.CaffeinationHeightL2,
+		espressoStreamer:     initEspressoStreamer(logger, cfg),
+	}
+}
+
+func (e *espressoAttributesQueue) nextBatch(ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher, prev SingularBatchProvider, logger log.Logger) (*SingularBatch, bool, error) {
+	if e.isCaffNode && parent.Number >= e.caffeinationHeightL2 {
+		if e.espressoStreamer == nil {
+			logger.Error("Espresso streamer not initialized as expected when isCaffNode is ON")
+			return nil, false, ErrCritical
+		}
+		return CaffNextBatch(e.espressoStreamer, ctx, parent, blockTime, l1Fetcher)
+	}
+	return prev.NextBatch(ctx, parent)
 }
 
 func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *op.BatchStreamer[EspressoBatch] {
@@ -34,7 +55,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *op.BatchStreamer[
 		cfg.CaffNodeConfig.BatchAuthenticatorAddr = cfg.BatchAuthenticatorAddress
 	}
 
-	streamer, err := espresso.BatchStreamerFromCLIConfig(cfg.CaffNodeConfig, log, func(data []byte) (*EspressoBatch, error) {
+	streamer, err := espresso.BatchStreamerFromCLIConfig(cfg.CaffNodeConfig.ToCLIConfig(), log, func(data []byte) (*EspressoBatch, error) {
 		return UnmarshalEspressoTransaction(data)
 	})
 	if err != nil {

@@ -72,15 +72,11 @@ type SingularBatchProvider interface {
 
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
 	return &AttributesQueue{
-		log:     log,
-		config:  cfg,
-		builder: builder,
-		prev:    prev,
-		espresso: espressoAttributesQueue{
-			isCaffNode:           cfg.CaffNodeConfig.Enabled,
-			caffeinationHeightL2: cfg.CaffNodeConfig.CaffeinationHeightL2,
-			espressoStreamer:     initEspressoStreamer(log, cfg),
-		},
+		log:      log,
+		config:   cfg,
+		builder:  builder,
+		prev:     prev,
+		espresso: newEspressoAttributesQueue(log, cfg),
 	}
 }
 
@@ -94,15 +90,7 @@ func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2Bloc
 		var batch *SingularBatch
 		var concluding bool
 		var err error
-		if aq.espresso.isCaffNode && parent.Number >= aq.espresso.caffeinationHeightL2 {
-			if aq.espresso.espressoStreamer == nil {
-				aq.log.Error("Espresso streamer not initialized as expected when isCaffNode is ON")
-				return nil, ErrCritical
-			}
-			batch, concluding, err = CaffNextBatch(aq.espresso.espressoStreamer, ctx, parent, aq.config.BlockTime, l1Fetcher)
-		} else {
-			batch, concluding, err = aq.prev.NextBatch(ctx, parent)
-		}
+		batch, concluding, err = aq.espresso.nextBatch(ctx, parent, aq.config.BlockTime, l1Fetcher, aq.prev, aq.log)
 
 		if err != nil {
 			return nil, err
