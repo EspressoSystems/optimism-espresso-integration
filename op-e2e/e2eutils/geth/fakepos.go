@@ -13,9 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -55,8 +53,6 @@ type FakePoS struct {
 type Backend interface {
 	// HeaderByNumber is assumed to behave the same as go-ethereum/ethclient.Client.HeaderByNumber.
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
-	TxPool() *txpool.TxPool
-	BlockChain() *core.BlockChain
 }
 
 type EngineAPI interface {
@@ -93,19 +89,6 @@ func (f *FakePoS) FakeBeaconBlockRoot(time uint64) common.Hash {
 	return crypto.Keccak256Hash(dat[:])
 }
 
-// Fork sets the head to the provided hash.
-// Lifted from catalyst's simulated beacon
-func (f *FakePoS) Fork(parentHash common.Hash) error {
-	// Ensure no pending transactions.
-	f.eth.TxPool().Clear()
-
-	parent := f.eth.BlockChain().GetBlockByHash(parentHash)
-	if parent == nil {
-		return errors.New("parent not found")
-	}
-	_, err := f.eth.BlockChain().SetCanonical(parent)
-	return err
-}
 
 func (f *FakePoS) Start() error {
 	if advancing, ok := f.clock.(*clock.AdvancingClock); ok {
