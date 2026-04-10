@@ -126,7 +126,7 @@ func (d *Devnet) isRunning() bool {
 	return len(out) > 0
 }
 
-// The setting for `COMPOES_PROFILES` when running the Docker Compose.
+// The setting for `COMPOSE_PROFILES` when running the Docker Compose.
 type ComposeProfile string
 
 const (
@@ -449,12 +449,6 @@ func (d *Devnet) SubmitL2Tx(applyTxOpts helpers.TxOptsFn) (*types.Receipt, error
 func (d *Devnet) VerifyL2Tx(receipt *types.Receipt) error {
 	// Use longer timeout in CI environments due to Espresso processing delays
 	timeout := 5 * time.Minute
-
-	// Check if running in CI environment
-	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		timeout = 5 * time.Minute
-		log.Info("CI environment detected, using extended timeout for transaction verification", "hash", receipt.TxHash, "timeout", timeout)
-	}
 
 	ctx, cancel := context.WithTimeout(d.ctx, timeout)
 	defer cancel()
