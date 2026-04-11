@@ -149,7 +149,7 @@ contract DeployEspresso is Script {
         if (proxyAdminOwner == address(0)) proxyAdminOwner = msg.sender;
 
         vm.broadcast(msg.sender);
-        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: abi.encode(msg.sender) }));
+        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender))) }));
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         vm.broadcast(msg.sender);
         Proxy proxy = new Proxy(address(proxyAdmin));
@@ -231,7 +231,7 @@ contract DeployEspresso is Script {
 
         // Deploy a dummy ProxyAdmin so the output proxy-admin field is a valid distinct address.
         vm.broadcast(msg.sender);
-        IProxyAdmin dummyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: abi.encode(proxyAdminOwner) }));
+        IProxyAdmin dummyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (proxyAdminOwner))) }));
         vm.label(address(dummyAdmin), "MockTEEVerifierDummyProxyAdmin");
 
         _output.set(_output.nitroTEEVerifier.selector, address(nitroMock));
