@@ -8,7 +8,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { Proxy } from "src/universal/Proxy.sol";
-import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
@@ -61,7 +61,7 @@ contract BatchAuthenticator_Test is Test {
     EspressoNitroTEEVerifierMock public nitroVerifier;
     EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
-    ProxyAdmin public proxyAdmin;
+    IProxyAdmin public proxyAdmin;
 
     bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
 
@@ -96,9 +96,15 @@ contract BatchAuthenticator_Test is Test {
         );
         implementation = new BatchAuthenticator();
 
-        // Deploy the proxy admin.
-        vm.prank(proxyAdminOwner);
-        proxyAdmin = new ProxyAdmin(proxyAdminOwner);
+        // Deploy the proxy admin via vm.getCode to avoid duplicate ProxyAdmin artifacts.
+        {
+            bytes memory _code = vm.getCode("ProxyAdmin");
+            bytes memory _args = abi.encode(proxyAdminOwner);
+            bytes memory _initCode = abi.encodePacked(_code, _args);
+            address _addr;
+            assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
+            proxyAdmin = IProxyAdmin(_addr);
+        }
     }
 
     function _nitroRegistrationOutputForPrivateKey(uint256 privateKey) internal returns (bytes memory) {
@@ -128,7 +134,7 @@ contract BatchAuthenticator_Test is Test {
     function _deployAndInitializeProxy() internal returns (BatchAuthenticator) {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -149,7 +155,7 @@ contract BatchAuthenticator_Test is Test {
     function test_constructor_revertsWhenAlreadyInitialized() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -175,7 +181,7 @@ contract BatchAuthenticator_Test is Test {
     function test_constructor_revertsWhenEspressoBatcherIsZero() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -196,7 +202,7 @@ contract BatchAuthenticator_Test is Test {
     function test_constructor_revertsWhenVerifierIsZero() external {
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
@@ -509,7 +515,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
     Proxy public proxy;
-    ProxyAdmin public proxyAdmin;
+    IProxyAdmin public proxyAdmin;
     BatchAuthenticator public authenticator;
 
     bytes32 private constant _ESPRESSO_TEE_VERIFIER_TYPE_HASH = keccak256("EspressoTEEVerifier(bytes32 commitment)");
@@ -550,12 +556,18 @@ contract BatchAuthenticator_Fork_Test is Test {
         );
         implementation = new BatchAuthenticator();
 
-        // Deploy proxy admin and proxy.
-        vm.prank(proxyAdminOwner);
-        proxyAdmin = new ProxyAdmin(proxyAdminOwner);
+        // Deploy proxy admin via vm.getCode to avoid duplicate ProxyAdmin artifacts.
+        {
+            bytes memory _code = vm.getCode("ProxyAdmin");
+            bytes memory _args = abi.encode(proxyAdminOwner);
+            bytes memory _initCode = abi.encodePacked(_code, _args);
+            address _addr;
+            assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
+            proxyAdmin = IProxyAdmin(_addr);
+        }
         proxy = new Proxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
         // Initialize the proxy.
         bytes memory initData = abi.encodeCall(

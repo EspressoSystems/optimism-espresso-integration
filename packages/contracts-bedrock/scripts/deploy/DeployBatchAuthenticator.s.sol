@@ -5,7 +5,8 @@ import {Script, console} from "forge-std/Script.sol";
 import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
 import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import {ProxyAdmin} from "src/universal/ProxyAdmin.sol";
+import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";
+import {DeployUtils} from "scripts/libraries/DeployUtils.sol";
 import {Proxy} from "src/universal/Proxy.sol";
 import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
 
@@ -41,11 +42,11 @@ contract DeployBatchAuthenticator is Script {
 
         vm.startBroadcast(msg.sender);
 
-        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
+        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1("ProxyAdmin", abi.encode(msg.sender)));
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
 

@@ -11,7 +11,7 @@ import {IEspressoNitroTEEVerifier} from "@espresso-tee-contracts/interface/IEspr
 import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import {DeployTEEVerifier} from "lib/espresso-tee-contracts/scripts/DeployTEEVerifier.s.sol";
 import {DeployNitroTEEVerifier} from "lib/espresso-tee-contracts/scripts/DeployNitroTEEVerifier.s.sol";
-import {ProxyAdmin} from "src/universal/ProxyAdmin.sol";
+import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";
 import {Proxy} from "src/universal/Proxy.sol";
 import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
 import {MockEspressoTEEVerifier} from "test/mocks/MockEspressoTEEVerifiers.sol";
@@ -149,13 +149,13 @@ contract DeployEspresso is Script {
         if (proxyAdminOwner == address(0)) proxyAdminOwner = msg.sender;
 
         vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
+        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1("ProxyAdmin", abi.encode(msg.sender)));
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         vm.broadcast(msg.sender);
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
         vm.broadcast(msg.sender);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
@@ -231,7 +231,7 @@ contract DeployEspresso is Script {
 
         // Deploy a dummy ProxyAdmin so the output proxy-admin field is a valid distinct address.
         vm.broadcast(msg.sender);
-        ProxyAdmin dummyAdmin = new ProxyAdmin(proxyAdminOwner);
+        IProxyAdmin dummyAdmin = IProxyAdmin(DeployUtils.create1("ProxyAdmin", abi.encode(proxyAdminOwner)));
         vm.label(address(dummyAdmin), "MockTEEVerifierDummyProxyAdmin");
 
         _output.set(_output.nitroTEEVerifier.selector, address(nitroMock));
