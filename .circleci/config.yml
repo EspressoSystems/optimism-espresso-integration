@@ -1454,7 +1454,11 @@ jobs:
             ver=$(grep "^\s*github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
             url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"
             mkdir -p /home/circleci/local-lib
-            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
+            # Non-fatal: the library is only needed for packages that import
+            # verification/native.go (e.g. espresso/environment tests). Fuzz targets
+            # that don't import it will still compile and run without it.
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so || \
+              echo "WARN: libespresso_crypto_helper download failed (may be OK if not needed by fuzz targets)"
       - run:
           name: Fuzz
           no_output_timeout: 15m

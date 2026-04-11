@@ -84,7 +84,7 @@ func (a AllocType) UsesProofs() bool {
 }
 
 func (a AllocType) IsEspresso() bool {
-	return a == AllocTypeEspressoWithEnclave || a == AllocTypeEspressoWithoutEnclave
+	return a == AllocTypeEspresso || a == AllocTypeEspressoWithEnclave || a == AllocTypeEspressoWithoutEnclave
 }
 
 var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame, AllocTypeEspresso, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave}
