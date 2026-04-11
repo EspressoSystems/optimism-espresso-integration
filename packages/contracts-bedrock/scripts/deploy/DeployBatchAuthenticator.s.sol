@@ -42,7 +42,7 @@ contract DeployBatchAuthenticator is Script {
 
         vm.startBroadcast(msg.sender);
 
-        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1("ProxyAdmin", abi.encode(msg.sender)));
+        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: abi.encode(msg.sender) }));
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
         Proxy proxy = new Proxy(address(proxyAdmin));
         vm.label(address(proxy), "BatchAuthenticatorProxy");
