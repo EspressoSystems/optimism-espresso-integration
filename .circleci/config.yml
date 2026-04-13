@@ -1465,7 +1465,7 @@ jobs:
               echo "WARN: libespresso_crypto_helper download failed (may be OK if not needed by fuzz targets)"
       - run:
           name: Fuzz
-          no_output_timeout: 15m
+          no_output_timeout: 30m
           command: |
             export CGO_LDFLAGS="-L/home/circleci/local-lib"
             make fuzz

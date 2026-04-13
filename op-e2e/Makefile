@@ -60,7 +60,10 @@ clean:
 .PHONY: clean
 
 fuzz:
-	parallel --tag -N1 "go test -run NOTAREALTEST -tags cgo_test -v -fuzztime 10s -fuzz {} ./opgeth" ::: FuzzFjordCostFunction FuzzFastLzGethSolidity FuzzFastLzCgo
+	@echo "Building opgeth test binary (cgo_test)..."
+	go test -c -tags cgo_test -o /tmp/opgeth.test ./opgeth
+	@echo "Running fuzz targets in parallel..."
+	parallel --tag --line-buffer -N1 "cd opgeth && /tmp/opgeth.test -test.run=NOTAREALTEST -test.v -test.fuzztime=10s -test.fuzz={}" ::: FuzzFjordCostFunction FuzzFastLzGethSolidity FuzzFastLzCgo
 
 ifndef CONTRACT
 gen-binding:
