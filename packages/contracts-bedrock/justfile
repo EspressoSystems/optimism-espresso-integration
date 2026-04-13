@@ -86,22 +86,32 @@ fix-proxy-artifact:
       if not os.path.exists(dir_path):
           continue
       # Find the versioned artifact from src/universal (Foundry version-agnostic).
+      # Prefer the lowest solc version to avoid PUSH0 opcodes (introduced in EIP-3855/
+      # Shanghai), which are invalid in pre-Canyon L2 EVM environments.
       ref_path = None
-      for candidate in glob.glob(f"{dir_path}/{contract}.*.json"):
+      ref_ver  = None
+      for candidate in sorted(glob.glob(f"{dir_path}/{contract}.*.json")):
           d = json.load(open(candidate))
-          if "src/universal" in d.get("ast", {}).get("absolutePath", ""):
+          if "src/universal" not in d.get("ast", {}).get("absolutePath", ""):
+              continue
+          ver = d.get("metadata", {}).get("compiler", {}).get("version", "")
+          # Parse semver string like "0.8.15+commit.xxx" -> (0, 8, 15)
+          try:
+              ver_tuple = tuple(int(x) for x in ver.split("+")[0].split("."))
+          except (ValueError, AttributeError):
+              ver_tuple = (999, 999, 999)
+          if ref_path is None or ver_tuple < ref_ver:
               ref_path = candidate
-              break
+              ref_ver  = ver_tuple
       if ref_path is None:
           print(f"WARNING: no src/universal artifact found for {contract}, skipping fix")
           continue
       ref = json.load(open(ref_path))
       if os.path.exists(main_path):
           main = json.load(open(main_path))
-          bytecode = main.get("bytecode", {}).get("object", "0x")
-          src      = main.get("ast", {}).get("absolutePath", "")
-          if len(bytecode) > 2 and "src/universal" in src:
-              print(f"{contract}.json already has correct OP bytecode, skipping fix")
+          # Skip if already patched with the exact same bytecode as ref.
+          if main.get("deployedBytecode") == ref.get("deployedBytecode"):
+              print(f"{contract}.json already matches lowest-version src/universal bytecode, skipping fix")
               continue
           main["bytecode"] = ref["bytecode"]
           main["deployedBytecode"] = ref["deployedBytecode"]
