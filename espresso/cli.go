@@ -54,10 +54,10 @@ var (
 	RollupL1UrlFlagName                = espressoFlags("rollup-l1-url")
 	AttestationServiceFlagName         = espressoFlags("espresso-attestation-service")
 	BatchAuthenticatorAddrFlagName     = espressoFlags("batch-authenticator-addr")
-	VerifyReceiptMaxBlocksFlagName       = espressoFlags("verify-receipt-max-blocks")
-	VerifyReceiptSafetyTimeoutFlagName   = espressoFlags("verify-receipt-safety-timeout")
-	VerifyReceiptRetryDelayFlagName      = espressoFlags("verify-receipt-retry-delay")
-	BatchAuthLookbackWindowFlagName      = espressoFlags("batch-auth-lookback-window")
+	VerifyReceiptMaxBlocksFlagName     = espressoFlags("verify-receipt-max-blocks")
+	VerifyReceiptSafetyTimeoutFlagName = espressoFlags("verify-receipt-safety-timeout")
+	VerifyReceiptRetryDelayFlagName    = espressoFlags("verify-receipt-retry-delay")
+	BatchAuthLookbackWindowFlagName    = espressoFlags("batch-auth-lookback-window")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
