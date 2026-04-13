@@ -38,6 +38,10 @@ forge-build *ARGS:
     --skip-simulation \
     2>/dev/null || true
 
+  @# lib/espresso-tee-contracts uses OZ v5 TransparentUpgradeableProxy, which causes Foundry
+  @# to emit shadow ProxyAdmin/Proxy artifacts that break vm.getCode lookups. Clean them up.
+  just fix-proxy-artifact
+
 # Developer build command (faster).
 forge-build-dev *ARGS:
   FOUNDRY_PROFILE=lite forge build {{ARGS}}
@@ -69,9 +73,12 @@ clean:
 # Fixes Proxy and ProxyAdmin artifact bytecode when Foundry's unversioned .json is missing,
 # empty, or overwritten by a third-party library (e.g. OZ v5 ProxyAdmin shadowing
 # src/universal/ProxyAdmin.sol). Restores from the pinned src/universal versioned artifact.
+# Also removes OZ v5 shadow directories (transparent/ProxyAdmin.sol, proxy/Proxy.sol, etc.)
+# and duplicate disambiguation directories (universal/ProxyAdmin.sol) that cause
+# vm.getCode("ProxyAdmin") / vm.getCode("Proxy") to fail with "multiple matching artifacts".
 fix-proxy-artifact:
   #!/usr/bin/env python3
-  import json, os
+  import json, os, shutil
   FIXES = [("Proxy", "0.8.15"), ("ProxyAdmin", "0.8.25")]
   for contract, ref_ver in FIXES:
       ref_path  = f"forge-artifacts/{contract}.sol/{contract}.{ref_ver}.json"
@@ -93,6 +100,20 @@ fix-proxy-artifact:
       else:
           json.dump(ref, open(main_path, "w"), indent=2)
       print(f"Fixed {contract}.json from {contract}.{ref_ver}.json")
+  # Remove artifact directories that shadow src/universal/{Proxy,ProxyAdmin}.sol.
+  # These are created by the forge script pre-warm when OZ v5 TransparentUpgradeableProxy
+  # (from espresso-tee-contracts) pulls in its own ProxyAdmin/Proxy, and by Foundry's
+  # path-disambiguation feature. Multiple ProxyAdmin.json / Proxy.json files cause
+  # vm.getCode("ProxyAdmin") to fail with "multiple matching artifacts".
+  REMOVE_DIRS = [
+      "forge-artifacts/transparent/ProxyAdmin.sol",  # OZ v5 proxy/transparent/ProxyAdmin.sol
+      "forge-artifacts/universal/ProxyAdmin.sol",    # disambiguation duplicate of src/universal
+      "forge-artifacts/proxy/Proxy.sol",             # OZ v5 proxy/Proxy.sol
+  ]
+  for d in REMOVE_DIRS:
+      if os.path.exists(d):
+          shutil.rmtree(d)
+          print(f"Removed conflicting artifact directory: {d}")
 
 
 ########################################################
