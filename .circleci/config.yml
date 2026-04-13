@@ -2987,7 +2987,7 @@ workflows:
           test_timeout: 20m
           environment_overrides: |
             export PARALLEL=24
-            # some op-deployer & op-validator excluded as they need sepolia keys or sepolia url
+            export SEPOLIA_RPC_URL="https://theserversroom.com/sepolia/54cmzzhcj1o/"
             export CI_TEST_PKGS="\
               ./op-alt-da/... \
               ./op-batcher/... \

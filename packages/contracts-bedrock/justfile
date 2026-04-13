@@ -78,12 +78,22 @@ clean:
 # vm.getCode("ProxyAdmin") / vm.getCode("Proxy") to fail with "multiple matching artifacts".
 fix-proxy-artifact:
   #!/usr/bin/env python3
-  import json, os, shutil
-  FIXES = [("Proxy", "0.8.15"), ("ProxyAdmin", "0.8.25")]
-  for contract, ref_ver in FIXES:
-      ref_path  = f"forge-artifacts/{contract}.sol/{contract}.{ref_ver}.json"
-      main_path = f"forge-artifacts/{contract}.sol/{contract}.json"
-      if not os.path.exists(ref_path):
+  import json, os, shutil, glob
+  CONTRACTS = ["Proxy", "ProxyAdmin"]
+  for contract in CONTRACTS:
+      dir_path  = f"forge-artifacts/{contract}.sol"
+      main_path = f"{dir_path}/{contract}.json"
+      if not os.path.exists(dir_path):
+          continue
+      # Find the versioned artifact from src/universal (Foundry version-agnostic).
+      ref_path = None
+      for candidate in glob.glob(f"{dir_path}/{contract}.*.json"):
+          d = json.load(open(candidate))
+          if "src/universal" in d.get("ast", {}).get("absolutePath", ""):
+              ref_path = candidate
+              break
+      if ref_path is None:
+          print(f"WARNING: no src/universal artifact found for {contract}, skipping fix")
           continue
       ref = json.load(open(ref_path))
       if os.path.exists(main_path):
@@ -99,7 +109,7 @@ fix-proxy-artifact:
           json.dump(main, open(main_path, "w"), indent=2)
       else:
           json.dump(ref, open(main_path, "w"), indent=2)
-      print(f"Fixed {contract}.json from {contract}.{ref_ver}.json")
+      print(f"Fixed {contract}.json from {os.path.basename(ref_path)}")
   # Remove artifact directories that shadow src/universal/{Proxy,ProxyAdmin}.sol.
   # These are created by the forge script pre-warm when OZ v5 TransparentUpgradeableProxy
   # (from espresso-tee-contracts) pulls in its own ProxyAdmin/Proxy, and by Foundry's
