@@ -1835,7 +1835,7 @@ jobs:
       - run:
           name: Prepare test environment (compile tests and cache build results)
           working_directory: op-acceptance-tests
-          command: go test -v -c -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
+          command: go test -v -c -p 4 -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
       # Run the acceptance tests (if the devnet is running)
       - run:
           name: Run acceptance tests (gate=<<parameters.gate>>)
