@@ -35,6 +35,10 @@ const (
 	DefaultVerifyReceiptSafetyTimeout    time.Duration = 5 * time.Minute
 	DefaultVerifyReceiptRetryDelay       time.Duration = 100 * time.Millisecond
 	DefaultMaxInFlightRequestsToEspresso               = 128
+
+	// DefaultBatchAuthLookbackWindow is the default number of L1 blocks to scan
+	// for BatchInfoAuthenticated events. At ~12s per block, 100 blocks ≈ 20 minutes.
+	DefaultBatchAuthLookbackWindow uint64 = 100
 )
 
 var (
@@ -50,9 +54,10 @@ var (
 	RollupL1UrlFlagName                = espressoFlags("rollup-l1-url")
 	AttestationServiceFlagName         = espressoFlags("espresso-attestation-service")
 	BatchAuthenticatorAddrFlagName     = espressoFlags("batch-authenticator-addr")
-	VerifyReceiptMaxBlocksFlagName     = espressoFlags("verify-receipt-max-blocks")
-	VerifyReceiptSafetyTimeoutFlagName = espressoFlags("verify-receipt-safety-timeout")
-	VerifyReceiptRetryDelayFlagName    = espressoFlags("verify-receipt-retry-delay")
+	VerifyReceiptMaxBlocksFlagName       = espressoFlags("verify-receipt-max-blocks")
+	VerifyReceiptSafetyTimeoutFlagName   = espressoFlags("verify-receipt-safety-timeout")
+	VerifyReceiptRetryDelayFlagName      = espressoFlags("verify-receipt-retry-delay")
+	BatchAuthLookbackWindowFlagName      = espressoFlags("batch-auth-lookback-window")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -153,6 +158,13 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_RETRY_DELAY"),
 			Category: category,
 		},
+		&cli.Uint64Flag{
+			Name:     BatchAuthLookbackWindowFlagName,
+			Usage:    "Number of L1 blocks to scan for BatchInfoAuthenticated events when authenticating batch submissions",
+			Value:    DefaultBatchAuthLookbackWindow,
+			EnvVars:  espressoEnvs(envPrefix, "BATCH_AUTH_LOOKBACK_WINDOW"),
+			Category: category,
+		},
 	}
 }
 
@@ -174,6 +186,10 @@ type CLIConfig struct {
 	VerifyReceiptMaxBlocks     uint64
 	VerifyReceiptSafetyTimeout time.Duration
 	VerifyReceiptRetryDelay    time.Duration
+
+	// BatchAuthLookbackWindow is the number of L1 blocks to scan for BatchInfoAuthenticated events.
+	// Zero means use the default (DefaultBatchAuthLookbackWindow).
+	BatchAuthLookbackWindow uint64
 
 	// Non directly configurable option
 	allowEmptyAttestationService bool `json:"-"`
@@ -234,6 +250,7 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		VerifyReceiptMaxBlocks:     c.Uint64(VerifyReceiptMaxBlocksFlagName),
 		VerifyReceiptSafetyTimeout: c.Duration(VerifyReceiptSafetyTimeoutFlagName),
 		VerifyReceiptRetryDelay:    c.Duration(VerifyReceiptRetryDelayFlagName),
+		BatchAuthLookbackWindow:    c.Uint64(BatchAuthLookbackWindowFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)

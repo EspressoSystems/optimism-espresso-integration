@@ -237,7 +237,7 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 			200: matchingReceipts,
 		})
 
-		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
+		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, BatchAuthLookbackWindow, logger)
 		require.NoError(t, err)
 		require.True(t, result[batchHash])
 		require.Len(t, result, 1)
@@ -254,7 +254,7 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 			100: matchingReceipts,
 		})
 
-		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
+		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, BatchAuthLookbackWindow, logger)
 		require.NoError(t, err)
 		require.True(t, result[batchHash])
 		require.Len(t, result, 1)
@@ -269,7 +269,7 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 		// No auth event in any block in the window
 		expectChainTraversal(l1F, chain, 100, 200, nil)
 
-		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
+		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, BatchAuthLookbackWindow, logger)
 		require.NoError(t, err)
 		require.Len(t, result, 0)
 		l1F.AssertExpectations(t)
@@ -285,7 +285,7 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 			10: matchingReceipts,
 		})
 
-		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
+		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, BatchAuthLookbackWindow, logger)
 		require.NoError(t, err)
 		require.True(t, result[batchHash])
 		require.Len(t, result, 1)
@@ -325,7 +325,7 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 			10: multiReceipts,
 		})
 
-		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, logger)
+		result, err := CollectAuthenticatedBatches(ctx, l1F, ref, authenticatorAddr, BatchAuthLookbackWindow, logger)
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 		require.True(t, result[batchHash])
@@ -363,7 +363,7 @@ func TestCollectAuthenticatedBatchesBlockRefCache(t *testing.T) {
 		}
 	}
 
-	result, err := CollectAuthenticatedBatches(ctx, l1F, chain[200], authenticatorAddr, logger)
+	result, err := CollectAuthenticatedBatches(ctx, l1F, chain[200], authenticatorAddr, BatchAuthLookbackWindow, logger)
 	require.NoError(t, err)
 	require.Len(t, result, 0)
 	l1F.AssertExpectations(t)
@@ -380,7 +380,7 @@ func TestCollectAuthenticatedBatchesBlockRefCache(t *testing.T) {
 	// All block refs in [101, 200] are cached from the first call, and block 200
 	// was cached as the ref argument. No L1BlockRefByHash calls expected.
 
-	result2, err := CollectAuthenticatedBatches(ctx, l1F2, chain[201], authenticatorAddr, logger)
+	result2, err := CollectAuthenticatedBatches(ctx, l1F2, chain[201], authenticatorAddr, BatchAuthLookbackWindow, logger)
 	require.NoError(t, err)
 	require.Len(t, result2, 0)
 	l1F2.AssertExpectations(t)

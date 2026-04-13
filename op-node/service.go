@@ -261,7 +261,11 @@ func NewRollupConfigFromCLI(log log.Logger, ctx cliiface.Context) (*rollup.Confi
 	applyOverrides(ctx, rollupConfig)
 
 	if cliCtx, ok := ctx.(*cli.Context); ok {
-		rollupConfig.CaffNodeConfig = rollup.CaffNodeConfigFromCLIConfig(espresso.ReadCLIConfig(cliCtx))
+		espCfg := espresso.ReadCLIConfig(cliCtx)
+		rollupConfig.CaffNodeConfig = rollup.CaffNodeConfigFromCLIConfig(espCfg)
+		if espCfg.BatchAuthLookbackWindow != 0 {
+			rollupConfig.BatchAuthLookbackWindow = espCfg.BatchAuthLookbackWindow
+		}
 	}
 
 	return rollupConfig, nil

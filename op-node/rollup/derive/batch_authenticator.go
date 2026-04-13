@@ -57,21 +57,21 @@ func resetBatchAuthCaches() {
 	blockRefCacheOnce = sync.Once{}
 }
 
-func getCache[T any](cache **lru.Cache[common.Hash, T], once *sync.Once) *lru.Cache[common.Hash, T] {
+func getCache[T any](cache **lru.Cache[common.Hash, T], once *sync.Once, size int) *lru.Cache[common.Hash, T] {
 	once.Do(func() {
-		// BatchAuthLookbackWindow of past blocks + 1 current block + 1 LRU
+		// lookbackWindow past blocks + 1 current block + 1 LRU overhead.
 		// lru.New only errors on size <= 0.
-		*cache, _ = lru.New[common.Hash, T](int(BatchAuthLookbackWindow) + 2)
+		*cache, _ = lru.New[common.Hash, T](size + 2)
 	})
 	return *cache
 }
 
-func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
-	return getCache(&batchAuthCache, &batchAuthCacheOnce)
+func getBatchAuthCache(lookbackWindow uint64) *lru.Cache[common.Hash, map[common.Hash]bool] {
+	return getCache(&batchAuthCache, &batchAuthCacheOnce, int(lookbackWindow))
 }
 
-func getBlockRefCache() *lru.Cache[common.Hash, eth.L1BlockRef] {
-	return getCache(&blockRefCache, &blockRefCacheOnce)
+func getBlockRefCache(lookbackWindow uint64) *lru.Cache[common.Hash, eth.L1BlockRef] {
+	return getCache(&blockRefCache, &blockRefCacheOnce, int(lookbackWindow))
 }
 
 // ComputeCalldataBatchHash computes keccak256(calldata), matching the BatchAuthenticator
@@ -154,10 +154,11 @@ func CollectAuthenticatedBatches(
 	fetcher L1Fetcher,
 	ref eth.L1BlockRef,
 	authenticatorAddr common.Address,
+	lookbackWindow uint64,
 	logger log.Logger,
 ) (map[common.Hash]bool, error) {
-	cache := getBatchAuthCache()
-	refCache := getBlockRefCache()
+	cache := getBatchAuthCache(lookbackWindow)
+	refCache := getBlockRefCache(lookbackWindow)
 
 	// Cache the starting block ref so future calls that traverse through this
 	// block (as part of their lookback window) can resolve it without an RPC call.
@@ -188,7 +189,7 @@ func CollectAuthenticatedBatches(
 			}
 		}
 
-		if currentBlock.Number == 0 || ref.Number-currentBlock.Number >= BatchAuthLookbackWindow {
+		if currentBlock.Number == 0 || ref.Number-currentBlock.Number >= lookbackWindow {
 			break
 		}
 

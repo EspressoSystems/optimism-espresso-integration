@@ -128,7 +128,7 @@ func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *D
 	if config.BatchAuthEnabled() {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
-			ctx, fetcher, ref, config.batchAuthenticatorAddress, logger,
+			ctx, fetcher, ref, config.batchAuthenticatorAddress, config.batchAuthLookbackWindowOrDefault(), logger,
 		)
 		if err != nil {
 			return nil, nil, err

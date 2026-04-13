@@ -95,7 +95,7 @@ func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batche
 	if dsCfg.BatchAuthEnabled() {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
-			ctx, fetcher, ref, dsCfg.batchAuthenticatorAddress, log,
+			ctx, fetcher, ref, dsCfg.batchAuthenticatorAddress, dsCfg.batchAuthLookbackWindowOrDefault(), log,
 		)
 		if err != nil {
 			return nil, err

@@ -750,6 +750,9 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	if cfg.Espresso.BatchAuthenticatorAddr == (common.Address{}) {
 		cfg.Espresso.BatchAuthenticatorAddr = bs.RollupConfig.BatchAuthenticatorAddress
 	}
+	if bs.RollupConfig.BatchAuthLookbackWindow == 0 && cfg.Espresso.BatchAuthLookbackWindow != 0 {
+		bs.RollupConfig.BatchAuthLookbackWindow = cfg.Espresso.BatchAuthLookbackWindow
+	}
 
 	if err := cfg.Espresso.Check(); err != nil {
 		return fmt.Errorf("invalid Espresso config: %w", err)

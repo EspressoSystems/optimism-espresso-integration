@@ -54,6 +54,7 @@ func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher,
 		batchInboxAddress:         cfg.BatchInboxAddress,
 		altDAEnabled:              cfg.AltDAEnabled(),
 		batchAuthenticatorAddress: cfg.BatchAuthenticatorAddress,
+		batchAuthLookbackWindow:   cfg.BatchAuthLookbackWindowOrDefault(),
 	}
 	return &DataSourceFactory{
 		log:          log,
@@ -94,11 +95,23 @@ type DataSourceConfig struct {
 	// When non-zero, event-based batch authentication is used instead of sender verification.
 	// When zero, legacy sender-based authentication is used.
 	batchAuthenticatorAddress common.Address
+	// batchAuthLookbackWindow is the number of L1 blocks to scan for BatchInfoAuthenticated events.
+	batchAuthLookbackWindow uint64
 }
 
 // BatchAuthEnabled returns true if event-based batch authentication is configured.
 func (c DataSourceConfig) BatchAuthEnabled() bool {
 	return c.batchAuthenticatorAddress != (common.Address{})
+}
+
+// batchAuthLookbackWindowOrDefault returns the configured lookback window,
+// falling back to BatchAuthLookbackWindow if the field is zero (e.g. in tests
+// that construct DataSourceConfig directly without setting the field).
+func (c DataSourceConfig) batchAuthLookbackWindowOrDefault() uint64 {
+	if c.batchAuthLookbackWindow == 0 {
+		return BatchAuthLookbackWindow
+	}
+	return c.batchAuthLookbackWindow
 }
 
 // isValidBatchTx checks basic transaction validity for batch submission:
