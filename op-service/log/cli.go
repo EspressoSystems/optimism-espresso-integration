@@ -254,8 +254,7 @@ func NewLogHandler(wr io.Writer, cfg CLIConfig) slog.Handler {
 // The log handler of the logger is a LvlSetter, i.e. the log level can be changed as needed.
 func NewLogger(wr io.Writer, cfg CLIConfig) log.Logger {
 	h := NewLogHandler(wr, cfg)
-	debounced := NewDebouncingHandler(h)
-	l := log.NewLogger(debounced)
+	l := log.NewLogger(h)
 	if cfg.Pid {
 		l = l.With("pid", os.Getpid())
 	}

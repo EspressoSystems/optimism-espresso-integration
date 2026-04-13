@@ -5,6 +5,7 @@ import (
 
 	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // EspressoStreamer defines the interface for the Espresso streamer.
@@ -63,4 +64,9 @@ type EspressoStreamer[B op.Batch] interface {
 	// are no batches left to read, at the moment of the call, it will return
 	// nil.
 	Next(ctx context.Context) *B
+
+	// Peek returns the batch at the current position whose parentHash matches
+	// the provided tip, without advancing the position. Returns nil if no
+	// matching fork is available yet.
+	Peek(parentHash common.Hash) *B
 }

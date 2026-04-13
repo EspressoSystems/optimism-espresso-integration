@@ -6,8 +6,8 @@ import (
 	"io"
 	"math"
 
-	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/espresso/logmodule"
+	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -242,6 +242,14 @@ func (s *channelManager) nextTxData(channel *channel) (txData, error) {
 		return txData{}, io.EOF
 	}
 	tx := channel.NextTxData()
+
+	s.log.Info("Submitting L1 tx",
+		"tx_id", tx.ID().String(),
+		"firstL2Block", channel.OldestL2().Number,
+		"lastL2Block", channel.LatestL2().Number,
+		"numFrames", len(tx.Frames()),
+		"dataBytes", tx.Len(),
+	)
 
 	// update s.l1OriginLastSubmittedChannel so that the next
 	// channel's duration timeout will trigger properly

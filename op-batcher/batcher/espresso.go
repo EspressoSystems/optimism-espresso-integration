@@ -36,9 +36,9 @@ import (
 
 // EspressoOnchainProof is the proof structure returned by the attestation service for onchain verification.
 type EspressoOnchainProof struct {
-	Proof        json.RawMessage `json:"proof,omitempty"`
-	Data         json.RawMessage `json:"data,omitempty"`
-	RawProof     struct {
+	Proof    json.RawMessage `json:"proof,omitempty"`
+	Data     json.RawMessage `json:"data,omitempty"`
+	RawProof struct {
 		Journal string `json:"journal"`
 	} `json:"raw_proof"`
 	OnchainProof string `json:"onchain_proof"`
@@ -811,8 +811,11 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			var batch *derive.EspressoBatch
 
 			for {
+				l.channelMgrMutex.Lock()
+				tip := l.channelMgr.tip
+				l.channelMgrMutex.Unlock()
 
-				batch = l.EspressoStreamer().Next(ctx)
+				batch = l.EspressoStreamer().Peek(tip)
 
 				if batch == nil {
 					break
@@ -841,7 +844,10 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
 					l.EspressoStreamer().Reset()
+					break
 				}
+
+				l.espressoStreamer.Next(ctx)
 
 				l.Log.Info(logmodule.AddedL2BlockToChannelManager)
 			}
