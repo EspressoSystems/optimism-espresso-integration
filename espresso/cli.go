@@ -250,7 +250,13 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		VerifyReceiptMaxBlocks:     c.Uint64(VerifyReceiptMaxBlocksFlagName),
 		VerifyReceiptSafetyTimeout: c.Duration(VerifyReceiptSafetyTimeoutFlagName),
 		VerifyReceiptRetryDelay:    c.Duration(VerifyReceiptRetryDelayFlagName),
-		BatchAuthLookbackWindow:    c.Uint64(BatchAuthLookbackWindowFlagName),
+	}
+
+	// Only propagate BatchAuthLookbackWindow when explicitly set by the operator.
+	// Zero means "use default" (DefaultBatchAuthLookbackWindow), keeping the rollup config
+	// JSON clean so tools like succinct-proposer that don't know this field are unaffected.
+	if c.IsSet(BatchAuthLookbackWindowFlagName) {
+		config.BatchAuthLookbackWindow = c.Uint64(BatchAuthLookbackWindowFlagName)
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
