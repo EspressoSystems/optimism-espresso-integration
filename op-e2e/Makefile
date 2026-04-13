@@ -63,7 +63,7 @@ fuzz:
 	@echo "Building opgeth test binary (cgo_test)..."
 	go test -c -tags cgo_test -o /tmp/opgeth.test ./opgeth
 	@echo "Running fuzz targets in parallel..."
-	parallel --tag --line-buffer -N1 "cd opgeth && /tmp/opgeth.test -test.run=NOTAREALTEST -test.v -test.fuzztime=10s -test.fuzz={}" ::: FuzzFjordCostFunction FuzzFastLzGethSolidity FuzzFastLzCgo
+	parallel --tag --line-buffer -N1 "cd opgeth && /tmp/opgeth.test -test.run=NOTAREALTEST -test.v -test.fuzztime=10s -test.fuzzcachedir=/tmp/fuzz-cache/{} -test.fuzz={}" ::: FuzzFjordCostFunction FuzzFastLzGethSolidity FuzzFastLzCgo
 
 ifndef CONTRACT
 gen-binding:
