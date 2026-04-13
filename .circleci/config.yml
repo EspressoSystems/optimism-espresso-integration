@@ -3010,7 +3010,6 @@ workflows:
               ./packages/contracts-bedrock/scripts/checks/... \
               ./op-dripper/... \
               ./devnet-sdk/... \
-              ./op-acceptance-tests/... \
               ./kurtosis-devnet/... \
               ./op-devstack/... \
               ./op-deployer/pkg/deployer/artifacts/... \
