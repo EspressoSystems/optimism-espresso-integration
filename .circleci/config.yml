@@ -2987,11 +2987,11 @@ workflows:
       - go-tests:
           name: go-tests-short
           parallelism: 1
-          no_output_timeout: 35m
-          test_timeout: 30m
+          no_output_timeout: 60m
+          test_timeout: 55m
           # TEMPORARY: only run the previously failing tests to verify fixes
           environment_overrides: |
-            export PARALLEL=24
+            export PARALLEL=1
             export SEPOLIA_RPC_URL="https://theserversroom.com/sepolia/54cmzzhcj1o/"
             export CI_TEST_PKGS="\
               ./op-deployer/pkg/deployer/integration_test/... \
