@@ -129,9 +129,9 @@ wrap_comments=true
 
 [profile.ci]
 # Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
-# Default is CPU count (8). With espresso-tee-contracts submodule deps, each large
-# compilation group can exceed 4GB. 2 jobs keeps peak below ~8-10GB.
-jobs = 2
+# Default is CPU count (8). With espresso-tee-contracts submodule deps, the two 0.8.15
+# groups (530 + 211 files) run together and exceed 16GB even at jobs=2. Serialize to 1.
+jobs = 1
 
 [profile.ci.fuzz]
 runs = 128
@@ -161,7 +161,7 @@ depth = 1
 
 [profile.ciheavy]
 # Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
-jobs = 2
+jobs = 1
 
 [profile.ciheavy.fuzz]
 runs = 20000
@@ -178,7 +178,7 @@ timeout = 300
 
 [profile.lite]
 # Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
-jobs = 2
+jobs = 1
 optimizer = false
 optimizer_runs = 200
 use_literal_content = false
