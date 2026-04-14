@@ -299,7 +299,7 @@ _go-tests-ci-internal:
 	$(DEFAULT_TEST_ENV_VARS) && \
 	$(CI_ENV_VARS) && \
 	export EFFECTIVE_PKGS="$${CI_TEST_PKGS:-$(ALL_TEST_PACKAGES)}" && \
-	export SKIP_FLAG="$${CI_TEST_SKIP:+-skip '$$CI_TEST_SKIP'}" && \
+	export SKIP_FLAG="$${CI_TEST_SKIP:+-skip $$CI_TEST_SKIP}" && \
 	if [ -n "$$CIRCLE_NODE_TOTAL" ] && [ "$$CIRCLE_NODE_TOTAL" -gt 1 ]; then \
 		export NODE_INDEX=$${CIRCLE_NODE_INDEX:-0} && \
 		export NODE_TOTAL=$${CIRCLE_NODE_TOTAL:-1} && \

@@ -3022,6 +3022,10 @@ workflows:
               ./op-deployer/pkg/deployer/integration_test/cli \
               ./op-deployer/pkg/deployer/standard/... \
               ./op-deployer/pkg/deployer/state/..."
+            # Skip Sepolia-fork tests: these fork a remote Sepolia RPC via Anvil, which
+            # consistently exceeds the Anvil startup timeout on our CI environment due to RPC
+            # latency. They require a low-latency dedicated RPC to pass reliably and should be
+            # moved to a separate CI job with such credentials.
             export CI_TEST_SKIP="TestEndToEndApply|TestEndToEndBootstrapApplyWithUpgrade|TestCLIUpgrade|TestManageAddGameTypeV2_Integration"
           requires:
             - contracts-bedrock-build
