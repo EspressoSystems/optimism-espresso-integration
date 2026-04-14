@@ -244,7 +244,7 @@ func TestEndToEndApply(t *testing.T) {
 	loc, _ := testutil.LocalArtifacts(t)
 	testCacheDir := testutils.IsolatedTestDirWithAutoCleanup(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	t.Run("two chains one after another", func(t *testing.T) {

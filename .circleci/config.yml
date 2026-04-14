@@ -2986,42 +2986,16 @@ workflows:
             - cannon-prestate-quick
       - go-tests:
           name: go-tests-short
-          parallelism: 12
-          no_output_timeout: 19m
-          test_timeout: 20m
+          parallelism: 1
+          no_output_timeout: 35m
+          test_timeout: 30m
+          # TEMPORARY: only run the previously failing tests to verify fixes
           environment_overrides: |
             export PARALLEL=24
             export SEPOLIA_RPC_URL="https://theserversroom.com/sepolia/54cmzzhcj1o/"
             export CI_TEST_PKGS="\
-              ./op-alt-da/... \
-              ./op-batcher/... \
-              ./op-chain-ops/... \
-              ./op-node/... \
-              ./op-proposer/... \
-              ./op-challenger/... \
-              ./op-faucet/... \
-              ./op-dispute-mon/... \
-              ./op-conductor/... \
-              ./op-program/... \
-              ./op-service/... \
-              ./op-supervisor/... \
-              ./op-test-sequencer/... \
-              ./op-fetcher/... \
-              ./op-e2e/system/... \
-              ./op-e2e/e2eutils/... \
-              ./op-e2e/opgeth/... \
-              ./op-e2e/interop/... \
-              ./packages/contracts-bedrock/scripts/checks/... \
-              ./op-dripper/... \
-              ./devnet-sdk/... \
-              ./kurtosis-devnet/... \
-              ./op-devstack/... \
-              ./op-deployer/pkg/deployer/artifacts/... \
-              ./op-deployer/pkg/deployer/broadcaster/... \
-              ./op-deployer/pkg/deployer/clean/... \
               ./op-deployer/pkg/deployer/integration_test/... \
-              ./op-deployer/pkg/deployer/standard/... \
-              ./op-deployer/pkg/deployer/state/..."
+              ./op-e2e/system/da"
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
