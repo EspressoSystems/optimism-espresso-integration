@@ -176,6 +176,8 @@ timeout = 300
 ################################################################
 
 [profile.lite]
+# Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
+jobs = 4
 optimizer = false
 optimizer_runs = 200
 use_literal_content = false

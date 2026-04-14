@@ -40,6 +40,11 @@ var excludedFiles = []string{
 	"src/periphery/monitoring/DisputeMonitorHelper.sol",
 	"src/universal/SafeSend.sol",
 	"src/celo/**/*.sol",
+	// Upstream OP stack contracts that intentionally use ^ for broad compatibility.
+	"src/universal/Proxy.sol",
+	"src/universal/ProxyAdmin.sol",
+	// Third-party Succinct contracts imported as-is; pragma is vendor-controlled.
+	"src/dispute/succinct/**/*.sol",
 }
 
 func main() {

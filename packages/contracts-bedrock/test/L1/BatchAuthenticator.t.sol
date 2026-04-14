@@ -13,7 +13,6 @@ import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspress
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
 import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
 import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
-import { IProxy } from "interfaces/universal/IProxy.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
 import { EspressoTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoTEEVerifier.sol";
 import { EspressoNitroTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoNitroTEEVerifierMock.sol";
@@ -24,7 +23,6 @@ import {
     Pcr
 } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 
-import { Config } from "scripts/libraries/Config.sol";
 import { Chains } from "scripts/libraries/Chains.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";

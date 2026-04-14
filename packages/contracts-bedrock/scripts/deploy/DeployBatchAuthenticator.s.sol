@@ -2,7 +2,6 @@
 pragma solidity 0.8.25;
 
 import {Script, console} from "forge-std/Script.sol";
-import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
 import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";

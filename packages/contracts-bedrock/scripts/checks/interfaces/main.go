@@ -27,6 +27,10 @@ var excludeContracts = []string{
 	// Espresso dependencies
 	"IBatchAuthenticator", "IEspressoTEEVerifier", "IEspressoNitroTEEVerifier",
 	"ICertManager", "BatchAuthenticator", "INitroValidator",
+	// Succinct SP1 verifier interfaces (third-party, use ^0.8.20 not ^0.8.0)
+	"ISP1Verifier", "ISP1VerifierWithHash",
+	// Espresso TEE submodule deep dependency interfaces (vendor-controlled pragma)
+	"IDaoAttestationResolver", "IPCCSRouter", "IQuoteVerifier",
 
 	// EAS
 	"IEAS", "ISchemaResolver", "ISchemaRegistry",
@@ -90,6 +94,9 @@ var excludeSourceContracts = []string{
 
 	// FIXME
 	"WETH", "MIPS64",
+
+	// Succinct contracts (third-party, no corresponding interfaces needed)
+	"AccessManager", "SP1MockVerifier", "OPSuccinctFaultDisputeGame",
 
 	// Celo
 	"AbstractFeeCurrency",

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.28;
 
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 // espresso: use direct paths (not @espresso-tee-contracts/ remapping) so that Foundry's
