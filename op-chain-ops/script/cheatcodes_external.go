@@ -43,6 +43,12 @@ func (c *CheatCodesPrecompile) getArtifact(input string) (*foundry.Artifact, err
 	if len(parts) == 2 {
 		name = parts[0]
 		contract = parts[1]
+		// Espresso: support path-qualified names like "src/universal/Proxy.sol:Proxy"
+		// by extracting just the basename. Foundry uses these to disambiguate artifacts
+		// that share a filename (e.g. our Proxy.sol vs OZ v5's proxy/Proxy.sol).
+		if idx := strings.LastIndex(name, "/"); idx >= 0 {
+			name = name[idx+1:]
+		}
 	}
 	return c.h.af.ReadArtifact(name, contract)
 }

@@ -26,7 +26,7 @@ import {
 import { Chains } from "scripts/libraries/Chains.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable-v5/proxy/utils/Initializable.sol";
+
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
 import { OwnableWithGuardiansUpgradeable } from
     "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
