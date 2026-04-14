@@ -45,6 +45,10 @@ var excludedFiles = []string{
 	"src/universal/ProxyAdmin.sol",
 	// Third-party Succinct contracts imported as-is; pragma is vendor-controlled.
 	"src/dispute/succinct/**/*.sol",
+	// BatchAuthenticator is imported by scripts at =0.8.25 AND by test groups at 0.8.28
+	// (via OZ v5 ^0.8.20 transitive deps). An exact pragma would break one or the other
+	// compilation group in Foundry's multi-version resolver.
+	"src/L1/BatchAuthenticator.sol",
 }
 
 func main() {
