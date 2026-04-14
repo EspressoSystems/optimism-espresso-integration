@@ -7,7 +7,7 @@ import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { IFeesDepositor } from "interfaces/L1/IFeesDepositor.sol";
 import { FeesDepositor } from "src/L1/FeesDepositor.sol";
 import { IProxyAdminOwnedBase } from "interfaces/L1/IProxyAdminOwnedBase.sol";
-import { Proxy } from "src/universal/Proxy.sol";
+import { IProxy } from "interfaces/universal/IProxy.sol";
 import { Features } from "src/libraries/Features.sol";
 
 /// @title FeesDepositor_TestInit
@@ -37,12 +37,15 @@ contract FeesDepositor_TestInit is CommonTest {
             _args: DeployUtils.encodeConstructor(abi.encodeCall(IFeesDepositor.__constructor__, ()))
         });
 
-        // Deploy proxy pointing to proxyAdmin
-        address proxy = address(new Proxy(address(proxyAdmin)));
+        // Deploy proxy pointing to proxyAdmin (without importing Proxy.sol to avoid duplicate artifacts)
+        bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(address(proxyAdmin)));
+        address payable proxyAddr;
+        assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+        IProxy proxy = IProxy(proxyAddr);
 
         // Set implementation
         vm.prank(address(proxyAdmin));
-        Proxy(payable(proxy)).upgradeTo(implementation);
+        proxy.upgradeTo(implementation);
 
         // Cast proxy to FeesDepositor
         feesDepositor = FeesDepositor(payable(proxy));

@@ -5,7 +5,6 @@ import { Script } from "forge-std/Script.sol";
 import { console2 as console } from "forge-std/console2.sol";
 
 import { IFeesDepositor } from "interfaces/L1/IFeesDepositor.sol";
-import { Proxy } from "src/universal/Proxy.sol";
 import { IL1CrossDomainMessenger } from "interfaces/L1/IL1CrossDomainMessenger.sol";
 import { IProxy } from "interfaces/universal/IProxy.sol";
 
@@ -71,7 +70,7 @@ contract DeployFeesDepositor is Script {
     function deployProxy() internal returns (IProxy) {
         return IProxy(
             DeployUtils.createDeterministic({
-                _name: "Proxy",
+                _name: "src/universal/Proxy.sol:Proxy", // Espresso: disambiguate from OZ v5 proxy/Proxy.sol artifact
                 _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (deployer))),
                 _salt: _salt
             })

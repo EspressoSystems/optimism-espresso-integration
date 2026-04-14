@@ -7,7 +7,7 @@ import { Vm } from "forge-std/Vm.sol";
 
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
-import { Proxy } from "src/universal/Proxy.sol";
+import { IProxy } from "interfaces/universal/IProxy.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
@@ -130,7 +130,7 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Create and initialize a proxy.
     function _deployAndInitializeProxy() internal returns (BatchAuthenticator) {
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
@@ -151,7 +151,7 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that the initialization can only be called once.
     function test_constructor_revertsWhenAlreadyInitialized() external {
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
@@ -170,14 +170,17 @@ contract BatchAuthenticator_Test is Test {
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
 
         // Second initialization should revert.
+        // Our custom Proxy.upgradeToAndCall wraps delegatecall failures with a fixed string,
+        // rather than bubbling up the inner revert (InvalidInitialization). This is a known
+        // limitation of src/universal/Proxy.sol vs OZ's TransparentUpgradeableProxy.
         vm.prank(proxyAdminOwner);
-        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
+        vm.expectRevert("Proxy: delegatecall to new implementation contract failed");
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
     }
 
     /// @notice Test that initialize reverts when espressoBatcher is zero.
     function test_constructor_revertsWhenEspressoBatcherIsZero() external {
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
@@ -198,7 +201,7 @@ contract BatchAuthenticator_Test is Test {
 
     /// @notice Test that initialize reverts when verifier is zero.
     function test_constructor_revertsWhenVerifierIsZero() external {
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
@@ -322,10 +325,12 @@ contract BatchAuthenticator_Test is Test {
         bytes32 commitment = keccak256("test commitment");
 
         // Create an invalid signature that will recover to address(0)
+        // 65 bytes: v=0, r=0, s=0 — passes length check, but ecrecover returns address(0)
         bytes memory invalidSignature = new bytes(65);
 
-        // OpenZeppelin's ECDSA.recover reverts with its own error for invalid signatures
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 65));
+        // OZ v5 ECDSA.recover reverts with ECDSAInvalidSignature() when ecrecover returns address(0)
+        // (not ECDSAInvalidSignatureLength, which only fires when length != 65)
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignature.selector));
         authenticator.authenticateBatchInfo(commitment, invalidSignature);
     }
 
@@ -379,7 +384,7 @@ contract BatchAuthenticator_Test is Test {
     function test_upgrade_preservesState() external {
         // Create and initialize a proxy.
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
-        Proxy proxy = Proxy(payable(address(authenticator)));
+        IProxy proxy = IProxy(payable(address(authenticator)));
 
         // Set up initial state.
         bytes32 commitment = keccak256("test commitment");
@@ -500,6 +505,16 @@ contract BatchAuthenticator_Test is Test {
     event SignerRegistrationInitiated(address indexed caller);
     event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
     event BatcherSwitched(bool indexed activeIsEspresso);
+
+    /// @notice Deploy a Proxy without importing Proxy.sol to avoid duplicate compilation artifacts
+    ///         that break vm.getCode("Proxy") disambiguation in tests.
+    function _newProxy(address _admin) internal returns (IProxy) {
+        bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
+        address payable proxyAddr;
+        assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+        require(proxyAddr != address(0),"BatchAuthenticator_Test: proxy deployment failed");
+        return IProxy(proxyAddr);
+    }
 }
 
 /// @notice Fork tests for BatchAuthenticator on Sepolia.
@@ -512,7 +527,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     EspressoNitroTEEVerifierMock public nitroVerifier;
     EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
-    Proxy public proxy;
+    IProxy public proxy;
     IProxyAdmin public proxyAdmin;
     BatchAuthenticator public authenticator;
 
@@ -563,7 +578,7 @@ contract BatchAuthenticator_Fork_Test is Test {
             assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
             proxyAdmin = IProxyAdmin(_addr);
         }
-        proxy = new Proxy(address(proxyAdmin));
+        proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
@@ -708,4 +723,13 @@ contract BatchAuthenticator_Fork_Test is Test {
     event SignerRegistrationInitiated(address indexed caller);
     event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
     event BatcherSwitched(bool indexed activeIsEspresso);
+
+    /// @notice Deploy a Proxy without importing Proxy.sol to avoid duplicate compilation artifacts.
+    function _newProxy(address _admin) internal returns (IProxy) {
+        bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
+        address payable proxyAddr;
+        assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+        require(proxyAddr != address(0),"BatchAuthenticator_Fork_Test: proxy deployment failed");
+        return IProxy(proxyAddr);
+    }
 }

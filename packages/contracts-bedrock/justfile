@@ -129,6 +129,7 @@ fix-proxy-artifact:
       "forge-artifacts/transparent/ProxyAdmin.sol",  # OZ v5 proxy/transparent/ProxyAdmin.sol
       "forge-artifacts/universal/ProxyAdmin.sol",    # disambiguation duplicate of src/universal
       "forge-artifacts/proxy/Proxy.sol",             # OZ v5 proxy/Proxy.sol
+      "forge-artifacts/universal/Proxy.sol",         # disambiguation duplicate of src/universal
   ]
   for d in REMOVE_DIRS:
       if os.path.exists(d):
@@ -244,8 +245,13 @@ coverage: build-go-ffi
   forge coverage
 
 # Runs contract coverage with lcov.
+# Pre-builds then fixes proxy artifacts before forge coverage to avoid
+# "multiple matching artifacts" errors from OZ v5 proxy/Proxy.sol disambiguation.
 coverage-lcov *ARGS: build-go-ffi
-  forge coverage {{ARGS}} --report lcov --report-file lcov.info
+  #!/bin/bash
+  FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-default}" forge build 2>/dev/null || true
+  just fix-proxy-artifact
+  FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-default}" forge coverage {{ARGS}} --report lcov --report-file lcov.info
 
 # Runs upgrade path variant of contract coverage tests.
 coverage-upgrade *ARGS:

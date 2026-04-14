@@ -3,7 +3,6 @@ pragma solidity 0.8.25;
 
 import {BaseDeployIO} from "scripts/deploy/BaseDeployIO.sol";
 import {Script} from "forge-std/Script.sol";
-import {DeployUtils} from "scripts/libraries/DeployUtils.sol";
 import {Solarray} from "scripts/libraries/Solarray.sol";
 import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
 import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
@@ -11,8 +10,8 @@ import {IEspressoNitroTEEVerifier} from "@espresso-tee-contracts/interface/IEspr
 import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import {DeployTEEVerifier} from "lib/espresso-tee-contracts/scripts/DeployTEEVerifier.s.sol";
 import {DeployNitroTEEVerifier} from "lib/espresso-tee-contracts/scripts/DeployNitroTEEVerifier.s.sol";
+import {IProxy} from "interfaces/universal/IProxy.sol";
 import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";
-import {Proxy} from "src/universal/Proxy.sol";
 import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
 import {MockEspressoTEEVerifier} from "test/mocks/MockEspressoTEEVerifiers.sol";
 import {MockEspressoNitroTEEVerifier} from "test/mocks/MockEspressoTEEVerifiers.sol";
@@ -149,10 +148,18 @@ contract DeployEspresso is Script {
         if (proxyAdminOwner == address(0)) proxyAdminOwner = msg.sender;
 
         vm.broadcast(msg.sender);
-        IProxyAdmin proxyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (msg.sender))) }));
+        IProxyAdmin proxyAdmin = _deployProxyAdmin(msg.sender);
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
-        vm.broadcast(msg.sender);
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        // Deploy Proxy without importing Proxy.sol to avoid duplicate compilation artifacts.
+        IProxy proxy;
+        {
+            bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(address(proxyAdmin)));
+            address payable proxyAddr;
+            vm.broadcast(msg.sender);
+            assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+            require(proxyAddr != address(0), "DeployEspresso: proxy deployment failed");
+            proxy = IProxy(proxyAddr);
+        }
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
@@ -231,7 +238,7 @@ contract DeployEspresso is Script {
 
         // Deploy a dummy ProxyAdmin so the output proxy-admin field is a valid distinct address.
         vm.broadcast(msg.sender);
-        IProxyAdmin dummyAdmin = IProxyAdmin(DeployUtils.create1({ _name: "ProxyAdmin", _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxyAdmin.__constructor__, (proxyAdminOwner))) }));
+        IProxyAdmin dummyAdmin = _deployProxyAdmin(proxyAdminOwner);
         vm.label(address(dummyAdmin), "MockTEEVerifierDummyProxyAdmin");
 
         _output.set(_output.nitroTEEVerifier.selector, address(nitroMock));
@@ -292,10 +299,23 @@ contract DeployEspresso is Script {
             _output.teeVerifierProxy(),
             _output.nitroTEEVerifier()
         );
-        DeployUtils.assertValidContractAddresses(addresses);
+        for (uint256 i = 0; i < addresses.length; i++) {
+            require(addresses[i] != address(0) && addresses[i].code.length > 0, "DeployEspresso: invalid contract address");
+        }
         require(
             _output.teeVerifierProxy() != _output.teeVerifierProxyAdmin(),
             "DeployEspresso: tee proxy and proxy admin should be different"
         );
+    }
+
+    /// @notice Deploys a ProxyAdmin via vm.getCode to avoid importing src/universal/ProxyAdmin.sol or
+    ///         scripts/libraries/DeployUtils.sol, which would merge into the 0.8.28 compilation group
+    ///         alongside files that import src/universal/Proxy.sol, creating duplicate Proxy artifacts.
+    function _deployProxyAdmin(address _owner) internal returns (IProxyAdmin proxyAdmin_) {
+        bytes memory _initCode = abi.encodePacked(vm.getCode("ProxyAdmin"), abi.encode(_owner));
+        address payable _addr;
+        assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
+        require(_addr != address(0), "DeployEspresso: ProxyAdmin deployment failed");
+        proxyAdmin_ = IProxyAdmin(_addr);
     }
 }
