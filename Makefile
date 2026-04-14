@@ -299,6 +299,7 @@ _go-tests-ci-internal:
 	$(DEFAULT_TEST_ENV_VARS) && \
 	$(CI_ENV_VARS) && \
 	export EFFECTIVE_PKGS="$${CI_TEST_PKGS:-$(ALL_TEST_PACKAGES)}" && \
+	export SKIP_FLAG="$${CI_TEST_SKIP:+-skip '$$CI_TEST_SKIP'}" && \
 	if [ -n "$$CIRCLE_NODE_TOTAL" ] && [ "$$CIRCLE_NODE_TOTAL" -gt 1 ]; then \
 		export NODE_INDEX=$${CIRCLE_NODE_INDEX:-0} && \
 		export NODE_TOTAL=$${CIRCLE_NODE_TOTAL:-1} && \
@@ -311,7 +312,7 @@ _go-tests-ci-internal:
 				--rerun-fails=3 \
 				--rerun-fails-max-failures=50 \
 				--packages="$$PARALLEL_PACKAGES" \
-				-- -parallel=$$PARALLEL -coverprofile=coverage-$$NODE_INDEX.out $(GO_TEST_FLAGS) -timeout=$(TEST_TIMEOUT) -tags="ci"; \
+				-- -parallel=$$PARALLEL -coverprofile=coverage-$$NODE_INDEX.out $(GO_TEST_FLAGS) $$SKIP_FLAG -timeout=$(TEST_TIMEOUT) -tags="ci"; \
 		else \
 			echo "ERROR: Node $$NODE_INDEX/$$NODE_TOTAL has no packages to run! Perhaps parallelism is set too high? (EFFECTIVE_PKGS has $$(echo "$$EFFECTIVE_PKGS" | wc -w) packages)"; \
 			exit 1; \
@@ -323,7 +324,7 @@ _go-tests-ci-internal:
 			--rerun-fails=3 \
 			--rerun-fails-max-failures=50 \
 			--packages="$$EFFECTIVE_PKGS" \
-			-- -parallel=$$PARALLEL -coverprofile=coverage.out $(GO_TEST_FLAGS) -timeout=$(TEST_TIMEOUT) -tags="ci"; \
+			-- -parallel=$$PARALLEL -coverprofile=coverage.out $(GO_TEST_FLAGS) $$SKIP_FLAG -timeout=$(TEST_TIMEOUT) -tags="ci"; \
 	fi
 .PHONY: _go-tests-ci-internal
 

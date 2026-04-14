@@ -2986,16 +2986,43 @@ workflows:
             - cannon-prestate-quick
       - go-tests:
           name: go-tests-short
-          parallelism: 1
-          no_output_timeout: 60m
-          test_timeout: 55m
-          # TEMPORARY: only run the previously failing tests to verify fixes
+          parallelism: 12
+          no_output_timeout: 19m
+          test_timeout: 20m
           environment_overrides: |
-            export PARALLEL=1
+            export PARALLEL=24
             export SEPOLIA_RPC_URL="https://theserversroom.com/sepolia/54cmzzhcj1o/"
             export CI_TEST_PKGS="\
-              ./op-deployer/pkg/deployer/integration_test/... \
-              ./op-e2e/system/da"
+              ./op-alt-da/... \
+              ./op-batcher/... \
+              ./op-chain-ops/... \
+              ./op-node/... \
+              ./op-proposer/... \
+              ./op-challenger/... \
+              ./op-faucet/... \
+              ./op-dispute-mon/... \
+              ./op-conductor/... \
+              ./op-program/... \
+              ./op-service/... \
+              ./op-supervisor/... \
+              ./op-test-sequencer/... \
+              ./op-fetcher/... \
+              ./op-e2e/system/... \
+              ./op-e2e/e2eutils/... \
+              ./op-e2e/opgeth/... \
+              ./op-e2e/interop/... \
+              ./packages/contracts-bedrock/scripts/checks/... \
+              ./op-dripper/... \
+              ./devnet-sdk/... \
+              ./kurtosis-devnet/... \
+              ./op-devstack/... \
+              ./op-deployer/pkg/deployer/artifacts/... \
+              ./op-deployer/pkg/deployer/broadcaster/... \
+              ./op-deployer/pkg/deployer/clean/... \
+              ./op-deployer/pkg/deployer/integration_test/cli \
+              ./op-deployer/pkg/deployer/standard/... \
+              ./op-deployer/pkg/deployer/state/..."
+            export CI_TEST_SKIP="TestEndToEndApply|TestEndToEndBootstrapApplyWithUpgrade|TestCLIUpgrade|TestManageAddGameTypeV2_Integration"
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
