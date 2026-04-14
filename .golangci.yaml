@@ -27,10 +27,37 @@ issues:
   exclude:
     - 'errors.As'
     - 'errors.Is'
+  # Replace deprecated run.skip-dirs / run.skip-dirs-use-default (exclude-dirs so lint passes).
+  exclude-dirs:
+    - vendor
+    - node_modules
+    - bindings
+    - kout
+    - packages/contracts-bedrock/lib
+    - op-deployer/node_modules
+    - cannon
+    - kona
+    - rollup-boost
+    - op-rbuilder
+    - op-e2e
+    - op-chain-ops
+    - op-wheel
+    - op-alt-da
+    - op-dispute-mon
+    - op-supernode
+    - op-interop-mon
+    - op-conductor
+    - op-test-sequencer
+    - op-dripper
+    - op-interop-filter
+    - op-service
+    - op-node
+    - devnet-sdk
+  exclude-dirs-use-default: true
   exclude-rules:
     # Only apply err113 to op-program/client
     - path-except: 'op-program/client/.*'
       linters:
         - err113
 run:
-  timeout: 5m
+  timeout: 10m

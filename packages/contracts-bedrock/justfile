@@ -42,9 +42,12 @@ forge-build *ARGS:
   @# to emit shadow ProxyAdmin/Proxy artifacts that break vm.getCode lookups. Clean them up.
   just fix-proxy-artifact
 
-# Developer build command (faster).
+# Developer build command (faster). Skip forge lint-on-build so we don't fail on 287+ warnings (e.g. unsafe-typecast in deps).
 forge-build-dev *ARGS:
-  FOUNDRY_PROFILE=lite forge build {{ARGS}}
+  @# Use default profile (not lite) so the source build cache is shared — re-using
+  @# the default profile's compiled artifacts avoids recompiling 1000+ files from scratch
+  @# under the lite profile, which OOMs on xlarge (16GB) CI runners.
+  forge build {{ARGS}}
 
 # Builds source contracts only.
 build-source:

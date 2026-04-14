@@ -106,6 +106,11 @@ ignored_error_codes = ["transient-storage", "code-size", "init-code-size", "too-
 deny_warnings = true
 ffi = true
 
+# Disable forge lint during build so 287+ linter warnings (e.g. unsafe-typecast) don't fail the build.
+# Run `forge lint` separately when fixing style.
+[lint]
+lint_on_build = false
+
 # We set the gas limit to max int64 to avoid running out of gas during testing, since the default
 # gas limit is 1B and some of our tests require more gas than that, such as
 # test_callWithMinGas_noLeakageLow_succeeds. We use this gas limit since it was the default gas

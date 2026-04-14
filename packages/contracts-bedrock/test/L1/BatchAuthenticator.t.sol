@@ -28,8 +28,7 @@ import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
-import { OwnableWithGuardiansUpgradeable } from
-    "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
+import { OwnableWithGuardiansUpgradeable } from "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
 import { ECDSA } from "@openzeppelin/contracts-v5/utils/cryptography/ECDSA.sol";
 
 /// @notice Minimal mock of SystemConfig that exposes a settable paused() flag.
@@ -46,7 +45,7 @@ contract MockSystemConfig {
 }
 
 /// @notice Tests for the upgradeable BatchAuthenticator contract using the Transparent Proxy pattern.
-contract BatchAuthenticator_Test is Test {
+contract BatchAuthenticator_Uncategorized_Test is Test {
     address public deployer = address(0xABCD);
     address public proxyAdminOwner = address(0xBEEF);
     address public unauthorized = address(0xDEAD);
@@ -150,7 +149,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that the initialization can only be called once.
-    function test_constructor_revertsWhenAlreadyInitialized() external {
+    function test_constructor_whenAlreadyInitialized_reverts() external {
         IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
@@ -179,7 +178,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize reverts when espressoBatcher is zero.
-    function test_constructor_revertsWhenEspressoBatcherIsZero() external {
+    function test_constructor_whenEspressoBatcherIsZero_reverts() external {
         IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
@@ -200,7 +199,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize reverts when verifier is zero.
-    function test_constructor_revertsWhenVerifierIsZero() external {
+    function test_constructor_whenVerifierIsZero_reverts() external {
         IProxy proxy = _newProxy(address(proxyAdmin));
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
@@ -221,7 +220,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that initialize succeeds with valid addresses.
-    function test_constructor_succeedsWithValidAddresses() external {
+    function test_constructor_withValidAddresses_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
@@ -230,7 +229,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that switchBatcher can be called by owner or guardian.
-    function test_switchBatcher_onlyOwnerOrGuardian() external {
+    function test_switchBatcher_ownerOrGuardian_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         // ProxyAdmin owner (now contract owner) can switch.
@@ -268,7 +267,9 @@ contract BatchAuthenticator_Test is Test {
 
         // Unauthorized cannot switch.
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(OwnableWithGuardiansUpgradeable.NotGuardianOrOwner.selector, unauthorized));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableWithGuardiansUpgradeable.NotGuardianOrOwner.selector, unauthorized)
+        );
         authenticator.switchBatcher();
 
         // ProxyAdmin cannot switch.
@@ -301,7 +302,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that authenticateBatchInfo reverts for unregistered signers.
-    function test_authenticateBatchInfo_revertsForUnregisteredSigner() external {
+    function test_authenticateBatchInfo_forUnregisteredSigner_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
@@ -319,7 +320,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that authenticateBatchInfo reverts for invalid signature (zero address recovery).
-    function test_authenticateBatchInfo_revertsForInvalidSignature() external {
+    function test_authenticateBatchInfo_forInvalidSignature_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         bytes32 commitment = keccak256("test commitment");
@@ -349,7 +350,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that setEspressoBatcher can only be called by ProxyAdmin owner.
-    function test_setEspressoBatcher_onlyProxyAdminOwner() external {
+    function test_setEspressoBatcher_ownerOnly_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
         address newEspressoBatcher = address(0x9999);
 
@@ -367,12 +368,14 @@ contract BatchAuthenticator_Test is Test {
 
         // ProxyAdmin cannot set.
         vm.prank(address(proxyAdmin));
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(proxyAdmin)));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(proxyAdmin))
+        );
         authenticator.setEspressoBatcher(address(0x8888));
     }
 
     /// @notice Test that setEspressoBatcher reverts when zero address is provided.
-    function test_setEspressoBatcher_revertsWhenZeroAddress() external {
+    function test_setEspressoBatcher_whenZeroAddress_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         vm.prank(proxyAdminOwner);
@@ -381,7 +384,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test upgrade to new implementation with comprehensive state preservation.
-    function test_upgrade_preservesState() external {
+    function test_upgrade_preservesState_succeeds() external {
         // Create and initialize a proxy.
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
         IProxy proxy = IProxy(payable(address(authenticator)));
@@ -415,7 +418,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that paused() delegates to SystemConfig.
-    function test_paused_delegatesToSystemConfig() external {
+    function test_paused_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         // Initially not paused.
@@ -431,7 +434,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that authenticateBatchInfo reverts when paused.
-    function test_authenticateBatchInfo_revertsWhenPaused() external {
+    function test_authenticateBatchInfo_whenPaused_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
@@ -451,7 +454,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that authenticateBatchInfo succeeds when not paused.
-    function test_authenticateBatchInfo_succeedsWhenNotPaused() external {
+    function test_authenticateBatchInfo_whenNotPaused_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
@@ -472,7 +475,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that registerSigner reverts when paused.
-    function test_registerSigner_revertsWhenPaused() external {
+    function test_registerSigner_whenPaused_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
@@ -488,7 +491,7 @@ contract BatchAuthenticator_Test is Test {
     }
 
     /// @notice Test that switchBatcher still works when paused (emergency recovery).
-    function test_switchBatcher_succeedsWhenPaused() external {
+    function test_switchBatcher_whenPaused_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         // Pause the system.
@@ -512,7 +515,7 @@ contract BatchAuthenticator_Test is Test {
         bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
         address payable proxyAddr;
         assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
-        require(proxyAddr != address(0),"BatchAuthenticator_Test: proxy deployment failed");
+        require(proxyAddr != address(0), "BatchAuthenticator_Uncategorized_Test: proxy deployment failed");
         return IProxy(proxyAddr);
     }
 }
@@ -629,7 +632,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     }
 
     /// @notice Test deployment and initialization on Sepolia fork.
-    function testFork_deployment_succeeds() external view {
+    function test_deployment_succeeds() external view {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
         assertTrue(authenticator.activeIsEspresso());
@@ -641,7 +644,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     }
 
     /// @notice Test switchBatcher on Sepolia fork.
-    function testFork_switchBatcher_succeeds() external {
+    function test_switchBatcher_succeeds() external {
         assertTrue(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
@@ -656,7 +659,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     }
 
     /// @notice Test authenticateBatchInfo on Sepolia fork.
-    function testFork_authenticateBatchInfo_succeeds() external {
+    function test_authenticateBatchInfo_succeeds() external {
         bytes32 commitment = keccak256("test commitment on sepolia");
 
         // Create a signature.
@@ -674,8 +677,8 @@ contract BatchAuthenticator_Fork_Test is Test {
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
-    /// @notice Test upgrade on Sepolia fork.
-    function testFork_upgrade_preservesState() external {
+    /// @notice Test upgrade on Sepolia fork preserves state.
+    function test_upgrade_succeeds() external {
         // Initialize the authenticator.
         bytes32 commitment = keccak256("test commitment");
         uint256 privateKey = 1;
@@ -703,8 +706,8 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
     }
 
-    /// @notice Test that contract works with real Sepolia state
-    function testFork_integrationWithSepolia() external view {
+    /// @notice Test that contract works with real Sepolia state.
+    function test_integrationWithSepolia_succeeds() external view {
         // Verify we're on Sepolia.
         assertEq(block.chainid, Chains.Sepolia);
 
@@ -729,7 +732,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
         address payable proxyAddr;
         assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
-        require(proxyAddr != address(0),"BatchAuthenticator_Fork_Test: proxy deployment failed");
+        require(proxyAddr != address(0), "BatchAuthenticator_Fork_Test: proxy deployment failed");
         return IProxy(proxyAddr);
     }
 }

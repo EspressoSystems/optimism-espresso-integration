@@ -15,6 +15,7 @@ GORACE := "0"
 
 _GORACE_FLAG := if GORACE == "1" { "-race " } else { "" }
 
+# CGO required for go-ethereum secp256k1 (devnet test panics "private key curve is not secp256k1" otherwise).
 [private]
 go_build BIN PKG *FLAGS:
     env GO111MODULE=on GOOS={{TARGETOS}} GOARCH={{TARGETARCH}} CGO_ENABLED=1 go build -v {{_GORACE_FLAG}} {{FLAGS}} -o {{BIN}} {{PKG}}
