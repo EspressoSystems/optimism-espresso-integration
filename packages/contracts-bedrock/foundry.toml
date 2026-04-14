@@ -127,6 +127,11 @@ wrap_comments=true
 #                         PROFILE: CI                          #
 ################################################################
 
+[profile.ci]
+# Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
+# Default is CPU count (8), each job ~2GB => ~16GB peak. 4 jobs => ~8GB.
+jobs = 4
+
 [profile.ci.fuzz]
 runs = 128
 
@@ -152,6 +157,10 @@ depth = 1
 ################################################################
 #                       PROFILE: CIHEAVY                       #
 ################################################################
+
+[profile.ciheavy]
+# Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
+jobs = 4
 
 [profile.ciheavy.fuzz]
 runs = 20000
