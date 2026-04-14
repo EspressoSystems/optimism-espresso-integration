@@ -47,7 +47,9 @@ forge-build-dev *ARGS:
   @# Use default profile (not lite) so the source build cache is shared — re-using
   @# the default profile's compiled artifacts avoids recompiling 1000+ files from scratch
   @# under the lite profile, which OOMs on xlarge (16GB) CI runners.
-  forge build {{ARGS}}
+  @# FOUNDRY_JOBS=1 serializes solc compilation to avoid OOM when adding test files to the
+  @# build (the default profile has no jobs limit, and 4 parallel solc groups exhaust 16GB).
+  FOUNDRY_JOBS=1 forge build {{ARGS}}
 
 # Builds source contracts only.
 build-source:
@@ -385,7 +387,8 @@ lint-check:
 
 # Updates the selectors for the contracts
 update-selectors:
-  forge selectors up --all
+  @# FOUNDRY_JOBS=1 serializes solc groups to avoid OOM on CI runners (large: 7.5GB).
+  FOUNDRY_JOBS=1 forge selectors up --all
 
 # Checks for unused imports in Solidity contracts. Does not build contracts.
 unused-imports-check-no-build:

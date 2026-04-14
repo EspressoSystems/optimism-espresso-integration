@@ -108,6 +108,8 @@ ffi = true
 
 # Disable forge lint during build so 287+ linter warnings (e.g. unsafe-typecast) don't fail the build.
 # Run `forge lint` separately when fixing style.
+# Note: [lint] is a Foundry 1.5+ top-level section. Forge 1.2.x treats it as a deprecated profile
+# notation and emits a harmless warning; lint_on_build has no effect there (feature didn't exist yet).
 [lint]
 lint_on_build = false
 
@@ -137,6 +139,10 @@ wrap_comments=true
 # Default is CPU count (8). With espresso-tee-contracts submodule deps, the two 0.8.15
 # groups (530 + 211 files) run together and exceed 16GB even at jobs=2. Serialize to 1.
 jobs = 1
+# Limit test execution threads to avoid OOM during forge test on xlarge (16GB) runners.
+# espresso-tee-contracts increases per-test memory pressure; default (8 threads on xlarge)
+# can exhaust 16GB. 4 threads keeps memory within budget while retaining parallelism.
+threads = 4
 
 [profile.ci.fuzz]
 runs = 128
@@ -150,6 +156,9 @@ depth = 32
 ################################################################
 
 [profile.cicoverage]
+# Limit parallel Solc jobs to avoid OOM on xlarge (16GB) runners.
+# espresso-tee-contracts adds additional compilation groups that exhaust memory without serialization.
+jobs = 1
 optimizer = false
 compilation_restrictions = []
 
