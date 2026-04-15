@@ -36,9 +36,9 @@ import (
 
 // EspressoOnchainProof is the proof structure returned by the attestation service for onchain verification.
 type EspressoOnchainProof struct {
-	Proof        json.RawMessage `json:"proof,omitempty"`
-	Data         json.RawMessage `json:"data,omitempty"`
-	RawProof     struct {
+	Proof    json.RawMessage `json:"proof,omitempty"`
+	Data     json.RawMessage `json:"data,omitempty"`
+	RawProof struct {
 		Journal string `json:"journal"`
 	} `json:"raw_proof"`
 	OnchainProof string `json:"onchain_proof"`
@@ -786,6 +786,30 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	}
 }
 
+// peekNextBatch returns the next batch from the streamer, performing a fork check
+// against the channel manager's current tip. Fork checking is skipped when the tip
+// is zero (channel manager was just cleared and no reliable chain tip is available yet).
+func (l *BatchSubmitter) peekNextBatch(ctx context.Context) *derive.EspressoBatch {
+	l.channelMgrMutex.Lock()
+	tip := l.channelMgr.tip
+	l.channelMgrMutex.Unlock()
+
+	batch := l.EspressoStreamer().Peek(ctx)
+	if batch == nil {
+		return nil
+	}
+	if tip != (common.Hash{}) && (*batch).Header().ParentHash != tip {
+		l.Log.Warn(
+			"head batch fork mismatch, seeking to proper head (likely l2 reorg)",
+			"batchParent", (*batch).Header().ParentHash,
+			"tip", tip,
+		)
+		l.EspressoStreamer().SeekToProperHead(tip)
+		return nil
+	}
+	return batch
+}
+
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan pubInfo) {
 	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
@@ -811,9 +835,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			var batch *derive.EspressoBatch
 
 			for {
-
-				batch = l.EspressoStreamer().Next(ctx)
-
+				batch = l.peekNextBatch(ctx)
 				if batch == nil {
 					break
 				}
@@ -823,6 +845,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				block, err := batch.ToBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
+					l.EspressoStreamer().Next(ctx)
 					continue
 				}
 
@@ -841,9 +864,11 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
 					l.EspressoStreamer().Reset()
+					break
 				}
 
-				l.Log.Info(logmodule.AddedL2BlockToChannelManager)
+				l.EspressoStreamer().Next(ctx)
+				l.Log.Info(logmodule.AddedL2BlockToChannelManager, "blockNr", block.NumberU64())
 			}
 
 			l.tryPublishSignal(publishSignal, pubInfo{})
