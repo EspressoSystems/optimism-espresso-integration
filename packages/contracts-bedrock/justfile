@@ -109,6 +109,25 @@ fix-proxy-artifact:
               ref_path = candidate
               ref_ver  = ver_tuple
       if ref_path is None:
+          # No versioned artifact available. Check if the unversioned artifact has PUSH0
+          # (evm_version >= shanghai). If it does, the allocs generated from it will fail
+          # in pre-Canyon L2 EVM environments with "invalid opcode: PUSH0". This most
+          # commonly occurs when the fallback artifact cache (pull-artifacts.sh) provides
+          # stale artifacts without versioned backups. Fail loudly so contracts-bedrock-build
+          # surfaces the issue instead of silently passing bad artifacts to go-tests-short.
+          if os.path.exists(main_path):
+              main = json.load(open(main_path))
+              deployed = main.get("deployedBytecode", {}).get("object", "").lstrip("0x")
+              deployed_bytes = [deployed[i:i+2] for i in range(0, len(deployed), 2)]
+              push0_count = deployed_bytes.count("5f")
+              if push0_count > 0:
+                  raise SystemExit(
+                      f"ERROR: {contract}.json compiled with PUSH0-emitting Solc "
+                      f"(found {push0_count} PUSH0 opcodes) and no versioned src/universal "
+                      f"artifact exists to fix it. The fallback artifact cache likely lacks "
+                      f"versioned artifacts. Trigger a fresh build (add 'force-use-fresh-artifacts' "
+                      f"label to the PR) or run 'forge build --force' locally to regenerate them."
+                  )
           print(f"WARNING: no src/universal artifact found for {contract}, skipping fix")
           continue
       ref = json.load(open(ref_path))
