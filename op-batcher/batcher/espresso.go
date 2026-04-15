@@ -36,9 +36,9 @@ import (
 
 // EspressoOnchainProof is the proof structure returned by the attestation service for onchain verification.
 type EspressoOnchainProof struct {
-	Proof        json.RawMessage `json:"proof,omitempty"`
-	Data         json.RawMessage `json:"data,omitempty"`
-	RawProof     struct {
+	Proof    json.RawMessage `json:"proof,omitempty"`
+	Data     json.RawMessage `json:"data,omitempty"`
+	RawProof struct {
 		Journal string `json:"journal"`
 	} `json:"raw_proof"`
 	OnchainProof string `json:"onchain_proof"`
@@ -812,7 +812,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			for {
 
-				batch = l.EspressoStreamer().Next(ctx)
+				batch = l.peekNextBatch(ctx)
 
 				if batch == nil {
 					break
