@@ -105,29 +105,45 @@ fix-proxy-artifact:
               ver_tuple = tuple(int(x) for x in ver.split("+")[0].split("."))
           except (ValueError, AttributeError):
               ver_tuple = (999, 999, 999)
+          # Skip PUSH0-capable compiler versions (>= 0.8.20). We only want a versioned
+          # artifact as reference if it was compiled without PUSH0 support. Stale CI caches
+          # may contain 0.8.28 versioned artifacts from before the pragma was pinned.
+          if ver_tuple >= (0, 8, 20):
+              continue
           if ref_path is None or ver_tuple < ref_ver:
               ref_path = candidate
               ref_ver  = ver_tuple
       if ref_path is None:
-          # No versioned artifact available. Check if the unversioned artifact has PUSH0
-          # (evm_version >= shanghai). If it does, the allocs generated from it will fail
-          # in pre-Canyon L2 EVM environments with "invalid opcode: PUSH0". This most
-          # commonly occurs when the fallback artifact cache (pull-artifacts.sh) provides
-          # stale artifacts without versioned backups. Fail loudly so contracts-bedrock-build
-          # surfaces the issue instead of silently passing bad artifacts to go-tests-short.
+          # No PUSH0-safe versioned artifact available.
+          # First check if the unversioned artifact is ALREADY correct:
+          # src/universal compiled at a pre-PUSH0 version. This is the expected state
+          # when Proxy.sol / ProxyAdmin.sol have their pragma pinned to exact 0.8.15.
           if os.path.exists(main_path):
               main = json.load(open(main_path))
-              deployed = main.get("deployedBytecode", {}).get("object", "").lstrip("0x")
-              deployed_bytes = [deployed[i:i+2] for i in range(0, len(deployed), 2)]
-              push0_count = deployed_bytes.count("5f")
-              if push0_count > 0:
-                  raise SystemExit(
-                      f"ERROR: {contract}.json compiled with PUSH0-emitting Solc "
-                      f"(found {push0_count} PUSH0 opcodes) and no versioned src/universal "
-                      f"artifact exists to fix it. The fallback artifact cache likely lacks "
-                      f"versioned artifacts. Trigger a fresh build (add 'force-use-fresh-artifacts' "
-                      f"label to the PR) or run 'forge build --force' locally to regenerate them."
-                  )
+              abs_path = main.get("ast", {}).get("absolutePath", "")
+              compiler_ver = main.get("metadata", {}).get("compiler", {}).get("version", "")
+              try:
+                  ver_tuple = tuple(int(x) for x in compiler_ver.split("+")[0].split("."))
+              except (ValueError, AttributeError):
+                  ver_tuple = (999, 999, 999)
+              if "src/universal" in abs_path and ver_tuple < (0, 8, 20):
+                  print(f"{contract}.json is already src/universal/{contract}.sol at {compiler_ver} (no PUSH0), skipping fix")
+                  continue
+              # The unversioned artifact is not yet safe. If it was compiled with a
+              # PUSH0-capable version, fail loudly — the allocs will break pre-Canyon L2.
+              if ver_tuple >= (0, 8, 20):
+                  deployed = main.get("deployedBytecode", {}).get("object", "").lstrip("0x")
+                  deployed_bytes = [deployed[i:i+2] for i in range(0, len(deployed), 2)]
+                  push0_count = deployed_bytes.count("5f")
+                  if push0_count > 0:
+                      raise SystemExit(
+                          f"ERROR: {contract}.json compiled with PUSH0-emitting Solc "
+                          f"(found {push0_count} PUSH0 opcodes, compiler {compiler_ver}) "
+                          f"and no PUSH0-safe src/universal versioned artifact exists to "
+                          f"fix it. Check that pragma solidity in src/universal/{contract}.sol "
+                          f"is pinned to an exact pre-0.8.20 version (e.g. 0.8.15), or run "
+                          f"'forge build --force' locally to regenerate artifacts."
+                      )
           print(f"WARNING: no src/universal artifact found for {contract}, skipping fix")
           continue
       ref = json.load(open(ref_path))

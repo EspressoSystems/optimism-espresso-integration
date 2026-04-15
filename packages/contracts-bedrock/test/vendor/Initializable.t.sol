@@ -382,7 +382,7 @@ contract Initializer_Test is CommonTest {
     function test_cannotReinitialize_succeeds() public {
         // Collect exclusions.
         uint256 j;
-        string[] memory excludes = new string[](15);
+        string[] memory excludes = new string[](16);
         // Contract is currently not being deployed as part of the standard deployment script.
         excludes[j++] = "src/L2/OptimismSuperchainERC20.sol";
         // Periphery contracts don't get deployed as part of the standard deployment script.
@@ -410,6 +410,9 @@ contract Initializer_Test is CommonTest {
         // Espresso: BatchAuthenticator is deployed by a separate Espresso deployment script,
         // not the standard deployment script.
         excludes[j++] = "src/L1/BatchAuthenticator.sol";
+        // OPSuccinctFaultDisputeGame is deployed anonymously by the dispute game factory
+        // (same reason as standard FaultDisputeGame above).
+        excludes[j++] = "src/dispute/succinct/OPSuccinctFaultDisputeGame.sol";
 
         // Get all contract names in the src directory, minus the excluded contracts.
         string[] memory contractNames = ForgeArtifacts.getContractNames("src/*", excludes);
