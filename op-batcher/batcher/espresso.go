@@ -835,7 +835,9 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			var batch *derive.EspressoBatch
 
 			for {
+
 				batch = l.peekNextBatch(ctx)
+
 				if batch == nil {
 					break
 				}
