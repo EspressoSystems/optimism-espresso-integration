@@ -933,7 +933,9 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    # espresso: 2xlarge (32GB) to accommodate parallel solc compilation of espresso-tee-contracts
+    # dependencies (6 groups run simultaneously; each can use 4-8GB). xlarge (16GB) OOMs.
+    resource_class: 2xlarge
     parameters:
       test_list:
         description: List of test files to run
@@ -1025,7 +1027,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    # espresso: 2xlarge (32GB) for same reason as contracts-bedrock-tests.
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: full
@@ -1114,7 +1117,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    # espresso: 2xlarge (32GB) for same reason as contracts-bedrock-tests.
+    resource_class: 2xlarge
     parameters:
       test_timeout:
         description: Timeout for running tests
@@ -1386,7 +1390,8 @@ jobs:
   contracts-bedrock-checks-fast:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    # espresso: 2xlarge (32GB) for same reason as contracts-bedrock-tests.
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
