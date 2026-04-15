@@ -2996,7 +2996,8 @@ workflows:
           test_timeout: 20m
           environment_overrides: |
             export PARALLEL=24
-            export SEPOLIA_RPC_URL="https://theserversroom.com/sepolia/54cmzzhcj1o/"
+            # Espresso override: use Alchemy for reliable Sepolia fork tests
+            export SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/zQQB-jIV9lexdWbkkUH88vgalCaV7maq"
             export CI_TEST_PKGS="\
               ./op-alt-da/... \
               ./op-batcher/... \
@@ -3027,11 +3028,6 @@ workflows:
               ./op-deployer/pkg/deployer/integration_test/cli \
               ./op-deployer/pkg/deployer/standard/... \
               ./op-deployer/pkg/deployer/state/..."
-            # Skip Sepolia-fork tests: these fork a remote Sepolia RPC via Anvil, which
-            # consistently exceeds the Anvil startup timeout on our CI environment due to RPC
-            # latency. They require a low-latency dedicated RPC to pass reliably and should be
-            # moved to a separate CI job with such credentials.
-            export CI_TEST_SKIP="TestEndToEndApply|TestEndToEndBootstrapApplyWithUpgrade|TestCLIUpgrade|TestManageAddGameTypeV2_Integration"
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
