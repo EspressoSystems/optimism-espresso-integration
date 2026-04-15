@@ -933,9 +933,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: 2xlarge (32GB) to accommodate parallel solc compilation of espresso-tee-contracts
-    # dependencies (6 groups run simultaneously; each can use 4-8GB). xlarge (16GB) OOMs.
-    resource_class: 2xlarge
+    # espresso: xlarge for parallel solc compilation of espresso-tee-contracts dependencies.
+    resource_class: xlarge
     parameters:
       test_list:
         description: List of test files to run
@@ -1027,8 +1026,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: 2xlarge (32GB) for same reason as contracts-bedrock-tests.
-    resource_class: 2xlarge
+    # espresso: xlarge for same reason as contracts-bedrock-tests.
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: full
@@ -1117,8 +1116,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: 2xlarge (32GB) for same reason as contracts-bedrock-tests.
-    resource_class: 2xlarge
+    # espresso: xlarge for same reason as contracts-bedrock-tests.
+    resource_class: xlarge
     parameters:
       test_timeout:
         description: Timeout for running tests
@@ -1390,8 +1389,8 @@ jobs:
   contracts-bedrock-checks-fast:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: 2xlarge (32GB) for same reason as contracts-bedrock-tests.
-    resource_class: 2xlarge
+    # espresso: xlarge for same reason as contracts-bedrock-tests.
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1602,7 +1601,7 @@ jobs:
       resource_class:
         description: Machine resource class
         type: string
-        default: 2xlarge
+        default: xlarge
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
