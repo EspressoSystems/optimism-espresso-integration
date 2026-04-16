@@ -1521,7 +1521,7 @@ jobs:
         default: 1
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: <<parameters.resource_class>>
+    resource_class: xlarge
     # circleci_ip_ranges: true
     parallelism: <<parameters.parallelism>>
     steps:
@@ -1582,10 +1582,6 @@ jobs:
         description: Slack user or group to mention when notifying of failures
         type: string
         default: ""
-      resource_class:
-        description: Machine resource class
-        type: string
-        default: xlarge
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
