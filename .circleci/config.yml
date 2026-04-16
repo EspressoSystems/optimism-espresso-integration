@@ -211,18 +211,10 @@ commands:
             # Manually craft the submodule update command in order to take advantage
             # of the -j parameter, which speeds it up a lot.
             git submodule update --init --recursive --single-branch --force -j 8
-            # espresso: Patch OwnableWithGuardiansUpgradeable.sol to use our top-level OZ v5
-            # alias (@openzeppelin/contracts-upgradeable-v5/) instead of the bare
-            # @openzeppelin/contracts-upgradeable/ prefix. Forge adds lib/espresso-tee-contracts/
-            # as a solc include path, so any file inside it is compiled with a canonical path
-            # relative to that include path (e.g. src/Ownable...sol, not
-            # lib/espresso-tee-contracts/src/Ownable...sol). That strips the espresso-tee-contracts
-            # context prefix, making context-specific foundry.toml remappings ineffective.
-            # The nested OZ libs are intentionally left in place; removing them triggers Forge's
-            # dependency auto-installer which re-compiles the library with its own foundry.toml
-            # (which doesn't know about our -v5 aliases). Keeping them means Forge uses the
-            # parent project's remappings for the patched import, resolving to the correct
-            # top-level lib/openzeppelin-contracts-upgradeable-v5/ without ambiguity.
+            # espresso: Patch espresso-tee-contracts to use our top-level OZ v5 alias.
+            # Forge adds lib/espresso-tee-contracts/ as a solc include path, stripping the
+            # subdirectory prefix and making foundry.toml remappings ineffective for files inside.
+            # Nested OZ libs are kept to avoid Forge's dependency auto-installer.
             sed -i 's|@openzeppelin/contracts-upgradeable/|@openzeppelin/contracts-upgradeable-v5/|g' \
               lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol
           working_directory: packages/contracts-bedrock
@@ -622,7 +614,7 @@ jobs:
   contracts-bedrock-build:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: 2xlarge
     parameters:
       build_args:
         description: Forge build arguments
@@ -933,8 +925,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: xlarge for parallel solc compilation of espresso-tee-contracts dependencies.
-    resource_class: xlarge
+    # espresso: 2xlarge for parallel solc compilation of espresso-tee-contracts dependencies.
+    resource_class: 2xlarge
     parameters:
       test_list:
         description: List of test files to run
@@ -1116,8 +1108,8 @@ jobs:
     # circleci_ip_ranges: true
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: xlarge for same reason as contracts-bedrock-tests.
-    resource_class: xlarge
+    # espresso: 2xlarge for same reason as contracts-bedrock-tests.
+    resource_class: 2xlarge
     parameters:
       test_timeout:
         description: Timeout for running tests
@@ -1159,15 +1151,11 @@ jobs:
       - run:
           name: Write pinned block number for cache key
           command: |
-            # Skip if no mainnet RPC is available (coverage-lcov doesn't use fork tests)
-            if [ -z "${MAINNET_RPC_URL:-}" ]; then
-              echo "0" > ./pinnedBlockNumber.txt
-              echo "No MAINNET_RPC_URL set, skipping pinned block lookup"
-            else
-              export ETH_RPC_URL="$MAINNET_RPC_URL"
-              just print-pinned-block-number > ./pinnedBlockNumber.txt
-            fi
+            export ETH_RPC_URL="$MAINNET_RPC_URL"
+            just print-pinned-block-number > ./pinnedBlockNumber.txt
             cat pinnedBlockNumber.txt
+          environment:
+            ETH_RPC_URL: https://ci-mainnet-l1-archive.optimism.io
           working_directory: packages/contracts-bedrock
       - restore_cache:
           name: Restore forked state
@@ -1237,7 +1225,7 @@ jobs:
         default: ""
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1389,8 +1377,8 @@ jobs:
   contracts-bedrock-checks-fast:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    # espresso: xlarge for same reason as contracts-bedrock-tests.
-    resource_class: xlarge
+    # espresso: 2xlarge for same reason as contracts-bedrock-tests.
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1462,14 +1450,10 @@ jobs:
             ver=$(grep "^\s*github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
             url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so"
             mkdir -p /home/circleci/local-lib
-            # Non-fatal: the library is only needed for packages that import
-            # verification/native.go (e.g. espresso/environment tests). Fuzz targets
-            # that don't import it will still compile and run without it.
-            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so || \
-              echo "WARN: libespresso_crypto_helper download failed (may be OK if not needed by fuzz targets)"
+            wget $url -O /home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
       - run:
           name: Fuzz
-          no_output_timeout: 30m
+          no_output_timeout: 15m
           command: |
             export CGO_LDFLAGS="-L/home/circleci/local-lib"
             make fuzz
@@ -1537,7 +1521,7 @@ jobs:
         default: 1
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: 2xlarge
     # circleci_ip_ranges: true
     parallelism: <<parameters.parallelism>>
     steps:
@@ -1601,7 +1585,7 @@ jobs:
       resource_class:
         description: Machine resource class
         type: string
-        default: xlarge
+        default: 2xlarge
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
@@ -1808,7 +1792,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -1843,7 +1827,7 @@ jobs:
       - run:
           name: Prepare test environment (compile tests and cache build results)
           working_directory: op-acceptance-tests
-          command: go test -v -c -p 4 -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
+          command: go test -v -c -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
       # Run the acceptance tests (if the devnet is running)
       - run:
           name: Run acceptance tests (gate=<<parameters.gate>>)
@@ -2454,9 +2438,7 @@ jobs:
                 # Do a full scan when scanning develop, otherwise do an incremental scan.
                 name: "Conditionally set BASELINE env var"
                 command: |
-                  if [ -n "${TEMPORARY_BASELINE_REF}" ]; then
-                    echo "export SEMGREP_BASELINE_REF=${TEMPORARY_BASELINE_REF}" >> $BASH_ENV
-                  fi
+                  echo 'export SEMGREP_BASELINE_REF=${TEMPORARY_BASELINE_REF}' >> $BASH_ENV
       - run:
           name: "Set environment variables" # for PR comments and in-app hyperlinks to findings
           command: |
@@ -2585,7 +2567,7 @@ jobs:
   publish-contract-artifacts:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - gcp-cli/install
       - gcp-oidc-authenticate:
@@ -2851,6 +2833,11 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests:
+          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           # Heavily fuzz any fuzz tests within added or modified test files.
           name: contracts-bedrock-tests-heavy-fuzz-modified <<matrix.features>>
           test_list: git diff origin/develop...HEAD --name-only --diff-filter=AM -- './test/**/*.t.sol' | sed 's|packages/contracts-bedrock/||'
@@ -2869,6 +2856,11 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-tests:
+          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           name: contracts-bedrock-tests <<matrix.features>>
           test_list: find test -name "*.t.sol"
           features: <<matrix.features>>
@@ -2879,6 +2871,11 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
           check_changed_patterns: contracts-bedrock,op-node
       - contracts-bedrock-coverage:
+          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           # Generate coverage reports.
           name: contracts-bedrock-coverage <<matrix.features>>
           test_timeout: 1h
@@ -2922,14 +2919,29 @@ workflows:
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks:
+          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           requires:
             - contracts-bedrock-build
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-checks-fast:
+          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-upload:
+          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           requires:
             - contracts-bedrock-build
           context:
@@ -3027,6 +3039,9 @@ workflows:
               ./op-deployer/pkg/deployer/integration_test/cli \
               ./op-deployer/pkg/deployer/standard/... \
               ./op-deployer/pkg/deployer/state/..."
+            # espresso: integration_test/cli only (not integration_test/...) to exclude long-running
+            # chain deployment tests (TestEndToEndApply etc.) that would exceed CI time limits.
+            # interop/ omitted: the package does not exist in this fork.
           requires:
             - contracts-bedrock-build
             - cannon-prestate-quick
