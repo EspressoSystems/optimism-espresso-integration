@@ -34,7 +34,7 @@ DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-aws}"  # 'local' or 'aws'
 if [ -n "$BATCH_AUTHENTICATOR_ADDRESS" ]; then
     echo "Using BATCH_AUTHENTICATOR_ADDRESS from environment variable"
 else
-    address_from_state=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /source/espresso/deployment/deployer/state.json 2>/dev/null)
+    address_from_state=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' /app/deployment/deployer/state.json 2>/dev/null)
     if [ -n "$address_from_state" ] && [ "$address_from_state" != "null" ]; then
         BATCH_AUTHENTICATOR_ADDRESS="$address_from_state"
         echo "Using BATCH_AUTHENTICATOR_ADDRESS from state.json"
@@ -50,7 +50,7 @@ export BATCH_AUTHENTICATOR_ADDRESS
 if [ -n "$ESPRESSO_LIGHT_CLIENT_ADDR" ]; then
     echo "Using ESPRESSO_LIGHT_CLIENT_ADDR from environment variable"
 else
-    # Decaf light client address for ETH Sepoliaß
+    # Decaf light client address for ETH Sepolia
     ESPRESSO_LIGHT_CLIENT_ADDR="0x303872bb82a191771321d4828888920100d0b3e4"
     echo "ESPRESSO_LIGHT_CLIENT_ADDR not set, using default"
 fi
@@ -131,18 +131,20 @@ if stale=$(docker ps -q --filter "name=batcher-enclaver") && [ -n "$stale" ]; th
     docker rm -f $stale
 fi
 
-# Build the enclave image
-echo "Building enclave image with tag: $TAG"
-cd /source
+# Build the EIF from the pre-built app image (built during `docker compose build`).
+# This skips the expensive Docker rebuild-from-source step and goes straight to
+# Enclaver EIF conversion, saving ~3-10 minutes per startup.
+APP_IMAGE="${APP_IMAGE:-op-batcher-enclave-app:espresso}"
+echo "Building EIF from pre-built app image: $APP_IMAGE (tag: $TAG)"
 
-if ! enclave-tools build --op-root /source --tag "$TAG" --cpu-count "$CPU_COUNT" --memory-mb "$MEMORY_MB" 2>&1 | tee /tmp/build_output.log; then
-    echo "ERROR: Failed to build enclave image"
+if ! enclave-tools build-eif --app-image "$APP_IMAGE" --eif-tag "$TAG" --cpu-count "$CPU_COUNT" --memory-mb "$MEMORY_MB" 2>&1 | tee /tmp/build_output.log; then
+    echo "ERROR: Failed to build EIF image"
     echo "Build output was:"
     cat /tmp/build_output.log
     exit 1
 fi
 
-echo "Build completed successfully"
+echo "EIF build completed successfully"
 
 # Extract PCR0 from build output
 # Works whether the line is `... PCR0: 0xABCD ...` or `... PCR0=abcd123 ...`
@@ -192,19 +194,18 @@ if [ "$DEPLOYMENT_MODE" = "local" ]; then
             if kill -0 "$STORED_PID" 2>/dev/null; then
                 echo "Terminating enclave-tools process (PID: $STORED_PID)"
                 kill -TERM "$STORED_PID" 2>/dev/null || true
-                sleep 5
-                kill -KILL "$STORED_PID" 2>/dev/null || true
             fi
             rm -f "$PID_FILE"
         fi
 
-        # Clean up any remaining enclave containers
+        # Force-kill tracked enclave runner containers (tracker stores
+        # container IDs).  docker rm -f sends SIGKILL immediately, which
+        # also causes enclaver to terminate the Nitro Enclave VM.
         if [ -f "$CONTAINER_TRACKER_FILE" ]; then
-            while IFS= read -r container_id; do
-                if [ -n "$container_id" ] && docker ps -q --filter id="$container_id" | grep -q "$container_id"; then
-                    echo "Stopping tracked enclave container: $container_id"
-                    docker stop "$container_id" 2>/dev/null || true
-                    docker rm "$container_id" 2>/dev/null || true
+            while IFS= read -r cid; do
+                if [ -n "$cid" ]; then
+                    echo "Force-removing enclave container: $cid"
+                    docker rm -f "$cid" 2>/dev/null || true
                 fi
             done < "$CONTAINER_TRACKER_FILE"
             rm -f "$CONTAINER_TRACKER_FILE"
@@ -284,7 +285,7 @@ echo "  Started: $STARTED_AT"
 
 # Setup status tracking for local deployment
 if [ "$DEPLOYMENT_MODE" = "local" ]; then
-    echo "$CONTAINER_NAME" >> "$CONTAINER_TRACKER_FILE"
+    echo "$CONTAINER_ID" >> "$CONTAINER_TRACKER_FILE"
 
     # Create initial status file
     cat > "$STATUS_FILE" <<EOF
@@ -368,7 +369,11 @@ EOF
     fi
 
     MONITOR_COUNT=$((MONITOR_COUNT + 1))
-    sleep "$MONITOR_INTERVAL"
+    # sleep in the background and `wait` for it.  `wait` is a shell
+    # builtin that is interrupted immediately by trapped signals, unlike
+    # a foreground `sleep` which defers signal delivery until it returns.
+    sleep "$MONITOR_INTERVAL" &
+    wait $! 2>/dev/null || true
 done
 
 echo "Enclave monitoring ended"
