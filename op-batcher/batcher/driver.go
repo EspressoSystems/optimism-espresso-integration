@@ -372,8 +372,8 @@ func (l *BatchSubmitter) StopBatchSubmitting(ctx context.Context) error {
 	}()
 
 	l.cancelShutdownCtx()
-	l.wg.Wait()
 	l.cancelKillCtx()
+	l.wg.Wait()
 
 	l.Log.Info("Batch Submitter stopped")
 	return nil
