@@ -436,6 +436,43 @@ services:
         export EIGENDA_PROXY_URL="http://127.0.0.1:${EIGENDA_PROXY_PORT}"
         exec /app/run-enclave.sh
 
+  # One-shot container that deploys OPSuccinctFaultDisputeGame contracts at runtime.
+  # Computes real vkeys + rollup config hash via fetch-fault-dispute-game-config,
+  # then deploys via forge script. Must complete before proposer/challenger start.
+  fdg-deployer:
+    profiles: ["default"]
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-fdg-deployer-celo:sha-b0f3121
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      l2-rollup:
+        condition: service_completed_successfully
+      op-node-sequencer:
+        condition: service_healthy
+      op-geth-sequencer:
+        condition: service_healthy
+    volumes:
+      - ./deployment/deployer:/deployer:ro
+    env_file:
+      - ./deployment/deployer/succinct.env
+    environment:
+      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      L2_RPC: http://op-geth-sequencer:${OP_HTTP_PORT}
+      L2_NODE_RPC: http://op-node-sequencer:${ROLLUP_PORT}
+      PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
+      GAME_TYPE: "42"
+      MAX_CHALLENGE_DURATION: "10"
+      MAX_PROVE_DURATION: "60"
+      FALLBACK_TIMEOUT_FP_SECS: "3600"
+      INITIAL_BOND_WEI: "1000000000000000"
+      CHALLENGER_BOND_WEI: "1000000000000000"
+      DISPUTE_GAME_FINALITY_DELAY_SECONDS: "6"
+      USE_SP1_MOCK_VERIFIER: "true"
+      PERMISSIONLESS_MODE: "true"
+      ACTIVATE_CONTRACTS: "true"
+      CONFIGURE_CONTRACTS: "true"
+      STARTING_L2_BLOCK_NUMBER: "0"
+
   # Legacy op-proposer (for non-succinct mode)
   op-proposer:
     profiles: ["legacy"]
@@ -467,7 +504,7 @@ services:
   # Succinct proposer for ZK fault proofs
   succinct-proposer:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-7892d49
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-b0f3121
     depends_on:
       l1-data-init:
         condition: service_completed_successfully
@@ -479,6 +516,8 @@ services:
         condition: service_started
       eigenda-proxy:
         condition: service_started
+      fdg-deployer:
+        condition: service_completed_successfully
     volumes:
       - ./deployment/deployer:/deployer:ro
     env_file:
@@ -558,7 +597,7 @@ services:
   # Succinct challenger for ZK fault proofs
   succinct-challenger:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-7892d49
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-b0f3121
     depends_on:
       l1-anvil:
         condition: service_healthy
@@ -572,6 +611,8 @@ services:
         condition: service_started
       eigenda-proxy:
         condition: service_started
+      fdg-deployer:
+        condition: service_completed_successfully
     volumes:
       - ./deployment/deployer:/deployer:ro
     env_file:
