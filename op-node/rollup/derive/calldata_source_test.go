@@ -139,7 +139,6 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		batchAuthenticatorAddress: authenticatorAddr,
 		batchAuthLookbackWindow:   espresso.DefaultBatchAuthLookbackWindow,
 	}
-	require.True(t, dsCfg.BatchAuthEnabled())
 
 	ctx := context.Background()
 	logger := testlog.Logger(t, log.LevelDebug)
@@ -186,9 +185,9 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		l1F.AssertExpectations(t)
 	})
 
-	t.Run("fallback batcher (SystemConfig batcherAddr) accepted without auth event", func(t *testing.T) {
-		// The fallback batcher uses the SystemConfig batcher address (batcherAddr).
-		// It is authorized by sender verification, no auth event needed.
+	t.Run("fallback batcher without auth event rejected", func(t *testing.T) {
+		// The fallback batcher now also authenticates via BatchAuthenticator events.
+		// Without an auth event, even the SystemConfig batcher address is rejected.
 		l1F := &testutils.MockL1Source{}
 		txData := testutils.RandomData(rng, 100)
 		tx, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
@@ -203,8 +202,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
-		require.Len(t, out, 1, "fallback batcher (SystemConfig batcherAddr) tx should be accepted via sender verification")
-		require.Equal(t, eth.Data(txData), out[0])
+		require.Len(t, out, 0, "fallback batcher without auth event should be rejected")
 		l1F.AssertExpectations(t)
 	})
 
@@ -232,9 +230,9 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		l1F.AssertExpectations(t)
 	})
 
-	t.Run("mixed: TEE authenticated and fallback sender", func(t *testing.T) {
+	t.Run("mixed: only event-authenticated txs accepted", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
-		// tx1: Espresso batcher with auth event
+		// tx1: has auth event — should be accepted
 		txData1 := testutils.RandomData(rng, 100)
 		tx1, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
 			ChainID: big.NewInt(100), Nonce: 0, Gas: 100_000,
@@ -243,7 +241,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// tx2: fallback batcher (same as SystemConfig batcherAddr) without auth event
+		// tx2: no auth event — should be rejected even though sender is batcherAddr
 		txData2 := testutils.RandomData(rng, 100)
 		tx2, err := types.SignNewTx(batcherPriv, signer, &types.DynamicFeeTx{
 			ChainID: big.NewInt(100), Nonce: 1, Gas: 100_000,
@@ -263,15 +261,13 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		batchHash1 := ComputeCalldataBatchHash(txData1)
-		// Only tx1 has an auth event. tx2 from fallback batcher (batcherAddr) passes via sender.
-		// tx3 from unknown sender should be rejected.
+		// Only tx1 has an auth event. tx2 and tx3 do not — both should be rejected.
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash1})
 
 		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx1, tx2, tx3}, l1F, ref, logger)
 		require.NoError(t, err)
-		require.Len(t, out, 2, "TEE authenticated + fallback sender should both pass")
+		require.Len(t, out, 1, "only event-authenticated tx should pass")
 		require.Equal(t, eth.Data(txData1), out[0])
-		require.Equal(t, eth.Data(txData2), out[1])
 		l1F.AssertExpectations(t)
 	})
 

@@ -1181,6 +1181,15 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		return
 	}
 
+	// Fallback batcher: authenticate via BatchAuthenticator if configured.
+	// This sends an authenticateBatchInfo transaction with a raw ECDSA signature
+	// (verified against SystemConfig.batcherHash on-chain) before submitting
+	// the batch data to the BatchInbox address.
+	if !isCancel && l.hasBatchAuthenticator() {
+		l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
+		return
+	}
+
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)
 }
 

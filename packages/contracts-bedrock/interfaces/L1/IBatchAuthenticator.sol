@@ -11,6 +11,9 @@ interface IBatchAuthenticator {
     /// @notice Error thrown when the contract is paused.
     error BatchAuthenticator_Paused();
 
+    /// @notice Error thrown when the fallback batcher signature does not match the expected address.
+    error UnauthorizedFallbackBatcher(address recovered, address expected);
+
     /// @notice Emitted when a batch info is authenticated.
     event BatchInfoAuthenticated(bytes32 indexed commitment);
 

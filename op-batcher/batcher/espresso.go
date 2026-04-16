@@ -1337,27 +1337,15 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob}
 	l.Log.Debug("Sending Espresso-enabled L1 transaction", "txRef", transactionReference)
 
-	var commitment [32]byte
-	if len(candidate.Blobs) == 0 {
-		commitment = crypto.Keccak256Hash(candidate.TxData)
-		l.Log.Debug("Hashing calldata transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
-	} else {
-		contactenatedBlobHashes := make([]byte, 0)
-		for _, blob := range candidate.Blobs {
-			blobCommitment, err := blob.ComputeKZGCommitment()
-			if err != nil {
-				receiptsCh <- txmgr.TxReceipt[txRef]{
-					ID:  transactionReference,
-					Err: fmt.Errorf("failed to compute KZG commitment for blob: %w", err),
-				}
-				return
-			}
-			blobHash := eth.KZGToVersionedHash(blobCommitment)
-			contactenatedBlobHashes = append(contactenatedBlobHashes, blobHash.Bytes()...)
+	commitment, err := computeCommitment(candidate)
+	if err != nil {
+		receiptsCh <- txmgr.TxReceipt[txRef]{
+			ID:  transactionReference,
+			Err: err,
 		}
-		commitment = crypto.Keccak256Hash(contactenatedBlobHashes)
-		l.Log.Debug("Hashing blob transaction", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
+		return
 	}
+	l.Log.Debug("Computed batch commitment", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
 
 	signature, err := l.signEIP712Commitment(commitment)
 	if err != nil {

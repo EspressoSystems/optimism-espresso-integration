@@ -99,11 +99,6 @@ type DataSourceConfig struct {
 	batchAuthLookbackWindow uint64
 }
 
-// BatchAuthEnabled returns true if event-based batch authentication is configured.
-func (c DataSourceConfig) BatchAuthEnabled() bool {
-	return c.batchAuthenticatorAddress != (common.Address{})
-}
-
 // isValidBatchTx checks basic transaction validity for batch submission:
 //  1. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
 //  2. the transaction has a To() address that matches the batch inbox address
@@ -124,36 +119,8 @@ func isValidBatchTx(tx *types.Transaction, batchInboxAddr common.Address, logger
 	return true
 }
 
-// isAuthorizedBatchSender checks that the transaction sender matches the expected batcher address.
-// Used in legacy mode when batch authenticator is not configured.
-func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batcherAddr common.Address, logger log.Logger) bool {
-	sender, err := l1Signer.Sender(tx)
-	if err != nil {
-		logger.Warn("tx in inbox with invalid signature", "hash", tx.Hash(), "err", err)
-		return false
-	}
-	if sender != batcherAddr {
-		logger.Warn("tx in inbox with unauthorized submitter", "addr", sender, "hash", tx.Hash())
-		return false
-	}
-	return true
-}
-
-// isBatchTxAuthorized checks whether a batch transaction is authorized, using either
-// event-based authentication (when authenticatedHashes is non-nil) or legacy sender
-// verification. For event-based auth, batchHash must be the precomputed hash of the
-// batch content (calldata or blob hashes). The authenticatedHashes set is obtained
-// once per L1 block via CollectAuthenticatedBatches.
-//
-// When batch auth is enabled, there are two authorization paths:
-//  1. Espresso batcher: must have a matching BatchInfoAuthenticated event (event-based auth)
-//  2. Fallback batcher: authorized via sender verification against batcherAddr, which is
-//     the standard OP stack batcher address from SystemConfig.batcherHash. This allows
-//     the fallback batcher address to be changed dynamically via SystemConfig.setBatcherHash().
-//
-// This dual-mode approach allows the fallback (non-TEE) batcher to post batches without
-// calling authenticateBatchInfo on L1, while still requiring the Espresso batcher to authenticate
-// its batches via on-chain events.
+// isBatchTxAuthorized checks whether a batch transaction is authorized, using
+// event-based authentication
 func isBatchTxAuthorized(
 	tx *types.Transaction,
 	dsCfg DataSourceConfig,
@@ -162,21 +129,12 @@ func isBatchTxAuthorized(
 	authenticatedHashes map[common.Hash]bool,
 	logger log.Logger,
 ) bool {
-	if dsCfg.BatchAuthEnabled() {
-		// Event-based authentication: Espresso batcher must have an auth event
-		if authenticatedHashes[batchHash] {
-			return true
-		}
-		// Fallback batcher: accept via sender verification against the SystemConfig batcher address.
-		// This is the same address used by the standard OP stack batcher, allowing it to be
-		// changed dynamically via SystemConfig.setBatcherHash().
-		if isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger) {
-			return true
-		}
-		logger.Warn("batch not authenticated via event or fallback sender",
-			"txHash", tx.Hash(), "batchHash", batchHash)
-		return false
+	// Event-based authentication: Espresso batcher must have an auth event
+	if authenticatedHashes[batchHash] {
+		return true
 	}
-	// Non-espresso mode: verify sender
-	return isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger)
+
+	logger.Warn("batch not authenticated",
+		"txHash", tx.Hash(), "batchHash", batchHash)
+	return false
 }

@@ -28,9 +28,11 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/acces
 import { OwnableWithGuardiansUpgradeable } from "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
 import { ECDSA } from "@openzeppelin/contracts-v5/utils/cryptography/ECDSA.sol";
 
-/// @notice Minimal mock of SystemConfig that exposes a settable paused() flag.
+/// @notice Minimal mock of SystemConfig that exposes a settable paused() flag
+///         and a configurable batcherHash() used by the fallback batcher path.
 contract MockSystemConfig {
     bool private _paused;
+    bytes32 private _batcherHash;
 
     function setPaused(bool val) external {
         _paused = val;
@@ -38,6 +40,14 @@ contract MockSystemConfig {
 
     function paused() external view returns (bool) {
         return _paused;
+    }
+
+    function setBatcherHash(bytes32 val) external {
+        _batcherHash = val;
+    }
+
+    function batcherHash() external view returns (bytes32) {
+        return _batcherHash;
     }
 }
 
@@ -631,7 +641,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
         assertTrue(authenticator.activeIsEspresso());
-        assertEq(authenticator.version(), "1.1.0");
+        assertEq(authenticator.version(), "1.2.0");
 
         // Verify proxy admin.
         address admin = EIP1967Helper.getAdmin(address(proxy));
@@ -707,7 +717,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(block.chainid, Chains.Sepolia);
 
         // Verify contract is functional.
-        assertEq(authenticator.version(), "1.1.0");
+        assertEq(authenticator.version(), "1.2.0");
         assertTrue(authenticator.activeIsEspresso());
 
         // Verify the fork is working by testing that we can read the block number.
