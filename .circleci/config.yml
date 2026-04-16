@@ -1823,7 +1823,8 @@ jobs:
       - run:
           name: Prepare test environment (compile tests and cache build results)
           working_directory: op-acceptance-tests
-          command: go test -v -c -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
+          # espresso: -p 1 to serialize linking and avoid OOM on xlarge (16GB).
+          command: go test -v -c -p 1 -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
       # Run the acceptance tests (if the devnet is running)
       - run:
           name: Run acceptance tests (gate=<<parameters.gate>>)
