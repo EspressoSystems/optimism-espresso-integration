@@ -1521,7 +1521,7 @@ jobs:
         default: 1
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: <<parameters.resource_class>>
     # circleci_ip_ranges: true
     parallelism: <<parameters.parallelism>>
     steps:
@@ -2817,11 +2817,6 @@ workflows:
                 ] #this is to prevent triggering this workflow as the default value is always set for main_dispatch
     jobs:
       - contracts-bedrock-build:
-          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
-          filters:
-            branches:
-              only:
-                - celo-disabled-circleci-jobs-branch
           name: contracts-bedrock-build
           # Build with just core + script contracts.
           build_args: --deny-warnings --skip test
