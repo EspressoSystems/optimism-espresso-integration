@@ -7,10 +7,7 @@
 
 # Valid service names
 VALID_SERVICES=(
-    "l1-genesis"
-    "l1-geth"
-    "l1-beacon"
-    "l1-validator"
+    "l1-anvil"
     "espresso-dev-node"
     "l2-genesis"
     "op-geth-sequencer"

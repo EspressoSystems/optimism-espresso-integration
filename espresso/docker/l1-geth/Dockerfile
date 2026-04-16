@@ -90,12 +90,13 @@ COPY --from=builder /go/bin/eth2-val-tools /usr/local/bin/eth2-val-tools
 # Create data and templates directories
 RUN mkdir -p /data /templates
 
-# Include the deployment artifacts and the initialization scripts for the L1 services.
+# Include the initialization scripts for the L1 services.
 COPY espresso/docker/l1-geth/beacon-config.yaml /templates/
 COPY espresso/docker/l1-geth/devnet-genesis-template.json /templates/
 COPY espresso/docker/l1-geth/mnemonics.yaml /templates/
 COPY espresso/docker/l1-geth/l1-geth-init.sh /l1-geth-init.sh
-COPY espresso/deployment/ /deployment/
+# Deployment artifacts are mounted via docker-compose volumes at runtime
+# (./deployment:/deployment) rather than baked into the image.
 
 # Run the initialization script.
 RUN chmod +x /l1-geth-init.sh
