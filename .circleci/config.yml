@@ -3665,11 +3665,6 @@ workflows:
             - equal: ["api", << pipeline.trigger_source >>]
     jobs:
       - contracts-bedrock-build: # needed for sysgo tests
-          # espresso: disabled — requires 2xlarge which exceeds our CircleCI resource limit.
-          filters:
-            branches:
-              only:
-                - celo-disabled-circleci-jobs-branch
           build_args: --skip test
           context:
             - circleci-repo-readonly-authenticated-github-token
