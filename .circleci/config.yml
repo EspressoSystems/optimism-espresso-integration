@@ -1585,7 +1585,7 @@ jobs:
       resource_class:
         description: Machine resource class
         type: string
-        default: 2xlarge
+        default: xlarge
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
@@ -3008,7 +3008,6 @@ workflows:
       - go-tests:
           name: go-tests-short
           parallelism: 12
-          resource_class: xlarge
           no_output_timeout: 19m
           test_timeout: 20m
           environment_overrides: |
