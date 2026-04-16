@@ -107,6 +107,10 @@ var (
 	// EthNodeVerbosity is the (legacy geth) level of verbosity to output
 	EthNodeVerbosity int = 3
 
+	// espresso: tracks Espresso alloc types that failed to initialize (e.g. missing mock TEE
+	// contracts in --skip test builds). Tests can call IsAllocTypeAvailable() to skip gracefully.
+	unavailableEspressoAllocTypes = make(map[AllocType]bool)
+
 	// mtx is a lock to protect the above variables
 	mtx sync.RWMutex
 )
@@ -154,6 +158,15 @@ func DeployConfig(allocType AllocType) *genesis.DeployConfig {
 		panic(fmt.Errorf("unknown deploy config type: %q", allocType))
 	}
 	return dc.Copy()
+}
+
+// IsAllocTypeAvailable reports whether allocType was successfully initialized.
+// Espresso alloc types are unavailable in CI builds compiled with --skip test, where mock TEE
+// contracts are not present.
+func IsAllocTypeAvailable(allocType AllocType) bool {
+	mtx.RLock()
+	defer mtx.RUnlock()
+	return !unavailableEspressoAllocTypes[allocType]
 }
 
 func init() {
@@ -215,14 +228,14 @@ func init() {
 	for _, allocType := range allocTypes {
 		if err := initAllocType(root, allocType); err != nil {
 			if allocType.IsEspresso() {
-				// Espresso alloc types require mock TEE contracts that are compiled only when
-				// forge builds include test contracts (i.e. without --skip test). Standard CI
-				// builds skip test contracts, so these types may fail to initialize. Non-Espresso
-				// op-e2e tests are unaffected. Espresso-specific tests will fail with
-				// "unknown alloc type" if they attempt to use these types without a full build.
+				// espresso: Espresso alloc types require mock TEE contracts that are compiled only
+				// when forge builds include test contracts (i.e. without --skip test).
 				fmt.Fprintf(os.Stderr, "WARNING: Espresso alloc type %q initialization failed "+
 					"(mock TEE contracts may not be available; rebuild with `just compile-contracts` "+
 					"to enable Espresso op-e2e tests): %v\n", allocType, err)
+				mtx.Lock()
+				unavailableEspressoAllocTypes[allocType] = true
+				mtx.Unlock()
 			} else {
 				panic(fmt.Errorf("failed to init alloc type %q: %w", allocType, err))
 			}

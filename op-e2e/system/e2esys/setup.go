@@ -127,6 +127,12 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 		opt(sco)
 	}
 
+	// espresso: Espresso alloc types require mock TEE contracts compiled only in full builds
+	// (without --skip test). Skip gracefully instead of panicking.
+	if !config.IsAllocTypeAvailable(sco.AllocType) {
+		t.Skipf("alloc type %q not available (mock TEE contracts not built); run `just compile-contracts` to enable", sco.AllocType)
+	}
+
 	secrets := secrets.DefaultSecrets
 	deployConfig := config.DeployConfig(sco.AllocType)
 	require.Nil(t, deployConfig.L2GenesisJovianTimeOffset, "jovian not supported yet")
