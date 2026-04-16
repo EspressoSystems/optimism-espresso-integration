@@ -201,6 +201,17 @@ func init() {
 	// which reduces CI performance.
 	oplog.SetGlobalLogHandler(errHandler)
 
+	// Check if forge-artifacts exists at all; if not, skip all alloc init non-fatally.
+	// This allows packages that import op-e2e/config (e.g. fuzz targets in op-e2e/opgeth)
+	// to build and run without a full contract build.
+	artifactsPath := path.Join(root, "packages", "contracts-bedrock", "forge-artifacts")
+	if err := ensureDir(artifactsPath); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: forge-artifacts not found, skipping alloc init "+
+			"(run `just compile-contracts` to enable op-e2e tests): %v\n", err)
+		oplog.SetGlobalLogHandler(handler)
+		return
+	}
+
 	for _, allocType := range allocTypes {
 		if err := initAllocType(root, allocType); err != nil {
 			if allocType.IsEspresso() {

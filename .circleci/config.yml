@@ -614,7 +614,7 @@ jobs:
   contracts-bedrock-build:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge
     parameters:
       build_args:
         description: Forge build arguments
@@ -3008,6 +3008,7 @@ workflows:
       - go-tests:
           name: go-tests-short
           parallelism: 12
+          resource_class: xlarge
           no_output_timeout: 19m
           test_timeout: 20m
           environment_overrides: |
@@ -3721,6 +3722,7 @@ workflows:
       - op-acceptance-tests:
           name: memory-all
           gate: "" # Empty gate = gateless mode
+          resource_class: xlarge
           no_output_timeout: 120m # Allow longer runs for memory-all gate
           context:
             - circleci-repo-readonly-authenticated-github-token
