@@ -105,12 +105,10 @@ contract BatchAuthenticator is
             // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently.
             espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO);
         } else {
-            // Fallback batcher path: verify raw ECDSA signature against SystemConfig batcher address.
-            // No TEE attestation required — only checks that the signer matches the registered
-            // fallback batcher address from SystemConfig.batcherHash().
-            address recovered = ECDSA.recover(commitment, _signature);
+            // Fallback batcher path: the caller must be the SystemConfig batcher address.
+            // No signature verification needed — the transaction itself is already signed by msg.sender.
             address fallbackBatcher = address(uint160(uint256(systemConfig.batcherHash())));
-            if (recovered != fallbackBatcher) revert UnauthorizedFallbackBatcher(recovered, fallbackBatcher);
+            if (msg.sender != fallbackBatcher) revert UnauthorizedFallbackBatcher(msg.sender, fallbackBatcher);
         }
 
         emit BatchInfoAuthenticated(commitment);

@@ -34,12 +34,11 @@ func computeCommitment(candidate *txmgr.TxCandidate) ([32]byte, error) {
 }
 
 // sendTxWithFallbackAuth authenticates a batch transaction via the BatchAuthenticator contract
-// using the fallback batcher's signing key (raw ECDSA, no TEE attestation), then sends the
+// using the fallback batcher's sender identity (msg.sender check on-chain), then sends the
 // batch data to the BatchInbox address.
 //
-// This is the non-Espresso counterpart to sendTxWithEspresso: it uses the ChainSigner
-// (the TxManager's key, which corresponds to the SystemConfig batcher address) to sign
-// the commitment, calls authenticateBatchInfo on L1, and then submits the batch data.
+// The contract's fallback path checks msg.sender against systemConfig.batcherHash(), so no
+// separate signature is needed — the L1 transaction is already signed by the TxManager's key.
 func (l *BatchSubmitter) sendTxWithFallbackAuth(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue TxSender[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	transactionReference := txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}
 	l.Log.Debug("Sending fallback-authenticated L1 transaction", "txRef", transactionReference)
@@ -54,24 +53,6 @@ func (l *BatchSubmitter) sendTxWithFallbackAuth(txdata txData, isCancel bool, ca
 	}
 	l.Log.Debug("Computed fallback batch commitment", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]))
 
-	// Sign the raw commitment hash with the ChainSigner (TxManager key = SystemConfig batcher address).
-	// The contract verifies this with ECDSA.recover(commitment, signature) against systemConfig.batcherHash().
-	signature, err := l.ChainSigner.Sign(l.killCtx, commitment[:])
-	if err != nil {
-		receiptsCh <- txmgr.TxReceipt[txRef]{
-			ID:  transactionReference,
-			Err: fmt.Errorf("failed to sign commitment for fallback auth: %w", err),
-		}
-		return
-	}
-
-	// Normalize the recovery ID (v) from 0/1 to 27/28 for Solidity's ECDSA.recover
-	if signature[64] < 27 {
-		signature[64] += 27
-	}
-
-	l.Log.Debug("Signed fallback batch commitment", "txRef", transactionReference, "commitment", hexutil.Encode(commitment[:]), "sig", hexutil.Encode(signature))
-
 	batchAuthenticatorAbi, err := bindings.BatchAuthenticatorMetaData.GetAbi()
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
@@ -81,7 +62,8 @@ func (l *BatchSubmitter) sendTxWithFallbackAuth(txdata txData, isCancel bool, ca
 		return
 	}
 
-	authenticateBatchCalldata, err := batchAuthenticatorAbi.Pack("authenticateBatchInfo", commitment, signature)
+	// Pass an empty signature — the contract checks msg.sender for the fallback path.
+	authenticateBatchCalldata, err := batchAuthenticatorAbi.Pack("authenticateBatchInfo", commitment, []byte{})
 	if err != nil {
 		receiptsCh <- txmgr.TxReceipt[txRef]{
 			ID:  transactionReference,
