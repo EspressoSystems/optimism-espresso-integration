@@ -1792,7 +1792,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: 2xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -3721,7 +3721,6 @@ workflows:
       - op-acceptance-tests:
           name: memory-all
           gate: "" # Empty gate = gateless mode
-          resource_class: xlarge
           no_output_timeout: 120m # Allow longer runs for memory-all gate
           context:
             - circleci-repo-readonly-authenticated-github-token
