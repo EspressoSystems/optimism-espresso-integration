@@ -136,7 +136,6 @@ services:
       interval: 3s
       timeout: 2s
       retries: 40
-      start_period: 120s
     image: op-node-sequencer:espresso
     depends_on:
       l2-rollup:
@@ -188,7 +187,6 @@ services:
       interval: 3s
       timeout: 2s
       retries: 40
-      start_period: 120s
     image: op-node-verifier:espresso
     depends_on:
       l2-rollup:
