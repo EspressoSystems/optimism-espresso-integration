@@ -11,8 +11,6 @@ build_info_path = 'artifacts/build-info'
 snapshots = 'notarealpath'               # workaround for foundry#9477
 allow_internal_expect_revert = true      # workaround described in https://github.com/PaulRBerg/prb-math/issues/248
 
-use_literal_content = true
-
 optimizer = true
 optimizer_runs = 999999
 
@@ -266,3 +264,10 @@ src = 'test/kontrol/proofs'
 out = 'kout-proofs'
 test = 'test/kontrol/proofs'
 script = 'test/kontrol/proofs'
+
+################################################################
+#                         PROFILE: VERIFICATION                #
+################################################################
+
+[profile.verification]
+use_literal_content = true

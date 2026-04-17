@@ -87,7 +87,7 @@ jobs:
           - group: 0
             tests: "TestChallengeGame|TestChangeBatchAuthenticatorOwner"
           - group: 1
-            tests: "TestSmokeWithoutTEE|TestBatcherRestart"
+            tests: "TestSmoke|TestBatcherRestart"
           - group: 2
             tests: "TestWithdrawal|TestBatcherSwitching"
           - group: 3

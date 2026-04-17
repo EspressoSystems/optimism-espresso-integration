@@ -39,7 +39,7 @@ import (
 const (
 	ENCLAVE_INTERMEDIATE_IMAGE_TAG = "op-batcher-enclave:tests"
 	ENCLAVE_IMAGE_TAG              = "op-batcher-enclaver:tests"
-	ESPRESSO_ENABLE_ENCLAVE_TESTS  = "ESPRESSO_RUN_ENCLAVE_TESTS"
+	ESPRESSO_RUN_ENCLAVE_TESTS     = "ESPRESSO_RUN_ENCLAVE_TESTS"
 
 	// TeeTypeNitro corresponds to IEspressoTEEVerifier.TeeType.NITRO enum value
 	TeeTypeNitro uint8 = 1
@@ -47,9 +47,19 @@ const (
 	ServiceTypeBatchPoster uint8 = 0
 )
 
-// Skips the calling test if `ESPRESSO_ENABLE_ENCLAVE_TESTS` is not set.
+func HasTee() (bool, error) {
+	_, hasTee := os.LookupEnv(ESPRESSO_RUN_ENCLAVE_TESTS)
+	if hasTee {
+		if _, err := os.Stat("/dev/nitro_enclaves"); os.IsNotExist(err) {
+			return false, fmt.Errorf("/dev/nitro_enclaves does not exist; cannot run enclave tests without Nitro Enclaves support")
+		}
+	}
+	return hasTee, nil
+}
+
+// Skips the calling test if `ESPRESSO_RUN_ENCLAVE_TESTS` is not set.
 func RunOnlyWithEnclave(t *testing.T) {
-	_, doRun := os.LookupEnv(ESPRESSO_ENABLE_ENCLAVE_TESTS)
+	_, doRun := os.LookupEnv(ESPRESSO_RUN_ENCLAVE_TESTS)
 	if !doRun {
 		t.SkipNow()
 	}

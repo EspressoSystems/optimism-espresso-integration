@@ -1,7 +1,6 @@
 package devnet_tests
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
@@ -9,36 +8,41 @@ import (
 )
 
 func TestBatcherRestart(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	profile := ProfileFromEnv(t)
+	t.Run(string(profile), func(t *testing.T) {
+		ctx := t.Context()
 
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
-	defer func() {
-		require.NoError(t, d.Down())
-	}()
+		d := NewDevnet(ctx, t, profile)
+		require.NoError(t, d.Up())
+		defer func() {
+			require.NoError(t, d.Down())
+		}()
 
-	// Send a transaction just to check that everything has started up ok.
-	require.NoError(t, d.RunSimpleL2Burn())
+		require.NoError(t, d.WaitForBatcher(ctx))
 
-	// Shut down the batcher and have another transaction submitted while it is down.
-	require.NoError(t, d.ServiceDown("op-batcher"))
-	d.SleepOutageDuration()
+		// Send a transaction just to check that everything has started up ok.
+		require.NoError(t, d.RunSimpleL2Burn())
 
-	receipt, err := d.SubmitSimpleL2Burn()
-	require.NoError(t, err)
+		// Shut down the batcher and have another transaction submitted while it is down.
+		require.NoError(t, d.ServiceDown(OpBatcher))
+		d.SleepOutageDuration()
 
-	// Check that while the batcher is down, the verifier does NOT process submitted transactions.
-	d.SleepOutageDuration()
-	_, err = d.L2Verif.TransactionReceipt(ctx, receipt.Receipt.TxHash)
-	require.ErrorIs(t, err, ethereum.NotFound)
+		receipt, err := d.SubmitSimpleL2Burn()
+		require.NoError(t, err)
 
-	// Bring the batcher back up and check that it processes the transaction which was submitted
-	// while it was down.
-	require.NoError(t, d.ServiceUp("op-batcher"))
-	require.NoError(t, d.VerifySimpleL2Burn(receipt))
+		// Check that while the batcher is down, the verifier does NOT process submitted transactions.
+		d.SleepOutageDuration()
+		_, err = d.L2Verif.TransactionReceipt(ctx, receipt.Receipt.TxHash)
+		require.ErrorIs(t, err, ethereum.NotFound)
 
-	// Submit another transaction at the end just to check that things stay working.
-	d.SleepRecoveryDuration()
-	require.NoError(t, d.RunSimpleL2Burn())
+		// Bring the batcher back up and check that it processes the transaction which was submitted
+		// while it was down.
+		require.NoError(t, d.ServiceUp(OpBatcher))
+		require.NoError(t, d.WaitForBatcher(ctx))
+		require.NoError(t, d.VerifySimpleL2Burn(receipt))
+
+		// Submit another transaction at the end just to check that things stay working.
+		d.SleepRecoveryDuration()
+		require.NoError(t, d.RunSimpleL2Burn())
+	})
 }
