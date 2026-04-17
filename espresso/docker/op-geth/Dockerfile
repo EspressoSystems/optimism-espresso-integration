@@ -40,7 +40,7 @@ FROM us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:v1.101503.2-rc.3
 COPY --from=geth-builder /geth /usr/local/bin/geth
 
 # For healtcheck and JSON operations.
-RUN apk add curl jq openssl
+RUN apk add curl jq openssl bash
 
 # Install dasel for JSON manipulation.
 RUN case $(uname -m) in \
