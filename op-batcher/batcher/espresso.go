@@ -786,6 +786,57 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	}
 }
 
+// peekNextBatch returns the next batch from the streamer, performing a fork check
+// against an expected parent hash.
+//
+// The expected parent is tip when tip is set. When tip is zero (channel manager was
+// just cleared), we fall back to safeL2.Hash if the batch is at exactly safeL2+1 —
+// the one position where we can anchor on the known-good safe head. If we have no
+// anchor we accept the batch as-is.
+func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.SyncStatus) *derive.EspressoBatch {
+	l.channelMgrMutex.Lock()
+	tip := l.channelMgr.tip
+	l.channelMgrMutex.Unlock()
+
+	batch := l.EspressoStreamer().Peek(ctx)
+	if batch == nil {
+		return nil
+	}
+
+	// Check if we can set the tip if not set
+	if tip == (common.Hash{}) && (*batch).Number() == syncStatus.SafeL2.Number+1 {
+		l.Log.Info(
+			"setting tip to proper safe l2 hash",
+			"batchNr", (*batch).Number(),
+			"batchParent", (*batch).Header().ParentHash,
+			"tip", tip,
+		)
+		tip = syncStatus.SafeL2.Hash
+	}
+
+	if tip == (common.Hash{}) {
+		l.Log.Warn(
+			"no fork-check anchor, taking available batch",
+			"blockParentHash", (*batch).Header().ParentHash.Hex(),
+			"blockHash", (*batch).Header().Hash().Hex(),
+		)
+		return batch
+	}
+
+	if (*batch).Header().ParentHash != tip {
+		l.Log.Warn(
+			"head batch fork mismatch, seeking to proper head",
+			"batchNr", (*batch).Number(),
+			"batchParent", (*batch).Header().ParentHash,
+			"tip", tip,
+		)
+		l.EspressoStreamer().SeekToProperHead(tip)
+		return nil
+	}
+
+	return batch
+}
+
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan pubInfo) {
 	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
@@ -812,7 +863,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			for {
 
-				batch = l.peekNextBatch(ctx)
+				batch = l.peekNextBatch(ctx, newSyncStatus)
 
 				if batch == nil {
 					break
