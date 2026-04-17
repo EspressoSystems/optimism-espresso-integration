@@ -787,9 +787,13 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 }
 
 // peekNextBatch returns the next batch from the streamer, performing a fork check
-// against the channel manager's current tip. Fork checking is skipped when the tip
-// is zero (channel manager was just cleared and no reliable chain tip is available yet).
-func (l *BatchSubmitter) peekNextBatch(ctx context.Context) *derive.EspressoBatch {
+// against an expected parent hash.
+//
+// The expected parent is tip when tip is set. When tip is zero (channel manager was
+// just cleared), we fall back to safeL2.Hash if the batch is at exactly safeL2+1 —
+// the one position where we can anchor on the known-good safe head. If we have no
+// anchor we accept the batch as-is.
+func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.SyncStatus) *derive.EspressoBatch {
 	l.channelMgrMutex.Lock()
 	tip := l.channelMgr.tip
 	l.channelMgrMutex.Unlock()
@@ -798,15 +802,38 @@ func (l *BatchSubmitter) peekNextBatch(ctx context.Context) *derive.EspressoBatc
 	if batch == nil {
 		return nil
 	}
-	if tip != (common.Hash{}) && (*batch).Header().ParentHash != tip {
+
+	// Check if we can set the tip if not set
+	if tip == (common.Hash{}) && (*batch).Number() == syncStatus.SafeL2.Number+1 {
+		l.Log.Info(
+			"setting tip to proper safe l2 hash",
+			"batchNr", (*batch).Number(),
+			"batchParent", (*batch).Header().ParentHash,
+			"tip", tip,
+		)
+		tip = syncStatus.SafeL2.Hash
+	}
+
+	if tip == (common.Hash{}) {
 		l.Log.Warn(
-			"head batch fork mismatch, seeking to proper head (likely l2 reorg)",
+			"no fork-check anchor, taking available batch",
+			"blockParentHash", (*batch).Header().ParentHash.Hex(),
+			"blockHash", (*batch).Header().Hash().Hex(),
+		)
+		return batch
+	}
+
+	if (*batch).Header().ParentHash != tip {
+		l.Log.Warn(
+			"head batch fork mismatch, seeking to proper head",
+			"batchNr", (*batch).Number(),
 			"batchParent", (*batch).Header().ParentHash,
 			"tip", tip,
 		)
 		l.EspressoStreamer().SeekToProperHead(tip)
 		return nil
 	}
+
 	return batch
 }
 
@@ -836,7 +863,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			for {
 
-				batch = l.peekNextBatch(ctx)
+				batch = l.peekNextBatch(ctx, newSyncStatus)
 
 				if batch == nil {
 					break
