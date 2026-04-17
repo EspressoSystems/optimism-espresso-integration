@@ -12,16 +12,10 @@ import (
 
 // espressoAttributesQueue is the MIPS64/fault-proof stub.
 // Espresso derivation is not available in the fault-proof program.
-type espressoAttributesQueue struct {
-	isCaffNode           bool
-	caffeinationHeightL2 uint64
-}
+type espressoAttributesQueue struct{}
 
-func newEspressoAttributesQueue(_ log.Logger, cfg *rollup.Config) espressoAttributesQueue {
-	return espressoAttributesQueue{
-		isCaffNode:           cfg.CaffNodeConfig.Enabled,
-		caffeinationHeightL2: cfg.CaffNodeConfig.CaffeinationHeightL2,
-	}
+func newEspressoAttributesQueue(_ log.Logger, _ *rollup.Config) espressoAttributesQueue {
+	return espressoAttributesQueue{}
 }
 
 // nextBatch always falls through to the regular L1-based derivation path.
