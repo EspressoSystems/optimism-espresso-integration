@@ -18,70 +18,80 @@ import (
 // - op-batcher: The primary batcher with Espresso enabled (initially active)
 // - op-batcher-fallback: The fallback batcher without Espresso (initially stopped)
 func TestBatcherSwitching(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	profile := ProfileFromEnv(t)
+	t.Run(string(profile), func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-	// Initialize devnet with FALLBACK profile (starts both batchers)
-	d := NewDevnet(ctx, t)
-	require.NoError(t, d.Up(FALLBACK))
-	defer func() {
-		require.NoError(t, d.Down())
-	}()
+		d := NewDevnet(ctx, t, profile)
+		require.NoError(t, d.Up())
+		defer func() {
+			require.NoError(t, d.Down())
+		}()
 
-	// Send initial transaction to verify everything has started up ok
-	require.NoError(t, d.RunSimpleL2Burn())
+		require.NoError(t, d.WaitForBatcher(ctx))
 
-	// Get rollup config to access BatchAuthenticator address
-	config, err := d.RollupConfig(ctx)
-	require.NoError(t, err)
+		// Send initial transaction to verify everything has started up ok
+		require.NoError(t, d.RunSimpleL2Burn())
 
-	// Get L1 chain ID for transaction signing
-	l1ChainID, err := d.L1.ChainID(ctx)
-	require.NoError(t, err)
+		// Get rollup config to access BatchAuthenticator address
+		config, err := d.RollupConfig(ctx)
+		require.NoError(t, err)
 
-	// Create transactor options using the deployer key (owner of BatchAuthenticator)
-	deployerOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Deployer, l1ChainID)
-	require.NoError(t, err)
+		// Get L1 chain ID for transaction signing
+		l1ChainID, err := d.L1.ChainID(ctx)
+		require.NoError(t, err)
 
-	// Bind to BatchAuthenticator contract
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
-	require.NoError(t, err)
+		// Create transactor options using the deployer key (owner of BatchAuthenticator)
+		deployerOpts, err := bind.NewKeyedTransactorWithChainID(d.secrets.Deployer, l1ChainID)
+		require.NoError(t, err)
 
-	// Check current active batcher state before switching
-	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
-	require.NoError(t, err)
-	t.Logf("Before switch: activeIsEspresso = %v", activeIsEspresso)
+		// Bind to BatchAuthenticator contract
+		batchAuthenticator, err := bindings.NewBatchAuthenticator(config.BatchAuthenticatorAddress, d.L1)
+		require.NoError(t, err)
 
-	// Stop the Espresso batcher (op-batcher with Espresso enabled)
-	require.NoError(t, d.StopBatcherSubmitting("op-batcher"))
-	t.Logf("Stopped op-batcher batch submission")
+		// Check current active batcher state before switching
+		activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
+		require.NoError(t, err)
+		t.Logf("Before switch: activeIsEspresso = %v", activeIsEspresso)
 
-	// Switch active batcher via BatchAuthenticator contract
-	tx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
-	require.NoError(t, err)
-	t.Logf("Submitted switchBatcher transaction: %s", tx.Hash().Hex())
+		// Stop the primary batcher.  In TEE mode the admin RPC is not reachable
+		// from outside the enclave, so we kill the container instead.
+		if profile == TEE {
+			require.NoError(t, d.ServiceDown(OpBatcher))
+			t.Logf("Killed op-batcher-tee container")
+		} else {
+			require.NoError(t, d.StopBatcherSubmitting(OpBatcher))
+			t.Logf("Stopped op-batcher batch submission via admin RPC")
+		}
 
-	// Wait for transaction receipt
-	receipt, err := wait.ForReceiptOK(ctx, d.L1, tx.Hash())
-	require.NoError(t, err)
-	t.Logf("SwitchBatcher transaction confirmed in block %d", receipt.BlockNumber.Uint64())
+		// Switch active batcher via BatchAuthenticator contract
+		tx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
+		require.NoError(t, err)
+		t.Logf("Submitted switchBatcher transaction: %s", tx.Hash().Hex())
 
-	// Verify the switch happened
-	activeIsEspressoAfter, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
-	require.NoError(t, err)
-	require.NotEqual(t, activeIsEspresso, activeIsEspressoAfter, "activeIsEspresso should have toggled")
-	t.Logf("After switch: activeIsEspresso = %v", activeIsEspressoAfter)
+		// Wait for transaction receipt
+		receipt, err := wait.ForReceiptOK(ctx, d.L1, tx.Hash())
+		require.NoError(t, err)
+		t.Logf("SwitchBatcher transaction confirmed in block %d", receipt.BlockNumber.Uint64())
 
-	// Start the fallback batcher
-	require.NoError(t, d.StartBatcherSubmitting("op-batcher-fallback"))
-	t.Logf("Started op-batcher-fallback batch submission")
+		// Verify the switch happened
+		activeIsEspressoAfter, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
+		require.NoError(t, err)
+		require.NotEqual(t, activeIsEspresso, activeIsEspressoAfter, "activeIsEspresso should have toggled")
+		t.Logf("After switch: activeIsEspresso = %v", activeIsEspressoAfter)
 
-	// Verify everything still works with the fallback batcher
-	require.NoError(t, d.RunSimpleL2Burn())
-	t.Logf("Transaction verified with fallback batcher")
+		// Start the fallback batcher
+		require.NoError(t, d.StartBatcherSubmitting(OpBatcherFallback))
+		t.Logf("Started op-batcher-fallback batch submission")
 
-	// Submit another transaction and verify system continues to work
-	d.SleepRecoveryDuration()
-	require.NoError(t, d.RunSimpleL2Burn())
-	t.Logf("System continues to work after batcher switch")
+		// Verify everything still works with the fallback batcher
+		require.NoError(t, d.RunSimpleL2Burn())
+		t.Logf("Transaction verified with fallback batcher")
+
+		// Submit another transaction and verify system continues to work
+		d.SleepRecoveryDuration()
+		require.NoError(t, d.RunSimpleL2Burn())
+		t.Logf("System continues to work after batcher switch")
+	})
 }

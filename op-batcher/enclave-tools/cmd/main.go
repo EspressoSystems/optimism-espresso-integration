@@ -328,6 +328,7 @@ func runAction(c *cli.Context) error {
 	slog.Info("Starting enclave", "image", imageName)
 	err = enclaverCli.RunEnclave(ctx, imageName, args)
 	if err != nil {
+		slog.Error("Failed to start enclave", "image", imageName, "error", err)
 		return err
 	}
 
