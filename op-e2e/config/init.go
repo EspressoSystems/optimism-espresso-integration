@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -285,13 +286,14 @@ func initAllocType(root string, allocType AllocType) error {
 
 	for _, mode := range allocModes {
 		wg.Add(1)
+		go func(mode genesis.L2AllocsMode) {
+			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
 					errMu.Lock()
 					initErr = errors.Join(initErr, fmt.Errorf("panic initializing alloc type %q mode %q: %v", allocType, mode, r))
 					errMu.Unlock()
 				}
-			}()
 			}()
 
 			intent := defaultIntent(root, loc, deployerAddr, allocType)
