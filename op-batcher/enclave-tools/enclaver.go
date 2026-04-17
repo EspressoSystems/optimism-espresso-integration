@@ -131,9 +131,6 @@ func (*EnclaverCli) BuildEnclave(ctx context.Context, manifest EnclaverManifest)
 }
 
 // RunEnclave runs an enclaver EIF image `name` with the provided arguments.
-// Uses 'docker run' directly (not 'enclaver run') to support --publish.
-// --publish=127.0.0.1:port:port instead of --net=host keeps the container off the host network
-// stack, blocking EC2 metadata-service access (requires IMDSv2 with HttpPutResponseHopLimit=1).
 func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) (retErr error) {
 	// We'll append this to container name to avoid conflicts
 	nameSuffix := uuid.New().String()[:8]
@@ -146,8 +143,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 		"--rm",
 		"-d",
 		"--privileged",
-		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ArgDeliveryPort, ArgDeliveryPort),
-		fmt.Sprintf("--publish=127.0.0.1:%d:%d", ReadinessPort, ReadinessPort),
+		"--net=host",
 		"--name="+containerName,
 		"--device=/dev/nitro_enclaves",
 		name,

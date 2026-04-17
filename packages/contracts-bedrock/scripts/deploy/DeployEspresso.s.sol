@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {BaseDeployIO} from "scripts/deploy/BaseDeployIO.sol";
-import {Script} from "forge-std/Script.sol";
-import {Solarray} from "scripts/libraries/Solarray.sol";
-import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
-import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
-import {IEspressoNitroTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
-import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import {DeployTEEVerifier} from "lib/espresso-tee-contracts/scripts/DeployTEEVerifier.s.sol";
-import {DeployNitroTEEVerifier} from "lib/espresso-tee-contracts/scripts/DeployNitroTEEVerifier.s.sol";
-import {IProxy} from "interfaces/universal/IProxy.sol";
-import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";
-import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
-import {MockEspressoTEEVerifier} from "test/mocks/MockEspressoTEEVerifiers.sol";
-import {MockEspressoNitroTEEVerifier} from "test/mocks/MockEspressoTEEVerifiers.sol";
+import { BaseDeployIO } from "scripts/deploy/BaseDeployIO.sol";
+import { Script } from "forge-std/Script.sol";
+import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
+import { Solarray } from "scripts/libraries/Solarray.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
+import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { DeployTEEVerifier } from "lib/espresso-tee-contracts/scripts/DeployTEEVerifier.s.sol";
+import { DeployNitroTEEVerifier } from "lib/espresso-tee-contracts/scripts/DeployNitroTEEVerifier.s.sol";
+import { IProxy } from "interfaces/universal/IProxy.sol";
+import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
+import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
+import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
+import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 
 contract DeployEspressoInput is BaseDeployIO {
     address internal _nitroEnclaveVerifier;
@@ -63,10 +64,7 @@ contract DeployEspressoOutput is BaseDeployIO {
     address internal _nitroTEEVerifier;
 
     function set(bytes4 _sel, address _addr) public {
-        require(
-            _addr != address(0),
-            "DeployEspressoOutput: cannot set zero address"
-        );
+        require(_addr != address(0), "DeployEspressoOutput: cannot set zero address");
         if (_sel == this.batchAuthenticatorAddress.selector) {
             _batchAuthenticatorAddress = _addr;
         } else if (_sel == this.teeVerifierProxy.selector) {
@@ -81,34 +79,22 @@ contract DeployEspressoOutput is BaseDeployIO {
     }
 
     function batchAuthenticatorAddress() public view returns (address) {
-        require(
-            _batchAuthenticatorAddress != address(0),
-            "DeployEspressoOutput: batch authenticator address not set"
-        );
+        require(_batchAuthenticatorAddress != address(0), "DeployEspressoOutput: batch authenticator address not set");
         return _batchAuthenticatorAddress;
     }
 
     function teeVerifierProxy() public view returns (address) {
-        require(
-            _teeVerifierProxy != address(0),
-            "DeployEspressoOutput: tee verifier proxy not set"
-        );
+        require(_teeVerifierProxy != address(0), "DeployEspressoOutput: tee verifier proxy not set");
         return _teeVerifierProxy;
     }
 
     function teeVerifierProxyAdmin() public view returns (address) {
-        require(
-            _teeVerifierProxyAdmin != address(0),
-            "DeployEspressoOutput: tee verifier proxy admin not set"
-        );
+        require(_teeVerifierProxyAdmin != address(0), "DeployEspressoOutput: tee verifier proxy admin not set");
         return _teeVerifierProxyAdmin;
     }
 
     function nitroTEEVerifier() public view returns (address) {
-        require(
-            _nitroTEEVerifier != address(0),
-            "DeployEspressoOutput: nitro tee verifier proxy not set"
-        );
+        require(_nitroTEEVerifier != address(0), "DeployEspressoOutput: nitro tee verifier proxy not set");
         return _nitroTEEVerifier;
     }
 
@@ -122,8 +108,7 @@ contract DeployEspresso is Script {
     /// @dev ERC-1967 admin slot: keccak256("eip1967.proxy.admin") - 1
     ///      Used to read the ProxyAdmin address auto-deployed by the OZ v5 TransparentUpgradeableProxy
     ///      that DeployTEEVerifier deploys.
-    bytes32 internal constant ERC1967_ADMIN_SLOT =
-        0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
+    bytes32 internal constant ERC1967_ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
 
     function run(
         DeployEspressoInput _input,
@@ -177,11 +162,7 @@ contract DeployEspresso is Script {
             )
         );
         vm.broadcast(msg.sender);
-        proxyAdmin.upgradeAndCall(
-            payable(address(proxy)),
-            address(impl),
-            initData
-        );
+        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
 
         if (proxyAdminOwner != msg.sender) {
             vm.broadcast(msg.sender);
@@ -231,9 +212,7 @@ contract DeployEspresso is Script {
         vm.label(address(nitroMock), "MockEspressoNitroTEEVerifier");
 
         vm.broadcast(msg.sender);
-        MockEspressoTEEVerifier teeMock = new MockEspressoTEEVerifier(
-            IEspressoNitroTEEVerifier(address(nitroMock))
-        );
+        MockEspressoTEEVerifier teeMock = new MockEspressoTEEVerifier(IEspressoNitroTEEVerifier(address(nitroMock)));
         vm.label(address(teeMock), "MockEspressoTEEVerifier");
 
         // Deploy a dummy ProxyAdmin so the output proxy-admin field is a valid distinct address.
@@ -260,11 +239,7 @@ contract DeployEspresso is Script {
         // DeployImplementations uses vm.getCode("src/universal/ProxyAdmin.sol:ProxyAdmin") to avoid
         // the artifact collision with the OZ v5 ProxyAdmin that this TUP auto-deploys.
         vm.startBroadcast(msg.sender);
-        (address teeProxy, ) = new DeployTEEVerifier().deploy(
-            proxyAdminOwner,
-            address(0),
-            address(0)
-        );
+        (address teeProxy,) = new DeployTEEVerifier().deploy(proxyAdminOwner, address(0), address(0));
         vm.stopBroadcast();
         vm.label(teeProxy, "TEEVerifierProxy");
 
@@ -278,13 +253,9 @@ contract DeployEspresso is Script {
         vm.label(nitroVerifier, "NitroTEEVerifier");
 
         vm.broadcast(msg.sender);
-        IEspressoTEEVerifier(teeProxy).setEspressoNitroTEEVerifier(
-            IEspressoNitroTEEVerifier(nitroVerifier)
-        );
+        IEspressoTEEVerifier(teeProxy).setEspressoNitroTEEVerifier(IEspressoNitroTEEVerifier(nitroVerifier));
 
-        address teeProxyAdmin = address(
-            uint160(uint256(vm.load(teeProxy, ERC1967_ADMIN_SLOT)))
-        );
+        address teeProxyAdmin = address(uint160(uint256(vm.load(teeProxy, ERC1967_ADMIN_SLOT))));
 
         _output.set(_output.teeVerifierProxy.selector, teeProxy);
         _output.set(_output.teeVerifierProxyAdmin.selector, teeProxyAdmin);
