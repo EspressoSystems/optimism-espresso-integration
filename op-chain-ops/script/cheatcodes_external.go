@@ -47,15 +47,7 @@ func (c *CheatCodesPrecompile) getArtifact(input string) (*foundry.Artifact, err
 		// Foundry uses these to disambiguate artifacts that share a filename
 		// (e.g. our Proxy.sol vs OZ v5's proxy/Proxy.sol).
 		if strings.Contains(name, "/") {
-			pathParts := strings.Split(name, "/")
-			for i := 1; i < len(pathParts); i++ {
-				shortName := strings.Join(pathParts[i:], "/")
-				if artifact, err := c.h.af.ReadArtifact(shortName, contract); err == nil {
-					return artifact, nil
-				}
-			}
-			// Fall back to basename only.
-			name = pathParts[len(pathParts)-1]
+			name = name[strings.LastIndex(name, "/")+1:]
 		}
 	}
 	return c.h.af.ReadArtifact(name, contract)
