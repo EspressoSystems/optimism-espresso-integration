@@ -25,9 +25,11 @@ const (
 	// Duplicated L1 RPC flag
 	L1RPCFlagName = "l1-eth-rpc"
 	// Key Management Flags (also have signer client flags)
-	MnemonicFlagName   = "mnemonic"
-	HDPathFlagName     = "hd-path"
-	PrivateKeyFlagName = "private-key"
+	MnemonicFlagName      = "mnemonic"
+	HDPathFlagName        = "hd-path"
+	PrivateKeyFlagName    = "private-key"
+	KMSKeyIDFlagName      = "kms-key-id"
+	KMSEndpointURLFlagName = "kms-endpoint-url"
 	// TxMgr Flags (new + legacy + some shared flags)
 	NumConfirmationsFlagName           = "num-confirmations"
 	SafeAbortNonceTooLowCountFlagName  = "safe-abort-nonce-too-low-count"
@@ -146,6 +148,16 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 			Usage:   "The private key to use with the service. Must not be used with mnemonic.",
 			EnvVars: prefixEnvVars("PRIVATE_KEY"),
 		},
+		&cli.StringFlag{
+			Name:    KMSKeyIDFlagName,
+			Usage:   "AWS KMS key ID or ARN to use for signing. When set, private-key and mnemonic must not be set.",
+			EnvVars: prefixEnvVars("KMS_KEY_ID"),
+		},
+		&cli.StringFlag{
+			Name:  KMSEndpointURLFlagName,
+			Usage: "Override the AWS KMS endpoint URL. Set to http://127.0.0.1:<port> when running inside a Nitro enclave to route calls through the enclaver vsock proxy. Defaults to the standard regional KMS endpoint.",
+			EnvVars: prefixEnvVars("KMS_ENDPOINT_URL"),
+		},
 		&cli.Uint64Flag{
 			Name:    NumConfirmationsFlagName,
 			Usage:   "Number of confirmations which we will wait after sending a transaction",
@@ -261,6 +273,8 @@ type CLIConfig struct {
 	SequencerHDPath            string
 	L2OutputHDPath             string
 	PrivateKey                 string
+	KMSKeyID                   string
+	KMSEndpointURL             string
 	SignerCLIConfig            opsigner.CLIConfig
 	NumConfirmations           uint64
 	SafeAbortNonceTooLowCount  uint64
@@ -350,8 +364,8 @@ func (m CLIConfig) Check() error {
 		}
 		return sum == 1 || sum == 0
 	}
-	if !atMostOneIsSet(m.PrivateKey != "", m.Mnemonic != "", m.SignerCLIConfig.Enabled()) {
-		return errors.New("can only provide at most one of: [private key, mnemonic, remote signer]")
+	if !atMostOneIsSet(m.PrivateKey != "", m.Mnemonic != "", m.SignerCLIConfig.Enabled(), m.KMSKeyID != "") {
+		return errors.New("can only provide at most one of: [private key, mnemonic, remote signer, kms key]")
 	}
 
 	return nil
@@ -365,6 +379,8 @@ func ReadCLIConfig(ctx cliiface.Context) CLIConfig {
 		SequencerHDPath:            ctx.String(SequencerHDPathFlag.Name),
 		L2OutputHDPath:             ctx.String(L2OutputHDPathFlag.Name),
 		PrivateKey:                 ctx.String(PrivateKeyFlagName),
+		KMSKeyID:                   ctx.String(KMSKeyIDFlagName),
+		KMSEndpointURL:             ctx.String(KMSEndpointURLFlagName),
 		SignerCLIConfig:            opsigner.ReadCLIConfig(ctx),
 		NumConfirmations:           ctx.Uint64(NumConfirmationsFlagName),
 		SafeAbortNonceTooLowCount:  ctx.Uint64(SafeAbortNonceTooLowCountFlagName),
@@ -414,9 +430,23 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 		hdPath = cfg.L2OutputHDPath
 	}
 
-	chainSignerFactory, from, err := opcrypto.ChainSignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
-	if err != nil {
-		return nil, fmt.Errorf("could not init signer: %w", err)
+	var chainSigner opcrypto.ChainSigner
+	var from common.Address
+
+	if cfg.KMSKeyID != "" {
+		kmsSigner, kmsFrom, err := NewKMSChainSigner(ctx, cfg.KMSKeyID, cfg.KMSEndpointURL, chainID)
+		if err != nil {
+			return nil, fmt.Errorf("could not init KMS signer: %w", err)
+		}
+		chainSigner = kmsSigner
+		from = kmsFrom
+	} else {
+		chainSignerFactory, signerFrom, err := opcrypto.ChainSignerFactoryFromConfig(l, cfg.PrivateKey, cfg.Mnemonic, hdPath, cfg.SignerCLIConfig)
+		if err != nil {
+			return nil, fmt.Errorf("could not init signer: %w", err)
+		}
+		from = signerFrom
+		chainSigner = chainSignerFactory(chainID, from)
 	}
 
 	feeLimitThreshold, err := eth.GweiToWei(cfg.FeeLimitThresholdGwei)
@@ -452,7 +482,6 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 	}
 
 	cellProofTime := fallbackToOsakaCellProofTimeIfKnown(chainID, cfg.CellProofTime)
-	chainSigner := chainSignerFactory(chainID, from)
 
 	res := Config{
 		Backend: l1,

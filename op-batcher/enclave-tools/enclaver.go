@@ -21,6 +21,10 @@ const (
 	ArgDeliveryPort uint16 = 8337
 	// ReadinessPort is the vsock port for the readiness handshake. Must match READY_PORT in enclave-entrypoint.bash.
 	ReadinessPort uint16 = 8338
+	// KMSProxyPort is the localhost port on which the enclaver KMS proxy listens inside the enclave.
+	// The batcher's KMS client targets http://127.0.0.1:KMSProxyPort, which enclaver proxies to AWS KMS
+	// over vsock. Must match the kms_proxy.listen_port in the tee-image-builder enclaver manifest.
+	KMSProxyPort uint16 = 8339
 )
 
 type EnclaverManifestSources struct {
