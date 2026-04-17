@@ -3006,7 +3006,7 @@ workflows:
           environment_overrides: |
             export PARALLEL=24
             # Espresso override: use Alchemy for reliable Sepolia fork tests
-            export SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v2/zQQB-jIV9lexdWbkkUH88vgalCaV7maq"
+            export SEPOLIA_RPC_URL="$ALCHEMY_SEPOLIA_RPC_URL"
             export CI_TEST_PKGS="\
               ./op-alt-da/... \
               ./op-batcher/... \
