@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {Script, console} from "forge-std/Script.sol";
-import {IBatchAuthenticator} from "interfaces/L1/IBatchAuthenticator.sol";
-import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
-import {IEspressoTEEVerifier} from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
-import {ProxyAdmin} from "src/universal/ProxyAdmin.sol";
-import {Proxy} from "src/universal/Proxy.sol";
-import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
+import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
+import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
+import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
+import { Proxy } from "src/universal/Proxy.sol";
+import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 
 /// @notice Deploys only the BatchAuthenticator (proxy + impl) against an existing TEEVerifier.
 ///
@@ -24,12 +24,7 @@ import {BatchAuthenticator} from "src/L1/BatchAuthenticator.sol";
 ///     <TEE_VERIFIER_ADDRESS> \
 ///     <PROXY_ADMIN_OWNER>
 contract DeployBatchAuthenticator is Script {
-    function run(
-        address espressoBatcher,
-        address systemConfig,
-        address teeVerifier,
-        address proxyAdminOwner
-    ) public {
+    function run(address espressoBatcher, address systemConfig, address teeVerifier, address proxyAdminOwner) public {
         require(espressoBatcher != address(0), "espressoBatcher required");
         require(systemConfig != address(0), "systemConfig required");
         require(teeVerifier != address(0), "teeVerifier required");
@@ -51,18 +46,9 @@ contract DeployBatchAuthenticator is Script {
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (
-                IEspressoTEEVerifier(teeVerifier),
-                espressoBatcher,
-                ISystemConfig(systemConfig),
-                proxyAdminOwner
-            )
+            (IEspressoTEEVerifier(teeVerifier), espressoBatcher, ISystemConfig(systemConfig), proxyAdminOwner)
         );
-        proxyAdmin.upgradeAndCall(
-            payable(address(proxy)),
-            address(impl),
-            initData
-        );
+        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
 
         if (proxyAdminOwner != msg.sender) {
             proxyAdmin.transferOwnership(proxyAdminOwner);
