@@ -445,7 +445,7 @@ services:
     profiles: ["default"]
     image: ghcr.io/espressosystems/op-succinct/op-succinct-fdg-deployer-celo:sha-b0f3121
     depends_on:
-      l1-geth:
+      l1-anvil:
         condition: service_healthy
       l2-rollup:
         condition: service_completed_successfully
@@ -458,7 +458,7 @@ services:
     env_file:
       - ./deployment/deployer/succinct.env
     environment:
-      L1_RPC: http://l1-geth:${L1_HTTP_PORT}
+      L1_RPC: http://l1-anvil:${L1_HTTP_PORT}
       L2_RPC: http://op-geth-sequencer:${OP_HTTP_PORT}
       L2_NODE_RPC: http://op-node-sequencer:${ROLLUP_PORT}
       PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
@@ -638,9 +638,9 @@ services:
     ports:
       - "${EIGENDA_PROXY_PORT}:3100"
     environment:
-      EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
-      EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2
-      EIGENDA_PROXY_EIGENDA_V2_NETWORK: ${EIGENDA_PROXY_EIGENDA_V2_NETWORK:-sepolia_testnet}
+      # EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
+      # EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2
+      # EIGENDA_PROXY_EIGENDA_V2_NETWORK: ${EIGENDA_PROXY_EIGENDA_V2_NETWORK:-sepolia_testnet}
       EIGENDA_PROXY_MEMSTORE_ENABLED: ${EIGENDA_PROXY_MEMSTORE_ENABLED:-true}
       EIGENDA_PROXY_MEMSTORE_EXPIRATION: ${EIGENDA_PROXY_MEMSTORE_EXPIRATION:-25m0s}
       EIGENDA_PROXY_LOG_FORMAT: ${EIGENDA_PROXY_LOG_FORMAT:-text}
