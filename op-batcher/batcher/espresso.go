@@ -36,9 +36,9 @@ import (
 
 // EspressoOnchainProof is the proof structure returned by the attestation service for onchain verification.
 type EspressoOnchainProof struct {
-	Proof        json.RawMessage `json:"proof,omitempty"`
-	Data         json.RawMessage `json:"data,omitempty"`
-	RawProof     struct {
+	Proof    json.RawMessage `json:"proof,omitempty"`
+	Data     json.RawMessage `json:"data,omitempty"`
+	RawProof struct {
 		Journal string `json:"journal"`
 	} `json:"raw_proof"`
 	OnchainProof string `json:"onchain_proof"`
@@ -834,6 +834,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				)
 
 				l.channelMgrMutex.Lock()
+				tip := l.channelMgr.tip
 				err = l.channelMgr.AddL2Block(block)
 				l.channelMgrMutex.Unlock()
 
@@ -843,7 +844,17 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.EspressoStreamer().Reset()
 				}
 
-				l.Log.Info(logmodule.AddedL2BlockToChannelManager)
+				if tip != block.ParentHash() {
+					l.Log.Warn(
+						"tip does not equal expected block hash",
+						"blockNr", block.Number(),
+						"blockHash", block.Hash().Hex(),
+						"tip", tip.Hex(),
+						"parentHash", block.ParentHash(),
+					)
+				}
+
+				l.Log.Info(logmodule.AddedL2BlockToChannelManager, "blockNr", block.Number())
 			}
 
 			l.tryPublishSignal(publishSignal, pubInfo{})
