@@ -850,7 +850,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 						"blockNr", block.Number(),
 						"blockHash", block.Hash().Hex(),
 						"tip", tip.Hex(),
-						"parentHash", block.ParentHash(),
+						"parentHash", block.ParentHash().Hex(),
 					)
 				}
 
