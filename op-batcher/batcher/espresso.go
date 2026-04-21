@@ -873,6 +873,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				block, err := batch.ToBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
+					l.EspressoStreamer().Next(ctx)
 					continue
 				}
 
@@ -891,9 +892,11 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
 					l.EspressoStreamer().Reset()
+					break
 				}
 
-				l.Log.Info(logmodule.AddedL2BlockToChannelManager)
+				l.EspressoStreamer().Next(ctx)
+				l.Log.Info(logmodule.AddedL2BlockToChannelManager, "blockNr", block.NumberU64())
 			}
 
 			l.tryPublishSignal(publishSignal, pubInfo{})
