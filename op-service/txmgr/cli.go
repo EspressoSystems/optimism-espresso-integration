@@ -25,10 +25,10 @@ const (
 	// Duplicated L1 RPC flag
 	L1RPCFlagName = "l1-eth-rpc"
 	// Key Management Flags (also have signer client flags)
-	MnemonicFlagName      = "mnemonic"
-	HDPathFlagName        = "hd-path"
-	PrivateKeyFlagName    = "private-key"
-	KMSKeyIDFlagName      = "kms-key-id"
+	MnemonicFlagName       = "mnemonic"
+	HDPathFlagName         = "hd-path"
+	PrivateKeyFlagName     = "private-key"
+	KMSKeyIDFlagName       = "kms-key-id"
 	KMSEndpointURLFlagName = "kms-endpoint-url"
 	// TxMgr Flags (new + legacy + some shared flags)
 	NumConfirmationsFlagName           = "num-confirmations"
@@ -154,8 +154,8 @@ func CLIFlagsWithDefaults(envPrefix string, defaults DefaultFlagValues) []cli.Fl
 			EnvVars: prefixEnvVars("KMS_KEY_ID"),
 		},
 		&cli.StringFlag{
-			Name:  KMSEndpointURLFlagName,
-			Usage: "Override the AWS KMS endpoint URL. Set to http://127.0.0.1:<port> when running inside a Nitro enclave to route calls through the enclaver vsock proxy. Defaults to the standard regional KMS endpoint.",
+			Name:    KMSEndpointURLFlagName,
+			Usage:   "Override the AWS KMS endpoint URL. Set to http://127.0.0.1:<port> when running inside a Nitro enclave to route calls through the enclaver vsock proxy. Defaults to the standard regional KMS endpoint.",
 			EnvVars: prefixEnvVars("KMS_ENDPOINT_URL"),
 		},
 		&cli.Uint64Flag{
@@ -434,7 +434,9 @@ func NewConfig(cfg CLIConfig, l log.Logger) (*Config, error) {
 	var from common.Address
 
 	if cfg.KMSKeyID != "" {
-		kmsSigner, kmsFrom, err := NewKMSChainSigner(ctx, cfg.KMSKeyID, cfg.KMSEndpointURL, chainID)
+		kmsCtx, kmsCancel := context.WithTimeout(context.Background(), cfg.NetworkTimeout)
+		defer kmsCancel()
+		kmsSigner, kmsFrom, err := NewKMSChainSigner(kmsCtx, cfg.KMSKeyID, cfg.KMSEndpointURL, chainID)
 		if err != nil {
 			return nil, fmt.Errorf("could not init KMS signer: %w", err)
 		}

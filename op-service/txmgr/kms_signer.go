@@ -108,6 +108,7 @@ func (k *kmsChainSigner) SignTransaction(ctx context.Context, addr common.Addres
 // signHash calls KMS to sign hash and converts the DER-encoded response to Ethereum's
 // 65-byte [R || S || V] format including low-S normalization (EIP-2) and recovery bit.
 func (k *kmsChainSigner) signHash(ctx context.Context, hash []byte) ([]byte, error) {
+	// Digest mode: KMS signs the hash as-is; the "SHA_256" in the algorithm name does not imply extra hashing.
 	out, err := k.client.Sign(ctx, &kms.SignInput{
 		KeyId:            aws.String(k.keyID),
 		Message:          hash,
