@@ -791,8 +791,7 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 //
 // The expected parent is tip when tip is set. When tip is zero (channel manager was
 // just cleared), we fall back to safeL2.Hash if the batch is at exactly safeL2+1 —
-// the one position where we can anchor on the known-good safe head. If we have no
-// anchor we accept the batch as-is.
+// the one position where we can set tip to the known safe head. Otherwise we accept the batch as-is.
 func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.SyncStatus) *derive.EspressoBatch {
 	l.channelMgrMutex.Lock()
 	tip := l.channelMgr.tip
@@ -806,9 +805,9 @@ func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.Sync
 	// Check if we can set the tip if not set
 	if tip == (common.Hash{}) && (*batch).Number() == syncStatus.SafeL2.Number+1 {
 		l.Log.Info(
-			"setting tip to proper safe l2 hash",
+			"setting tip to safe l2 hash",
 			"batchNr", (*batch).Number(),
-			"batchParent", (*batch).Header().ParentHash,
+			"batchParent", (*batch).Header().ParentHash.Hex(),
 			"tip", tip,
 		)
 		tip = syncStatus.SafeL2.Hash
@@ -816,7 +815,7 @@ func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.Sync
 
 	if tip == (common.Hash{}) {
 		l.Log.Warn(
-			"no fork-check anchor, taking available batch",
+			"tip is not set, taking available batch",
 			"blockParentHash", (*batch).Header().ParentHash.Hex(),
 			"blockHash", (*batch).Header().Hash().Hex(),
 		)
