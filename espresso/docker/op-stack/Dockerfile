@@ -8,12 +8,14 @@ ARG TARGETARCH
 # Base builder image (go.mod requires go >= 1.24.0)
 FROM golang:1.24-alpine AS builder
 
+ARG BUILDARCH
+
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
   linux-headers git bash jq
 
-# Install yq, dasel, foundry, and just
-RUN case "$TARGETARCH" in \
+# Install yq, dasel, foundry
+RUN case "$BUILDARCH" in \
   "amd64") ARCH="amd64" ; JUST_ARCH="x86_64-unknown-linux-musl" ;; \
   "arm64") ARCH="arm64" ; JUST_ARCH="aarch64-unknown-linux-musl" ;; \
   *) ARCH="amd64" ; JUST_ARCH="x86_64-unknown-linux-musl" ;; \
