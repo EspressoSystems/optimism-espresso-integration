@@ -1136,39 +1136,65 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
 	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
 	url := attestationServiceURL + "/generate_proof"
-	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
-	if err != nil {
-		return nil, err
-	}
 
-	request.Header.Set("Content-Type", "application/octet-stream")
-	client := http.Client{
-		Timeout: 5 * time.Minute,
-	}
-	res, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer (func() {
-		_ = res.Body.Close()
-	})()
+	// The attestation service can transiently respond with 5xx during startup/warmup,
+	// especially in CI/EC2 where it is launched alongside the devnet. Treat 5xx as
+	// retryable within the caller's context.
+	client := http.Client{Timeout: 5 * time.Minute}
+	backoff := 2 * time.Second
+	maxBackoff := 20 * time.Second
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-200 response: %d", res.StatusCode)
-	}
+	for attempt := 1; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 
-	responseData, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
+		request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(attestationBytes))
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set("Content-Type", "application/octet-stream")
 
-	var zkProof EspressoOnchainProof
-	err = json.Unmarshal(responseData, &zkProof)
-	if err != nil {
-		return nil, err
-	}
+		res, err := client.Do(request)
+		if err != nil {
+			// Network errors are commonly retryable during startup (service not ready yet).
+			l.Log.Warn("attestation proof request failed, retrying", "attempt", attempt, "err", err)
+		} else {
+			body, readErr := io.ReadAll(res.Body)
+			_ = res.Body.Close()
+			if readErr != nil {
+				return nil, readErr
+			}
 
-	return &zkProof, nil
+			if res.StatusCode == http.StatusOK {
+				var zkProof EspressoOnchainProof
+				if err := json.Unmarshal(body, &zkProof); err != nil {
+					return nil, err
+				}
+				return &zkProof, nil
+			}
+
+			// Retry 5xx responses; include body for debugging.
+			if res.StatusCode >= 500 && res.StatusCode <= 599 {
+				l.Log.Warn("attestation service returned 5xx, retrying", "attempt", attempt, "status", res.StatusCode, "body", string(body))
+			} else {
+				return nil, fmt.Errorf("received non-200 response: %d (body: %s)", res.StatusCode, strings.TrimSpace(string(body)))
+			}
+		}
+
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
 }
 
 // sendTxWithEspresso uses the txmgr queue to send the given transaction candidate after setting
