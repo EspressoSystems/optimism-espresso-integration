@@ -49,6 +49,9 @@ export BATCH_AUTHENTICATOR_ADDRESS
 # Get light client address from env var or use default
 if [ -n "$ESPRESSO_LIGHT_CLIENT_ADDR" ]; then
     echo "Using ESPRESSO_LIGHT_CLIENT_ADDR from environment variable"
+elif [ "${DEPLOYMENT_MODE:-}" = "local" ]; then
+    ESPRESSO_LIGHT_CLIENT_ADDR="0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0"
+    echo "DEPLOYMENT_MODE=local: using Anvil devnet light client (matches prepare-allocs)"
 else
     # Decaf light client address for ETH Sepolia
     ESPRESSO_LIGHT_CLIENT_ADDR="0x303872bb82a191771321d4828888920100d0b3e4"
