@@ -7,6 +7,11 @@ ARG TARGETARCH
 
 # Base builder image (go.mod requires go >= 1.24.0)
 FROM golang:1.24-alpine AS builder
+# BuildKit platform args are only visible after ARG in this stage; without them
+# $TARGETARCH is empty and * matches → wrong just/yq/dasel/foundry arch on arm64.
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
