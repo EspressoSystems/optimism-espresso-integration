@@ -32,9 +32,17 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install versioned toolchain (just via mise for shell() function support)
+# Install versioned just (direct download — ubi prepends 'v' but just tags lack it)
 COPY ./mise.toml .
-RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+RUN JUST_VERSION=$(grep '^just = ' mise.toml | sed 's/just = "\(.*\)"/\1/') && \
+    case "$TARGETARCH" in \
+      "arm64") JUST_ARCH="aarch64" ;; \
+      *) JUST_ARCH="x86_64" ;; \
+    esac && \
+    wget "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O just.tgz && \
+    tar xzf just.tgz -C /usr/local/bin just && \
+    rm just.tgz && \
+    just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
