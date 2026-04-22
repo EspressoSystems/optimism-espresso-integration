@@ -83,7 +83,7 @@ require (
 )
 
 require (
-	github.com/EspressoSystems/espresso-streamers v1.0.2-0.20260420225930-dc62ce664077
+	github.com/EspressoSystems/espresso-streamers v1.0.2
 	github.com/joho/godotenv v1.5.1
 )
 

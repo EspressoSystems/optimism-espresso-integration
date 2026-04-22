@@ -829,7 +829,7 @@ func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.Sync
 			"batchParent", (*batch).Header().ParentHash,
 			"tip", tip,
 		)
-		l.EspressoStreamer().SeekToProperHead(tip)
+		l.EspressoStreamer().SetProperHead(tip)
 		return nil
 	}
 
