@@ -34,7 +34,7 @@ RUN case "$TARGETARCH" in \
 
 # Install versioned toolchain (just via mise for shell() function support)
 COPY ./mise.toml .
-RUN MISE_YES=1 mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+RUN mise trust /mise.toml && mise install -v -y just && cp "$(mise which just)" /usr/local/bin/just && just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
