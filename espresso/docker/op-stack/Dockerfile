@@ -12,9 +12,6 @@ RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
   linux-headers git bash jq
 
-# Install mise for toolchain management
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
-
 # Install yq, dasel, and foundry
 RUN case "$TARGETARCH" in \
   "amd64") ARCH="amd64" ;; \
@@ -32,9 +29,19 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install versioned toolchain (just via mise for shell() function support)
-COPY ./mise.toml .
-RUN mise trust /mise.toml && mise install -v -y just && cp "$(mise which just)" /usr/local/bin/just && just --version
+# Install `just` without hitting the GitHub API (avoids rate limits in CI).
+# Use the musl release artifacts so it runs in Alpine.
+ARG JUST_VERSION=1.37.0
+RUN case "$TARGETARCH" in \
+  "amd64") JUST_ARCH="x86_64" ;; \
+  "arm64") JUST_ARCH="aarch64" ;; \
+  *) JUST_ARCH="x86_64" ;; \
+  esac && \
+  wget -q "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O /tmp/just.tgz && \
+  tar -xzf /tmp/just.tgz -C /usr/local/bin just && \
+  chmod +x /usr/local/bin/just && \
+  rm -f /tmp/just.tgz && \
+  just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
