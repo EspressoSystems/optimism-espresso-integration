@@ -169,7 +169,7 @@ var (
 	EspressoLCAddrFlag = &cli.StringFlag{
 		Name:    "espresso-light-client-addr",
 		Usage:   "Address of Espresso Light Client contract proxy",
-		Value:   "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797",
+		Value:   "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
 		EnvVars: prefixEnvVars("ESPRESSO_LIGHT_CLIENT_ADDR"),
 	}
 	TestingEspressoBatcherPrivateKeyFlag = &cli.StringFlag{
