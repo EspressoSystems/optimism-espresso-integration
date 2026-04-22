@@ -34,12 +34,12 @@ RUN case "$TARGETARCH" in \
 
 # Install versioned just (direct download — ubi prepends 'v' but just tags lack it)
 COPY ./mise.toml .
-RUN JUST_VERSION=$(grep '^just = ' mise.toml | sed 's/just = "\(.*\)"/\1/') && \
-    case "$TARGETARCH" in \
-      "arm64") JUST_ARCH="aarch64" ;; \
+RUN JUST_VERSION=$(awk -F'"' '/^just = "[0-9]/{print $2}' mise.toml) && \
+    case "$(uname -m)" in \
+      "aarch64") JUST_ARCH="aarch64" ;; \
       *) JUST_ARCH="x86_64" ;; \
     esac && \
-    wget "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O just.tgz && \
+    curl -fsSL "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -o just.tgz && \
     tar xzf just.tgz -C /usr/local/bin just && \
     rm just.tgz && \
     just --version
