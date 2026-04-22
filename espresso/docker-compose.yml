@@ -408,6 +408,7 @@ services:
     env_file:
       - ./.env
     environment:
+      ESPRESSO_LIGHT_CLIENT_ADDR: ${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
       OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
