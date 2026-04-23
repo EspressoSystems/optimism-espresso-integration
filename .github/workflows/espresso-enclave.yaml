@@ -1,7 +1,8 @@
 name: Run enclave tests on EC2 instance
 
 on:
-  pull_request:
+  # TODO: Fix TEE and EC2 CIs.
+  # <https://app.asana.com/1/1208976916964769/project/1209976130071762/task/1214232785472297?focus=true>
   push:
     branches:
       - "celo-integration*"
