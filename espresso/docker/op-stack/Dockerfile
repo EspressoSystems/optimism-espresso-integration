@@ -7,13 +7,14 @@ ARG TARGETARCH
 
 # Base builder image (go.mod requires go >= 1.24.0)
 FROM golang:1.24-alpine AS builder
+# Add ARG to fix arm64 build.
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
   linux-headers git bash jq
-
-# Install mise for toolchain management
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
 
 # Install yq, dasel, and foundry
 RUN case "$TARGETARCH" in \
@@ -32,17 +33,20 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install versioned just (direct download — ubi prepends 'v' but just tags lack it)
-COPY ./mise.toml .
-RUN JUST_VERSION=$(awk -F'"' '/^just = "[0-9]/{print $2}' mise.toml) && \
-    case "$(uname -m)" in \
-      "aarch64") JUST_ARCH="aarch64" ;; \
-      *) JUST_ARCH="x86_64" ;; \
-    esac && \
-    curl -fsSL "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -o just.tgz && \
-    tar xzf just.tgz -C /usr/local/bin just && \
-    rm just.tgz && \
-    just --version
+# Install `just` without hitting the GitHub API (avoids rate limits in CI).
+# Use the musl release artifacts so it runs in Alpine.
+ARG JUST_VERSION=1.37.0
+RUN case "$TARGETARCH" in \
+  "amd64") JUST_ARCH="x86_64" ;; \
+  "arm64") JUST_ARCH="aarch64" ;; \
+  "") echo "TARGETARCH is empty; ensure ARG TARGETARCH is declared in this stage" && exit 1 ;; \
+  *) echo "Unsupported architecture for just install: TARGETOS=$TARGETOS TARGETARCH=$TARGETARCH TARGETVARIANT=$TARGETVARIANT" && exit 1 ;; \
+  esac && \
+  wget -q "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O /tmp/just.tgz && \
+  tar -xzf /tmp/just.tgz -C /usr/local/bin just && \
+  chmod +x /usr/local/bin/just && \
+  rm -f /tmp/just.tgz && \
+  just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
