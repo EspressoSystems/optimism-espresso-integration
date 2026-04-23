@@ -325,6 +325,13 @@ func applyAttestationVerifierE2eDefaults(c *batcher.CLIConfig, sys *e2esys.Syste
 	if nitro == (common.Address{}) {
 		return fmt.Errorf("NitroValidator address is zero on BatchAuthenticator %s", ba.Hex())
 	}
+	code, err := l1.CodeAt(context.Background(), nitro, nil)
+	if err != nil {
+		return fmt.Errorf("check code at NitroValidator %s: %w", nitro.Hex(), err)
+	}
+	if len(code) == 0 {
+		return fmt.Errorf("no contract code at NitroValidator %s (resolved from BatchAuthenticator %s)", nitro.Hex(), ba.Hex())
+	}
 	cfg.nitroVerifierAddress = nitro.Hex()
 
 	return nil
