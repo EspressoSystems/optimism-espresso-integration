@@ -17,10 +17,18 @@ RUN apk add --no-cache \
   linux-headers git bash jq
 
 # Install yq, dasel, and foundry
-RUN case "$TARGETARCH" in \
+RUN NORM="${TARGETARCH}"; \
+  if [ -z "${NORM}" ]; then \
+    case "$(uname -m)" in \
+      x86_64) NORM=amd64 ;; \
+      aarch64) NORM=arm64 ;; \
+      *) echo "TARGETARCH is empty and host arch $(uname -m) is not supported" && exit 1 ;; \
+    esac; \
+  fi; \
+  case "$NORM" in \
   "amd64") ARCH="amd64" ;; \
   "arm64") ARCH="arm64" ;; \
-  *) ARCH="amd64" ;; \
+  *) echo "Unsupported architecture for yq/dasel/foundry: TARGETARCH=$TARGETARCH (normalized=$NORM)" && exit 1 ;; \
   esac && \
   wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$ARCH -O /usr/local/bin/yq && \
   chmod +x /usr/local/bin/yq && \
@@ -36,11 +44,18 @@ RUN case "$TARGETARCH" in \
 # Install `just` without hitting the GitHub API (avoids rate limits in CI).
 # Use the musl release artifacts so it runs in Alpine.
 ARG JUST_VERSION=1.37.0
-RUN case "$TARGETARCH" in \
+RUN NORM="${TARGETARCH}"; \
+  if [ -z "${NORM}" ]; then \
+    case "$(uname -m)" in \
+      x86_64) NORM=amd64 ;; \
+      aarch64) NORM=arm64 ;; \
+      *) echo "TARGETARCH is empty and host arch $(uname -m) is not supported" && exit 1 ;; \
+    esac; \
+  fi; \
+  case "$NORM" in \
   "amd64") JUST_ARCH="x86_64" ;; \
   "arm64") JUST_ARCH="aarch64" ;; \
-  "") echo "TARGETARCH is empty; ensure ARG TARGETARCH is declared in this stage" && exit 1 ;; \
-  *) echo "Unsupported architecture for just install: TARGETOS=$TARGETOS TARGETARCH=$TARGETARCH TARGETVARIANT=$TARGETVARIANT" && exit 1 ;; \
+  *) echo "Unsupported architecture for just install: TARGETOS=$TARGETOS TARGETARCH=$TARGETARCH TARGETVARIANT=$TARGETVARIANT (normalized=$NORM)" && exit 1 ;; \
   esac && \
   wget -q "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O /tmp/just.tgz && \
   tar -xzf /tmp/just.tgz -C /usr/local/bin just && \
