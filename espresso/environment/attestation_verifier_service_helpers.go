@@ -4,15 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // ErrorAttestationConfigFieldNotSet is an error that indicates that specific
@@ -275,68 +271,6 @@ func WithAttestationConfigFromENV() AttestationVerifierServiceOption {
 	return WithAttestationServiceVerifierOptions(options...)
 }
 
-// applyAttestationVerifierE2eDefaults sets RPC_URL and NITRO_VERIFIER_ADDRESS from the e2e
-// L1 and on-chain BatchAuthenticator deployment.
-func applyAttestationVerifierE2eDefaults(c *batcher.CLIConfig, sys *e2esys.System, cfg *AttestationVerifierServiceConfig) error {
-	if c == nil || sys == nil || sys.RollupConfig == nil {
-		return nil
-	}
-	network := determineDockerNetworkMode()
-
-	if c.L1EthRpc == "" {
-		return fmt.Errorf("L1EthRpc is empty; cannot configure attestation verifier for e2e")
-	}
-	u, err := url.Parse(c.L1EthRpc)
-	if err != nil {
-		return fmt.Errorf("parse L1 RPC URL: %w", err)
-	}
-	if u.Scheme == "" {
-		u.Scheme = "http"
-	}
-	t, err := translateContainerToNodeURL(*u, network)
-	if err != nil {
-		return err
-	}
-	if t.Scheme == "" {
-		t.Scheme = "http"
-	}
-	// Always point the verifier at the e2e L1. The verifier image uses both RPC_URL and
-	// NETWORK_RPC_URL; leaving NETWORK_RPC_URL pointing at Succinct/Sepolia (from espresso/.env)
-	// causes `/generate_proof` to fail with HTTP 500.
-	l1RPC := t.String()
-	cfg.rpcURL = l1RPC
-	cfg.networkRPCURL = l1RPC
-
-	ba := sys.RollupConfig.BatchAuthenticatorAddress
-	if ba == (common.Address{}) {
-		return fmt.Errorf("BatchAuthenticatorAddress is zero in rollup config")
-	}
-	l1 := sys.NodeClient(e2esys.RoleL1)
-	authenticator, err := bindings.NewBatchAuthenticator(ba, l1)
-	if err != nil {
-		return fmt.Errorf("batch authenticator binding: %w", err)
-	}
-	// The attestation verifier needs the Nitro validator contract address that the
-	// BatchAuthenticator uses, not the EspressoTEEVerifier wrapper address.
-	nitro, err := authenticator.NitroValidator(&bind.CallOpts{Context: context.Background()})
-	if err != nil {
-		return fmt.Errorf("read NitroValidator: %w", err)
-	}
-	if nitro == (common.Address{}) {
-		return fmt.Errorf("NitroValidator address is zero on BatchAuthenticator %s", ba.Hex())
-	}
-	code, err := l1.CodeAt(context.Background(), nitro, nil)
-	if err != nil {
-		return fmt.Errorf("check code at NitroValidator %s: %w", nitro.Hex(), err)
-	}
-	if len(code) == 0 {
-		return fmt.Errorf("no contract code at NitroValidator %s (resolved from BatchAuthenticator %s)", nitro.Hex(), ba.Hex())
-	}
-	cfg.nitroVerifierAddress = nitro.Hex()
-
-	return nil
-}
-
 // launchEspressoAttestationVerifierServiceDockerContainer is a StartOption that
 // ensures that the Espresso Attestation Verifier Service is launched in its
 // own docker container.
@@ -374,11 +308,6 @@ func launchEspressoAttestationVerifierServiceDockerContainer(ct *E2eDevnetLaunch
 
 			// Apply the options
 			cfg.applyOptions(options...)
-
-			if err := applyAttestationVerifierE2eDefaults(c, sys, &cfg); err != nil {
-				ct.Error = err
-				return
-			}
 
 			// Verify the options
 			cfg.Verify(ct)

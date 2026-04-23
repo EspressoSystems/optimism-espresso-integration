@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -126,9 +125,6 @@ func LaunchBatcherInEnclave() E2eDevnetLauncherOption {
 					Role: "launch-batcher-in-enclave",
 
 					BatcherMod: func(c *batcher.CLIConfig, sys *e2esys.System) {
-						if c.Espresso.BatchAuthenticatorAddr == (common.Address{}) {
-							c.Espresso.BatchAuthenticatorAddr = sys.RollupConfig.BatchAuthenticatorAddress
-						}
 						// We will manually convert CLIConfig back to commandline arguments
 						var args []string
 
