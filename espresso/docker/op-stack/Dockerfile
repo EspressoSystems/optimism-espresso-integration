@@ -39,7 +39,8 @@ ARG JUST_VERSION=1.37.0
 RUN case "$TARGETARCH" in \
   "amd64") JUST_ARCH="x86_64" ;; \
   "arm64") JUST_ARCH="aarch64" ;; \
-  *) JUST_ARCH="x86_64" ;; \
+  "") echo "TARGETARCH is empty; ensure ARG TARGETARCH is declared in this stage" && exit 1 ;; \
+  *) echo "Unsupported architecture for just install: TARGETOS=$TARGETOS TARGETARCH=$TARGETARCH TARGETVARIANT=$TARGETVARIANT" && exit 1 ;; \
   esac && \
   wget -q "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O /tmp/just.tgz && \
   tar -xzf /tmp/just.tgz -C /usr/local/bin just && \
