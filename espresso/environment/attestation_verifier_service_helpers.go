@@ -316,20 +316,14 @@ func applyAttestationVerifierE2eDefaults(c *batcher.CLIConfig, sys *e2esys.Syste
 	if err != nil {
 		return fmt.Errorf("batch authenticator binding: %w", err)
 	}
-	teeWrapper, err := authenticator.EspressoTEEVerifier(&bind.CallOpts{Context: context.Background()})
+	// The attestation verifier needs the Nitro validator contract address that the
+	// BatchAuthenticator uses, not the EspressoTEEVerifier wrapper address.
+	nitro, err := authenticator.NitroValidator(&bind.CallOpts{Context: context.Background()})
 	if err != nil {
-		return fmt.Errorf("read EspressoTEEVerifier: %w", err)
-	}
-	verifier, err := bindings.NewEspressoTEEVerifier(teeWrapper, l1)
-	if err != nil {
-		return fmt.Errorf("espresso TEE verifier binding: %w", err)
-	}
-	nitro, err := verifier.EspressoNitroTEEVerifier(&bind.CallOpts{Context: context.Background()})
-	if err != nil {
-		return fmt.Errorf("read EspressoNitroTEEVerifier: %w", err)
+		return fmt.Errorf("read NitroValidator: %w", err)
 	}
 	if nitro == (common.Address{}) {
-		return fmt.Errorf("EspressoNitroTEEVerifier address is zero on BatchAuthenticator %s", ba.Hex())
+		return fmt.Errorf("NitroValidator address is zero on BatchAuthenticator %s", ba.Hex())
 	}
 	cfg.nitroVerifierAddress = nitro.Hex()
 
