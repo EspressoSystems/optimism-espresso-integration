@@ -1154,6 +1154,12 @@ func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes [
 	})()
 
 	if res.StatusCode != http.StatusOK {
+		// Best-effort: include a small slice of the response body to aid debugging in CI/enclave logs.
+		// Some failures (e.g. misconfigured RPC_URL / NITRO_VERIFIER_ADDRESS) only surface as HTTP 500.
+		body, _ := io.ReadAll(io.LimitReader(res.Body, 16_384))
+		if len(body) > 0 {
+			return nil, fmt.Errorf("received non-200 response: %d body=%q", res.StatusCode, string(body))
+		}
 		return nil, fmt.Errorf("received non-200 response: %d", res.StatusCode)
 	}
 

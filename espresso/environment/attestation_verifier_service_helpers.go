@@ -275,77 +275,64 @@ func WithAttestationConfigFromENV() AttestationVerifierServiceOption {
 	return WithAttestationServiceVerifierOptions(options...)
 }
 
-// applyAttestationVerifierE2eDefaults sets NETWORK_RPC_URL, RPC_URL, and NITRO_VERIFIER_ADDRESS
-// from the e2e L1 and on-chain BatchAuthenticator deployment. The built-in defaults in
-// launchEspressoAttestationVerifierServiceDockerContainer point at mainnet / Sepolia-style
-// infrastructure; without this, enclave tests (no env) call the verifier with the wrong
-// chain and contract, which returns HTTP 500 from /generate_proof.
+// applyAttestationVerifierE2eDefaults sets RPC_URL and NITRO_VERIFIER_ADDRESS from the e2e
+// L1 and on-chain BatchAuthenticator deployment.
 func applyAttestationVerifierE2eDefaults(c *batcher.CLIConfig, sys *e2esys.System, cfg *AttestationVerifierServiceConfig) error {
 	if c == nil || sys == nil || sys.RollupConfig == nil {
 		return nil
 	}
 	network := determineDockerNetworkMode()
-	needL1 := os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL") == "" ||
-		os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL") == ""
-	var translatedL1 string
-	if needL1 {
-		if c.L1EthRpc == "" {
-			return fmt.Errorf("L1EthRpc is empty; cannot configure attestation verifier for e2e")
-		}
-		u, err := url.Parse(c.L1EthRpc)
-		if err != nil {
-			return fmt.Errorf("parse L1 RPC URL: %w", err)
-		}
-		if u.Scheme == "" {
-			u.Scheme = "http"
-		}
-		t, err := translateContainerToNodeURL(*u, network)
-		if err != nil {
-			return err
-		}
-		if t.Scheme == "" {
-			t.Scheme = "http"
-		}
-		translatedL1 = t.String()
+
+	if c.L1EthRpc == "" {
+		return fmt.Errorf("L1EthRpc is empty; cannot configure attestation verifier for e2e")
 	}
-	if os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NETWORK_RPC_URL") == "" {
-		cfg.networkRPCURL = translatedL1
+	u, err := url.Parse(c.L1EthRpc)
+	if err != nil {
+		return fmt.Errorf("parse L1 RPC URL: %w", err)
 	}
-	if os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_RPC_URL") == "" {
-		if translatedL1 != "" {
-			cfg.rpcURL = translatedL1
-		} else {
-			// Unlikely: only RPC was missing but network came from env; keep same base URL.
-			cfg.rpcURL = cfg.networkRPCURL
-		}
+	if u.Scheme == "" {
+		u.Scheme = "http"
 	}
-	if os.Getenv("ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS") == "" {
-		ba := sys.RollupConfig.BatchAuthenticatorAddress
-		if ba == (common.Address{}) {
-			return fmt.Errorf("BatchAuthenticatorAddress is zero in rollup config")
-		}
-		l1 := sys.NodeClient(e2esys.RoleL1)
-		authenticator, err := bindings.NewBatchAuthenticator(ba, l1)
-		if err != nil {
-			return fmt.Errorf("batch authenticator binding: %w", err)
-		}
-		teeWrapper, err := authenticator.EspressoTEEVerifier(&bind.CallOpts{Context: context.Background()})
-		if err != nil {
-			return fmt.Errorf("read EspressoTEEVerifier: %w", err)
-		}
-		verifier, err := bindings.NewEspressoTEEVerifier(teeWrapper, l1)
-		if err != nil {
-			return fmt.Errorf("espresso TEE verifier binding: %w", err)
-		}
-		nitro, err := verifier.EspressoNitroTEEVerifier(&bind.CallOpts{Context: context.Background()})
-		if err != nil {
-			return fmt.Errorf("read EspressoNitroTEEVerifier: %w", err)
-		}
-		if nitro == (common.Address{}) {
-			return fmt.Errorf("EspressoNitroTEEVerifier address is zero on BatchAuthenticator %s", ba.Hex())
-		}
-		cfg.nitroVerifierAddress = nitro.Hex()
+	t, err := translateContainerToNodeURL(*u, network)
+	if err != nil {
+		return err
 	}
+	if t.Scheme == "" {
+		t.Scheme = "http"
+	}
+	// Always point the verifier at the e2e L1. The verifier image uses both RPC_URL and
+	// NETWORK_RPC_URL; leaving NETWORK_RPC_URL pointing at Succinct/Sepolia (from espresso/.env)
+	// causes `/generate_proof` to fail with HTTP 500.
+	l1RPC := t.String()
+	cfg.rpcURL = l1RPC
+	cfg.networkRPCURL = l1RPC
+
+	ba := sys.RollupConfig.BatchAuthenticatorAddress
+	if ba == (common.Address{}) {
+		return fmt.Errorf("BatchAuthenticatorAddress is zero in rollup config")
+	}
+	l1 := sys.NodeClient(e2esys.RoleL1)
+	authenticator, err := bindings.NewBatchAuthenticator(ba, l1)
+	if err != nil {
+		return fmt.Errorf("batch authenticator binding: %w", err)
+	}
+	teeWrapper, err := authenticator.EspressoTEEVerifier(&bind.CallOpts{Context: context.Background()})
+	if err != nil {
+		return fmt.Errorf("read EspressoTEEVerifier: %w", err)
+	}
+	verifier, err := bindings.NewEspressoTEEVerifier(teeWrapper, l1)
+	if err != nil {
+		return fmt.Errorf("espresso TEE verifier binding: %w", err)
+	}
+	nitro, err := verifier.EspressoNitroTEEVerifier(&bind.CallOpts{Context: context.Background()})
+	if err != nil {
+		return fmt.Errorf("read EspressoNitroTEEVerifier: %w", err)
+	}
+	if nitro == (common.Address{}) {
+		return fmt.Errorf("EspressoNitroTEEVerifier address is zero on BatchAuthenticator %s", ba.Hex())
+	}
+	cfg.nitroVerifierAddress = nitro.Hex()
+
 	return nil
 }
 
