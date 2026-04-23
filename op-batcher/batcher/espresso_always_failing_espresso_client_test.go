@@ -10,8 +10,8 @@ import (
 	common "github.com/EspressoSystems/espresso-network/sdks/go/types/common"
 )
 
-// ErrNotImplemented is a sentinel error used to indicate that a method in the
-// was not implement.
+// ErrNotImplemented is a sentinel error used to indicate that a method
+// was not implemented.
 var ErrNotImplemented = errors.New("not implemented")
 
 // AlwaysFailingEspressoClient is a mock implementation of the EspressoClient
