@@ -82,12 +82,24 @@ jobs:
       # L1 contracts; the preallocated (genesis-only) path can miss required
       # initialization event logs and cause stake table reload failures.
       ESPRESSO_DEV_NODE_L1_DEPLOYMENT: "deploy"
+      # Ensure espresso-dev-node does not ingest the shared devnet `.env`
+      # (which contains preallocated contract addresses). The dev-node will
+      # deploy contracts itself in `deploy` mode.
+      ESPRESSO_DEV_NODE_ENV_FILE: ".env.dev-node.ci"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Cache submodules
         uses: ./.github/actions/cache-submodules
+
+      - name: Create CI-only dev-node env file
+        run: |
+          # The espresso-dev-node service reads its env file from
+          # ESPRESSO_DEV_NODE_ENV_FILE. Keep it empty so the container does not
+          # pick up preallocated contract addresses from espresso/.env.
+          : > "espresso/${ESPRESSO_DEV_NODE_ENV_FILE}"
+        shell: bash
 
       - name: Set up Docker
         run: |
