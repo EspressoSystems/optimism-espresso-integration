@@ -206,9 +206,9 @@ func WithMaxInFlightJobs(n int) EspressoTransactionSubmitterOption {
 }
 
 // NewEspressoTransactionSubmitter creates a new EspressoTransactionSubmitter
-// throttlewith the given context and espresso client.  It will create a new transaction
-// submitter with some default options, and apply those options to the
-// configuration.
+// throttle with the given context and espresso client.  It will create a new
+// transaction submitter with some default options, and apply those options to
+// the configuration.
 //
 // The resulting instance should reflect the given configuration.
 // After returning, the caller should call SpawnWorkers to start the workers,
@@ -260,10 +260,6 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 type ErrTooManyInFlightRequests struct {
 	NumInFlightRequests int
 	MaxInFlightRequests int
-
-	// To make the struct non comparable, and workable with errors.Is
-	// without needing to explitictly match the fields
-	a interface{}
 }
 
 // Error implements error
@@ -274,15 +270,11 @@ func (e ErrTooManyInFlightRequests) Error() string {
 // ErrSubmitToEspressoChannelFull is an error that is returned when the channel
 // to submit a transaction to the espresso job channel is full.
 //
-// This ultimately means taht the channel buffer size of the job channel is
-// smaller than the maSprtinfximum number of in flight requests allowed.
+// This ultimately means that the channel buffer size of the job channel is
+// smaller than the max number of in flight requests allowed.
 type ErrSubmitToEspressoChannelFull struct {
 	Capacity int
 	Len      int
-
-	// To make the struct non comparables, and workable with errors.Is
-	// without needing to explicitly match the Capacity and Len fields.
-	a interface{}
 }
 
 // Error implements error
@@ -403,6 +395,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 
 		switch evaluation := evaluateSubmission(jobResp); evaluation {
 		case Skip:
+			s.numInFlightJobs.Add(-1)
 			continue
 		case RetrySubmission:
 			s.submitJobQueue <- jobResp.job
@@ -512,7 +505,8 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 
 		switch evaluation := s.evaluateVerification(jobResp); evaluation {
 		case Skip:
-			s.numInFlightJobs.Add(-1) // decrement in flight jobs on skip, since we're done with this job
+			// decrement in flight jobs on skip, since we're done with this job
+			s.numInFlightJobs.Add(-1)
 			continue
 		case RetrySubmission:
 			s.submitJobQueue <- jobResp.job.transaction
@@ -522,7 +516,7 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 			continue
 		}
 
-		s.numInFlightJobs.Add(-1) // decrement in flight jobs on skip, since we're done with this job
+		s.numInFlightJobs.Add(-1)
 		// We're done with this job and transaction, we have successfully
 		// confirmed that the transaction was submitted to Espresso
 		commitment := jobResp.job.transaction.transaction.Commit()
