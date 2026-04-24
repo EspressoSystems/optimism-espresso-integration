@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 # shellcheck source=/dev/null
-source .env
+source "${ESPRESSO_ENV_FILE:-.env}"
 
 ANVIL_PORT=8545
 ANVIL_URL=http://localhost:$ANVIL_PORT
