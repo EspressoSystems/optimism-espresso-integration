@@ -31,9 +31,10 @@ func espressoEnvs(envprefix, v string) []string {
 // Defined here so that both the CLI flag defaults and the batcher logic
 // can reference a single source of truth.
 const (
-	DefaultVerifyReceiptMaxBlocks     uint64        = 5
-	DefaultVerifyReceiptSafetyTimeout time.Duration = 5 * time.Minute
-	DefaultVerifyReceiptRetryDelay    time.Duration = 100 * time.Millisecond
+	DefaultVerifyReceiptMaxBlocks        uint64        = 5
+	DefaultVerifyReceiptSafetyTimeout    time.Duration = 5 * time.Minute
+	DefaultVerifyReceiptRetryDelay       time.Duration = 100 * time.Millisecond
+	DefaultMaxInFlightRequestsToEspresso               = 128
 )
 
 var (
