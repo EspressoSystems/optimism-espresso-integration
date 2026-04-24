@@ -258,7 +258,7 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 	{
 		// Streamer Setup and Configuration
 		l := log.NewLogger(slog.Default().Handler())
-		lightClient, err := espressoLightClient.NewLightclientCaller(common.HexToAddress(env.ESPRESSO_LIGHT_CLIENT_ADDRESS), l1Client)
+		lightClient, err := espressoLightClient.NewLightclientCaller(env.EspressoLightClientAddr(), l1Client)
 		require.NoError(t, err, "light client creation failed")
 		streamer, err := op.NewEspressoStreamer(
 			system.RollupConfig.L2ChainID.Uint64(),

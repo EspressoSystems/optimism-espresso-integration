@@ -41,27 +41,8 @@ RUN NORM="${TARGETARCH}"; \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install `just` without hitting the GitHub API (avoids rate limits in CI).
-# Use the musl release artifacts so it runs in Alpine.
-ARG JUST_VERSION=1.37.0
-RUN NORM="${TARGETARCH}"; \
-  if [ -z "${NORM}" ]; then \
-    case "$(uname -m)" in \
-      x86_64) NORM=amd64 ;; \
-      aarch64) NORM=arm64 ;; \
-      *) echo "TARGETARCH is empty and host arch $(uname -m) is not supported" && exit 1 ;; \
-    esac; \
-  fi; \
-  case "$NORM" in \
-  "amd64") JUST_ARCH="x86_64" ;; \
-  "arm64") JUST_ARCH="aarch64" ;; \
-  *) echo "Unsupported architecture for just install: TARGETOS=$TARGETOS TARGETARCH=$TARGETARCH TARGETVARIANT=$TARGETVARIANT (normalized=$NORM)" && exit 1 ;; \
-  esac && \
-  wget -q "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${JUST_ARCH}-unknown-linux-musl.tar.gz" -O /tmp/just.tgz && \
-  tar -xzf /tmp/just.tgz -C /usr/local/bin just && \
-  chmod +x /usr/local/bin/just && \
-  rm -f /tmp/just.tgz && \
-  just --version
+# Install `just` without hitting GitHub (avoids rate limits in CI).
+RUN apk add --no-cache just && just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"
