@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -125,7 +124,7 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 		QueryServiceURLs:       []string{u.String(), u.String()},
 		L1URL:                  system.L1.UserRPC().RPC(),
 		RollupL1URL:            system.L1.UserRPC().RPC(),
-		LightClientAddr:        common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS),
+		LightClientAddr:        EspressoLightClientAddr(),
 		BatchAuthenticatorAddr: system.RollupConfig.BatchAuthenticatorAddress,
 	})
 
