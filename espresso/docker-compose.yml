@@ -703,7 +703,10 @@ services:
     volumes:
       - espresso-data:/data
     env_file:
-      - ./.env
+      # By default we load the shared devnet `.env` for convenience.
+      # CI can override this (e.g. to omit preallocated contract addresses)
+      # without changing the rest of the stack's env_file usage.
+      - ${ESPRESSO_DEV_NODE_ENV_FILE:-./.env}
     environment:
       RUST_LOG: warn
       # Some espresso-dev-node images support preallocated L1 deployments (skip),
