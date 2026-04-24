@@ -54,7 +54,7 @@ func init() {
 	}
 }
 
-func espressoLightClientAddr() common.Address {
+func EspressoLightClientAddr() common.Address {
 	v, ok := os.LookupEnv("ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS")
 	if !ok || !common.IsHexAddress(v) {
 		panic("ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS must be set to a valid hex address")
@@ -882,7 +882,7 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			c.Espresso.Enabled = true
 			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
-			c.Espresso.LightClientAddr = espressoLightClientAddr()
+			c.Espresso.LightClientAddr = EspressoLightClientAddr()
 			c.Espresso.AllowEmptyAttestationService()
 		},
 	}
