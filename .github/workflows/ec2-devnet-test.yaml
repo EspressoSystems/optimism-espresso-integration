@@ -78,6 +78,10 @@ jobs:
       ESPRESSO_RUN_ENCLAVE_TESTS: "true"
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
+      # The espresso-dev-node image used in CI expects to deploy its own
+      # L1 contracts; the preallocated (genesis-only) path can miss required
+      # initialization event logs and cause stake table reload failures.
+      ESPRESSO_DEV_NODE_L1_DEPLOYMENT: "deploy"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
