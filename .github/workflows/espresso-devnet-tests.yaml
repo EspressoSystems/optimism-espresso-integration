@@ -58,6 +58,7 @@ jobs:
       - name: Set CI devnet overrides
         run: |
           echo "ESPRESSO_ENV_FILE=.env.ci" >> "$GITHUB_ENV"
+          echo "ESPRESSO_DEV_NODE_L1_DEPLOYMENT=deploy" >> "$GITHUB_ENV"
 
           cp ./espresso/.env ./espresso/.env.ci
         shell: bash

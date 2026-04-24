@@ -75,6 +75,9 @@ jobs:
           # For CI devnet tests we sometimes need small overrides without
           # changing the checked-in .env.
           echo "ESPRESSO_ENV_FILE=.env.ci" >> "$GITHUB_ENV"
+          # Ensure espresso-dev-node deploys its L1 contracts at runtime, rather than
+          # assuming preallocated state that may not match the dev-node image behavior.
+          echo "ESPRESSO_DEV_NODE_L1_DEPLOYMENT=deploy" >> "$GITHUB_ENV"
 
           # Create a CI-specific env file for scripts that source `.env`.
           cp ./espresso/.env ./espresso/.env.ci
