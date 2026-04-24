@@ -72,20 +72,12 @@ jobs:
       - name: Set CI devnet overrides
         run: |
           # The checked-in espresso/.env is also used for long-lived infra.
-          # For CI devnet tests we must ensure the L1 chain-id matches Anvil,
-          # otherwise contract addresses won't line up and Espresso components
-          # will revert when interacting with L1.
-          echo "L1_CHAIN_ID=31337" >> "$GITHUB_ENV"
+          # For CI devnet tests we sometimes need small overrides without
+          # changing the checked-in .env.
           echo "ESPRESSO_ENV_FILE=.env.ci" >> "$GITHUB_ENV"
 
           # Create a CI-specific env file for scripts that source `.env`.
           cp ./espresso/.env ./espresso/.env.ci
-          # Replace any existing L1_CHAIN_ID line (or append if missing).
-          if grep -q '^L1_CHAIN_ID=' ./espresso/.env.ci; then
-            sed -i 's/^L1_CHAIN_ID=.*/L1_CHAIN_ID=31337/' ./espresso/.env.ci
-          else
-            echo "L1_CHAIN_ID=31337" >> ./espresso/.env.ci
-          fi
         shell: bash
 
       - name: Build op-deployer and prepare allocs

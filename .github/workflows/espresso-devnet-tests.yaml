@@ -57,15 +57,9 @@ jobs:
 
       - name: Set CI devnet overrides
         run: |
-          echo "L1_CHAIN_ID=31337" >> "$GITHUB_ENV"
           echo "ESPRESSO_ENV_FILE=.env.ci" >> "$GITHUB_ENV"
 
           cp ./espresso/.env ./espresso/.env.ci
-          if grep -q '^L1_CHAIN_ID=' ./espresso/.env.ci; then
-            sed -i 's/^L1_CHAIN_ID=.*/L1_CHAIN_ID=31337/' ./espresso/.env.ci
-          else
-            echo "L1_CHAIN_ID=31337" >> ./espresso/.env.ci
-          fi
         shell: bash
 
       - name: Build op-deployer and prepare allocs
