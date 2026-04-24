@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -53,7 +54,13 @@ func init() {
 	}
 }
 
-const ESPRESSO_LIGHT_CLIENT_ADDRESS = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0"
+func EspressoLightClientAddr() common.Address {
+	v, ok := os.LookupEnv("ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS")
+	if !ok || !common.IsHexAddress(v) {
+		panic("ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS must be set to a valid hex address")
+	}
+	return common.HexToAddress(v)
+}
 
 const ESPRESSO_DEV_NODE_DOCKER_IMAGE = "ghcr.io/espressosystems/espresso-sequencer/espresso-dev-node:release-20251120-lip2p-tcp-3855"
 
@@ -875,7 +882,7 @@ func launchEspressoDevNodeStartOption(ct *E2eDevnetLauncherContext) e2esys.Start
 			c.Espresso.Enabled = true
 			c.Espresso.QueryServiceURLs = espressoDevNode.espressoUrls
 			c.LogConfig.Level = slog.LevelDebug
-			c.Espresso.LightClientAddr = common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS)
+			c.Espresso.LightClientAddr = EspressoLightClientAddr()
 			c.Espresso.AllowEmptyAttestationService()
 		},
 	}

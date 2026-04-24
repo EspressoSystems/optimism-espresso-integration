@@ -7,13 +7,14 @@ ARG TARGETARCH
 
 # Base builder image (go.mod requires go >= 1.24.0)
 FROM golang:1.24-alpine AS builder
+# Add ARG to fix arm64 build.
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
 
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
   linux-headers git bash jq
-
-# Install mise for toolchain management
-RUN curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise MISE_INSTALL_EXT=tar.gz sh
 
 # Install yq, dasel, and foundry
 RUN case "$TARGETARCH" in \
@@ -32,9 +33,8 @@ RUN case "$TARGETARCH" in \
   chmod +x /usr/local/bin/cast && \
   chmod +x /usr/local/bin/forge
 
-# Install versioned toolchain (just via mise for shell() function support)
-COPY ./mise.toml .
-RUN mise trust && mise install -v -y just && cp $(mise which just) /usr/local/bin/just && just --version
+# Install `just` without hitting GitHub (avoids rate limits in CI).
+RUN apk add --no-cache just && just --version
 
 # Ensure just and other tools are on PATH for all FROM builder stages
 ENV PATH="/usr/local/bin:$PATH"

@@ -247,7 +247,7 @@ services:
       OP_NODE_L1_BEACON: http://l1-anvil:${L1_HTTP_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-caff-node:${OP_ENGINE_PORT}
       OP_NODE_ESPRESSO_L1_URL: http://l1-anvil:${L1_HTTP_PORT}
-      OP_NODE_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+      OP_NODE_ESPRESSO_LIGHT_CLIENT_ADDR: "${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}"
       OP_NODE_ESPRESSO_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
       OP_NODE_RPC_PORT: ${CAFF_PORT}
     ports:
@@ -261,6 +261,7 @@ services:
       - --rpc.addr=0.0.0.0
       - --sequencer.enabled=false
       - --espresso.enabled=true
+      - --espresso.light-client-addr=${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
       - --rollup.halt=none
@@ -308,7 +309,7 @@ services:
       - --espresso.enabled=true
       - --espresso.poll-interval=1s
       - --espresso.espresso-attestation-service=http://attestation-service-zk:${ESPRESSO_ATTESTATION_VERIFIER_PORT}
-      - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+      - --espresso.light-client-addr=${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$ESPRESSO_BATCHER_PRIVATE_KEY}
       - --throttle.unsafe-da-bytes-lower-threshold=0
@@ -407,6 +408,7 @@ services:
     env_file:
       - ./.env
     environment:
+      ESPRESSO_LIGHT_CLIENT_ADDR: ${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
       OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
