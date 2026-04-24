@@ -15,17 +15,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
-// BatchAuthLookbackWindow defines how many L1 blocks before the batch submission
-// to scan for a BatchInfoAuthenticated event. The authentication transaction must
-// land in this window (or in the same block as the batch submission) for the batch
-// to be considered valid.
-//
-// At ~12s per L1 block, 100 blocks ≈ 20 minutes. This gives the batcher time
-// to land the batch data transaction on L1 after the authentication transaction,
-// even under L1 congestion or batcher restarts. The window is intentionally
-// generous: a tighter window risks rejecting valid batches during congestion spikes.
-const BatchAuthLookbackWindow uint64 = 100
-
 var (
 	// BatchInfoAuthenticatedABI is the event signature for BatchInfoAuthenticated(bytes32 indexed commitment).
 	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32)"
@@ -134,7 +123,7 @@ func collectAuthEventsFromReceipts(receipts types.Receipts, authenticatorAddr co
 }
 
 // CollectAuthenticatedBatches scans L1 receipts in the range
-// [ref.Number - BatchAuthLookbackWindow, ref.Number] and returns the set of all
+// [ref.Number - lookbackWindow, ref.Number] and returns the set of all
 // batch commitment hashes that were authenticated via BatchInfoAuthenticated events.
 //
 // This is called once per L1 block by the data source, and the returned set is checked

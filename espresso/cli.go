@@ -36,9 +36,20 @@ const (
 	DefaultVerifyReceiptRetryDelay       time.Duration = 100 * time.Millisecond
 	DefaultMaxInFlightRequestsToEspresso               = 128
 
-	// DefaultBatchAuthLookbackWindow is the default number of L1 blocks to scan
-	// for BatchInfoAuthenticated events. At ~12s per block, 100 blocks ≈ 20 minutes.
-	// Consumed by rollup.Config.BatchAuthLookbackWindowOrDefault().
+	// DefaultBatchAuthLookbackWindow is the default number of L1 blocks before
+	// the batch submission to scan for a BatchInfoAuthenticated event. The
+	// authentication transaction must land in this window (or in the same block
+	// as the batch submission) for the batch to be considered valid.
+	//
+	// At ~12s per L1 block, 100 blocks ≈ 20 minutes. This gives the batcher
+	// time to land the batch data transaction on L1 after the authentication
+	// transaction, even under L1 congestion or batcher restarts. The window is
+	// intentionally generous: a tighter window risks rejecting valid batches
+	// during congestion spikes.
+	//
+	// Not exposed as a CLI flag; configured per-chain via rollup.json
+	// (Config.BatchAuthLookbackWindow) and consumed via
+	// rollup.Config.BatchAuthLookbackWindowOrDefault().
 	DefaultBatchAuthLookbackWindow uint64 = 100
 )
 

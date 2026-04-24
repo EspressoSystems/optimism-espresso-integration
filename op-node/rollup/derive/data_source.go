@@ -104,16 +104,6 @@ func (c DataSourceConfig) BatchAuthEnabled() bool {
 	return c.batchAuthenticatorAddress != (common.Address{})
 }
 
-// batchAuthLookbackWindowOrDefault returns the configured lookback window,
-// falling back to BatchAuthLookbackWindow if the field is zero (e.g. in tests
-// that construct DataSourceConfig directly without setting the field).
-func (c DataSourceConfig) batchAuthLookbackWindowOrDefault() uint64 {
-	if c.batchAuthLookbackWindow == 0 {
-		return BatchAuthLookbackWindow
-	}
-	return c.batchAuthLookbackWindow
-}
-
 // isValidBatchTx checks basic transaction validity for batch submission:
 //  1. the transaction type is any of Legacy, ACL, DynamicFee, Blob, or Deposit (for L3s).
 //  2. the transaction has a To() address that matches the batch inbox address
