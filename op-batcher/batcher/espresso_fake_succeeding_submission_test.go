@@ -32,8 +32,8 @@ var (
 )
 
 func (c *FakeSubmissionSucceedingEspressoClient) Init() {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 	c.txns = make(map[string]common.Transaction)
 }
 
