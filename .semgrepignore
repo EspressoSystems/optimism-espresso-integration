@@ -26,3 +26,7 @@ rust/op-reth/crates/tests/
 # Celo contracts follow different conventions
 packages/contracts-bedrock/src/celo/
 op-e2e/celo/
+
+# Succinct OP-Succinct contracts follow their own conventions (external code)
+packages/contracts-bedrock/src/dispute/succinct/
+packages/contracts-bedrock/scripts/deploy/DeployOPSuccinctFDG.s.sol

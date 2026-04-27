@@ -4,6 +4,7 @@
 !go.*
 # internal dependencies
 !cannon/
+!espresso/
 !op-core/
 !op-alt-da/
 !op-node/

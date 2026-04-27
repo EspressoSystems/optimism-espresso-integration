@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
+# shellcheck source=/dev/null
 source .env
 
 ANVIL_PORT=8545
@@ -55,9 +56,9 @@ op-deployer bootstrap implementations \
                       --l1-rpc-url="${ANVIL_URL}" \
                       --private-key="${OPERATOR_PRIVATE_KEY}" \
                       --artifacts-locator="${ARTIFACTS_DIR}" \
-                      --protocol-versions-proxy=`jq -r .protocolVersionsProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
-                      --superchain-config-proxy=`jq -r .superchainConfigProxyAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
-                      --superchain-proxy-admin=`jq -r .proxyAdminAddress < ${DEPLOYER_DIR}/bootstrap_superchain.json` \
+                      --protocol-versions-proxy="$(jq -r .protocolVersionsProxyAddress < "${DEPLOYER_DIR}/bootstrap_superchain.json")" \
+                      --superchain-config-proxy="$(jq -r .superchainConfigProxyAddress < "${DEPLOYER_DIR}/bootstrap_superchain.json")" \
+                      --superchain-proxy-admin="$(jq -r .proxyAdminAddress < "${DEPLOYER_DIR}/bootstrap_superchain.json")" \
                       --upgrade-controller="${OPERATOR_ADDRESS}" \
                       --challenger="${OPERATOR_ADDRESS}" \
                       --proof-maturity-delay-seconds=12 \
@@ -67,7 +68,7 @@ op-deployer bootstrap implementations \
 op-deployer init --l1-chain-id "${L1_CHAIN_ID}" \
                  --l2-chain-ids "${L2_CHAIN_ID}" \
                  --intent-type standard-overrides \
-                 --outdir ${DEPLOYER_DIR}
+                 --outdir "${DEPLOYER_DIR}"
 
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t bool -v true
 
@@ -77,7 +78,7 @@ dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoEnabled -t boo
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .chains.[0].espressoBatcher -v "${ESPRESSO_BATCHER_ADDRESS}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l1ContractsLocator -v "${ARTIFACTS_DIR}"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .l2ContractsLocator -v "${ARTIFACTS_DIR}"
-dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v `jq -r .opcmAddress < ${DEPLOYER_DIR}/bootstrap_implementations.json`
+dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .opcmAddress -v "$(jq -r .opcmAddress < "${DEPLOYER_DIR}/bootstrap_implementations.json")"
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .fundDevAccounts -t bool -v true
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.faultGameMaxClockDuration -t int -v 302400
 dasel put -f "${DEPLOYER_DIR}/intent.toml" -s .globalDeployOverrides.faultGameClockExtension -t int -v 10800
