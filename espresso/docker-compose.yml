@@ -371,6 +371,11 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-enclave-app
     image: op-batcher-enclave-app:espresso
+    # Build-only image. This service is not intended to be run as part of the devnet, but
+    # `docker compose up` will start it if it shares the active profile.
+    # Override the entrypoint so it doesn't execute the enclave batcher entrypoint script.
+    entrypoint: ["sh", "-c"]
+    command: ["true"]
 
   op-batcher-tee:
     profiles: ["tee"]

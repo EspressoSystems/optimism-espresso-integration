@@ -114,7 +114,7 @@ func (p *RetryProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//nolint:bodyClose
 	res, resBody, err := retry.Do2(r.Context(), p.maxRetries, p.strategy, func() (*http.Response, []byte, error) {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		res, err := p.doProxyReq(ctx, reqBody)
 		if err != nil {
@@ -162,6 +162,7 @@ func (p *RetryProxy) doProxyReq(ctx context.Context, body []byte) (*http.Respons
 	if err != nil {
 		panic(fmt.Errorf("failed to create request: %w", err))
 	}
+	req.Header.Set("Content-Type", "application/json")
 	res, err := p.client.Do(req)
 	if err != nil {
 		p.lgr.Warn("failed to proxy request", "err", err)

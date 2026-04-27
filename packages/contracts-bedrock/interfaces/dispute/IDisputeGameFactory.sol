@@ -65,6 +65,7 @@ interface IDisputeGameFactory is IProxyAdminOwnedBase, IReinitializableBase {
         external
         pure
         returns (Hash uuid_);
+    function challengerBond(uint32 _gameType) external view returns (uint256 challengerBond_);
     function initBonds(GameType) external view returns (uint256);
     function initialize(address _owner) external;
     function owner() external view returns (address);

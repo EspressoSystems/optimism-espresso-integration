@@ -11,8 +11,8 @@ import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEs
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { DeployTEEVerifier } from "lib/espresso-tee-contracts/scripts/DeployTEEVerifier.s.sol";
 import { DeployNitroTEEVerifier } from "lib/espresso-tee-contracts/scripts/DeployNitroTEEVerifier.s.sol";
-import { ProxyAdmin } from "src/universal/ProxyAdmin.sol";
-import { Proxy } from "src/universal/Proxy.sol";
+import { IProxy } from "interfaces/universal/IProxy.sol";
+import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { BatchAuthenticator } from "src/L1/BatchAuthenticator.sol";
 import { MockEspressoTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
 import { MockEspressoNitroTEEVerifier } from "test/mocks/MockEspressoTEEVerifiers.sol";
@@ -110,38 +110,56 @@ contract DeployEspresso is Script {
     ///      that DeployTEEVerifier deploys.
     bytes32 internal constant ERC1967_ADMIN_SLOT = 0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
 
-    function run(DeployEspressoInput input, DeployEspressoOutput output, address deployerAddress) public {
-        IEspressoTEEVerifier teeVerifier = deployTEEContracts(input, output, deployerAddress);
-        deployBatchAuthenticator(input, output, teeVerifier);
-        checkOutput(output);
+    function run(
+        DeployEspressoInput _input,
+        DeployEspressoOutput _output,
+        address _deployerAddress
+    ) public {
+        IEspressoTEEVerifier teeVerifier = deployTEEContracts(
+            _input,
+            _output,
+            _deployerAddress
+        );
+        deployBatchAuthenticator(_input, _output, teeVerifier);
+        checkOutput(_output);
     }
 
     function deployBatchAuthenticator(
-        DeployEspressoInput input,
-        DeployEspressoOutput output,
-        IEspressoTEEVerifier teeVerifier
-    )
-        public
-        returns (IBatchAuthenticator)
-    {
-        address proxyAdminOwner = input.proxyAdminOwner();
+        DeployEspressoInput _input,
+        DeployEspressoOutput _output,
+        IEspressoTEEVerifier _teeVerifier
+    ) public returns (IBatchAuthenticator) {
+        address proxyAdminOwner = _input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) proxyAdminOwner = msg.sender;
 
         vm.broadcast(msg.sender);
-        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
+        IProxyAdmin proxyAdmin = _deployProxyAdmin(msg.sender);
         vm.label(address(proxyAdmin), "BatchAuthenticatorProxyAdmin");
-        vm.broadcast(msg.sender);
-        Proxy proxy = new Proxy(address(proxyAdmin));
+        // Deploy Proxy without importing Proxy.sol to avoid duplicate compilation artifacts.
+        IProxy proxy;
+        {
+            bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(address(proxyAdmin)));
+            address payable proxyAddr;
+            vm.broadcast(msg.sender);
+            assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+            require(proxyAddr != address(0), "DeployEspresso: proxy deployment failed");
+            proxy = IProxy(proxyAddr);
+        }
         vm.label(address(proxy), "BatchAuthenticatorProxy");
         vm.broadcast(msg.sender);
-        proxyAdmin.setProxyType(address(proxy), ProxyAdmin.ProxyType.ERC1967);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
         vm.broadcast(msg.sender);
         BatchAuthenticator impl = new BatchAuthenticator();
         vm.label(address(impl), "BatchAuthenticatorImpl");
 
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
-            (teeVerifier, input.espressoBatcher(), ISystemConfig(input.systemConfig()), proxyAdminOwner)
+            (
+                _teeVerifier,
+                _input.espressoBatcher(),
+                ISystemConfig(_input.systemConfig()),
+                proxyAdminOwner
+            )
         );
         vm.broadcast(msg.sender);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(impl), initData);
@@ -151,7 +169,7 @@ contract DeployEspresso is Script {
             proxyAdmin.transferOwnership(proxyAdminOwner);
         }
 
-        output.set(output.batchAuthenticatorAddress.selector, address(proxy));
+        _output.set(_output.batchAuthenticatorAddress.selector, address(proxy));
         return IBatchAuthenticator(address(proxy));
     }
 
@@ -163,28 +181,28 @@ contract DeployEspresso is Script {
     ///
     ///         If nitroEnclaveVerifier is address(0), deploys our local mocks (dev/test only).
     function deployTEEContracts(
-        DeployEspressoInput input,
-        DeployEspressoOutput output,
-        address deployerAddress
-    )
-        public
-        returns (IEspressoTEEVerifier)
-    {
-        address nitroEnclaveVerifier = input.nitroEnclaveVerifier();
+        DeployEspressoInput _input,
+        DeployEspressoOutput _output,
+        address _deployerAddress
+    ) public returns (IEspressoTEEVerifier) {
+        address nitroEnclaveVerifier = _input.nitroEnclaveVerifier();
         if (nitroEnclaveVerifier == address(0)) {
-            return _deployMockTEEContracts(input, output);
+            return _deployMockTEEContracts(_input, _output);
         }
-        return _deployProductionTEEContracts(input, output, deployerAddress, nitroEnclaveVerifier);
+        return
+            _deployProductionTEEContracts(
+                _input,
+                _output,
+                _deployerAddress,
+                nitroEnclaveVerifier
+            );
     }
 
     function _deployMockTEEContracts(
-        DeployEspressoInput input,
-        DeployEspressoOutput output
-    )
-        internal
-        returns (IEspressoTEEVerifier)
-    {
-        address proxyAdminOwner = input.proxyAdminOwner();
+        DeployEspressoInput _input,
+        DeployEspressoOutput _output
+    ) internal returns (IEspressoTEEVerifier) {
+        address proxyAdminOwner = _input.proxyAdminOwner();
         if (proxyAdminOwner == address(0)) proxyAdminOwner = msg.sender;
 
         // Use our local mocks — they carry OP-specific test behavior (permissive isSignerValid,
@@ -199,26 +217,23 @@ contract DeployEspresso is Script {
 
         // Deploy a dummy ProxyAdmin so the output proxy-admin field is a valid distinct address.
         vm.broadcast(msg.sender);
-        ProxyAdmin dummyAdmin = new ProxyAdmin(proxyAdminOwner);
+        IProxyAdmin dummyAdmin = _deployProxyAdmin(proxyAdminOwner);
         vm.label(address(dummyAdmin), "MockTEEVerifierDummyProxyAdmin");
 
-        output.set(output.nitroTEEVerifier.selector, address(nitroMock));
-        output.set(output.teeVerifierProxy.selector, address(teeMock));
-        output.set(output.teeVerifierProxyAdmin.selector, address(dummyAdmin));
+        _output.set(_output.nitroTEEVerifier.selector, address(nitroMock));
+        _output.set(_output.teeVerifierProxy.selector, address(teeMock));
+        _output.set(_output.teeVerifierProxyAdmin.selector, address(dummyAdmin));
         return IEspressoTEEVerifier(address(teeMock));
     }
 
     function _deployProductionTEEContracts(
-        DeployEspressoInput input,
-        DeployEspressoOutput output,
-        address deployerAddress,
-        address nitroEnclaveVerifier
-    )
-        internal
-        returns (IEspressoTEEVerifier)
-    {
-        address proxyAdminOwner = input.proxyAdminOwner();
-        if (proxyAdminOwner == address(0)) proxyAdminOwner = deployerAddress;
+        DeployEspressoInput _input,
+        DeployEspressoOutput _output,
+        address _deployerAddress,
+        address _nitroEnclaveVerifier
+    ) internal returns (IEspressoTEEVerifier) {
+        address proxyAdminOwner = _input.proxyAdminOwner();
+        if (proxyAdminOwner == address(0)) proxyAdminOwner = _deployerAddress;
 
         // Deploy TEEVerifier (impl + OZ v5 TUP proxy) via the canonical submodule script.
         // DeployImplementations uses vm.getCode("src/universal/ProxyAdmin.sol:ProxyAdmin") to avoid
@@ -230,7 +245,10 @@ contract DeployEspresso is Script {
 
         // NitroTEEVerifier is deployed without a proxy; it stores teeProxy for access control.
         vm.startBroadcast(msg.sender);
-        address nitroVerifier = new DeployNitroTEEVerifier().deploy(teeProxy, nitroEnclaveVerifier);
+        address nitroVerifier = new DeployNitroTEEVerifier().deploy(
+            teeProxy,
+            _nitroEnclaveVerifier
+        );
         vm.stopBroadcast();
         vm.label(nitroVerifier, "NitroTEEVerifier");
 
@@ -239,20 +257,36 @@ contract DeployEspresso is Script {
 
         address teeProxyAdmin = address(uint160(uint256(vm.load(teeProxy, ERC1967_ADMIN_SLOT))));
 
-        output.set(output.teeVerifierProxy.selector, teeProxy);
-        output.set(output.teeVerifierProxyAdmin.selector, teeProxyAdmin);
-        output.set(output.nitroTEEVerifier.selector, nitroVerifier);
+        _output.set(_output.teeVerifierProxy.selector, teeProxy);
+        _output.set(_output.teeVerifierProxyAdmin.selector, teeProxyAdmin);
+        _output.set(_output.nitroTEEVerifier.selector, nitroVerifier);
 
         return IEspressoTEEVerifier(teeProxy);
     }
 
-    function checkOutput(DeployEspressoOutput output) public view {
-        address[] memory addresses =
-            Solarray.addresses(output.batchAuthenticatorAddress(), output.teeVerifierProxy(), output.nitroTEEVerifier());
-        DeployUtils.assertValidContractAddresses(addresses);
+    function checkOutput(DeployEspressoOutput _output) public view {
+        address[] memory addresses = Solarray.addresses(
+            _output.batchAuthenticatorAddress(),
+            _output.teeVerifierProxy(),
+            _output.nitroTEEVerifier()
+        );
+        for (uint256 i = 0; i < addresses.length; i++) {
+            require(addresses[i] != address(0) && addresses[i].code.length > 0, "DeployEspresso: invalid contract address");
+        }
         require(
-            output.teeVerifierProxy() != output.teeVerifierProxyAdmin(),
+            _output.teeVerifierProxy() != _output.teeVerifierProxyAdmin(),
             "DeployEspresso: tee proxy and proxy admin should be different"
         );
+    }
+
+    /// @notice Deploys a ProxyAdmin via vm.getCode to avoid importing src/universal/ProxyAdmin.sol or
+    ///         scripts/libraries/DeployUtils.sol, which would merge into the 0.8.28 compilation group
+    ///         alongside files that import src/universal/Proxy.sol, creating duplicate Proxy artifacts.
+    function _deployProxyAdmin(address _owner) internal returns (IProxyAdmin proxyAdmin_) {
+        bytes memory _initCode = abi.encodePacked(vm.getCode("ProxyAdmin"), abi.encode(_owner));
+        address payable _addr;
+        assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
+        require(_addr != address(0), "DeployEspresso: ProxyAdmin deployment failed");
+        proxyAdmin_ = IProxyAdmin(_addr);
     }
 }

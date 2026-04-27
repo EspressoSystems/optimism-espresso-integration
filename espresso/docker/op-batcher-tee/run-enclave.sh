@@ -5,13 +5,13 @@
 set -e
 
 # Required environment variables - will fail if not set
-: ${L1_RPC_URL:?Error: L1_RPC_URL is required}
-: ${L2_RPC_URL:?Error: L2_RPC_URL is required}
-: ${ROLLUP_RPC_URL:?Error: ROLLUP_RPC_URL is required}
-: ${ESPRESSO_URL1:?Error: ESPRESSO_URL1 is required}
-: ${OPERATOR_PRIVATE_KEY:?Error: OPERATOR_PRIVATE_KEY is required}
-: ${ESPRESSO_ATTESTATION_SERVICE_URL:?Error: ESPRESSO_ATTESTATION_SERVICE_URL is required}
-: ${EIGENDA_PROXY_URL:?Error: EIGENDA_PROXY_URL is required}
+: "${L1_RPC_URL:?Error: L1_RPC_URL is required}"
+: "${L2_RPC_URL:?Error: L2_RPC_URL is required}"
+: "${ROLLUP_RPC_URL:?Error: ROLLUP_RPC_URL is required}"
+: "${ESPRESSO_URL1:?Error: ESPRESSO_URL1 is required}"
+: "${OPERATOR_PRIVATE_KEY:?Error: OPERATOR_PRIVATE_KEY is required}"
+: "${ESPRESSO_ATTESTATION_SERVICE_URL:?Error: ESPRESSO_ATTESTATION_SERVICE_URL is required}"
+: "${EIGENDA_PROXY_URL:?Error: EIGENDA_PROXY_URL is required}"
 
 # Optional configuration with defaults
 TAG="${TAG:-op-batcher-enclavetool}"
@@ -128,7 +128,7 @@ fi
 # Remove any stale enclave containers from previous runs.
 if stale=$(docker ps -q --filter "name=batcher-enclaver") && [ -n "$stale" ]; then
     echo "Removing stale enclave containers: $stale"
-    docker rm -f $stale
+    docker rm -f "$stale"
 fi
 
 # Build the EIF from the pre-built app image (built during `docker compose build`).
@@ -304,7 +304,7 @@ fi
 # Start capturing container logs in background
 echo "Starting log capture for container $CONTAINER_NAME"
 (
-    docker logs -f "$CONTAINER_NAME" 2>&1 | while read line; do
+    docker logs -f "$CONTAINER_NAME" 2>&1 | while read -r line; do
         echo "[ENCLAVE] $line"
     done
 ) &
@@ -345,7 +345,7 @@ EOF
     fi
 
     # Log current status periodically
-    if [ $(($MONITOR_COUNT % 10)) -eq 0 ]; then
+    if [ $((MONITOR_COUNT % 10)) -eq 0 ]; then
         echo "$(date): Container $CONTAINER_NAME status: $CONTAINER_STATUS"
 
         # Show container resource usage

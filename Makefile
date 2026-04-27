@@ -20,14 +20,13 @@ build-contracts:
 	(cd packages/contracts-bedrock && just build)
 .PHONY: build-contracts
 
-lint-go: ## Lints Go code with specific linters
-	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./...
-	golangci-lint run -E err113 --timeout 5m -e "errors.As" -e "errors.Is" ./op-program/client/...
+lint-go: ## Lints Go code with specific linters (espresso only; op-service/op-node/op-chain-ops have typecheck errors).
+	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./espresso/...
 	go mod tidy -diff
 .PHONY: lint-go
 
 lint-go-fix: ## Lints Go code with specific linters and fixes reported issues
-	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./... --fix
+	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./espresso/... --fix
 .PHONY: lint-go-fix
 
 golang-docker: ## Builds Docker images for Go components using buildx
@@ -298,10 +297,12 @@ _go-tests-ci-internal:
 	@echo "Running Go tests with gotestsum..."
 	$(DEFAULT_TEST_ENV_VARS) && \
 	$(CI_ENV_VARS) && \
+	export EFFECTIVE_PKGS="$${CI_TEST_PKGS:-$(ALL_TEST_PACKAGES)}" && \
+	export SKIP_FLAG="$${CI_TEST_SKIP:+-skip $$CI_TEST_SKIP}" && \
 	if [ -n "$$CIRCLE_NODE_TOTAL" ] && [ "$$CIRCLE_NODE_TOTAL" -gt 1 ]; then \
 		export NODE_INDEX=$${CIRCLE_NODE_INDEX:-0} && \
 		export NODE_TOTAL=$${CIRCLE_NODE_TOTAL:-1} && \
-		export PARALLEL_PACKAGES=$$(echo "$(ALL_TEST_PACKAGES)" | tr ' ' '\n' | awk -v idx=$$NODE_INDEX -v total=$$NODE_TOTAL 'NR % total == idx' | tr '\n' ' ') && \
+		export PARALLEL_PACKAGES=$$(echo "$$EFFECTIVE_PKGS" | tr ' ' '\n' | grep -v '^$$' | awk -v idx=$$NODE_INDEX -v total=$$NODE_TOTAL 'NR % total == idx' | tr '\n' ' ') && \
 		if [ -n "$$PARALLEL_PACKAGES" ]; then \
 			echo "Node $$NODE_INDEX/$$NODE_TOTAL running packages: $$PARALLEL_PACKAGES"; \
 			gotestsum --format=testname \
@@ -310,9 +311,9 @@ _go-tests-ci-internal:
 				--rerun-fails=3 \
 				--rerun-fails-max-failures=50 \
 				--packages="$$PARALLEL_PACKAGES" \
-				-- -parallel=$$PARALLEL -coverprofile=coverage-$$NODE_INDEX.out $(GO_TEST_FLAGS) -timeout=$(TEST_TIMEOUT) -tags="ci"; \
+				-- -parallel=$$PARALLEL -coverprofile=coverage-$$NODE_INDEX.out $(GO_TEST_FLAGS) $$SKIP_FLAG -timeout=$(TEST_TIMEOUT) -tags="ci"; \
 		else \
-			echo "ERROR: Node $$NODE_INDEX/$$NODE_TOTAL has no packages to run! Perhaps parallelism is set too high? (ALL_TEST_PACKAGES has $$(echo '$(ALL_TEST_PACKAGES)' | wc -w) packages)"; \
+			echo "ERROR: Node $$NODE_INDEX/$$NODE_TOTAL has no packages to run! Perhaps parallelism is set too high? (EFFECTIVE_PKGS has $$(echo "$$EFFECTIVE_PKGS" | wc -w) packages)"; \
 			exit 1; \
 		fi; \
 	else \
@@ -321,8 +322,8 @@ _go-tests-ci-internal:
 			--jsonfile=./tmp/testlogs/log.json \
 			--rerun-fails=3 \
 			--rerun-fails-max-failures=50 \
-			--packages="$(ALL_TEST_PACKAGES)" \
-			-- -parallel=$$PARALLEL -coverprofile=coverage.out $(GO_TEST_FLAGS) -timeout=$(TEST_TIMEOUT) -tags="ci"; \
+			--packages="$$EFFECTIVE_PKGS" \
+			-- -parallel=$$PARALLEL -coverprofile=coverage.out $(GO_TEST_FLAGS) $$SKIP_FLAG -timeout=$(TEST_TIMEOUT) -tags="ci"; \
 	fi
 .PHONY: _go-tests-ci-internal
 

@@ -127,6 +127,12 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 		opt(sco)
 	}
 
+	// espresso: Espresso alloc types require mock TEE contracts compiled only in full builds
+	// (without --skip test). Skip gracefully instead of panicking.
+	if !config.IsAllocTypeAvailable(sco.AllocType) {
+		t.Skipf("alloc type %q not available (mock TEE contracts not built); run `just compile-contracts` to enable", sco.AllocType)
+	}
+
 	secrets := secrets.DefaultSecrets
 	deployConfig := config.DeployConfig(sco.AllocType)
 	require.Nil(t, deployConfig.L2GenesisJovianTimeOffset, "jovian not supported yet")
@@ -559,6 +565,11 @@ func (sys *System) Close() {
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop Mocknet: %w", err))
 		}
 	}
+	if sys.FakeAltDAServer != nil {
+		if err := sys.FakeAltDAServer.Stop(); err != nil {
+			combinedErr = errors.Join(combinedErr, fmt.Errorf("stop FakeAltDAServer: %w", err))
+		}
+	}
 	require.NoError(sys.t, combinedErr, "Failed to stop system")
 }
 
@@ -894,13 +905,29 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	// The altDACLIConfig is shared by the batcher and rollup nodes.
 	var altDACLIConfig altda.CLIConfig
 	if cfg.DeployConfig.UseAltDA {
-		// Configured for EigenDA (Docker-based proxy)
-		altDACLIConfig = altda.CLIConfig{
-			Enabled:               true,
-			DAServerURL:           EIGENDA_DOCKER_DA_SERVER_URL,
-			VerifyOnRead:          true,
-			GenericDA:             true, // IMPORTANT: OP Stack expects GenericCommitment for EigenDA
-			MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
+		if cfg.AllocType.IsEspresso() {
+			// Espresso tests use EigenDA Docker proxy for alt-DA.
+			altDACLIConfig = altda.CLIConfig{
+				Enabled:               true,
+				DAServerURL:           EIGENDA_DOCKER_DA_SERVER_URL,
+				VerifyOnRead:          true,
+				GenericDA:             true, // IMPORTANT: OP Stack expects GenericCommitment for EigenDA
+				MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
+			}
+		} else {
+			// Non-Espresso tests use the in-process FakeDAServer.
+			fakeAltDAServer := altda.NewFakeDAServer("127.0.0.1", 0, sys.Cfg.Loggers["da-server"])
+			if err := fakeAltDAServer.Start(); err != nil {
+				return nil, fmt.Errorf("failed to start fake altDA server: %w", err)
+			}
+			sys.FakeAltDAServer = fakeAltDAServer
+			altDACLIConfig = altda.CLIConfig{
+				Enabled:               cfg.DeployConfig.UseAltDA,
+				DAServerURL:           fakeAltDAServer.HttpEndpoint(),
+				VerifyOnRead:          true,
+				GenericDA:             true,
+				MaxConcurrentRequests: cfg.BatcherMaxConcurrentDARequest,
+			}
 		}
 	}
 
