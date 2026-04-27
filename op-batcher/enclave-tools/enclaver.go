@@ -136,18 +136,26 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	nameSuffix := uuid.New().String()[:8]
 	containerName := "batcher-enclaver-" + nameSuffix
 
-	cmd := exec.CommandContext(
-		ctx,
-		"docker",
+	dockerArgs := []string{
 		"run",
 		"--rm",
 		"-d",
 		"--privileged",
 		"--net=host",
-		"--name="+containerName,
+		"--name=" + containerName,
 		"--device=/dev/nitro_enclaves",
-		name,
-	)
+	}
+
+	// Pass through proxy env vars if present (local devnet + CI depend on this).
+	for _, k := range []string{"http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"} {
+		if v := os.Getenv(k); v != "" {
+			dockerArgs = append(dockerArgs, "--env", k+"="+v)
+		}
+	}
+
+	dockerArgs = append(dockerArgs, name)
+
+	cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -166,7 +174,7 @@ func (*EnclaverCli) RunEnclave(ctx context.Context, name string, args []string) 
 	// inherit an orphaned container holding the fixed publish ports.
 	defer func() {
 		if retErr != nil {
-			exec.Command("docker", "rm", "-f", containerName).Run()
+			_ = exec.Command("docker", "rm", "-f", containerName).Run()
 		}
 	}()
 

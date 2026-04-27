@@ -271,7 +271,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 			PidOutputMax:        ctx.Float64(flags.ThrottlePidOutputMaxFlag.Name),
 			PidSampleTime:       ctx.Duration(flags.ThrottlePidSampleTimeFlag.Name),
 		},
-		Espresso:       espresso.ReadCLIConfig(ctx),
+		Espresso:          espresso.ReadCLIConfig(ctx),
 		PreferLocalSafeL2: ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
 	}
 }

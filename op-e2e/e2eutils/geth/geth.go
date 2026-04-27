@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/core/txpool"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/ethereum/go-ethereum/eth/tracers/js"
@@ -65,21 +64,12 @@ func InitL1(blockTime uint64, finalizedDistance uint64, genesis *core.Genesis, c
 		return nil, nil, err
 	}
 
-	// Instead of running a whole beacon node, we run this fake-proof-of-stake sidecar that sequences L1 blocks using the Engine API.
-	// ethBackendAdapter adapts *eth.Ethereum to the Backend interface (HeaderByNumber uses APIBackend).
-	fakePoS := &FakePoS{
-		clock:             c,
-		eth:               &ethBackendAdapter{eth: gethInstance.Backend},
-		log:               log.Root(), // geth logger is global anyway. Would be nice to replace with a local logger though.
-		blockTime:         blockTime,
-		finalizedDistance: finalizedDistance,
-		safeDistance:      10,
-		engineAPI:         catalyst.NewConsensusAPI(gethInstance.Backend),
-		beacon:            beaconSrv,
-		config:            gethInstance.Backend.BlockChain().Config(),
-	}
+	fakePoS := NewFakePoS(&gethBackend{
+		chain: gethInstance.Backend.BlockChain(),
+	}, catalyst.NewConsensusAPI(gethInstance.Backend), c, log.Root(), blockTime, finalizedDistance, beaconSrv, gethInstance.Backend.BlockChain().Config())
 	gethInstance.fakePoS = fakePoS
 
+	// Instead of running a whole beacon node, we run this fake-proof-of-stake sidecar that sequences L1 blocks using the Engine API.
 	gethInstance.Node.RegisterLifecycle(fakePoS)
 
 	return gethInstance, fakePoS, nil
@@ -92,29 +82,6 @@ func WithAuth(jwtPath string) GethOption {
 		nodeCfg.JWTSecret = jwtPath
 		return nil
 	}
-}
-
-// ethBackendAdapter adapts *eth.Ethereum to the Backend interface (HeaderByNumber is on APIBackend).
-type ethBackendAdapter struct {
-	eth *eth.Ethereum
-}
-
-func (a *ethBackendAdapter) HeaderByNumber(ctx context.Context, num *big.Int) (*types.Header, error) {
-	var bn rpc.BlockNumber
-	if num == nil {
-		bn = rpc.LatestBlockNumber
-	} else {
-		bn = rpc.BlockNumber(num.Int64())
-	}
-	return a.eth.APIBackend.HeaderByNumber(ctx, bn)
-}
-
-func (a *ethBackendAdapter) TxPool() *txpool.TxPool {
-	return a.eth.TxPool()
-}
-
-func (a *ethBackendAdapter) BlockChain() *core.BlockChain {
-	return a.eth.BlockChain()
 }
 
 type gethBackend struct {

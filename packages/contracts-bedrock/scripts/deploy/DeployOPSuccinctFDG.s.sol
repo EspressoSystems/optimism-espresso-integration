@@ -4,10 +4,9 @@ pragma solidity ^0.8.20;
 // Libraries
 import { Script } from "forge-std/Script.sol";
 import { console } from "forge-std/console.sol";
-import { GameType, Duration } from "src/dispute/lib/Types.sol";
+import { Duration } from "src/dispute/lib/Types.sol";
 
 // Interfaces
-import { IDisputeGame } from "interfaces/dispute/IDisputeGame.sol";
 import { IDisputeGameFactory } from "interfaces/dispute/IDisputeGameFactory.sol";
 import { ISP1Verifier } from "src/dispute/succinct/ISP1Verifier.sol";
 import { IAnchorStateRegistry } from "interfaces/dispute/IAnchorStateRegistry.sol";

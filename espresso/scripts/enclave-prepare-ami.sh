@@ -4,6 +4,7 @@ set -x
 
 echo "[*] Setting up Nix"
 sh <(curl --proto '=https' --tlsv1.2 -sSfL https://nixos.org/nix/install) --daemon --yes
+# shellcheck source=/dev/null
 source /etc/profile.d/nix.sh
 nix-env -iA cachix -f https://cachix.org/api/v1/install
 mkdir -p ~/.config/nix
@@ -22,6 +23,7 @@ sudo usermod -aG docker ec2-user || true
 
 # Rust + svm workaround
 curl https://sh.rustup.rs -sSf | sh -s -- -y
+# shellcheck source=/dev/null
 . "$HOME/.cargo/env"
 cargo install svm-rs
 svm install 0.8.15

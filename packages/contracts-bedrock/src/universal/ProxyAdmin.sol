@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+// espresso: pin to exact 0.8.15 so this file compiles in its own 0.8.15 group and never
+// gets merged into the 0.8.28 group introduced by BatchAuthenticator.sol (OZ v5 imports),
+// which would emit PUSH0 opcodes invalid in pre-Canyon L2 EVM environments.
+pragma solidity 0.8.15;
 
 // Contracts
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";

@@ -48,7 +48,7 @@ if [ "$USE_TEE" = "True" ] || [ "$USE_TEE" = "true" ]; then
         [[ ! $REPLY =~ ^[Yy]$ ]] && { echo "❌ Startup cancelled."; exit 1; }
     fi
     echo "Building with TEE profile..."
-    COMPOSE_PROFILES=tee docker compose build
+    env COMPOSE_PROFILES=tee docker compose build
 else
     docker compose build
 fi
@@ -57,7 +57,7 @@ echo "✅ Docker compose build complete"
 # Step 6: Start services
 echo "👉 Step 6: Starting services..."
 if [ "$USE_TEE" = "True" ] || [ "$USE_TEE" = "true" ]; then
-    COMPOSE_PROFILES=tee docker compose up -d
+    env COMPOSE_PROFILES=tee docker compose up -d
 else
     docker compose up -d
 fi
