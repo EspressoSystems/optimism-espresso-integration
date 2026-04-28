@@ -193,7 +193,8 @@ type Config struct {
 
 	// BatchAuthLookbackWindow is the number of L1 blocks to scan for BatchInfoAuthenticated events.
 	// Zero means use the default (espresso.DefaultBatchAuthLookbackWindow = 100).
-	// Resolve via BatchAuthLookbackWindowOrDefault (defined alongside the espresso import in espresso_config.go).
+	// Resolve via BatchAuthLookbackWindowOrDefault (defined in espresso_config.go for !mips64
+	// and espresso_config_mips64.go for mips64, since the espresso package is not mips64-buildable).
 	BatchAuthLookbackWindow uint64 `json:"batch_auth_lookback_window,omitempty"`
 }
 
