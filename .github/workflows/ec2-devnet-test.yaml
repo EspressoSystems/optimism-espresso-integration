@@ -78,12 +78,22 @@ jobs:
       ESPRESSO_RUN_ENCLAVE_TESTS: "true"
       ESPRESSO_DEVNET_TESTS_LIVENESS_PERIOD: "1m"
       ESPRESSO_DEVNET_TESTS_OUTAGE_PERIOD: "1m"
+      ESPRESSO_DEV_NODE_L1_DEPLOYMENT: "deploy"
+      ESPRESSO_DEV_NODE_ENV_FILE: ".env.dev-node.ci"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Cache submodules
         uses: ./.github/actions/cache-submodules
+
+      - name: Create CI-only dev-node env file
+        run: |
+          # The espresso-dev-node service reads its env file from
+          # ESPRESSO_DEV_NODE_ENV_FILE. Keep it empty so the container does not
+          # pick up preallocated contract addresses from espresso/.env.
+          : > "espresso/${ESPRESSO_DEV_NODE_ENV_FILE}"
+        shell: bash
 
       - name: Set up Docker
         run: |
