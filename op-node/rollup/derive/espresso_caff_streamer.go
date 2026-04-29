@@ -17,16 +17,28 @@ import (
 )
 
 type espressoAttributesQueue struct {
-	cfg              *rollup.Config
-	isCaffNode       bool
-	espressoStreamer *op.BatchStreamer[EspressoBatch]
+	cfg                  *rollup.Config
+	isCaffNode           bool
+	caffeinationHeightL2 uint64
+	espressoStreamer     *op.BatchStreamer[EspressoBatch]
 }
 
 func newEspressoAttributesQueue(logger log.Logger, cfg *rollup.Config) espressoAttributesQueue {
+	// Determine the L2 batch number at which this Caff node should start streaming from
+	// HotShot. Prefer the operator-provided CaffeinationHeightL2 (used to (re)start a Caff
+	// node mid-chain at the current head). Fall back to Config.EspressoOriginBatchPos()
+	// (derived from EspressoEnforcementTime) so fresh Caff nodes deployed at genesis still
+	// work without explicit configuration. Below this height, derivation falls back to the
+	// upstream L1-based path so a freshly-launched Caff node can catch up to the live head.
+	caffHeight := cfg.CaffNodeConfig.CaffeinationHeightL2
+	if caffHeight == 0 {
+		caffHeight = cfg.EspressoOriginBatchPos()
+	}
 	return espressoAttributesQueue{
-		cfg:              cfg,
-		isCaffNode:       cfg.CaffNodeConfig.Enabled,
-		espressoStreamer: initEspressoStreamer(logger, cfg),
+		cfg:                  cfg,
+		isCaffNode:           cfg.CaffNodeConfig.Enabled,
+		caffeinationHeightL2: caffHeight,
+		espressoStreamer:     initEspressoStreamer(logger, cfg),
 	}
 }
 
@@ -36,12 +48,15 @@ func newEspressoAttributesQueue(logger log.Logger, cfg *rollup.Config) espressoA
 // (`prev.NextBatch`), preserving full upstream Optimism derivation semantics.
 //
 // Post-EspressoEnforcement, when this op-node is configured as a Caff node
-// (CaffNodeConfig.Enabled), the batch is fetched directly from the Espresso
-// (HotShot) streamer instead of L1. Non-Caff nodes continue to use the standard
-// L1-based derivation path.
+// (CaffNodeConfig.Enabled) AND the parent L2 block has reached the Caff node's
+// configured caffeination height, the batch is fetched directly from the Espresso
+// (HotShot) streamer instead of L1. Below that height, the Caff node falls back to
+// the upstream L1-based derivation path so a freshly-launched Caff node can catch up
+// to the live L2 head before switching to HotShot. Non-Caff nodes always use the
+// standard L1-based derivation path.
 func (e *espressoAttributesQueue) nextBatch(ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher, prev SingularBatchProvider, logger log.Logger) (*SingularBatch, bool, error) {
 	l2BlockTime := parent.Time + blockTime
-	if e.isCaffNode && e.cfg.IsEspressoEnforcement(l2BlockTime) {
+	if e.isCaffNode && e.cfg.IsEspressoEnforcement(l2BlockTime) && parent.Number >= e.caffeinationHeightL2 {
 		if e.espressoStreamer == nil {
 			logger.Error("Espresso streamer not initialized as expected when isCaffNode is ON")
 			return nil, false, ErrCritical
