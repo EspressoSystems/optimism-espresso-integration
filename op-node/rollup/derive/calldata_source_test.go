@@ -125,8 +125,9 @@ func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1Block
 // TestDataFromEVMTransactionsEventAuth tests event-based batch authentication
 // where a BatchInfoAuthenticated event in the lookback window authorizes a batch.
 //
-// Event-based authentication is only active post-EspressoEnforcement; the test
-// fixture sets EspressoEnforcementTime and uses an L2 block time past the fork.
+// Event-based authentication is only active post-EspressoEnforcement; the fixture
+// activates the fork at L1 origin time 0 (genesis) so all test refs satisfy
+// ref.Time >= *EspressoEnforcementTime.
 func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 	batcherPriv := testutils.RandomKey()
@@ -136,7 +137,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 	batcherAddr := crypto.PubkeyToAddress(batcherPriv.PublicKey)
 	signer := types.NewCancunSigner(big.NewInt(100))
 
-	enforcementTime := uint64(1000)
+	enforcementTime := uint64(0)
 	dsCfg := DataSourceConfig{
 		l1Signer:                  signer,
 		batchInboxAddress:         batchInboxAddr,
@@ -144,7 +145,6 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		batchAuthLookbackWindow:   espresso.DefaultBatchAuthLookbackWindow,
 		espressoEnforcementTime:   &enforcementTime,
 	}
-	const l2BlockTime = uint64(2000) // post-fork
 
 	ctx := context.Background()
 	logger := testlog.Logger(t, log.LevelDebug)
@@ -164,7 +164,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		batchHash := ComputeCalldataBatchHash(txData)
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
-		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, l2BlockTime, logger)
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
 		require.Len(t, out, 1)
 		require.Equal(t, eth.Data(txData), out[0])
@@ -185,7 +185,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		// No auth events — empty authenticated list
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
-		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, l2BlockTime, logger)
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
 		require.Len(t, out, 0)
 		l1F.AssertExpectations(t)
@@ -206,7 +206,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
-		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, l2BlockTime, logger)
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
 		require.Len(t, out, 0, "fallback batcher without auth event should be rejected")
 		l1F.AssertExpectations(t)
@@ -230,7 +230,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		// Mock the lookback window scan (returns no authenticated hashes)
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil)
 
-		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, l2BlockTime, logger)
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
 		require.Len(t, out, 0)
 		l1F.AssertExpectations(t)
@@ -270,7 +270,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		// Only tx1 has an auth event. tx2 and tx3 do not — both should be rejected.
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash1})
 
-		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx1, tx2, tx3}, l1F, ref, l2BlockTime, logger)
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx1, tx2, tx3}, l1F, ref, logger)
 		require.NoError(t, err)
 		require.Len(t, out, 1, "only event-authenticated tx should pass")
 		require.Equal(t, eth.Data(txData1), out[0])
@@ -292,7 +292,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		batchHash := ComputeCalldataBatchHash(txData)
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
-		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, l2BlockTime, logger)
+		out, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, types.Transactions{tx}, l1F, ref, logger)
 		require.NoError(t, err)
 		require.Len(t, out, 1)
 		require.Equal(t, eth.Data(txData), out[0])
@@ -381,7 +381,7 @@ func TestDataFromEVMTransactions(t *testing.T) {
 		}
 		ref := eth.L1BlockRef{Number: 1}
 		// In legacy mode, no L1Fetcher calls are needed for auth (sender check is local)
-		out, err := DataFromEVMTransactions(context.Background(), dsCfg, batcherAddr, txs, nil, ref, 0, testlog.Logger(t, log.LevelCrit))
+		out, err := DataFromEVMTransactions(context.Background(), dsCfg, batcherAddr, txs, nil, ref, testlog.Logger(t, log.LevelCrit))
 		require.NoError(t, err)
 		require.ElementsMatch(t, expectedData, out)
 	}

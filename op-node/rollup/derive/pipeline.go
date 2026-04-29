@@ -86,10 +86,6 @@ type DerivationPipeline struct {
 	// Special stages to keep track of
 	traversal l1TraversalStage
 
-	// l1Retrieval is held to forward the L2 block timestamp at the start of each
-	// derivation step (used to gate Espresso enforcement at the data-source layer).
-	l1Retrieval *L1Retrieval
-
 	attrib *AttributesQueue
 
 	// L1 block that the next returned attributes are derived from, i.e. at the L2-end of the pipeline.
@@ -129,17 +125,16 @@ func NewDerivationPipeline(log log.Logger, rollupCfg *rollup.Config, depSet Depe
 	stages := []ResettableStage{l1Traversal, l1Src, altDA, frameQueue, channelMux, chInReader, batchMux, attributesQueue}
 
 	return &DerivationPipeline{
-		log:         log,
-		rollupCfg:   rollupCfg,
-		l1Fetcher:   l1Fetcher,
-		altDA:       altDA,
-		resetting:   0,
-		stages:      stages,
-		metrics:     metrics,
-		traversal:   l1Traversal,
-		l1Retrieval: l1Src,
-		attrib:      attributesQueue,
-		l2:          l2Source,
+		log:       log,
+		rollupCfg: rollupCfg,
+		l1Fetcher: l1Fetcher,
+		altDA:     altDA,
+		resetting: 0,
+		stages:    stages,
+		metrics:   metrics,
+		traversal: l1Traversal,
+		attrib:    attributesQueue,
+		l2:        l2Source,
 	}
 }
 
@@ -198,11 +193,6 @@ func (dp *DerivationPipeline) Step(ctx context.Context, pendingSafeHead eth.L2Bl
 			}
 		}
 
-		// Ensure the L1Retrieval has an L2 timestamp before its Reset is called,
-		// so any OpenData invoked from within Reset gates correctly on the
-		// EspressoEnforcement hardfork.
-		dp.l1Retrieval.SetL2BlockTime(pendingSafeHead.Time + dp.rollupCfg.BlockTime)
-
 		if err := dp.stages[dp.resetting].Reset(ctx, dp.origin, dp.resetSysConfig); err == io.EOF {
 			dp.log.Debug("reset of stage completed", "stage", dp.resetting, "origin", dp.origin)
 			dp.resetting += 1
@@ -224,10 +214,6 @@ func (dp *DerivationPipeline) Step(ctx context.Context, pendingSafeHead eth.L2Bl
 		dp.transformStages(prevOrigin, newOrigin)
 		dp.origin = newOrigin
 	}
-
-	// Forward the L2 timestamp of the block being derived to the L1Retrieval so
-	// the data source can correctly gate Espresso enforcement.
-	dp.l1Retrieval.SetL2BlockTime(pendingSafeHead.Time + dp.rollupCfg.BlockTime)
 
 	if attrib, err := dp.attrib.NextAttributes(ctx, pendingSafeHead, dp.l1Fetcher); err == nil {
 		return attrib, nil

@@ -28,14 +28,11 @@ type CalldataSource struct {
 	log     log.Logger
 
 	batcherAddr common.Address
-	// l2BlockTime is the timestamp of the L2 block being derived; used to gate
-	// Espresso-enforcement-specific authorization behavior.
-	l2BlockTime uint64
 }
 
 // NewCalldataSource creates a new calldata source. It suppresses errors in fetching the L1 block if they occur.
 // If there is an error, it will attempt to fetch the result on the next call to `Next`.
-func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, ref eth.L1BlockRef, batcherAddr common.Address, l2BlockTime uint64) DataIter {
+func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
 	closedSource := &CalldataSource{
 		open:        false,
 		ref:         ref,
@@ -43,14 +40,13 @@ func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConf
 		fetcher:     fetcher,
 		log:         log,
 		batcherAddr: batcherAddr,
-		l2BlockTime: l2BlockTime,
 	}
 
 	_, txs, err := fetcher.InfoAndTxsByHash(ctx, ref.Hash)
 	if err != nil {
 		return closedSource
 	}
-	data, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, txs, fetcher, ref, l2BlockTime, log.New("origin", ref))
+	data, err := DataFromEVMTransactions(ctx, dsCfg, batcherAddr, txs, fetcher, ref, log.New("origin", ref))
 	if err != nil {
 		return closedSource
 	}
@@ -71,7 +67,7 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 		} else if err != nil {
 			return nil, NewTemporaryError(fmt.Errorf("failed to open calldata source: %w", err))
 		}
-		ds.data, err = DataFromEVMTransactions(ctx, ds.dsCfg, ds.batcherAddr, txs, ds.fetcher, ds.ref, ds.l2BlockTime, ds.log)
+		ds.data, err = DataFromEVMTransactions(ctx, ds.dsCfg, ds.batcherAddr, txs, ds.fetcher, ds.ref, ds.log)
 		if err != nil {
 			return nil, err
 		}
@@ -90,19 +86,20 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 // that are sent to the batch inbox address from the batch sender address.
 // This will return an empty array if no valid transactions are found.
 //
-// Pre-EspressoEnforcement (l2BlockTime < *EspressoEnforcementTime, or unset), this
-// runs upstream Optimism semantics: filter by batch inbox + sender == batcher.
+// Pre-EspressoEnforcement (the L1 origin time of `ref` is < *EspressoEnforcementTime,
+// or unset), this runs upstream Optimism semantics: filter by batch inbox + sender ==
+// batcher.
 //
 // Post-EspressoEnforcement, it collects all authenticated batch hashes from a
 // lookback window once and rejects any batch whose commitment hash is not in the
 // authenticated set.
-func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, fetcher L1Fetcher, ref eth.L1BlockRef, l2BlockTime uint64, log log.Logger) ([]eth.Data, error) {
+func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, fetcher L1Fetcher, ref eth.L1BlockRef, log log.Logger) ([]eth.Data, error) {
 	// Only collect authenticated batch hashes when the Espresso enforcement fork
-	// is active for the L2 block being derived. Pre-fork, the upstream
-	// sender-based authorization path inside isBatchTxAuthorized is used and
-	// the authenticatedHashes map is unused.
+	// is active at the L1 origin time of the block we're scanning. Pre-fork, the
+	// upstream sender-based authorization path inside isBatchTxAuthorized is used
+	// and the authenticatedHashes map is unused.
 	var authenticatedHashes map[common.Hash]bool
-	if dsCfg.isEspressoEnforcement(l2BlockTime) {
+	if dsCfg.isEspressoEnforcement(ref.Time) {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
 			ctx, fetcher, ref, dsCfg.batchAuthenticatorAddress, dsCfg.batchAuthLookbackWindow, log,
@@ -119,7 +116,7 @@ func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batche
 		}
 
 		batchHash := ComputeCalldataBatchHash(tx.Data())
-		if !isBatchTxAuthorized(tx, dsCfg, batcherAddr, batchHash, authenticatedHashes, l2BlockTime, log) {
+		if !isBatchTxAuthorized(tx, dsCfg, batcherAddr, batchHash, authenticatedHashes, ref.Time, log) {
 			continue
 		}
 

@@ -40,13 +40,12 @@ type AltDAInputFetcher interface {
 // batch submitter transactions.
 // This is not a stage in the pipeline, but a wrapper for another stage in the pipeline
 type DataSourceFactory struct {
-	log                     log.Logger
-	dsCfg                   DataSourceConfig
-	fetcher                 L1Fetcher
-	blobsFetcher            L1BlobsFetcher
-	altDAFetcher            AltDAInputFetcher
-	ecotoneTime             *uint64
-	espressoEnforcementTime *uint64
+	log          log.Logger
+	dsCfg        DataSourceConfig
+	fetcher      L1Fetcher
+	blobsFetcher L1BlobsFetcher
+	altDAFetcher AltDAInputFetcher
+	ecotoneTime  *uint64
 }
 
 func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, altDAFetcher AltDAInputFetcher) *DataSourceFactory {
@@ -59,22 +58,24 @@ func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher,
 		espressoEnforcementTime:   cfg.EspressoEnforcementTime,
 	}
 	return &DataSourceFactory{
-		log:                     log,
-		dsCfg:                   config,
-		fetcher:                 fetcher,
-		blobsFetcher:            blobsFetcher,
-		altDAFetcher:            altDAFetcher,
-		ecotoneTime:             cfg.EcotoneTime,
-		espressoEnforcementTime: cfg.EspressoEnforcementTime,
+		log:          log,
+		dsCfg:        config,
+		fetcher:      fetcher,
+		blobsFetcher: blobsFetcher,
+		altDAFetcher: altDAFetcher,
+		ecotoneTime:  cfg.EcotoneTime,
 	}
 }
 
 // OpenData returns the appropriate data source for the L1 block `ref`.
 //
-// l2BlockTime is the timestamp of the L2 block being derived from this L1 block.
-// It is used to gate Espresso-enforcement-specific behavior (event-based batch
-// authentication) by the EspressoEnforcementTime hardfork.
-func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address, l2BlockTime uint64) (DataIter, error) {
+// The Espresso enforcement gate is evaluated against the L1 origin time
+// (ref.Time), mirroring the upstream pattern used for ecotoneTime: the
+// data-source layer is per-L1-block, so it gates on L1 time. The fork timestamp
+// itself is conceptually an L2 timestamp but the per-L1-block decision is
+// stable as long as L1 origin time and L2 block time are within
+// MaxSequencerDrift of each other (always true on a healthy chain).
+func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address) (DataIter, error) {
 	// Creates a data iterator from blob or calldata source so we can forward it to the altDA source
 	// if enabled as it still requires an L1 data source for fetching input commmitments.
 	var src DataIter
@@ -82,9 +83,9 @@ func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, b
 		if ds.blobsFetcher == nil {
 			return nil, fmt.Errorf("ecotone upgrade active but beacon endpoint not configured")
 		}
-		src = NewBlobDataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ds.blobsFetcher, ref, batcherAddr, l2BlockTime)
+		src = NewBlobDataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ds.blobsFetcher, ref, batcherAddr)
 	} else {
-		src = NewCalldataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ref, batcherAddr, l2BlockTime)
+		src = NewCalldataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ref, batcherAddr)
 	}
 	if ds.dsCfg.altDAEnabled {
 		// altDA([calldata | blobdata](l1Ref)) -> data
@@ -105,16 +106,19 @@ type DataSourceConfig struct {
 	// batchAuthLookbackWindow is the number of L1 blocks to scan for BatchInfoAuthenticated events.
 	batchAuthLookbackWindow uint64
 	// espressoEnforcementTime is the activation timestamp of the Espresso enforcement
-	// hardfork. When the L2 block being derived has timestamp >= *espressoEnforcementTime
-	// (and this pointer is non-nil), batches must be authenticated by emitted
-	// BatchInfoAuthenticated events. Otherwise upstream sender-based authorization applies.
+	// hardfork. When the L1 origin time of the block being scanned is >=
+	// *espressoEnforcementTime (and this pointer is non-nil), batches must be
+	// authenticated by emitted BatchInfoAuthenticated events. Otherwise upstream
+	// sender-based authorization applies.
 	espressoEnforcementTime *uint64
 }
 
-// isEspressoEnforcement returns true if Espresso enforcement is active for the given
-// L2 block timestamp.
-func (c DataSourceConfig) isEspressoEnforcement(l2BlockTime uint64) bool {
-	return c.espressoEnforcementTime != nil && l2BlockTime >= *c.espressoEnforcementTime
+// isEspressoEnforcement returns true if Espresso enforcement is active for the
+// given L1 origin time. The fork is conceptually an L2-timestamp hardfork but
+// the per-L1-block data-source decision is gated on L1 origin time, mirroring
+// upstream's ecotoneTime treatment.
+func (c DataSourceConfig) isEspressoEnforcement(l1OriginTime uint64) bool {
+	return c.espressoEnforcementTime != nil && l1OriginTime >= *c.espressoEnforcementTime
 }
 
 // isValidBatchTx checks basic transaction validity for batch submission:
@@ -155,7 +159,11 @@ func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batch
 
 // isBatchTxAuthorized determines whether a batch transaction is authorized for inclusion.
 //
-// Pre-EspressoEnforcement (l2BlockTime < *EspressoEnforcementTime, or unset):
+// The fork gate is evaluated against the L1 origin time of the enclosing L1
+// block (passed as l1OriginTime), mirroring the data-source layer's ecotoneTime
+// treatment.
+//
+// Pre-EspressoEnforcement (l1OriginTime < *EspressoEnforcementTime, or unset):
 //
 //	upstream behavior — the L1 sender of the transaction must match the configured
 //	batcher address. The authenticatedHashes map is unused.
@@ -171,10 +179,10 @@ func isBatchTxAuthorized(
 	batcherAddr common.Address,
 	batchHash common.Hash,
 	authenticatedHashes map[common.Hash]bool,
-	l2BlockTime uint64,
+	l1OriginTime uint64,
 	logger log.Logger,
 ) bool {
-	if !dsCfg.isEspressoEnforcement(l2BlockTime) {
+	if !dsCfg.isEspressoEnforcement(l1OriginTime) {
 		// Pre-fork: upstream sender-based authorization.
 		return isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger)
 	}
