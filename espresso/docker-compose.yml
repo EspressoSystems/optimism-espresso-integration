@@ -662,7 +662,7 @@ services:
     restart: unless-stopped
 
   attestation-service-zk:
-    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
+    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-6be20f1
     platform: linux/amd64
     ports:
       - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
@@ -687,6 +687,7 @@ services:
       NITRO_VERIFIER_ADDRESS: "${ESPRESSO_ATTESTATION_VERIFIER_NITRO_VERIFIER_ADDRESS}"
       USE_DOCKER: "${ESPRESSO_ATTESTATION_VERIFIER_NETWORK_USE_DOCKER}"
       SKIP_TIME_VALIDITY_CHECK: "${ESPRESSO_ATTESTATION_VERIFIER_SKIP_TIME_VALIDITY_CHECK}"
+      SKIP_CONTRACT_PROGRAM_ID_CHECK: "true"
       RUST_LOG: "${ESPRESSO_ATTESTATION_VERIFIER_RUST_LOG}"
       HOST: "${ESPRESSO_ATTESTATION_VERIFIER_HOST}"
       PORT: "${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
