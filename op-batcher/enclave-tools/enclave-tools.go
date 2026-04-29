@@ -58,11 +58,8 @@ func BuildEifFromImage(ctx context.Context, appImage string, eifTag string, cpuC
 	return new(EnclaverCli).BuildEnclave(ctx, manifest)
 }
 
-// TeeType enum values from IEspressoTEEVerifier (SGX=0, NITRO=1).
-const teeTypeNitro uint8 = 1
-
-// ServiceType enum values from espresso-tee-contracts/src/types/Types.sol (BatchPoster=0, CaffNode=1).
-const serviceTypeBatchPoster uint8 = 0
+// TeeType enum values from IEspressoTEEVerifier (NITRO=0).
+const teeTypeNitro uint8 = 0
 
 // getVerifier retrieves the EspressoTEEVerifier instance and L1 client by traversing the contract chain.
 func getVerifier(ctx context.Context, authenticatorAddress common.Address, L1Url string) (*bindings.EspressoTEEVerifier, *ethclient.Client, error) {
@@ -108,7 +105,7 @@ func RegisterEnclaveHash(ctx context.Context, authenticatorAddress common.Addres
 	// Call EspressoTEEVerifier.setEnclaveHash, not EspressoNitroTEEVerifier.setEnclaveHash
 	// directly. The nitro verifier's setEnclaveHash is onlyTEEVerifier, so only the TEE verifier
 	// contract can call it, not an EOA operator key.
-	registrationTx, err := verifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, teeTypeNitro, serviceTypeBatchPoster)
+	registrationTx, err := verifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, teeTypeNitro)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}
@@ -134,7 +131,7 @@ func IsEnclaveHashRegistered(ctx context.Context, authenticatorAddress common.Ad
 		return false, fmt.Errorf("failed to get verifier: %w", err)
 	}
 
-	isRegistered, err := verifier.RegisteredEnclaveHashes(&bind.CallOpts{}, crypto.Keccak256Hash(pcr0Bytes), teeTypeNitro, serviceTypeBatchPoster)
+	isRegistered, err := verifier.RegisteredEnclaveHashes(&bind.CallOpts{}, crypto.Keccak256Hash(pcr0Bytes), teeTypeNitro)
 	if err != nil {
 		return false, fmt.Errorf("failed to call registeredEnclaveHashes function: %w", err)
 	}

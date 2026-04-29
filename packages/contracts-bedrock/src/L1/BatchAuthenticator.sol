@@ -6,11 +6,9 @@ import { ISemver } from "interfaces/universal/ISemver.sol";
 // espresso: use direct paths (not @espresso-tee-contracts/ remapping) so that Foundry's
 // context-specific remappings correctly apply to files within lib/espresso-tee-contracts/.
 import { IEspressoTEEVerifier } from "lib/espresso-tee-contracts/src/interface/IEspressoTEEVerifier.sol";
-import { ServiceType } from "lib/espresso-tee-contracts/src/types/Types.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
-import { OwnableWithGuardiansUpgradeable } from
-    "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
+import { OwnableWithGuardiansUpgradeable } from "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
 import { ProxyAdminOwnedBase } from "src/L1/ProxyAdminOwnedBase.sol";
 import { ReinitializableBase } from "src/universal/ReinitializableBase.sol";
 
@@ -102,7 +100,7 @@ contract BatchAuthenticator is
         if (paused()) revert BatchAuthenticator_Paused();
 
         // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
-        espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster);
+        espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO);
 
         emit BatchInfoAuthenticated(_commitment);
     }
@@ -110,9 +108,7 @@ contract BatchAuthenticator is
     function registerSigner(bytes calldata _verificationData, bytes calldata _data) external {
         if (paused()) revert BatchAuthenticator_Paused();
 
-        espressoTEEVerifier.registerService(
-            _verificationData, _data, IEspressoTEEVerifier.TeeType.NITRO, ServiceType.BatchPoster
-        );
+        espressoTEEVerifier.registerService(_verificationData, _data, IEspressoTEEVerifier.TeeType.NITRO);
         emit SignerRegistrationInitiated(msg.sender);
     }
 
