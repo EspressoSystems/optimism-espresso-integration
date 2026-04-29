@@ -97,13 +97,13 @@ contract BatchAuthenticator is
         emit EspressoBatcherUpdated(oldEspressoBatcher, _newEspressoBatcher);
     }
 
-    function authenticateBatchInfo(bytes32 commitment, bytes calldata _signature) external {
+    function authenticateBatchInfo(bytes32 _commitment, bytes calldata _signature) external {
         if (paused()) revert BatchAuthenticator_Paused();
 
         if (activeIsEspresso) {
             // TEE batcher path: verify via registered TEE signer.
             // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently.
-            espressoTEEVerifier.verify(_signature, commitment, IEspressoTEEVerifier.TeeType.NITRO);
+            espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO);
         } else {
             // Fallback batcher path: the caller must be the SystemConfig batcher address.
             // No signature verification needed — the transaction itself is already signed by msg.sender.
@@ -111,7 +111,7 @@ contract BatchAuthenticator is
             if (msg.sender != fallbackBatcher) revert UnauthorizedFallbackBatcher(msg.sender, fallbackBatcher);
         }
 
-        emit BatchInfoAuthenticated(commitment);
+        emit BatchInfoAuthenticated(_commitment);
     }
 
     function registerSigner(bytes calldata _verificationData, bytes calldata _data) external {

@@ -482,9 +482,10 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
 
         bytes32 commitment = keccak256("espresso commitment");
 
-        // Calling with empty signature — TEE path will revert (invalid signature length / no signer).
+        // Calling with empty signature — TEE path runs ECDSA.recover, which rejects the
+        // zero-length input as ECDSAInvalidSignatureLength(0).
         vm.prank(fallbackBatcher);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, uint256(0)));
         authenticator.authenticateBatchInfo(commitment, "");
     }
 
