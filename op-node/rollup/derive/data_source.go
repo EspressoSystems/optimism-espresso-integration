@@ -141,13 +141,13 @@ func isValidBatchTx(tx *types.Transaction, batchInboxAddr common.Address, logger
 // recovers the L1 sender of the transaction and checks it matches the configured
 // batcher address. This is the pre-EspressoEnforcement authorization path.
 func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batcherAddr common.Address, logger log.Logger) bool {
-	seqDataSubmitter, err := l1Signer.Sender(tx) // optimization: only derive sender if To-address matched
+	sender, err := l1Signer.Sender(tx)
 	if err != nil {
-		logger.Warn("tx in inbox with invalid signature", "txHash", tx.Hash(), "err", err)
+		logger.Warn("tx in inbox with invalid signature", "hash", tx.Hash(), "err", err)
 		return false
 	}
-	if seqDataSubmitter != batcherAddr {
-		logger.Warn("tx in inbox with unauthorized submitter", "txHash", tx.Hash(), "submitter", seqDataSubmitter, "expected", batcherAddr)
+	if sender != batcherAddr {
+		logger.Warn("tx in inbox with unauthorized submitter", "addr", sender, "hash", tx.Hash())
 		return false
 	}
 	return true
