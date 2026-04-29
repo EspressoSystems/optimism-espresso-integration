@@ -704,10 +704,10 @@ services:
     volumes:
       - espresso-data:/data
     env_file:
-      - ${ESPRESSO_DEV_NODE_ENV_FILE:-./.env}
+      - ./.env
     environment:
       RUST_LOG: warn
-      ESPRESSO_DEV_NODE_L1_DEPLOYMENT: ${ESPRESSO_DEV_NODE_L1_DEPLOYMENT:-skip}
+      ESPRESSO_DEV_NODE_L1_DEPLOYMENT: skip
       RUST_BACKTRACE: 1
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
       # espresso-dev-node upstream uses ESPRESSO_L1_PROVIDER / ESPRESSO_NODE_API_PORT. Keep the old
