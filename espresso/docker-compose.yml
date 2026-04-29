@@ -662,7 +662,7 @@ services:
     restart: unless-stopped
 
   attestation-service-zk:
-    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-6be20f1
+    image: ${ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE}
     platform: linux/amd64
     ports:
       - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"

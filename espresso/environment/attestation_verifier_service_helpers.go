@@ -297,10 +297,8 @@ func launchEspressoAttestationVerifierServiceDockerContainer(ct *E2eDevnetLaunch
 				skipTimeValidityCheck: "true",
 				rustLog:               "string",
 				networkPrivateKey:     "0x71f8e55f7555c946eadd5a2b5897465a9813b3ee493d6ef4ba6f1505a6e97af3",
-				rpcURL:                "https://ethereum-sepolia-rpc.publicnode.com",
 				host:                  "0.0.0.0",
 				port:                  "8080",
-				dockerImage:           "ghcr.io/espressosystems/attestation-verifier-zk:sha-f5d0a46",
 			}
 
 			// Apply all Environment Variable modifications
