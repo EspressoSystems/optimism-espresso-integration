@@ -662,7 +662,7 @@ services:
     restart: unless-stopped
 
   attestation-service-zk:
-    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
+    image: ${ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE}
     platform: linux/amd64
     ports:
       - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
@@ -709,10 +709,11 @@ services:
       ESPRESSO_DEV_NODE_L1_DEPLOYMENT: skip
       RUST_BACKTRACE: 1
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
-      ESPRESSO_SEQUENCER_L1_PROVIDER: http://l1-anvil:${L1_HTTP_PORT}
+      ESPRESSO_L1_PROVIDER: http://l1-anvil:${L1_HTTP_PORT}
+      ESPRESSO_NODE_API_PORT: ${ESPRESSO_SEQUENCER_API_PORT}
       ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
       ESPRESSO_DEV_NODE_EPOCH_HEIGHT: "4294967295"
-      ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
+      ESPRESSO_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
       ESPRESSO_DEV_NODE_VERSION: "0.4"
 
   blockscout-db:
