@@ -39,4 +39,4 @@ sudo systemctl start nitro-enclaves-allocator.service
 
 echo "[*] Running tests in nix develop shell..."
 
-nix develop --command bash -c "source ./espresso/.env && just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
+nix develop --command bash -c "set -a && source ./espresso/.env && set +a && just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
