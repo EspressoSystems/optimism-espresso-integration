@@ -184,6 +184,5 @@ func computeSyncActions[T channelStatuser](
 		channelsToPrune: numChannelsToPrune,
 		blocksToLoad:    allUnsafeBlocksAboveState,
 	}
-	m.Debug("computed sync actions", "syncActions", a.TerminalString())
 	return a, false
 }

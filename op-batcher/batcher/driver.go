@@ -169,6 +169,10 @@ type BatchSubmitter struct {
 	teeAuthGroup errgroup.Group
 
 	teeVerifierAddress common.Address
+
+	// degradedLog throttles repeated warnings from tick-driven loops so the
+	// log debouncer doesn't see the same message every poll interval.
+	degradedLog *repeatStateLogger
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -181,6 +185,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	batchSubmitter := &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
+		degradedLog: newRepeatStateLogger(),
 	}
 
 	err := batchSubmitter.SetThrottleController(setup.Config.ThrottleParams.ControllerType, setup.Config.ThrottleParams.PIDConfig)
@@ -560,8 +565,9 @@ func (l *BatchSubmitter) sendToThrottlingLoop(unsafeBytesUpdated chan int64) {
 func (l *BatchSubmitter) tryPublishSignal(c chan pubInfo, value pubInfo) {
 	select {
 	case c <- value:
+		l.degradedLog.Clear(l.Log, "publishSignalFull", "publishing loop caught up, signals flowing")
 	default:
-		l.Log.Warn("publishSignal channel is full, skipping signal")
+		l.degradedLog.Warn(l.Log, "publishSignalFull", "publishSignal channel is full, skipping signal")
 	}
 }
 
@@ -586,9 +592,10 @@ func (l *BatchSubmitter) syncAndPrune(syncStatus *eth.SyncStatus) *inclusiveBloc
 		// If the sequencer is out of sync
 		// do nothing and wait to see if it has
 		// got in sync on the next tick.
-		l.Log.Warn("Sequencer is out of sync, retrying next tick.")
+		l.degradedLog.Warn(l.Log, "sequencerOutOfSync", "Sequencer is out of sync, retrying next tick.")
 		return syncActions.blocksToLoad
 	}
+	l.degradedLog.Clear(l.Log, "sequencerOutOfSync", "Sequencer back in sync")
 
 	l.prevCurrentL1 = syncStatus.CurrentL1
 
@@ -662,9 +669,10 @@ func (l *BatchSubmitter) blockLoadingLoop(ctx context.Context, wg *sync.WaitGrou
 		case <-ticker.C:
 			syncStatus, err := l.getSyncStatus(ctx)
 			if err != nil {
-				l.Log.Warn("could not get sync status, retrying on next tick", "err", err)
+				l.degradedLog.Warn(l.Log, "syncStatusErr/blockLoading", "could not get sync status, retrying on next tick", "err", err)
 				continue
 			}
+			l.degradedLog.Clear(l.Log, "syncStatusErr/blockLoading", "sync status fetch recovered")
 
 			blocksToLoad := l.syncAndPrune(syncStatus)
 
