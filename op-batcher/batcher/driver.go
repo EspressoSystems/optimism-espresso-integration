@@ -1186,11 +1186,19 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 	}
 
 	// Fallback batcher: authenticate via BatchAuthenticator if configured.
-	// This sends an authenticateBatchInfo transaction with a raw ECDSA signature
-	// (verified against SystemConfig.batcherHash on-chain) before submitting
-	// the batch data to the BatchInbox address.
+	// The fallback path is run inside teeAuthGroup so that multiple frames can be
+	// authenticated and submitted concurrently. Each goroutine still serializes its
+	// own authenticateBatchInfo + BatchInbox pair (preserving the lookback-window
+	// invariant), but distinct frames no longer block on each other's L1 confirmations.
+	// Without this, draining a multi-frame channel through two sequential L1 sends
+	// per frame is too slow to keep up with the channel manager's frame production.
 	if !isCancel && l.hasBatchAuthenticator() {
-		l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
+		l.teeAuthGroup.Go(
+			func() error {
+				l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
+				return nil
+			},
+		)
 		return
 	}
 
