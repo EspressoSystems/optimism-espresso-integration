@@ -358,7 +358,7 @@ func (s *channelManager) getReadyChannel(l1Head eth.BlockID, pi pubInfo) (*chann
 	}
 
 	dataPending := firstWithTxData != nil
-	s.log.Debug("Requested tx data", "l1Head", l1Head, "txdata_pending", dataPending, "blocks_pending", s.pendingBlocks())
+	s.log.Trace("Requested tx data", "l1Head", l1Head, "txdata_pending", dataPending, "blocks_pending", s.pendingBlocks())
 
 	// Short circuit if there is pending tx data or the channel manager is closed
 	if dataPending {
