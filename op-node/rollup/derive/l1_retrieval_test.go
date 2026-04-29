@@ -35,13 +35,13 @@ type MockDataSource struct {
 	mock.Mock
 }
 
-func (m *MockDataSource) OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address) (DataIter, error) {
-	out := m.Mock.MethodCalled("OpenData", ref, batcherAddr)
+func (m *MockDataSource) OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address, l2BlockTime uint64) (DataIter, error) {
+	out := m.Mock.MethodCalled("OpenData", ref, batcherAddr, l2BlockTime)
 	return out[0].(DataIter), nil
 }
 
-func (m *MockDataSource) ExpectOpenData(ref eth.L1BlockRef, iter DataIter, batcherAddr common.Address) {
-	m.Mock.On("OpenData", ref, batcherAddr).Return(iter)
+func (m *MockDataSource) ExpectOpenData(ref eth.L1BlockRef, iter DataIter, batcherAddr common.Address, l2BlockTime uint64) {
+	m.Mock.On("OpenData", ref, batcherAddr, l2BlockTime).Return(iter)
 }
 
 var _ DataAvailabilitySource = (*MockDataSource)(nil)
@@ -89,7 +89,7 @@ func TestL1RetrievalReset(t *testing.T) {
 		BatcherAddr: common.Address{42},
 	}
 
-	dataSrc.ExpectOpenData(a, &fakeDataIter{}, l1Cfg.BatcherAddr)
+	dataSrc.ExpectOpenData(a, &fakeDataIter{}, l1Cfg.BatcherAddr, uint64(0))
 	defer dataSrc.AssertExpectations(t)
 
 	l1r := NewL1Retrieval(testlog.Logger(t, log.LevelError), dataSrc, nil)
@@ -147,7 +147,7 @@ func TestL1RetrievalNextData(t *testing.T) {
 			l1t := &MockL1Traversal{}
 			l1t.ExpectNextL1Block(test.prevBlock, test.prevErr)
 			dataSrc := &MockDataSource{}
-			dataSrc.ExpectOpenData(test.prevBlock, &fakeDataIter{data: test.datas, errs: test.datasErrs}, test.sysCfg.BatcherAddr)
+			dataSrc.ExpectOpenData(test.prevBlock, &fakeDataIter{data: test.datas, errs: test.datasErrs}, test.sysCfg.BatcherAddr, uint64(0))
 
 			ret := NewL1Retrieval(testlog.Logger(t, log.LevelCrit), dataSrc, l1t)
 

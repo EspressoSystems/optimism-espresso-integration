@@ -30,10 +30,13 @@ type BlobDataSource struct {
 	fetcher      L1Fetcher
 	blobsFetcher L1BlobsFetcher
 	log          log.Logger
+	// l2BlockTime is the timestamp of the L2 block being derived; used to gate
+	// Espresso-enforcement-specific authorization behavior.
+	l2BlockTime uint64
 }
 
 // NewBlobDataSource creates a new blob data source.
-func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
+func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address, l2BlockTime uint64) DataIter {
 	return &BlobDataSource{
 		ref:          ref,
 		dsCfg:        dsCfg,
@@ -41,6 +44,7 @@ func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConf
 		log:          log.New("origin", ref),
 		batcherAddr:  batcherAddr,
 		blobsFetcher: blobsFetcher,
+		l2BlockTime:  l2BlockTime,
 	}
 }
 
@@ -86,7 +90,7 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
 
-	data, hashes, err := dataAndHashesFromTxs(ctx, txs, &ds.dsCfg, ds.batcherAddr, ds.fetcher, ds.ref, ds.log)
+	data, hashes, err := dataAndHashesFromTxs(ctx, txs, &ds.dsCfg, ds.batcherAddr, ds.fetcher, ds.ref, ds.l2BlockTime, ds.log)
 	if err != nil {
 		return nil, err
 	}
@@ -119,13 +123,19 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
 //
-// When batch authenticator is configured, it collects all authenticated batch hashes from a
-// lookback window once, then checks each candidate transaction against that set. For blob
-// transactions, the batch hash is computed from the concatenated blob versioned hashes.
-func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
-	// Collect authenticated batch hashes once for the entire block
+// Pre-EspressoEnforcement (l2BlockTime < *EspressoEnforcementTime, or unset), this
+// runs upstream Optimism semantics: filter by batch inbox + sender == batcher.
+//
+// Post-EspressoEnforcement, it collects all authenticated batch hashes from a
+// lookback window once and rejects any batch whose commitment hash is not in the
+// authenticated set. For blob transactions, the batch hash is computed from the
+// concatenated blob versioned hashes.
+func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, l2BlockTime uint64, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
+	// Only collect authenticated batch hashes when the Espresso enforcement fork
+	// is active for the L2 block being derived. Pre-fork, the upstream
+	// sender-based authorization path is used and authenticatedHashes is unused.
 	var authenticatedHashes map[common.Hash]bool
-	if config.BatchAuthEnabled() {
+	if config.isEspressoEnforcement(l2BlockTime) {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
 			ctx, fetcher, ref, config.batchAuthenticatorAddress, config.batchAuthLookbackWindow, logger,
@@ -156,8 +166,8 @@ func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *D
 			batchHash = ComputeCalldataBatchHash(tx.Data())
 		}
 
-		// Check authorization (event-based or legacy sender check)
-		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, logger) {
+		// Check authorization (sender-based pre-fork; event-based post-fork).
+		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, l2BlockTime, logger) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}

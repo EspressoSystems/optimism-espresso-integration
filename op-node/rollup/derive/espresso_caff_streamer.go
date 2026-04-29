@@ -17,21 +17,31 @@ import (
 )
 
 type espressoAttributesQueue struct {
-	isCaffNode           bool
-	caffeinationHeightL2 uint64
-	espressoStreamer     *op.BatchStreamer[EspressoBatch]
+	cfg              *rollup.Config
+	isCaffNode       bool
+	espressoStreamer *op.BatchStreamer[EspressoBatch]
 }
 
 func newEspressoAttributesQueue(logger log.Logger, cfg *rollup.Config) espressoAttributesQueue {
 	return espressoAttributesQueue{
-		isCaffNode:           cfg.CaffNodeConfig.Enabled,
-		caffeinationHeightL2: cfg.CaffNodeConfig.CaffeinationHeightL2,
-		espressoStreamer:     initEspressoStreamer(logger, cfg),
+		cfg:              cfg,
+		isCaffNode:       cfg.CaffNodeConfig.Enabled,
+		espressoStreamer: initEspressoStreamer(logger, cfg),
 	}
 }
 
+// nextBatch returns the next batch to be processed by the AttributesQueue.
+//
+// Pre-EspressoEnforcement, this stage is a passthrough to the upstream BatchQueue
+// (`prev.NextBatch`), preserving full upstream Optimism derivation semantics.
+//
+// Post-EspressoEnforcement, when this op-node is configured as a Caff node
+// (CaffNodeConfig.Enabled), the batch is fetched directly from the Espresso
+// (HotShot) streamer instead of L1. Non-Caff nodes continue to use the standard
+// L1-based derivation path.
 func (e *espressoAttributesQueue) nextBatch(ctx context.Context, parent eth.L2BlockRef, blockTime uint64, l1Fetcher L1Fetcher, prev SingularBatchProvider, logger log.Logger) (*SingularBatch, bool, error) {
-	if e.isCaffNode && parent.Number >= e.caffeinationHeightL2 {
+	l2BlockTime := parent.Time + blockTime
+	if e.isCaffNode && e.cfg.IsEspressoEnforcement(l2BlockTime) {
 		if e.espressoStreamer == nil {
 			logger.Error("Espresso streamer not initialized as expected when isCaffNode is ON")
 			return nil, false, ErrCritical
@@ -55,7 +65,9 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *op.BatchStreamer[
 		cfg.CaffNodeConfig.BatchAuthenticatorAddr = cfg.BatchAuthenticatorAddress
 	}
 
-	streamer, err := espresso.BatchStreamerFromCLIConfig(cfg.CaffNodeConfig.ToCLIConfig(), log, func(data []byte) (*EspressoBatch, error) {
+	cliCfg := cfg.CaffNodeConfig.ToCLIConfig()
+	cliCfg.OriginBatchPos = cfg.EspressoOriginBatchPos()
+	streamer, err := espresso.BatchStreamerFromCLIConfig(cliCfg, log, func(data []byte) (*EspressoBatch, error) {
 		return UnmarshalEspressoTransaction(data)
 	})
 	if err != nil {

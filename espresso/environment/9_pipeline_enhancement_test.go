@@ -106,7 +106,9 @@ func TestPipelineEnhancement(t *testing.T) {
 		ParentHash: l1Block.ParentHash(),
 		Time:       l1Block.Time(),
 	}
-	datas, err := factory.OpenData(ctx, l1BlockRef, batcherAddress)
+	// l2BlockTime is set to the L1 block time so the gate is past EspressoEnforcementTime
+	// when the rollup activates Espresso enforcement at genesis.
+	datas, err := factory.OpenData(ctx, l1BlockRef, batcherAddress, l1BlockRef.Time)
 	require.NoError(t, err)
 
 	data, err := datas.Next(ctx)

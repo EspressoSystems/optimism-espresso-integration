@@ -40,12 +40,13 @@ type AltDAInputFetcher interface {
 // batch submitter transactions.
 // This is not a stage in the pipeline, but a wrapper for another stage in the pipeline
 type DataSourceFactory struct {
-	log          log.Logger
-	dsCfg        DataSourceConfig
-	fetcher      L1Fetcher
-	blobsFetcher L1BlobsFetcher
-	altDAFetcher AltDAInputFetcher
-	ecotoneTime  *uint64
+	log                     log.Logger
+	dsCfg                   DataSourceConfig
+	fetcher                 L1Fetcher
+	blobsFetcher            L1BlobsFetcher
+	altDAFetcher            AltDAInputFetcher
+	ecotoneTime             *uint64
+	espressoEnforcementTime *uint64
 }
 
 func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, altDAFetcher AltDAInputFetcher) *DataSourceFactory {
@@ -55,19 +56,25 @@ func NewDataSourceFactory(log log.Logger, cfg *rollup.Config, fetcher L1Fetcher,
 		altDAEnabled:              cfg.AltDAEnabled(),
 		batchAuthenticatorAddress: cfg.BatchAuthenticatorAddress,
 		batchAuthLookbackWindow:   cfg.BatchAuthLookbackWindowOrDefault(),
+		espressoEnforcementTime:   cfg.EspressoEnforcementTime,
 	}
 	return &DataSourceFactory{
-		log:          log,
-		dsCfg:        config,
-		fetcher:      fetcher,
-		blobsFetcher: blobsFetcher,
-		altDAFetcher: altDAFetcher,
-		ecotoneTime:  cfg.EcotoneTime,
+		log:                     log,
+		dsCfg:                   config,
+		fetcher:                 fetcher,
+		blobsFetcher:            blobsFetcher,
+		altDAFetcher:            altDAFetcher,
+		ecotoneTime:             cfg.EcotoneTime,
+		espressoEnforcementTime: cfg.EspressoEnforcementTime,
 	}
 }
 
 // OpenData returns the appropriate data source for the L1 block `ref`.
-func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address) (DataIter, error) {
+//
+// l2BlockTime is the timestamp of the L2 block being derived from this L1 block.
+// It is used to gate Espresso-enforcement-specific behavior (event-based batch
+// authentication) by the EspressoEnforcementTime hardfork.
+func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address, l2BlockTime uint64) (DataIter, error) {
 	// Creates a data iterator from blob or calldata source so we can forward it to the altDA source
 	// if enabled as it still requires an L1 data source for fetching input commmitments.
 	var src DataIter
@@ -75,9 +82,9 @@ func (ds *DataSourceFactory) OpenData(ctx context.Context, ref eth.L1BlockRef, b
 		if ds.blobsFetcher == nil {
 			return nil, fmt.Errorf("ecotone upgrade active but beacon endpoint not configured")
 		}
-		src = NewBlobDataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ds.blobsFetcher, ref, batcherAddr)
+		src = NewBlobDataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ds.blobsFetcher, ref, batcherAddr, l2BlockTime)
 	} else {
-		src = NewCalldataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ref, batcherAddr)
+		src = NewCalldataSource(ctx, ds.log, ds.dsCfg, ds.fetcher, ref, batcherAddr, l2BlockTime)
 	}
 	if ds.dsCfg.altDAEnabled {
 		// altDA([calldata | blobdata](l1Ref)) -> data
@@ -92,11 +99,22 @@ type DataSourceConfig struct {
 	batchInboxAddress common.Address
 	altDAEnabled      bool
 	// batchAuthenticatorAddress is the L1 address of the BatchAuthenticator contract.
-	// When non-zero, event-based batch authentication is used instead of sender verification.
-	// When zero, legacy sender-based authentication is used.
+	// Event-based authentication via this contract is required only post-EspressoEnforcement
+	// activation; pre-fork the data source uses upstream sender-based authorization.
 	batchAuthenticatorAddress common.Address
 	// batchAuthLookbackWindow is the number of L1 blocks to scan for BatchInfoAuthenticated events.
 	batchAuthLookbackWindow uint64
+	// espressoEnforcementTime is the activation timestamp of the Espresso enforcement
+	// hardfork. When the L2 block being derived has timestamp >= *espressoEnforcementTime
+	// (and this pointer is non-nil), batches must be authenticated by emitted
+	// BatchInfoAuthenticated events. Otherwise upstream sender-based authorization applies.
+	espressoEnforcementTime *uint64
+}
+
+// isEspressoEnforcement returns true if Espresso enforcement is active for the given
+// L2 block timestamp.
+func (c DataSourceConfig) isEspressoEnforcement(l2BlockTime uint64) bool {
+	return c.espressoEnforcementTime != nil && l2BlockTime >= *c.espressoEnforcementTime
 }
 
 // isValidBatchTx checks basic transaction validity for batch submission:
@@ -104,7 +122,7 @@ type DataSourceConfig struct {
 //  2. the transaction has a To() address that matches the batch inbox address
 //
 // It does NOT check authentication (sender or event-based) — that is handled separately
-// by the caller based on whether batch authenticator is configured.
+// by isBatchTxAuthorized.
 func isValidBatchTx(tx *types.Transaction, batchInboxAddr common.Address, logger log.Logger) bool {
 	// For now, we want to disallow the SetCodeTx type or any future types.
 	if tx.Type() > types.BlobTxType && tx.Type() != types.DepositTxType {
@@ -119,21 +137,51 @@ func isValidBatchTx(tx *types.Transaction, batchInboxAddr common.Address, logger
 	return true
 }
 
-// isBatchTxAuthorized checks whether a batch transaction is authorized, using
-// event-based authentication
+// isAuthorizedBatchSender performs upstream-style sender-based authorization: it
+// recovers the L1 sender of the transaction and checks it matches the configured
+// batcher address. This is the pre-EspressoEnforcement authorization path.
+func isAuthorizedBatchSender(tx *types.Transaction, l1Signer types.Signer, batcherAddr common.Address, logger log.Logger) bool {
+	seqDataSubmitter, err := l1Signer.Sender(tx) // optimization: only derive sender if To-address matched
+	if err != nil {
+		logger.Warn("tx in inbox with invalid signature", "txHash", tx.Hash(), "err", err)
+		return false
+	}
+	if seqDataSubmitter != batcherAddr {
+		logger.Warn("tx in inbox with unauthorized submitter", "txHash", tx.Hash(), "submitter", seqDataSubmitter, "expected", batcherAddr)
+		return false
+	}
+	return true
+}
+
+// isBatchTxAuthorized determines whether a batch transaction is authorized for inclusion.
+//
+// Pre-EspressoEnforcement (l2BlockTime < *EspressoEnforcementTime, or unset):
+//
+//	upstream behavior — the L1 sender of the transaction must match the configured
+//	batcher address. The authenticatedHashes map is unused.
+//
+// Post-EspressoEnforcement:
+//
+//	the batch's commitment hash must appear in authenticatedHashes (i.e. a
+//	BatchInfoAuthenticated event was emitted for this commitment within the
+//	derivation pipeline's lookback window). Sender-based authorization is rejected.
 func isBatchTxAuthorized(
 	tx *types.Transaction,
 	dsCfg DataSourceConfig,
 	batcherAddr common.Address,
 	batchHash common.Hash,
 	authenticatedHashes map[common.Hash]bool,
+	l2BlockTime uint64,
 	logger log.Logger,
 ) bool {
-	// Event-based authentication: Espresso batcher must have an auth event
+	if !dsCfg.isEspressoEnforcement(l2BlockTime) {
+		// Pre-fork: upstream sender-based authorization.
+		return isAuthorizedBatchSender(tx, dsCfg.l1Signer, batcherAddr, logger)
+	}
+	// Post-fork: event-based authorization only.
 	if authenticatedHashes[batchHash] {
 		return true
 	}
-
 	logger.Warn("batch not authenticated",
 		"txHash", tx.Hash(), "batchHash", batchHash)
 	return false

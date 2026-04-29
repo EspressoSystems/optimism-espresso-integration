@@ -56,7 +56,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
 	txs := types.Transactions{calldataTx}
 	// Legacy mode: no L1Fetcher needed (sender check is local)
-	data, blobHashes, err := dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	data, blobHashes, err := dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, 0, logger)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 0, len(blobHashes))
@@ -72,7 +72,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	}
 	blobTx, _ := types.SignNewTx(privateKey, signer, blobTxData)
 	txs = types.Transactions{blobTx}
-	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, 0, logger)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(data))
 	require.Equal(t, 1, len(blobHashes))
@@ -80,7 +80,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 
 	// try again with both the blob & calldata transactions and make sure both are picked up
 	txs = types.Transactions{blobTx, calldataTx}
-	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, 0, logger)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(data))
 	require.Equal(t, 1, len(blobHashes))
@@ -89,7 +89,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	// make sure blob tx to the batch inbox is ignored if not signed by the batcher
 	blobTx, _ = types.SignNewTx(testutils.RandomKey(), signer, blobTxData)
 	txs = types.Transactions{blobTx}
-	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, 0, logger)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
@@ -99,7 +99,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	blobTxData.To = testutils.RandomAddress(rng)
 	blobTx, _ = types.SignNewTx(privateKey, signer, blobTxData)
 	txs = types.Transactions{blobTx}
-	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, 0, logger)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
@@ -114,7 +114,7 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	setCodeTx, err := types.SignNewTx(privateKey, signer, setCodeTxData)
 	require.NoError(t, err)
 	txs = types.Transactions{setCodeTx}
-	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, logger)
+	data, blobHashes, err = dataAndHashesFromTxs(ctx, txs, &config, batcherAddr, nil, ref, 0, logger)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(data))
 	require.Equal(t, 0, len(blobHashes))
@@ -122,6 +122,9 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 
 // TestDataAndHashesFromTxsEventAuth tests event-based batch authentication for both
 // calldata and blob transactions in the blob data source path.
+//
+// Event-based authentication is only active post-EspressoEnforcement, so the test
+// fixture sets EspressoEnforcementTime and passes l2BlockTime past the fork.
 func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 	rng := rand.New(rand.NewSource(9999))
 	privateKey := testutils.InsecureRandomKey(rng)
@@ -133,12 +136,16 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 	chainId := new(big.Int).SetUint64(rng.Uint64())
 	signer := types.NewPragueSigner(chainId)
+	enforcementTime := uint64(1000)
 	config := DataSourceConfig{
 		l1Signer:                  signer,
 		batchInboxAddress:         batchInboxAddr,
 		batchAuthenticatorAddress: authenticatorAddr,
 		batchAuthLookbackWindow:   espresso.DefaultBatchAuthLookbackWindow,
+		espressoEnforcementTime:   &enforcementTime,
 	}
+	// L2 block time well past the fork to ensure post-fork event-based auth is used.
+	const l2BlockTime = uint64(2000)
 
 	ctx := context.Background()
 
@@ -158,7 +165,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		batchHash := ComputeCalldataBatchHash(calldataTx.Data())
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
-		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, l2BlockTime, logger)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(data))
 		require.Equal(t, 0, len(blobHashes))
@@ -182,7 +189,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		batchHash := ComputeBlobBatchHash([]common.Hash{blobHash})
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
-		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{blobTx}, &config, batcherAddr, l1F, ref, logger)
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{blobTx}, &config, batcherAddr, l1F, ref, l2BlockTime, logger)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(data))
 		require.Equal(t, 1, len(blobHashes))
@@ -206,7 +213,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
 
-		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, l2BlockTime, logger)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(data), "unknown sender tx without auth event should be rejected")
 		require.Equal(t, 0, len(blobHashes))
@@ -230,7 +237,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, nil) // no auth events
 
-		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, l2BlockTime, logger)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(data), "fallback batcher without auth event should be rejected")
 		require.Equal(t, 0, len(blobHashes))
@@ -254,7 +261,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		batchHash := ComputeCalldataBatchHash(calldataTx.Data())
 		ref = mockAuthEvents(l1F, rng, ref, authenticatorAddr, []common.Hash{batchHash})
 
-		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
+		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, l2BlockTime, logger)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(data))
 		require.Equal(t, 0, len(blobHashes))
@@ -402,7 +409,7 @@ func TestBlobDataSourceL1FetcherErrors(t *testing.T) {
 		Hash:  blobHashes[0],
 	}}, []*eth.Blob{(*eth.Blob)(blob)}, nil)
 
-	src, err := factory.OpenData(ctx, ref, batcherAddr)
+	src, err := factory.OpenData(ctx, ref, batcherAddr, 0)
 	require.IsType(t, &BlobDataSource{}, src, src)
 	require.NoError(t, err)
 

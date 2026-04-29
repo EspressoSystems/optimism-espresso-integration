@@ -419,6 +419,11 @@ type UpgradeScheduleDeployConfig struct {
 	// Set it to 0 to activate at genesis. Nil to disable the PectraBlobSchedule fix.
 	L2GenesisPectraBlobScheduleTimeOffset *hexutil.Uint64 `json:"l2GenesisPectraBlobScheduleTimeOffset,omitempty"`
 
+	// L2GenesisEspressoEnforcementTimeOffset is the number of seconds after genesis block that the
+	// Espresso enforcement upgrade activates. Set it to 0 to activate at genesis. Nil to disable
+	// Espresso enforcement (in which case the chain runs as upstream Optimism).
+	L2GenesisEspressoEnforcementTimeOffset *hexutil.Uint64 `json:"l2GenesisEspressoEnforcementTimeOffset,omitempty"`
+
 	// When Cancun activates. Relative to L1 genesis.
 	L1CancunTimeOffset *hexutil.Uint64 `json:"l1CancunTimeOffset,omitempty"`
 	// When Prague activates. Relative to L1 genesis.
@@ -563,6 +568,10 @@ func (d *UpgradeScheduleDeployConfig) HoloceneTime(genesisTime uint64) *uint64 {
 
 func (d *UpgradeScheduleDeployConfig) PectraBlobScheduleTime(genesisTime uint64) *uint64 {
 	return offsetToUpgradeTime(d.L2GenesisPectraBlobScheduleTimeOffset, genesisTime)
+}
+
+func (d *UpgradeScheduleDeployConfig) EspressoEnforcementTime(genesisTime uint64) *uint64 {
+	return offsetToUpgradeTime(d.L2GenesisEspressoEnforcementTimeOffset, genesisTime)
 }
 
 func (d *UpgradeScheduleDeployConfig) IsthmusTime(genesisTime uint64) *uint64 {
@@ -1179,6 +1188,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *eth.BlockRef, l2GenesisBlockHa
 		IsthmusTime:               d.IsthmusTime(l1StartTime),
 		JovianTime:                d.JovianTime(l1StartTime),
 		InteropTime:               d.InteropTime(l1StartTime),
+		EspressoEnforcementTime:   d.EspressoEnforcementTime(l1StartTime),
 		ProtocolVersionsAddress:   d.ProtocolVersionsProxy,
 		AltDAConfig:               altDA,
 		ChainOpConfig:             chainOpConfig,

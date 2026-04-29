@@ -196,6 +196,9 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		if batchSubmitter.EspressoLightClient != nil {
 			lightClientIface = batchSubmitter.EspressoLightClient
 		}
+		// The L2-side origin batch position is derived from the rollup config's
+		// EspressoEnforcementTime: the streamer starts emitting at the batch number
+		// corresponding to the fork activation timestamp.
 		unbufferedStreamer, err := op.NewEspressoStreamer(
 			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
 			l1Adapter,
@@ -204,7 +207,8 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 			lightClientIface,
 			batchSubmitter.Log,
 			derive.CreateEspressoBatchUnmarshaler(),
-			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
+			setup.Config.CaffeinationHeightEspresso,
+			batchSubmitter.RollupConfig.EspressoOriginBatchPos(),
 			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
 			false,
 		)

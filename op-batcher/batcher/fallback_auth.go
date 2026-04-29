@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/ethereum-optimism/optimism/espresso/bindings"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
@@ -104,7 +103,7 @@ func (l *BatchSubmitter) sendTxWithFallbackAuth(txdata txData, isCancel bool, ca
 	}
 
 	distance := new(big.Int).Sub(receipt.BlockNumber, verificationReceipt.BlockNumber)
-	lookbackWindow := new(big.Int).SetUint64(uint64(derive.BatchAuthLookbackWindow))
+	lookbackWindow := new(big.Int).SetUint64(l.RollupConfig.BatchAuthLookbackWindowOrDefault())
 	if distance.Sign() < 0 || distance.Cmp(lookbackWindow) >= 0 {
 		l.Log.Error("authenticateBatchInfo transaction too far from batch inbox transaction", "txRef", transactionReference, "distance", distance)
 		receiptsCh <- txmgr.TxReceipt[txRef]{
