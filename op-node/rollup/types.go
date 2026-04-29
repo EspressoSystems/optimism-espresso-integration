@@ -548,14 +548,6 @@ func (c *Config) IsEspressoEnforcement(timestamp uint64) bool {
 	return c.EspressoEnforcementTime != nil && timestamp >= *c.EspressoEnforcementTime
 }
 
-// IsEspressoEnforcementActivationBlock returns whether the specified block is the first block
-// subject to the Espresso enforcement upgrade.
-func (c *Config) IsEspressoEnforcementActivationBlock(l2BlockTime uint64) bool {
-	return c.IsEspressoEnforcement(l2BlockTime) &&
-		l2BlockTime >= c.BlockTime &&
-		!c.IsEspressoEnforcement(l2BlockTime-c.BlockTime)
-}
-
 func (c *Config) IsRegolithActivationBlock(l2BlockTime uint64) bool {
 	return c.IsRegolith(l2BlockTime) &&
 		l2BlockTime >= c.BlockTime &&
