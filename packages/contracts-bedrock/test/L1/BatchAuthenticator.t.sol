@@ -422,6 +422,72 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         assertFalse(authenticator.activeIsEspresso());
     }
 
+    /// @notice Test that authenticateBatchInfo succeeds in fallback mode when called by
+    ///         the SystemConfig batcher address.
+    function test_authenticateBatchInfo_fallback_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Switch to fallback mode.
+        vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
+        assertFalse(authenticator.activeIsEspresso());
+
+        // Configure the SystemConfig batcher to a known address.
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        bytes32 commitment = keccak256("fallback commitment");
+
+        // The fallback batcher path ignores the signature; pass empty bytes.
+        vm.expectEmit(true, false, false, false);
+        emit BatchInfoAuthenticated(commitment);
+
+        vm.prank(fallbackBatcher);
+        authenticator.authenticateBatchInfo(commitment, "");
+    }
+
+    /// @notice Test that authenticateBatchInfo reverts in fallback mode when called by
+    ///         a sender that is not the SystemConfig batcher address.
+    function test_authenticateBatchInfo_fallback_revertsOnWrongSender() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Switch to fallback mode.
+        vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
+        assertFalse(authenticator.activeIsEspresso());
+
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        bytes32 commitment = keccak256("fallback commitment");
+
+        // An unauthorized sender must be rejected.
+        vm.prank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(IBatchAuthenticator.UnauthorizedFallbackBatcher.selector, unauthorized, fallbackBatcher)
+        );
+        authenticator.authenticateBatchInfo(commitment, "");
+    }
+
+    /// @notice Test that in Espresso (default) mode, the TEE path is taken — calling with
+    ///         the fallback-batcher address but no valid TEE signature must revert.
+    function test_authenticateBatchInfo_espresso_revertsOnFallbackSender() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        // Sanity: still in Espresso mode.
+        assertTrue(authenticator.activeIsEspresso());
+
+        // Configure a fallback batcher; Espresso mode must NOT use it.
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        bytes32 commitment = keccak256("espresso commitment");
+
+        // Calling with empty signature — TEE path will revert (invalid signature length / no signer).
+        vm.prank(fallbackBatcher);
+        vm.expectRevert();
+        authenticator.authenticateBatchInfo(commitment, "");
+    }
+
     /// @notice Test that paused() delegates to SystemConfig.
     function test_paused_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
