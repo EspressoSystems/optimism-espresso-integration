@@ -129,8 +129,10 @@ func TestBatcherSwitching(t *testing.T) {
 	switchReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	// Give things time to settle
-	_, err = waitForRollupToMovePastL1Block(ctx, system.RollupClient(e2esys.RoleVerif), switchReceipt.BlockNumber.Uint64())
+	// Give things time to settle. Capture the current L2 head so the new TEE batcher and
+	// Caff node start streaming at the live head rather than reprocessing the entire chain
+	// history (which would otherwise stall the verifier far behind the sequencer).
+	l2Height, err := waitForRollupToMovePastL1Block(ctx, system.RollupClient(e2esys.RoleVerif), switchReceipt.BlockNumber.Uint64())
 	require.NoError(t, err)
 
 	espHeight, err := espClient.FetchLatestBlockHeight(ctx)
@@ -143,6 +145,7 @@ func TestBatcherSwitching(t *testing.T) {
 	batcherConfig.TargetNumFrames = 1
 	batcherConfig.MaxL1TxSize = 120_000
 	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
+	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
 	batcherCtx, cancelBatcher := context.WithCancelCause(ctx)
 	defer cancelBatcher(nil)
 	newBatcher, err := batcher.BatcherServiceFromCLIConfig(batcherCtx, cancelBatcher, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
@@ -155,6 +158,7 @@ func TestBatcherSwitching(t *testing.T) {
 
 	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
 		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight
+		c.Rollup.CaffNodeConfig.CaffeinationHeightL2 = l2Height
 	})
 	require.NoError(t, err)
 	defer env.Stop(t, caffNode)

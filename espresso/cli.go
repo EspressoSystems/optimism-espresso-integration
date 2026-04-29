@@ -61,6 +61,7 @@ var (
 	L1UrlFlagName                      = espressoFlags("l1-url")
 	TestingBatcherPrivateKeyFlagName   = espressoFlags("testing-batcher-private-key")
 	CaffeinationHeightEspresso         = espressoFlags("origin-height-espresso")
+	CaffeinationHeightL2               = espressoFlags("origin-height-l2")
 	NamespaceFlagName                  = espressoFlags("namespace")
 	RollupL1UrlFlagName                = espressoFlags("rollup-l1-url")
 	AttestationServiceFlagName         = espressoFlags("espresso-attestation-service")
@@ -114,6 +115,16 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Name:     CaffeinationHeightEspresso,
 			Usage:    "Espresso transactions below this height will not be considered",
 			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT_ESPRESSO"),
+			Category: category,
+		},
+		&cli.Uint64Flag{
+			Name: CaffeinationHeightL2,
+			Usage: "L2 batch position at which the Espresso streamer starts emitting batches. " +
+				"Operational parameter for restarting batchers/Caff nodes mid-chain. " +
+				"When zero, defaults to Config.EspressoOriginBatchPos() (derived from EspressoEnforcementTime). " +
+				"Independent of the EspressoEnforcementTime hardfork, which gates derivation semantics.",
+			Value:    0,
+			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT_L2"),
 			Category: category,
 		},
 		&cli.Uint64Flag{
@@ -175,11 +186,15 @@ type CLIConfig struct {
 	TestingBatcherPrivateKey   *ecdsa.PrivateKey
 	Namespace                  uint64
 	CaffeinationHeightEspresso uint64
-	// OriginBatchPos is the L2 batch number at which the Espresso streamer starts emitting
-	// batches. It is computed at runtime from the rollup config's EspressoEnforcementTime
-	// (cfg.TargetBlockNumber) and is not user-configurable. The field is set by callers that
-	// instantiate streamers (op-node Caff streamer init, op-batcher).
-	OriginBatchPos             uint64
+	// CaffeinationHeightL2 is the L2 batch number at which the Espresso streamer starts
+	// emitting batches. It is an operational parameter for restarting batchers/Caff nodes
+	// mid-chain (e.g., after a fallback batcher event the operator wants the new TEE batcher
+	// to begin streaming at the current L2 head rather than reprocessing the entire history).
+	//
+	// When zero, callers fall back to Config.EspressoOriginBatchPos() (derived from the
+	// EspressoEnforcementTime hardfork). This field is independent of the hardfork itself,
+	// which gates derivation semantics consensus-wide.
+	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
 
 	// Batch submission receipt verification tuning
@@ -241,6 +256,7 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		RollupL1URL:                c.String(RollupL1UrlFlagName),
 		Namespace:                  c.Uint64(NamespaceFlagName),
 		CaffeinationHeightEspresso: c.Uint64(CaffeinationHeightEspresso),
+		CaffeinationHeightL2:       c.Uint64(CaffeinationHeightL2),
 		EspressoAttestationService: c.String(AttestationServiceFlagName),
 		VerifyReceiptMaxBlocks:     c.Uint64(VerifyReceiptMaxBlocksFlagName),
 		VerifyReceiptSafetyTimeout: c.Duration(VerifyReceiptSafetyTimeoutFlagName),
@@ -301,7 +317,7 @@ func BatchStreamerFromCLIConfig[B op.Batch](
 		log,
 		unmarshalBatch,
 		cfg.CaffeinationHeightEspresso,
-		cfg.OriginBatchPos,
+		cfg.CaffeinationHeightL2,
 		cfg.BatchAuthenticatorAddr,
 		false,
 	)

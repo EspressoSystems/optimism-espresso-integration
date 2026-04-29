@@ -69,6 +69,14 @@ type AltDAConfig struct {
 // CaffNodeConfig holds Espresso (Caff Node) configuration embedded in rollup.Config.
 // Fields mirror espresso.CLIConfig without importing the espresso package, keeping
 // the fault-proof program (op-program) import graph free of Espresso network dependencies.
+//
+// CaffeinationHeightL2 is an operational parameter (the L2 batch position at which the
+// Caff streamer should start emitting batches) and is independent of the
+// EspressoEnforcementTime hardfork on the surrounding rollup.Config: the fork timestamp
+// gates derivation semantics consensus-wide, while CaffeinationHeightL2 controls where
+// a specific Caff node deployment begins streaming. When zero, callers fall back to
+// Config.EspressoOriginBatchPos() so that fresh deployments at genesis still work
+// without explicit configuration.
 type CaffNodeConfig struct {
 	Enabled                    bool
 	PollInterval               time.Duration
@@ -79,6 +87,7 @@ type CaffNodeConfig struct {
 	RollupL1URL                string
 	Namespace                  uint64
 	CaffeinationHeightEspresso uint64
+	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
 	VerifyReceiptMaxBlocks     uint64
 	VerifyReceiptSafetyTimeout time.Duration

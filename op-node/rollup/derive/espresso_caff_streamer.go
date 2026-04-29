@@ -66,7 +66,13 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *op.BatchStreamer[
 	}
 
 	cliCfg := cfg.CaffNodeConfig.ToCLIConfig()
-	cliCfg.OriginBatchPos = cfg.EspressoOriginBatchPos()
+	// L2 origin batch position: prefer the operator-provided CaffeinationHeightL2 (used to
+	// (re)start a Caff node mid-chain at the current head). Fall back to
+	// Config.EspressoOriginBatchPos() (derived from EspressoEnforcementTime) so fresh Caff
+	// nodes deployed at genesis still work without explicit configuration.
+	if cliCfg.CaffeinationHeightL2 == 0 {
+		cliCfg.CaffeinationHeightL2 = cfg.EspressoOriginBatchPos()
+	}
 	streamer, err := espresso.BatchStreamerFromCLIConfig(cliCfg, log, func(data []byte) (*EspressoBatch, error) {
 		return UnmarshalEspressoTransaction(data)
 	})

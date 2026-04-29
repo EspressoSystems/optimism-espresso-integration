@@ -72,6 +72,10 @@ type BatcherConfig struct {
 
 	// Starting HotShot height for the Espresso streamer.
 	CaffeinationHeightEspresso uint64
+	// L2 batch position at which the Espresso streamer should start emitting batches.
+	// Operational parameter for restarting batchers mid-chain (e.g. after a fallback batcher
+	// event). When zero, the driver falls back to RollupConfig.EspressoOriginBatchPos().
+	CaffeinationHeightL2 uint64
 
 	// Receipt verification tuning for the Espresso transaction submitter.
 	VerifyReceiptMaxBlocks     uint64
@@ -758,6 +762,7 @@ func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
 	bs.EspressoPollInterval = cfg.Espresso.PollInterval
 	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
 	bs.CaffeinationHeightEspresso = cfg.Espresso.CaffeinationHeightEspresso
+	bs.CaffeinationHeightL2 = cfg.Espresso.CaffeinationHeightL2
 	bs.VerifyReceiptMaxBlocks = cfg.Espresso.VerifyReceiptMaxBlocks
 	bs.VerifyReceiptSafetyTimeout = cfg.Espresso.VerifyReceiptSafetyTimeout
 	bs.VerifyReceiptRetryDelay = cfg.Espresso.VerifyReceiptRetryDelay

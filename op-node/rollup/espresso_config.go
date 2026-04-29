@@ -6,10 +6,6 @@ import "github.com/ethereum-optimism/optimism/espresso"
 
 // ToCLIConfig converts the local CaffNodeConfig to espresso.CLIConfig for use
 // by the Espresso streamer and other Espresso-specific code paths.
-//
-// Note: OriginBatchPos is left at zero. Callers that need it (op-node Caff
-// streamer init and op-batcher) must set it from the rollup config's
-// EspressoEnforcementTime via Config.EspressoOriginBatchPos.
 func (c CaffNodeConfig) ToCLIConfig() espresso.CLIConfig {
 	return espresso.CLIConfig{
 		Enabled:                    c.Enabled,
@@ -21,6 +17,7 @@ func (c CaffNodeConfig) ToCLIConfig() espresso.CLIConfig {
 		RollupL1URL:                c.RollupL1URL,
 		Namespace:                  c.Namespace,
 		CaffeinationHeightEspresso: c.CaffeinationHeightEspresso,
+		CaffeinationHeightL2:       c.CaffeinationHeightL2,
 		EspressoAttestationService: c.EspressoAttestationService,
 		VerifyReceiptMaxBlocks:     c.VerifyReceiptMaxBlocks,
 		VerifyReceiptSafetyTimeout: c.VerifyReceiptSafetyTimeout,
@@ -67,6 +64,7 @@ func CaffNodeConfigFromCLIConfig(c espresso.CLIConfig) CaffNodeConfig {
 		RollupL1URL:                c.RollupL1URL,
 		Namespace:                  c.Namespace,
 		CaffeinationHeightEspresso: c.CaffeinationHeightEspresso,
+		CaffeinationHeightL2:       c.CaffeinationHeightL2,
 		EspressoAttestationService: c.EspressoAttestationService,
 		VerifyReceiptMaxBlocks:     c.VerifyReceiptMaxBlocks,
 		VerifyReceiptSafetyTimeout: c.VerifyReceiptSafetyTimeout,
