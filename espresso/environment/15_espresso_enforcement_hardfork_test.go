@@ -33,11 +33,13 @@ import (
 // activeIsEspresso flip within the Espresso world. This test exercises the
 // consensus hardfork itself.
 func TestEspressoEnforcementHardfork(t *testing.T) {
-	// 60s pre-fork window: long enough to fit a few L2 transactions and a
-	// settled L1 block before the fork; short enough to keep test runtime
-	// reasonable. With L1BlockTime=2s and L2BlockTime=1s the verifier sees
-	// ~30 L2 blocks pre-fork.
-	const enforcementOffset = 60 * time.Second
+	// Pre-fork window: needs to cover the time it takes the Espresso devnet
+	// to spin up (Docker container start, L1 contract deploys, etc.) plus
+	// the pre-fork test operations (deposit + L2 burn round-trips). The L1
+	// RPC tip advances at near wall-clock speed (L1BlockTime=2s on a
+	// freshly-mined L1), so a too-short offset means the fork has already
+	// activated by the time the batcher does its first publish attempt.
+	const enforcementOffset = 5 * time.Minute
 
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel()
@@ -129,6 +131,9 @@ func TestEspressoEnforcementHardfork(t *testing.T) {
 	espressoBatcherConfig.MaxL1TxSize = 120_000
 	espressoBatcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
 	espressoBatcherConfig.Espresso.CaffeinationHeightL2 = l2Height
+	// The captured config inherits Stopped=true from WithBatcherStoppedInitially.
+	// Clear it so the new TEE batcher actually begins submitting on Start.
+	espressoBatcherConfig.Stopped = false
 
 	teeCtx, teeCancel := context.WithCancelCause(ctx)
 	defer teeCancel(nil)
