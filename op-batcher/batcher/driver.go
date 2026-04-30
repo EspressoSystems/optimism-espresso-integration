@@ -938,15 +938,23 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 		}
 
 		// Espresso: skip publishing if this batcher is not the active one.
-		// Only consult the BatchAuthenticator post-EspressoEnforcement; pre-fork
-		// the chain runs upstream Optimism semantics and the contract is irrelevant.
+		// The Espresso TEE batcher always honors the on-chain activeIsEspresso
+		// flag — it is fundamentally a post-fork actor and operational
+		// discipline (idle when not active) applies uniformly. The fallback
+		// batcher honors the flag only post-EspressoEnforcement: pre-fork it
+		// must run as a vanilla upstream Optimism batcher, with no
+		// BatchAuthenticator coupling.
 		if l.hasBatchAuthenticator() {
-			enforcementActive, err := l.isEspressoEnforcementActive(ctx)
-			if err != nil {
-				l.Log.Warn("Failed to evaluate EspressoEnforcement gate, skipping publish", "err", err)
-				return
+			consultActiveFlag := l.Config.UseEspresso
+			if !consultActiveFlag {
+				enforcementActive, err := l.isEspressoEnforcementActive(ctx)
+				if err != nil {
+					l.Log.Warn("Failed to evaluate EspressoEnforcement gate, skipping publish", "err", err)
+					return
+				}
+				consultActiveFlag = enforcementActive
 			}
-			if enforcementActive {
+			if consultActiveFlag {
 				isActive, err := l.isBatcherActive(ctx)
 				if err != nil {
 					l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
