@@ -21,6 +21,7 @@ const repeatStateReminderInterval = 5 * time.Minute
 type repeatStateLogger struct {
 	mu     sync.Mutex
 	states map[string]*repeatStateEntry
+	clock  func() time.Time
 }
 
 type repeatStateEntry struct {
@@ -33,6 +34,7 @@ type repeatStateEntry struct {
 func newRepeatStateLogger() *repeatStateLogger {
 	return &repeatStateLogger{
 		states: make(map[string]*repeatStateEntry),
+		clock:  time.Now,
 	}
 }
 
@@ -42,7 +44,7 @@ func newRepeatStateLogger() *repeatStateLogger {
 // counted; once the interval has elapsed a single reminder warn is emitted
 // with the suppressed count and total duration.
 func (r *repeatStateLogger) Warn(l log.Logger, key, msg string, ctx ...any) {
-	now := time.Now()
+	now := r.clock()
 	r.mu.Lock()
 	e, active := r.states[key]
 	if !active {
@@ -86,7 +88,7 @@ func (r *repeatStateLogger) Clear(l log.Logger, key, recoveryMsg string, ctx ...
 		return
 	}
 	args := append([]any{
-		"duration", time.Since(e.firstSeen).Round(time.Second),
+		"duration", r.clock().Sub(e.firstSeen).Round(time.Second),
 		"occurrences", e.totalOccurrences,
 	}, ctx...)
 	l.Info(recoveryMsg, args...)
