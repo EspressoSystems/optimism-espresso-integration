@@ -201,6 +201,9 @@ commands:
             # Manually craft the submodule update command in order to take advantage
             # of the -j parameter, which speeds it up a lot.
             git submodule update --init --recursive --single-branch --force -j 8
+            # espresso: Patch espresso-tee-contracts to use our top-level OZ v5 alias.
+            sed -i 's|@openzeppelin/contracts-upgradeable/|@openzeppelin/contracts-upgradeable-v5/|g' \
+              lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol
           working_directory: packages/contracts-bedrock
 
   # Notifies us on Slack a build fails on develop
@@ -636,7 +639,7 @@ jobs:
     description: "Build a Rust workspace with target directory caching"
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     parameters:
       directory:
         description: "Directory containing the Cargo workspace"
@@ -702,7 +705,7 @@ jobs:
   rust-build-submodule:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     parameters:
       directory:
         description: "Directory containing the Cargo workspace"
@@ -804,7 +807,7 @@ jobs:
   cannon-go-lint-and-test:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     parameters:
       skip_slow_tests:
         type: boolean
@@ -869,7 +872,7 @@ jobs:
   contracts-bedrock-build:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     parameters:
       build_args:
         description: Forge build arguments
@@ -1174,10 +1177,10 @@ jobs:
 
   contracts-bedrock-tests:
     # circleci_ip_ranges: true
-    
+
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     parameters:
       test_list:
         description: List of test files to run
@@ -1264,10 +1267,10 @@ jobs:
 
   contracts-bedrock-heavy-fuzz-nightly:
     # circleci_ip_ranges: true
-    
+
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: full
@@ -1317,7 +1320,7 @@ jobs:
   # Runbook: https://github.com/ethereum-optimism/optimism/blob/develop/ops/ai-eng/contracts-test-maintenance/docs/runbook.md
   ai-contracts-test:
     # circleci_ip_ranges: true
-    
+
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
     resource_class: medium
@@ -1350,10 +1353,10 @@ jobs:
 
   contracts-bedrock-coverage:
     # circleci_ip_ranges: true
-    
+
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     parameters:
       test_timeout:
         description: Timeout for running tests
@@ -1471,7 +1474,7 @@ jobs:
         default: ""
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1569,7 +1572,7 @@ jobs:
   contracts-bedrock-checks:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1612,7 +1615,7 @@ jobs:
   contracts-bedrock-checks-fast:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           enable-mise-cache: true
@@ -1662,7 +1665,7 @@ jobs:
         default: false
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -1675,9 +1678,20 @@ jobs:
       - go-restore-cache:
           namespace: fuzz-<<parameters.package_name>>
       - run:
+          name: download espresso-network go sdk
+          command: |
+            ver=$(grep "^\s*github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
+            dest=/home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
+            base_url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F"
+            mkdir -p /home/circleci/local-lib
+            # Fall back to the nearest tagged release (v0.3.4) if the exact version URL 404s.
+            wget "${base_url}${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest" \
+              || wget "${base_url}v0.3.4/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest"
+      - run:
           name: Fuzz
           no_output_timeout: 15m
           command: |
+            export CGO_LDFLAGS="-L/home/circleci/local-lib"
             make fuzz
           working_directory: "<<parameters.package_name>>"
       - go-save-cache:
@@ -1792,7 +1806,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     parallelism: <<parameters.parallelism>>
     steps:
       - utils/checkout-with-mise:
@@ -1852,10 +1866,6 @@ jobs:
         description: Slack user or group to mention when notifying of failures
         type: string
         default: ""
-      resource_class:
-        description: Machine resource class
-        type: string
-        default: celo-org/2xlarge
       no_output_timeout:
         description: Timeout for when CircleCI kills the job if there's no output
         type: string
@@ -1869,13 +1879,23 @@ jobs:
         type: string
         default: ""
     machine: true
-    resource_class: <<parameters.resource_class>>
+    resource_class: xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
           enable-mise-cache: true
       - attach_workspace:
           at: .
+      - run:
+          name: download espresso-network go sdk
+          command: |
+            ver=$(grep "^\s*github.com/EspressoSystems/espresso-network/sdks/go" go.mod | awk '{print $2}')
+            dest=/home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
+            base_url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F"
+            mkdir -p /home/circleci/local-lib
+            # Fall back to the nearest tagged release (v0.3.4) if the exact version URL 404s.
+            wget "${base_url}${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest" \
+              || wget "${base_url}v0.3.4/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest"
       - run:
           name: build op-program-client
           command: make op-program-client
@@ -1891,6 +1911,20 @@ jobs:
           name: run tests
           no_output_timeout: <<parameters.no_output_timeout>>
           command: |
+            mkdir -p ./tmp/test-results && mkdir -p ./tmp/testlogs
+            cd op-e2e && make pre-test && cd ..
+
+            export ENABLE_KURTOSIS=true
+            export OP_E2E_CANNON_ENABLED="false"
+            export OP_E2E_SKIP_SLOW_TEST=true
+            export OP_E2E_USE_HTTP=true
+            export ENABLE_ANVIL=true
+            export SEPOLIA_RPC_URL="$SEPOLIA_RPC_URL"
+            export MAINNET_RPC_URL="$MAINNET_RPC_URL"
+            export PARALLEL=$(nproc)
+            export OP_TESTLOG_FILE_LOGGER_OUTDIR=$(realpath ./tmp/testlogs)
+            export CGO_LDFLAGS="-L/home/circleci/local-lib"
+
             <<parameters.environment_overrides>>
             export TEST_TIMEOUT=<<parameters.test_timeout>>
             make go-tests-fraud-proofs-ci
@@ -1931,7 +1965,7 @@ jobs:
         description: L2 CL Sync mode - can be EL Sync or CL Sync
         type: string
         default: ""
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
     # circleci_ip_ranges: true
@@ -2033,7 +2067,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -2068,7 +2102,9 @@ jobs:
       - run:
           name: Prepare test environment (compile tests and cache build results)
           working_directory: op-acceptance-tests
-          command: go test -v -c -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
+          # espresso: -p 1 to serialize linking and avoid OOM on xlarge (16GB).
+          no_output_timeout: 60m
+          command: go test -v -c -p 1 -o /dev/null $(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./tests/...)
       # Run the acceptance tests (if the devnet is running)
       - run:
           name: Run acceptance tests (gate=<<parameters.gate>>)
@@ -2136,7 +2172,7 @@ jobs:
         default: "flake-shake"
     machine:
       image: ubuntu-2404:current
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     parallelism: << pipeline.parameters.c-flake-shake-workers >>
     steps:
       - utils/checkout-with-mise:
@@ -2494,7 +2530,7 @@ jobs:
       SEMGREP_COMMIT: << pipeline.git.revision >>
     docker:
       - image: returntocorp/semgrep
-    resource_class: celo-org/xlarge
+    resource_class: xlarge
     steps:
       - checkout # no need to use mise here since the docker image contains the only dependency
       - unless:
@@ -2636,7 +2672,7 @@ jobs:
   publish-contract-artifacts:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: celo-org/2xlarge
+    resource_class: 2xlarge
     steps:
       - gcp-cli/install
       - gcp-oidc-authenticate:
@@ -3062,6 +3098,42 @@ workflows:
           parallelism: 12
           no_output_timeout: 19m
           test_timeout: 20m
+          environment_overrides: |
+            export PARALLEL=24
+            # Espresso override: use Alchemy for reliable Sepolia fork tests
+            export SEPOLIA_RPC_URL="$ALCHEMY_SEPOLIA_RPC_URL"
+            export CI_TEST_PKGS="\
+              ./op-alt-da/... \
+              ./op-batcher/... \
+              ./op-chain-ops/... \
+              ./op-node/... \
+              ./op-proposer/... \
+              ./op-challenger/... \
+              ./op-faucet/... \
+              ./op-dispute-mon/... \
+              ./op-conductor/... \
+              ./op-program/... \
+              ./op-service/... \
+              ./op-supervisor/... \
+              ./op-test-sequencer/... \
+              ./op-fetcher/... \
+              ./op-e2e/system/... \
+              ./op-e2e/e2eutils/... \
+              ./op-e2e/opgeth/... \
+              ./op-e2e/interop/... \
+              ./packages/contracts-bedrock/scripts/checks/... \
+              ./op-dripper/... \
+              ./devnet-sdk/... \
+              ./kurtosis-devnet/... \
+              ./op-devstack/... \
+              ./op-deployer/pkg/deployer/artifacts/... \
+              ./op-deployer/pkg/deployer/broadcaster/... \
+              ./op-deployer/pkg/deployer/clean/... \
+              ./op-deployer/pkg/deployer/integration_test/cli \
+              ./op-deployer/pkg/deployer/standard/... \
+              ./op-deployer/pkg/deployer/state/..."
+            # espresso: integration_test/cli only (not integration_test/...) to exclude long-running
+            # chain deployment tests that would exceed CI time limits.
           requires:
             - contracts-bedrock-build
             - cannon-prestate
@@ -3198,12 +3270,7 @@ workflows:
             - cannon-prestate
             - rust-binaries-for-sysgo
             - go-binaries-for-sysgo
-      # Generate flaky test report
-      - generate-flaky-report:
-          name: generate-flaky-tests-report
-          context:
-            - circleci-repo-readonly-authenticated-github-token
-            - circleci-api-token
+      # espresso: generate-flaky-report disabled (circleci-api-token context not configured in this org)
 
   go-release-op-deployer:
     # celo disable unwanted jobs/workflows
@@ -3410,7 +3477,6 @@ workflows:
           mentions: "@proofs-team"
           no_output_timeout: 90m
           test_timeout: 480m
-          resource_class: celo-org/xlarge
           context:
             - slack
             - circleci-repo-readonly-authenticated-github-token
