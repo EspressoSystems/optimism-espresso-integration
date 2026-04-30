@@ -12,8 +12,6 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-ARG BUILDARCH
-
 RUN apk add --no-cache \
   curl netcat-openbsd tar gzip make gcc g++ musl-dev \
   linux-headers git bash jq
