@@ -118,12 +118,24 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []common.Hash) {
+func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, logger log.Logger) ([]blobOrCalldata, []common.Hash, error) {
+	// Collect authenticated batch hashes once for the entire block
+	var authenticatedHashes map[common.Hash]bool
+	if config.BatchAuthEnabled() {
+		var err error
+		authenticatedHashes, err = CollectAuthenticatedBatches(
+			ctx, fetcher, ref, config.batchAuthenticatorAddress, logger,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	data := []blobOrCalldata{}
 	var hashes []common.Hash
 	for _, tx := range txs {
 		// skip any non-batcher transactions
-		if !isValidBatchTx(tx, config.l1Signer, config.batchInboxAddress, batcherAddr, logger) {
+		if !isValidBatchTx(tx, config.batchInboxAddress, logger) {
 			continue
 		}
 
@@ -140,7 +152,6 @@ func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batc
 
 		// Check authorization (event-based or legacy sender check)
 		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, logger) {
-			blobIndex += len(tx.BlobHashes())
 			continue
 		}
 
