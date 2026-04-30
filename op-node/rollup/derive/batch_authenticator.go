@@ -15,17 +15,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
-// BatchAuthLookbackWindow defines how many L1 blocks before the batch submission
-// to scan for a BatchInfoAuthenticated event. The authentication transaction must
-// land in this window (or in the same block as the batch submission) for the batch
-// to be considered valid.
-//
-// At ~12s per L1 block, 100 blocks ≈ 20 minutes. This gives the batcher time
-// to land the batch data transaction on L1 after the authentication transaction,
-// even under L1 congestion or batcher restarts. The window is intentionally
-// generous: a tighter window risks rejecting valid batches during congestion spikes.
-const BatchAuthLookbackWindow uint64 = 100
-
 var (
 	// BatchInfoAuthenticatedABI is the event signature for BatchInfoAuthenticated(bytes32 indexed commitment).
 	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32)"
@@ -57,21 +46,21 @@ func resetBatchAuthCaches() {
 	blockRefCacheOnce = sync.Once{}
 }
 
-func getCache[T any](cache **lru.Cache[common.Hash, T], once *sync.Once) *lru.Cache[common.Hash, T] {
+func getCache[T any](cache **lru.Cache[common.Hash, T], once *sync.Once, size int) *lru.Cache[common.Hash, T] {
 	once.Do(func() {
-		// BatchAuthLookbackWindow of past blocks + 1 current block + 1 LRU
+		// lookbackWindow past blocks + 1 current block + 1 LRU overhead.
 		// lru.New only errors on size <= 0.
-		*cache, _ = lru.New[common.Hash, T](int(BatchAuthLookbackWindow) + 2)
+		*cache, _ = lru.New[common.Hash, T](size + 2)
 	})
 	return *cache
 }
 
-func getBatchAuthCache() *lru.Cache[common.Hash, map[common.Hash]bool] {
-	return getCache(&batchAuthCache, &batchAuthCacheOnce)
+func getBatchAuthCache(lookbackWindow uint64) *lru.Cache[common.Hash, map[common.Hash]bool] {
+	return getCache(&batchAuthCache, &batchAuthCacheOnce, int(lookbackWindow))
 }
 
-func getBlockRefCache() *lru.Cache[common.Hash, eth.L1BlockRef] {
-	return getCache(&blockRefCache, &blockRefCacheOnce)
+func getBlockRefCache(lookbackWindow uint64) *lru.Cache[common.Hash, eth.L1BlockRef] {
+	return getCache(&blockRefCache, &blockRefCacheOnce, int(lookbackWindow))
 }
 
 // ComputeCalldataBatchHash computes keccak256(calldata), matching the BatchAuthenticator
@@ -134,7 +123,7 @@ func collectAuthEventsFromReceipts(receipts types.Receipts, authenticatorAddr co
 }
 
 // CollectAuthenticatedBatches scans L1 receipts in the range
-// [ref.Number - BatchAuthLookbackWindow, ref.Number] and returns the set of all
+// [ref.Number - lookbackWindow, ref.Number] and returns the set of all
 // batch commitment hashes that were authenticated via BatchInfoAuthenticated events.
 //
 // This is called once per L1 block by the data source, and the returned set is checked
@@ -154,10 +143,11 @@ func CollectAuthenticatedBatches(
 	fetcher L1Fetcher,
 	ref eth.L1BlockRef,
 	authenticatorAddr common.Address,
+	lookbackWindow uint64,
 	logger log.Logger,
 ) (map[common.Hash]bool, error) {
-	cache := getBatchAuthCache()
-	refCache := getBlockRefCache()
+	cache := getBatchAuthCache(lookbackWindow)
+	refCache := getBlockRefCache(lookbackWindow)
 
 	// Cache the starting block ref so future calls that traverse through this
 	// block (as part of their lookback window) can resolve it without an RPC call.
@@ -188,7 +178,7 @@ func CollectAuthenticatedBatches(
 			}
 		}
 
-		if currentBlock.Number == 0 || ref.Number-currentBlock.Number >= BatchAuthLookbackWindow {
+		if currentBlock.Number == 0 || ref.Number-currentBlock.Number >= lookbackWindow {
 			break
 		}
 

@@ -190,6 +190,12 @@ type Config struct {
 	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
 
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
+
+	// BatchAuthLookbackWindow is the number of L1 blocks to scan for BatchInfoAuthenticated events.
+	// Zero means use the default (espresso.DefaultBatchAuthLookbackWindow = 100).
+	// Resolve via BatchAuthLookbackWindowOrDefault (defined in espresso_config.go for !mips64
+	// and espresso_config_mips64.go for mips64, since the espresso package is not mips64-buildable).
+	BatchAuthLookbackWindow uint64 `json:"batch_auth_lookback_window,omitempty"`
 }
 
 // ValidateL1Config checks L1 config variables for errors.

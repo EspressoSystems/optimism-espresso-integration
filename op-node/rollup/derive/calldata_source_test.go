@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -63,8 +64,8 @@ type calldataTest struct {
 // the returned ref when calling functions that invoke CollectAuthenticatedBatches.
 func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1BlockRef, authenticatorAddr common.Address, authenticated []common.Hash) eth.L1BlockRef {
 	startBlock := ref.Number
-	if startBlock > BatchAuthLookbackWindow {
-		startBlock = ref.Number - BatchAuthLookbackWindow
+	if startBlock > espresso.DefaultBatchAuthLookbackWindow {
+		startBlock = ref.Number - espresso.DefaultBatchAuthLookbackWindow
 	} else {
 		startBlock = 0
 	}
@@ -136,6 +137,7 @@ func TestDataFromEVMTransactionsEventAuth(t *testing.T) {
 		l1Signer:                  signer,
 		batchInboxAddress:         batchInboxAddr,
 		batchAuthenticatorAddress: authenticatorAddr,
+		batchAuthLookbackWindow:   espresso.DefaultBatchAuthLookbackWindow,
 	}
 	require.True(t, dsCfg.BatchAuthEnabled())
 

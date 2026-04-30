@@ -1368,7 +1368,7 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 	}
 
 	distance := new(big.Int).Sub(receipt.BlockNumber, verificationReceipt.BlockNumber)
-	lookbackWindow := new(big.Int).SetUint64(uint64(derive.BatchAuthLookbackWindow))
+	lookbackWindow := new(big.Int).SetUint64(l.RollupConfig.BatchAuthLookbackWindowOrDefault())
 	if distance.Sign() < 0 || distance.Cmp(lookbackWindow) >= 0 {
 		l.Log.Error("authenticateBatch transaction too far from batch inbox transaction", "txRef", transactionReference, "distance", distance)
 		receiptsCh <- txmgr.TxReceipt[txRef]{
