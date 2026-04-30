@@ -129,9 +129,7 @@ func TestBatcherSwitching(t *testing.T) {
 	switchReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
-	// Give things time to settle. Capture the current L2 head so the new TEE batcher and
-	// Caff node start streaming at the live head rather than reprocessing the entire chain
-	// history (which would otherwise stall the verifier far behind the sequencer).
+	// Give things time to settle
 	l2Height, err := waitForRollupToMovePastL1Block(ctx, system.RollupClient(e2esys.RoleVerif), switchReceipt.BlockNumber.Uint64())
 	require.NoError(t, err)
 

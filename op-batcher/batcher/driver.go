@@ -1181,31 +1181,28 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		candidate.GasLimit = floorGas
 	}
 
-	if l.Config.UseEspresso && !isCancel {
-		l.teeAuthGroup.Go(
-			func() error {
-				l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)
-				return nil
-			},
-		)
-		return
-	}
+	if !isCancel {
+		// Espresso batcher: authenticate via BatchAuthenticator.
+		if l.Config.UseEspresso {
+			l.teeAuthGroup.Go(
+				func() error {
+					l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)
+					return nil
+				},
+			)
+			return
+		}
 
-	// Fallback batcher: authenticate via BatchAuthenticator if configured.
-	// The fallback path is run inside teeAuthGroup so that multiple frames can be
-	// authenticated and submitted concurrently. Each goroutine still serializes its
-	// own authenticateBatchInfo + BatchInbox pair (preserving the lookback-window
-	// invariant), but distinct frames no longer block on each other's L1 confirmations.
-	// Without this, draining a multi-frame channel through two sequential L1 sends
-	// per frame is too slow to keep up with the channel manager's frame production.
-	if !isCancel && l.hasBatchAuthenticator() {
-		l.teeAuthGroup.Go(
-			func() error {
-				l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
-				return nil
-			},
-		)
-		return
+		// Fallback batcher: authenticate via BatchAuthenticator if configured.
+		if l.hasBatchAuthenticator() {
+			l.teeAuthGroup.Go(
+				func() error {
+					l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
+					return nil
+				},
+			)
+			return
+		}
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)

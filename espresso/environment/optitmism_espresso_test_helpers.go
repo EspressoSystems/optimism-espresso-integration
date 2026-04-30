@@ -288,12 +288,7 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 
 	sysConfig.DeployConfig.DeployCeloContracts = true
 
-	// Activate the EspressoEnforcement hardfork at genesis. Espresso integration tests
-	// deploy the BatchAuthenticator and the espresso batcher posts via authenticated
-	// events from an EOA that is intentionally distinct from SystemConfig.batcherHash;
-	// the verifier must therefore derive in post-fork (event-based) mode for batches
-	// to be accepted. Without this, sender-based authorization rejects every batch and
-	// L2 never advances.
+	// Activate the EspressoEnforcement hardfork at genesis.
 	espressoEnforcementOffset := hexutil.Uint64(0)
 	sysConfig.DeployConfig.L2GenesisEspressoEnforcementTimeOffset = &espressoEnforcementOffset
 

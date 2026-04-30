@@ -186,14 +186,6 @@ type CLIConfig struct {
 	TestingBatcherPrivateKey   *ecdsa.PrivateKey
 	Namespace                  uint64
 	CaffeinationHeightEspresso uint64
-	// CaffeinationHeightL2 is the L2 batch number at which the Espresso streamer starts
-	// emitting batches. It is an operational parameter for restarting batchers/Caff nodes
-	// mid-chain (e.g., after a fallback batcher event the operator wants the new TEE batcher
-	// to begin streaming at the current L2 head rather than reprocessing the entire history).
-	//
-	// When zero, callers fall back to Config.EspressoOriginBatchPos() (derived from the
-	// EspressoEnforcementTime hardfork). This field is independent of the hardfork itself,
-	// which gates derivation semantics consensus-wide.
 	CaffeinationHeightL2       uint64
 	EspressoAttestationService string
 
