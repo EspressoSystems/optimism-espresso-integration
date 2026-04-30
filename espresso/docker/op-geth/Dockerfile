@@ -17,7 +17,8 @@ COPY ./go.sum /app/go.sum
 # Warm-up the cache
 WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
-COPY . /appCOPY ./op-validator/ /app/op-validator/
+COPY . /app
+COPY ./op-validator/ /app/op-validator/
 
 # Build op-deployer
 FROM op-cgo-builder AS op-deployer-builder
