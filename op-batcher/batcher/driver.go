@@ -1211,8 +1211,13 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		if l.hasBatchAuthenticator() {
 			enforcementActive, err := l.isEspressoEnforcementActive(l.killCtx)
 			if err != nil {
-				l.Log.Warn("Failed to evaluate EspressoEnforcement gate for fallback auth, falling through to plain L1 send", "err", err)
-			} else if enforcementActive {
+				receiptsCh <- txmgr.TxReceipt[txRef]{
+					ID:  txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()},
+					Err: fmt.Errorf("failed to evaluate EspressoEnforcement gate for fallback auth: %w", err),
+				}
+				return
+			}
+			if enforcementActive {
 				l.teeAuthGroup.Go(
 					func() error {
 						l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
