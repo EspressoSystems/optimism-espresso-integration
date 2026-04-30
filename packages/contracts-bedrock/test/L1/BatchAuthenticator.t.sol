@@ -11,12 +11,9 @@ import { IProxy } from "interfaces/universal/IProxy.sol";
 import { IProxyAdmin } from "interfaces/universal/IProxyAdmin.sol";
 import { IEspressoTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoTEEVerifier.sol";
 import { IEspressoNitroTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoNitroTEEVerifier.sol";
-import { IEspressoSGXTEEVerifier } from "@espresso-tee-contracts/interface/IEspressoSGXTEEVerifier.sol";
-import { ServiceType } from "@espresso-tee-contracts/types/Types.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
 import { EspressoTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoTEEVerifier.sol";
 import { EspressoNitroTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoNitroTEEVerifierMock.sol";
-import { EspressoSGXTEEVerifierMock } from "@espresso-tee-contracts/mocks/EspressoSGXTEEVerifierMock.sol";
 import {
     VerifierJournal,
     VerificationResult,
@@ -56,7 +53,6 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
     MockSystemConfig public mockSystemConfig;
     EspressoTEEVerifierMock public teeVerifier;
     EspressoNitroTEEVerifierMock public nitroVerifier;
-    EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
     IProxyAdmin public proxyAdmin;
 
@@ -87,10 +83,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         // Deploy the mock TEE verifier with a mock Nitro verifier.
         // and the authenticator implementation.
         nitroVerifier = new EspressoNitroTEEVerifierMock();
-        sgxVerifier = new EspressoSGXTEEVerifierMock();
-        teeVerifier = new EspressoTEEVerifierMock(
-            IEspressoSGXTEEVerifier(address(sgxVerifier)), IEspressoNitroTEEVerifier(address(nitroVerifier))
-        );
+        teeVerifier = new EspressoTEEVerifierMock(IEspressoNitroTEEVerifier(address(nitroVerifier)));
         implementation = new BatchAuthenticator();
 
         // Deploy the proxy admin via vm.getCode to avoid duplicate ProxyAdmin artifacts.
@@ -99,7 +92,9 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
             bytes memory _args = abi.encode(proxyAdminOwner);
             bytes memory _initCode = abi.encodePacked(_code, _args);
             address _addr;
-            assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
+            assembly {
+                _addr := create(0, add(_initCode, 0x20), mload(_initCode))
+            }
             proxyAdmin = IProxyAdmin(_addr);
         }
     }
@@ -124,7 +119,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
     }
 
     function _registerNitroSigner(uint256 privateKey) internal {
-        nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "", ServiceType.BatchPoster);
+        nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "");
     }
 
     /// @notice Create and initialize a proxy.
@@ -514,7 +509,9 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
     function _newProxy(address _admin) internal returns (IProxy) {
         bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
         address payable proxyAddr;
-        assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+        assembly {
+            proxyAddr := create(0, add(initCode, 0x20), mload(initCode))
+        }
         require(proxyAddr != address(0), "BatchAuthenticator_Uncategorized_Test: proxy deployment failed");
         return IProxy(proxyAddr);
     }
@@ -528,7 +525,6 @@ contract BatchAuthenticator_Fork_Test is Test {
     MockSystemConfig public mockSystemConfig;
     EspressoTEEVerifierMock public teeVerifier;
     EspressoNitroTEEVerifierMock public nitroVerifier;
-    EspressoSGXTEEVerifierMock public sgxVerifier;
     BatchAuthenticator public implementation;
     IProxy public proxy;
     IProxyAdmin public proxyAdmin;
@@ -566,10 +562,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Deploy mock SystemConfig and TEE verifier (standalone mode) and authenticator implementation.
         mockSystemConfig = new MockSystemConfig();
         nitroVerifier = new EspressoNitroTEEVerifierMock();
-        sgxVerifier = new EspressoSGXTEEVerifierMock();
-        teeVerifier = new EspressoTEEVerifierMock(
-            IEspressoSGXTEEVerifier(address(sgxVerifier)), IEspressoNitroTEEVerifier(address(nitroVerifier))
-        );
+        teeVerifier = new EspressoTEEVerifierMock(IEspressoNitroTEEVerifier(address(nitroVerifier)));
         implementation = new BatchAuthenticator();
 
         // Deploy proxy admin via vm.getCode to avoid duplicate ProxyAdmin artifacts.
@@ -578,7 +571,9 @@ contract BatchAuthenticator_Fork_Test is Test {
             bytes memory _args = abi.encode(proxyAdminOwner);
             bytes memory _initCode = abi.encodePacked(_code, _args);
             address _addr;
-            assembly { _addr := create(0, add(_initCode, 0x20), mload(_initCode)) }
+            assembly {
+                _addr := create(0, add(_initCode, 0x20), mload(_initCode))
+            }
             proxyAdmin = IProxyAdmin(_addr);
         }
         proxy = _newProxy(address(proxyAdmin));
@@ -628,7 +623,7 @@ contract BatchAuthenticator_Fork_Test is Test {
     }
 
     function _registerNitroSigner(uint256 privateKey) internal {
-        nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "", ServiceType.BatchPoster);
+        nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "");
     }
 
     /// @notice Test deployment and initialization on Sepolia fork.
@@ -731,7 +726,9 @@ contract BatchAuthenticator_Fork_Test is Test {
     function _newProxy(address _admin) internal returns (IProxy) {
         bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
         address payable proxyAddr;
-        assembly { proxyAddr := create(0, add(initCode, 0x20), mload(initCode)) }
+        assembly {
+            proxyAddr := create(0, add(initCode, 0x20), mload(initCode))
+        }
         require(proxyAddr != address(0), "BatchAuthenticator_Fork_Test: proxy deployment failed");
         return IProxy(proxyAddr);
     }
