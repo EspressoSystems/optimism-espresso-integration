@@ -1006,9 +1006,10 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
 		if err != nil {
-			l.batcher.Log.Warn("Failed to fetch block", "err", err)
+			l.batcher.degradedLog.Warn(l.batcher.Log, "fetchBlockErr", "Failed to fetch block", "err", err)
 			break
 		}
+		l.batcher.degradedLog.Clear(l.batcher.Log, "fetchBlockErr", "Block fetching recovered")
 
 		for _, txn := range block.Transactions() {
 			l.batcher.Log.Debug("tx hash before submitting to Espresso", "hash", txn.Hash().String())
@@ -1068,9 +1069,10 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 
 	if newSyncStatus.CurrentL1.Number < l.prevSyncStatus.CurrentL1.Number {
 		// sequencer restarted and hasn't caught up yet
-		l.batcher.Log.Warn("sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1.Number)
+		l.batcher.degradedLog.Warn(l.batcher.Log, "sequencerCurrentL1Reversed", "sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1.Number)
 		return inclusiveBlockRange{}, ActionRetry
 	}
+	l.batcher.degradedLog.Clear(l.batcher.Log, "sequencerCurrentL1Reversed", "sequencer currentL1 caught up")
 
 	safeL2 := newSyncStatus.SafeL2
 
