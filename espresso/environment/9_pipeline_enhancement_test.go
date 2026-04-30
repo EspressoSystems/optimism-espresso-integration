@@ -92,7 +92,7 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	// Mock the L1 Beacon client as by default system.RollupConfig.EcotoneTime = 0
 	p := mocks.NewBeaconClient(t)
-	f := mocks.NewBlobSideCarsClient(t)
+	f := mocks.NewBeaconClient(t)
 	c := sources.NewL1BeaconClient(p, sources.L1BeaconClientConfig{}, f)
 
 	factory := derive.NewDataSourceFactory(l, system.RollupConfig, l1RefClient, c, nil)
