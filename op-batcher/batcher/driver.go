@@ -685,9 +685,10 @@ func (l *BatchSubmitter) blockLoadingLoop(ctx context.Context, wg *sync.WaitGrou
 					l.waitNodeSyncAndClearState()
 					continue
 				case err != nil:
-					l.Log.Warn("error loading blocks, retrying on next tick", "err", err)
+					l.degradedLog.Warn(l.Log, "loadBlocksErr", "error loading blocks, retrying on next tick", "err", err)
 					continue
 				default:
+					l.degradedLog.Clear(l.Log, "loadBlocksErr", "block loading recovered")
 					l.sendToThrottlingLoop(unsafeBytesUpdated) // we have increased the unsafe data. Signal the throttling loop to check if it should throttle.
 				}
 			}
@@ -769,17 +770,18 @@ func (l *BatchSubmitter) singleEndpointThrottler(wg *sync.WaitGroup, throttleSig
 			return
 		} else if err != nil {
 			// Transport-level errors are retried.
-			l.Log.Warn("SetMaxDASize RPC failed for endpoint, retrying.", "endpoint", endpoint, "err", err)
+			l.degradedLog.Warn(l.Log, "setMaxDASizeFailed/"+endpoint, "SetMaxDASize RPC failed for endpoint, retrying.", "endpoint", endpoint, "err", err)
 			retryTimer.Reset(retryInterval)
 			return
 		}
 
 		if !success {
-			l.Log.Warn("Result of SetMaxDASize was false for endpoint, retrying.", "endpoint", endpoint)
+			l.degradedLog.Warn(l.Log, "setMaxDASizeFailed/"+endpoint, "Result of SetMaxDASize was false for endpoint, retrying.", "endpoint", endpoint)
 			retryTimer.Reset(retryInterval)
 			return
 		}
 
+		l.degradedLog.Clear(l.Log, "setMaxDASizeFailed/"+endpoint, "SetMaxDASize recovered for endpoint", "endpoint", endpoint)
 		l.Log.Debug("Successfully set max DA size on endpoint",
 			"endpoint", endpoint,
 			"max_tx_size", params.MaxTxSize,
