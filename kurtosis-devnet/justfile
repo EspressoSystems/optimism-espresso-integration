@@ -31,6 +31,7 @@ _docker_build_stack TAG TARGET *ARGS: (_docker_build TAG TARGET "../" "ops/docke
 cannon-image TAG='cannon:devnet': (_docker_build_stack TAG "cannon-target")
 da-server-image TAG='da-server:devnet': (_docker_build_stack TAG "da-server-target")
 op-batcher-image TAG='op-batcher:devnet': (_docker_build_stack TAG "op-batcher-target")
+op-batcher-enclave-image TAG='op-batcher-enclave:devnet': (_docker_build_stack TAG "op-batcher-enclave-target")
 op-challenger-image TAG='op-challenger:devnet': (_docker_build_stack TAG "op-challenger-target")
 op-conductor-image TAG='op-conductor:devnet': (_docker_build_stack TAG "op-conductor-target")
 op-deployer-image TAG='op-deployer:devnet': (_docker_build_stack TAG "op-deployer-target")
