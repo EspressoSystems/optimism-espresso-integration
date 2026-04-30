@@ -77,6 +77,8 @@ gen_bindings_cmd:="./espresso/scripts/gen_bindings.sh"
 gen-bindings:
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/BatchAuthenticator.sol/BatchAuthenticator.json > ./{{bindings_dir}}/batch_authenticator.go
   {{gen_bindings_cmd}} {{forge_artifacts_dir}}/OPSuccinctFaultDisputeGame.sol/OPSuccinctFaultDisputeGame.json > ./{{bindings_dir}}/opsuccinct_fault_dispute_game.go
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/EspressoTEEVerifier.sol/EspressoTEEVerifier.json > ./{{bindings_dir}}/espresso_tee_verifier.go
+  {{gen_bindings_cmd}} {{forge_artifacts_dir}}/EspressoNitroTEEVerifier.sol/EspressoNitroTEEVerifier.json > ./{{bindings_dir}}/espresso_nitro_tee_verifier.go
 
 smoke-tests: compile-contracts
  go test -run ^TestEspressoDockerDevNodeSmokeTest$ ./espresso/environment -v
