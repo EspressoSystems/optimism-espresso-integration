@@ -2563,9 +2563,11 @@ jobs:
             - run:
                 # Scan changed files in PRs, block on new issues only (existing issues ignored)
                 # Do a full scan when scanning develop, otherwise do an incremental scan.
-                name: "Conditionally set BASELINE env var"
+                # espresso: fetch the baseline branch so it exists as a local git object.
+                name: "Fetch baseline branch and set BASELINE env var"
                 command: |
-                  echo 'export SEMGREP_BASELINE_REF=${TEMPORARY_BASELINE_REF}' >> $BASH_ENV
+                  git fetch origin << parameters.diff_branch >>
+                  echo 'export SEMGREP_BASELINE_REF=origin/${TEMPORARY_BASELINE_REF}' >> $BASH_ENV
       - run:
           name: "Set environment variables" # for PR comments and in-app hyperlinks to findings
           command: |
