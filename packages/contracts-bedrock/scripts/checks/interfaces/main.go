@@ -27,6 +27,10 @@ var excludeContracts = []string{
 	// Espresso dependencies
 	"IBatchAuthenticator", "IEspressoTEEVerifier", "IEspressoNitroTEEVerifier",
 	"ICertManager", "BatchAuthenticator", "INitroValidator",
+	// Succinct SP1 verifier interfaces (third-party, use ^0.8.20 not ^0.8.0)
+	"ISP1Verifier", "ISP1VerifierWithHash",
+	// Espresso TEE submodule deep dependency interfaces (vendor-controlled pragma)
+	"IDaoAttestationResolver", "IPCCSRouter", "IQuoteVerifier",
 
 	// EAS
 	"IEAS", "ISchemaResolver", "ISchemaRegistry",
@@ -90,6 +94,9 @@ var excludeSourceContracts = []string{
 
 	// FIXME
 	"WETH", "MIPS64",
+
+	// Succinct contracts (third-party, no corresponding interfaces needed)
+	"AccessManager", "SP1MockVerifier", "OPSuccinctFaultDisputeGame",
 
 	// Celo
 	"AbstractFeeCurrency",
@@ -214,6 +221,17 @@ func processFile(artifactPath string) (*common.Void, []error) {
 		return nil, []error{fmt.Errorf("%s: Interface does not start with 'I'", contractName)}
 	}
 
+	// Espresso: skip interface artifacts that originate from lib/ (e.g. OZ v5 interfaces
+	// compiled transitively via espresso-tee-contracts). These are vendor-controlled and
+	// should not be subject to our interface version or ABI-match requirements.
+	forgeArtifact, err := common.ReadForgeArtifact(artifactPath)
+	if err != nil {
+		return nil, []error{fmt.Errorf("failed to read forge artifact: %w", err)}
+	}
+	if strings.HasPrefix(forgeArtifact.Ast.AbsolutePath, "lib/") {
+		return nil, nil
+	}
+
 	semver, err := getContractSemver(artifact)
 	if err != nil {
 		return nil, []error{fmt.Errorf("failed to get contract semver: %w", err)}
@@ -227,6 +245,16 @@ func processFile(artifactPath string) (*common.Void, []error) {
 	correspondingContractFile := filepath.Join(artifactsDir, contractBasename+".sol", contractBasename+".json")
 
 	if _, err := os.Stat(correspondingContractFile); errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+
+	// Espresso: skip ABI comparison if the corresponding contract artifact is from lib/
+	// (e.g. OZ v5 Ownable.json replacing OZ v4 Ownable.json as the "main" artifact).
+	correspondingForgeArtifact, err := common.ReadForgeArtifact(correspondingContractFile)
+	if err != nil {
+		return nil, []error{fmt.Errorf("failed to read corresponding forge artifact: %w", err)}
+	}
+	if strings.HasPrefix(correspondingForgeArtifact.Ast.AbsolutePath, "lib/") {
 		return nil, nil
 	}
 

@@ -16,9 +16,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/config"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -117,16 +117,16 @@ func LaunchCaffNode(t *testing.T, system *e2esys.System, espressoDevNode Espress
 	caffNodeConfig := *system.Cfg.Nodes[e2esys.RoleVerif]
 	caffNodeConfig.L1ChainConfig = system.L1GenesisCfg.Config
 	caffNodeConfig.Rollup = *system.RollupConfig
-	caffNodeConfig.Rollup.CaffNodeConfig = espresso.CLIConfig{
+	caffNodeConfig.Rollup.CaffNodeConfig = rollup.CaffNodeConfigFromCLIConfig(espresso.CLIConfig{
 		Enabled:      true,
 		PollInterval: 30 * time.Millisecond,
 		// To create a valid multiple nodes client, we need to provide at least 2 URLs.
 		QueryServiceURLs:       []string{u.String(), u.String()},
 		L1URL:                  system.L1.UserRPC().RPC(),
 		RollupL1URL:            system.L1.UserRPC().RPC(),
-		LightClientAddr:        common.HexToAddress(ESPRESSO_LIGHT_CLIENT_ADDRESS),
+		LightClientAddr:        EspressoLightClientAddr(),
 		BatchAuthenticatorAddr: system.RollupConfig.BatchAuthenticatorAddress,
-	}
+	})
 
 	for _, opt := range opts {
 		opt(&caffNodeConfig)

@@ -1,6 +1,8 @@
 package geth
 
 import (
+	"errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
@@ -45,5 +47,11 @@ func (gi *GethInstance) Close() error {
 }
 
 func (gi *GethInstance) Fork(parentHash common.Hash) error {
-	return gi.fakePoS.Fork(parentHash)
+	gi.Backend.TxPool().Clear()
+	parent := gi.Backend.BlockChain().GetBlockByHash(parentHash)
+	if parent == nil {
+		return errors.New("parent not found")
+	}
+	_, err := gi.Backend.BlockChain().SetCanonical(parent)
+	return err
 }

@@ -247,7 +247,7 @@ services:
       OP_NODE_L1_BEACON: http://l1-anvil:${L1_HTTP_PORT}
       OP_NODE_L2_ENGINE_RPC: http://op-geth-caff-node:${OP_ENGINE_PORT}
       OP_NODE_ESPRESSO_L1_URL: http://l1-anvil:${L1_HTTP_PORT}
-      OP_NODE_ESPRESSO_LIGHT_CLIENT_ADDR: "0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797"
+      OP_NODE_ESPRESSO_LIGHT_CLIENT_ADDR: "${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}"
       OP_NODE_ESPRESSO_URLS: http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT},http://espresso-dev-node:${ESPRESSO_SEQUENCER_API_PORT}
       OP_NODE_RPC_PORT: ${CAFF_PORT}
     ports:
@@ -261,6 +261,7 @@ services:
       - --rpc.addr=0.0.0.0
       - --sequencer.enabled=false
       - --espresso.enabled=true
+      - --espresso.light-client-addr=${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       - --verifier.l1-confs=0
       - --rollup.load-protocol-versions=false
       - --rollup.halt=none
@@ -308,7 +309,7 @@ services:
       - --espresso.enabled=true
       - --espresso.poll-interval=1s
       - --espresso.espresso-attestation-service=http://attestation-service-zk:${ESPRESSO_ATTESTATION_VERIFIER_PORT}
-      - --espresso.light-client-addr=0x703848f4c85f18e3acd8196c8ec91eb0b7bd0797
+      - --espresso.light-client-addr=${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       - --espresso.testing-batcher-private-key=${OP_TESTING_BATCHER_PRIVATE_KEY:-$OPERATOR_PRIVATE_KEY}
       - --private-key=${OP_BATCHER_PRIVATE_KEY:-$ESPRESSO_BATCHER_PRIVATE_KEY}
       - --throttle.unsafe-da-bytes-lower-threshold=0
@@ -370,6 +371,11 @@ services:
       dockerfile: espresso/docker/op-stack/Dockerfile
       target: op-batcher-enclave-app
     image: op-batcher-enclave-app:espresso
+    # Build-only image. This service is not intended to be run as part of the devnet, but
+    # `docker compose up` will start it if it shares the active profile.
+    # Override the entrypoint so it doesn't execute the enclave batcher entrypoint script.
+    entrypoint: ["sh", "-c"]
+    command: ["true"]
 
   op-batcher-tee:
     profiles: ["tee"]
@@ -407,6 +413,7 @@ services:
     env_file:
       - ./.env
     environment:
+      ESPRESSO_LIGHT_CLIENT_ADDR: ${ESPRESSO_SEQUENCER_LIGHT_CLIENT_PROXY_ADDRESS}
       http_proxy: http://127.0.0.1:3128
       HTTP_PROXY: http://127.0.0.1:3128
       OPERATOR_PRIVATE_KEY: ${OPERATOR_PRIVATE_KEY}
@@ -655,7 +662,7 @@ services:
     restart: unless-stopped
 
   attestation-service-zk:
-    image: ghcr.io/espressosystems/attestation-verifier-zk:sha-0e987c3
+    image: ${ESPRESSO_ATTESTATION_VERIFIER_DOCKER_IMAGE}
     platform: linux/amd64
     ports:
       - "${ESPRESSO_ATTESTATION_VERIFIER_PORT}:${ESPRESSO_ATTESTATION_VERIFIER_PORT}"
@@ -702,10 +709,11 @@ services:
       ESPRESSO_DEV_NODE_L1_DEPLOYMENT: skip
       RUST_BACKTRACE: 1
       ESPRESSO_SEQUENCER_STORAGE_PATH: /data/espresso
-      ESPRESSO_SEQUENCER_L1_PROVIDER: http://l1-anvil:${L1_HTTP_PORT}
+      ESPRESSO_L1_PROVIDER: http://l1-anvil:${L1_HTTP_PORT}
+      ESPRESSO_NODE_API_PORT: ${ESPRESSO_SEQUENCER_API_PORT}
       ESPRESSO_DEPLOYER_ACCOUNT_INDEX: 0
       ESPRESSO_DEV_NODE_EPOCH_HEIGHT: "4294967295"
-      ESPRESSO_SEQUENCER_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
+      ESPRESSO_ETH_MNEMONIC: "giant issue aisle success illegal bike spike question tent bar rely arctic volcano long crawl hungry vocal artwork sniff fantasy very lucky have athlete"
       ESPRESSO_DEV_NODE_VERSION: "0.4"
 
   blockscout-db:

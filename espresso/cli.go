@@ -31,9 +31,26 @@ func espressoEnvs(envprefix, v string) []string {
 // Defined here so that both the CLI flag defaults and the batcher logic
 // can reference a single source of truth.
 const (
-	DefaultVerifyReceiptMaxBlocks     uint64        = 5
-	DefaultVerifyReceiptSafetyTimeout time.Duration = 5 * time.Minute
-	DefaultVerifyReceiptRetryDelay    time.Duration = 100 * time.Millisecond
+	DefaultVerifyReceiptMaxBlocks        uint64        = 5
+	DefaultVerifyReceiptSafetyTimeout    time.Duration = 5 * time.Minute
+	DefaultVerifyReceiptRetryDelay       time.Duration = 100 * time.Millisecond
+	DefaultMaxInFlightRequestsToEspresso               = 128
+
+	// DefaultBatchAuthLookbackWindow is the default number of L1 blocks before
+	// the batch submission to scan for a BatchInfoAuthenticated event. The
+	// authentication transaction must land in this window (or in the same block
+	// as the batch submission) for the batch to be considered valid.
+	//
+	// At ~12s per L1 block, 100 blocks ≈ 20 minutes. This gives the batcher
+	// time to land the batch data transaction on L1 after the authentication
+	// transaction, even under L1 congestion or batcher restarts. The window is
+	// intentionally generous: a tighter window risks rejecting valid batches
+	// during congestion spikes.
+	//
+	// Not exposed as a CLI flag; configured per-chain via rollup.json
+	// (Config.BatchAuthLookbackWindow) and consumed via
+	// rollup.Config.BatchAuthLookbackWindowOrDefault().
+	DefaultBatchAuthLookbackWindow uint64 = 100
 )
 
 var (
@@ -97,14 +114,14 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 		&cli.Uint64Flag{
 			Name:     CaffeinationHeightEspresso,
 			Usage:    "Espresso transactions below this height will not be considered",
-			EnvVars:  espressoEnvs(envPrefix, "CAFFEINATION_HEIGHT_ESPRESSO"),
+			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT_ESPRESSO"),
 			Category: category,
 		},
 		&cli.Uint64Flag{
 			Name:     CaffeinationHeightL2,
 			Usage:    "L2 height at which derivation pipeline of Caff node switches to Espresso",
 			Value:    0,
-			EnvVars:  espressoEnvs(envPrefix, "CAFFEINATION_HEIGHT_L2"),
+			EnvVars:  espressoEnvs(envPrefix, "ORIGIN_HEIGHT_L2"),
 			Category: category,
 		},
 		&cli.Uint64Flag{

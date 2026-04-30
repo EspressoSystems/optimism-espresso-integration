@@ -38,7 +38,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	op_crypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	op_signer "github.com/ethereum-optimism/optimism/op-service/signer"
-	"github.com/ethereum/go-ethereum"
+	ethereum "github.com/ethereum/go-ethereum"
 	geth_common "github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	geth_crypto "github.com/ethereum/go-ethereum/crypto"

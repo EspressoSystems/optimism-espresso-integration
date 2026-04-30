@@ -13,7 +13,7 @@ yq = "4.44.5"
 shellcheck = "0.10.0"
 shfmt = "3.11.0"
 direnv = "2.35.0"
-just = "1.37.0"
+just = "1.50.0"
 
 svm-rs = "0.5.19"
 

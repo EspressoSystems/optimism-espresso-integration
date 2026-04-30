@@ -123,6 +123,8 @@ type espressoTransactionSubmitter struct {
 	verifyReceiptMaxBlocks     uint64
 	verifyReceiptSafetyTimeout time.Duration
 	verifyReceiptRetryDelay    time.Duration
+	numInFlightJobs            atomic.Int64
+	numMaxInFlightJobs         int
 }
 
 // EspressoTransactionSubmitterConfig is a configuration struct for the
@@ -139,6 +141,7 @@ type EspressoTransactionSubmitterConfig struct {
 	VerifyReceiptMaxBlocks             uint64
 	VerifyReceiptSafetyTimeout         time.Duration
 	VerifyReceiptRetryDelay            time.Duration
+	MaxInFlightJobs                    int
 }
 
 // EspressoTransactionSubmitterOption is a function that can be used to
@@ -193,10 +196,19 @@ func WithVerifyReceiptRetryDelay(d time.Duration) EspressoTransactionSubmitterOp
 	}
 }
 
+// WithMaxInFlightJobs sets the maximum number of inflight requests to
+// have at once.  Once at capacity all new submission attempts will
+// automatically fail.
+func WithMaxInFlightJobs(n int) EspressoTransactionSubmitterOption {
+	return func(config *EspressoTransactionSubmitterConfig) {
+		config.MaxInFlightJobs = n
+	}
+}
+
 // NewEspressoTransactionSubmitter creates a new EspressoTransactionSubmitter
-// with the given context and espresso client.  It will create a new transaction
-// submitter with some default options, and apply those options to the
-// configuration.
+// throttle with the given context and espresso client.  It will create a new
+// transaction submitter with some default options, and apply those options to
+// the configuration.
 //
 // The resulting instance should reflect the given configuration.
 // After returning, the caller should call SpawnWorkers to start the workers,
@@ -207,13 +219,14 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 	config := EspressoTransactionSubmitterConfig{
 		Ctx:                                context.Background(),
 		Wg:                                 new(sync.WaitGroup),
-		SubmitJobQueueCapacity:             1024,
+		SubmitJobQueueCapacity:             espresso.DefaultMaxInFlightRequestsToEspresso,
 		SubmitResponseQueueCapacity:        10,
-		VerifyReceiptJobQueueCapacity:      1024,
+		VerifyReceiptJobQueueCapacity:      espresso.DefaultMaxInFlightRequestsToEspresso,
 		VerifyReceiptResponseQueueCapacity: 10,
 		VerifyReceiptMaxBlocks:             espresso.DefaultVerifyReceiptMaxBlocks,
 		VerifyReceiptSafetyTimeout:         espresso.DefaultVerifyReceiptSafetyTimeout,
 		VerifyReceiptRetryDelay:            espresso.DefaultVerifyReceiptRetryDelay,
+		MaxInFlightJobs:                    espresso.DefaultMaxInFlightRequestsToEspresso,
 	}
 
 	for _, option := range options {
@@ -237,18 +250,69 @@ func NewEspressoTransactionSubmitter(options ...EspressoTransactionSubmitterOpti
 		verifyReceiptMaxBlocks:     config.VerifyReceiptMaxBlocks,
 		verifyReceiptSafetyTimeout: config.VerifyReceiptSafetyTimeout,
 		verifyReceiptRetryDelay:    config.VerifyReceiptRetryDelay,
+		numInFlightJobs:            atomic.Int64{},
+		numMaxInFlightJobs:         config.MaxInFlightJobs,
 	}
+}
+
+// ErrTooManyInFlightRequests is an error that is returned when there are
+// too many requests in flight at once right now.
+type ErrTooManyInFlightRequests struct {
+	NumInFlightRequests int
+	MaxInFlightRequests int
+}
+
+// Error implements error
+func (e ErrTooManyInFlightRequests) Error() string {
+	return fmt.Sprintf("too many requests in flight to espresso, in flight requests: %d, maximum allowed: %d", e.NumInFlightRequests, e.MaxInFlightRequests)
+}
+
+// ErrSubmitToEspressoChannelFull is an error that is returned when the channel
+// to submit a transaction to the espresso job channel is full.
+//
+// This ultimately means that the channel buffer size of the job channel is
+// smaller than the max number of in flight requests allowed.
+type ErrSubmitToEspressoChannelFull struct {
+	Capacity int
+	Len      int
+}
+
+// Error implements error
+func (e ErrSubmitToEspressoChannelFull) Error() string {
+	return fmt.Sprintf("submit transaction to espresso job channel is full, len: %d, capacity: %d", e.Len, e.Capacity)
 }
 
 // SubmitTransaction will submit a transaction to the Job queue.
 //
-// NOTE: This submits to a channel, and as a result, if the channel is full,
-// it will block execution until the channel is able to accept the job.
-// If the channel is buffered with sufficient space, it should not cause
-// any blocking issues.
-func (s *espressoTransactionSubmitter) SubmitTransaction(job *espressoCommon.Transaction) {
-	s.submitJobQueue <- espressoSubmitTransactionJob{
+// NOTE: There is a limit on the maximum number of inflight requests we allow
+// at once.  If we're over or at capacity, we'll return an error indicating so.
+// If we have capacity available, we'll attempt to submit to the channel, and
+// if we're unable to, we'll return an error.  This will **NOT** block.
+func (s *espressoTransactionSubmitter) SubmitTransaction(job *espressoCommon.Transaction) error {
+	// Check to see if we're over capacity, and if we are, then immediately
+	// return an error.
+	if numInFlightRequests, numMaxInFlightRequests := s.numInFlightJobs.Load(), int64(s.numMaxInFlightJobs); numInFlightRequests >= numMaxInFlightRequests {
+		return ErrTooManyInFlightRequests{
+			NumInFlightRequests: int(numInFlightRequests),
+			MaxInFlightRequests: int(numMaxInFlightRequests),
+		}
+	}
+
+	// Construct the job submission
+	jobSubmission := espressoSubmitTransactionJob{
 		transaction: job,
+	}
+
+	select {
+	default:
+		return ErrSubmitToEspressoChannelFull{
+			Len:      len(s.submitJobQueue),
+			Capacity: cap(s.submitJobQueue),
+		}
+	case s.submitJobQueue <- jobSubmission:
+		// increment in flight requests
+		s.numInFlightJobs.Add(1)
+		return nil
 	}
 }
 
@@ -331,6 +395,7 @@ func (s *espressoTransactionSubmitter) handleTransactionSubmitJobResponse() {
 
 		switch evaluation := evaluateSubmission(jobResp); evaluation {
 		case Skip:
+			s.numInFlightJobs.Add(-1)
 			continue
 		case RetrySubmission:
 			s.submitJobQueue <- jobResp.job
@@ -440,6 +505,8 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 
 		switch evaluation := s.evaluateVerification(jobResp); evaluation {
 		case Skip:
+			// decrement in flight jobs on skip, since we're done with this job
+			s.numInFlightJobs.Add(-1)
 			continue
 		case RetrySubmission:
 			s.submitJobQueue <- jobResp.job.transaction
@@ -449,6 +516,7 @@ func (s *espressoTransactionSubmitter) handleVerifyReceiptJobResponse() {
 			continue
 		}
 
+		s.numInFlightJobs.Add(-1)
 		// We're done with this job and transaction, we have successfully
 		// confirmed that the transaction was submitted to Espresso
 		commitment := jobResp.job.transaction.transaction.Commit()
@@ -758,7 +826,9 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	hash, _ := tagged_base64.New("TX", commitment[:])
 	l.Log.Info("Created Espresso transaction from batch", "hash", hash, "batchNr", espressoBatch.BatchHeader.Number.Uint64())
 
-	l.espressoSubmitter.SubmitTransaction(transaction)
+	if err := l.espressoSubmitter.SubmitTransaction(transaction); err != nil {
+		return fmt.Errorf("failed to submit job to espresso: %w", err)
+	}
 
 	return nil
 }
@@ -947,12 +1017,19 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 
 		blockRef, err := derive.L2BlockToBlockRef(l.batcher.RollupConfig, block)
 		if err != nil {
-			continue
+			// NOTE: if we fail to convert an L2Block to a BlockRef, it's
+			// unlikely that breaking here, and waiting for resubmission would
+			// actually ever result in it succeeding.
+			// For now, we add a log, but this may be a Fatal unrecoverable
+			// error if it ever occurs.
+			l.batcher.Log.Warn("failed to convert block to block reference", "err", err)
+			break
 		}
 
 		err = l.batcher.queueBlockToEspresso(ctx, block)
 		if err != nil {
-			continue
+			l.batcher.Log.Debug("queue block to espresso failed", "err", err)
+			break
 		}
 
 		l.queuedBlocks = append(l.queuedBlocks, blockRef)
@@ -1041,6 +1118,18 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 	return inclusiveBlockRange{lastQueuedBlock.Number + 1, newSyncStatus.UnsafeL2.Number}, ActionEnqueue
 }
 
+// numBlocks is a convenience method for inclusiveBlockRange that can be
+// utilized to quickly determine how many blocks are being referenced within
+// the range.
+func (i inclusiveBlockRange) numBlocks() uint64 {
+	return 1 + i.end - i.start
+}
+
+// LARGE_BLOCK_GAP_THRESHOLD is a threshold for the number of blocks that we
+// consider to be a "large gap" when queueing blocks to Espresso.  We're
+// interested in being alerted when we're falling behind.
+const LARGE_BLOCK_GAP_THRESHOLD = 30 * 60
+
 // blockLoadingLoop
 // -  polls the sequencer,
 // -  queues unsafe blocks from the sequencer to Espresso
@@ -1072,8 +1161,26 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 
 			blocksToQueue, action := loader.nextBlockRange(newSyncStatus)
 
+			// We add a check here to add visibility to us that we've exceeded
+			// a threshold.
+			if numBlocks := blocksToQueue.numBlocks(); numBlocks >= LARGE_BLOCK_GAP_THRESHOLD {
+				l.Log.Warn("Large gap of blocks to enqueue to Espresso detected", "numBlocks", numBlocks, "blocksToQueue", blocksToQueue)
+			}
+
 			if action == ActionEnqueue {
+				numEnqueuedBlocksBefore := len(loader.queuedBlocks)
 				loader.EnqueueBlocks(ctx, blocksToQueue)
+				numEnqueuedBlocksAfter := len(loader.queuedBlocks)
+
+				// This is a check to help us determine whether we're able to
+				// push through all of the blocks we've attempted to or not.
+				if (numEnqueuedBlocksAfter - numEnqueuedBlocksBefore) < int(blocksToQueue.numBlocks()) {
+					// If we're in this conditional, it means we weren't able
+					// submit all of the blocks to Espresso that we were
+					// attempting to.
+					//
+					// TODO: We should probably throttle a bit.
+				}
 			} else if action == ActionReset {
 				loader.reset(ctx)
 			}
@@ -1314,7 +1421,7 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 	}
 
 	distance := new(big.Int).Sub(receipt.BlockNumber, verificationReceipt.BlockNumber)
-	lookbackWindow := new(big.Int).SetUint64(uint64(derive.BatchAuthLookbackWindow))
+	lookbackWindow := new(big.Int).SetUint64(l.RollupConfig.BatchAuthLookbackWindowOrDefault())
 	if distance.Sign() < 0 || distance.Cmp(lookbackWindow) >= 0 {
 		l.Log.Error("authenticateBatch transaction too far from batch inbox transaction", "txRef", transactionReference, "distance", distance)
 		receiptsCh <- txmgr.TxReceipt[txRef]{

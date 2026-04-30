@@ -3,7 +3,7 @@ set -euo pipefail
 set -x
 
 echo "[*] Setting up Cachix"
-cachix authtoken $1
+cachix authtoken "$1"
 # Retry cachix use (cachix.org can return 502 Bad Gateway transiently)
 for attempt in {1..5}; do
   if cachix use espresso-systems-private; then
@@ -39,4 +39,4 @@ sudo systemctl start nitro-enclaves-allocator.service
 
 echo "[*] Running tests in nix develop shell..."
 
-nix develop --command bash -c "source ./espresso/.env && just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"
+nix develop --command bash -c "set -a && source ./espresso/.env && set +a && just compile-contracts-fast && just build-batcher-enclave-image && just espresso-enclave-tests"

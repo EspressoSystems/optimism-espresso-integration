@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
@@ -136,6 +137,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		l1Signer:                  signer,
 		batchInboxAddress:         batchInboxAddr,
 		batchAuthenticatorAddress: authenticatorAddr,
+		batchAuthLookbackWindow:   espresso.DefaultBatchAuthLookbackWindow,
 	}
 	require.True(t, config.BatchAuthEnabled())
 
