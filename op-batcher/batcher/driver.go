@@ -947,12 +947,12 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 		if l.hasBatchAuthenticator() {
 			consultActiveFlag := l.Config.UseEspresso
 			if !consultActiveFlag {
-				enforcementActive, err := l.isEspressoEnforcementActive(ctx)
+				fallbackAuthRequired, err := l.isFallbackAuthRequired(ctx)
 				if err != nil {
-					l.Log.Warn("Failed to evaluate EspressoEnforcement gate, skipping publish", "err", err)
+					l.Log.Warn("Failed to evaluate fallback-auth gate, skipping publish", "err", err)
 					return
 				}
-				consultActiveFlag = enforcementActive
+				consultActiveFlag = fallbackAuthRequired
 			}
 			if consultActiveFlag {
 				isActive, err := l.isBatcherActive(ctx)
@@ -1217,15 +1217,15 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		// irrelevant. Calling authenticateBatchInfo pre-fork would also revert
 		// against the default activeIsEspresso=true contract state.
 		if l.hasBatchAuthenticator() {
-			enforcementActive, err := l.isEspressoEnforcementActive(l.killCtx)
+			fallbackAuthRequired, err := l.isFallbackAuthRequired(l.killCtx)
 			if err != nil {
 				receiptsCh <- txmgr.TxReceipt[txRef]{
 					ID:  txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()},
-					Err: fmt.Errorf("failed to evaluate EspressoEnforcement gate for fallback auth: %w", err),
+					Err: fmt.Errorf("failed to evaluate fallback-auth gate: %w", err),
 				}
 				return
 			}
-			if enforcementActive {
+			if fallbackAuthRequired {
 				l.teeAuthGroup.Go(
 					func() error {
 						l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)

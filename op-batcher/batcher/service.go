@@ -81,6 +81,14 @@ type BatcherConfig struct {
 	VerifyReceiptMaxBlocks     uint64
 	VerifyReceiptSafetyTimeout time.Duration
 	VerifyReceiptRetryDelay    time.Duration
+
+	// FallbackAuthLeadTime is consulted only by the fallback (non-TEE)
+	// batcher's EspressoEnforcement gate. It advances the fallback batcher's
+	// switch to authenticated batches relative to the on-chain
+	// EspressoEnforcementTime, absorbing the worst-case L1 inclusion delay
+	// between batcher decision time (L1 tip) and verifier evaluation time
+	// (containing L1 block). See isFallbackAuthRequired for details.
+	FallbackAuthLeadTime time.Duration
 }
 
 // BatcherService represents a full batch-submitter instance and its resources,
@@ -730,6 +738,12 @@ func (bs *BatcherService) HTTPEndpoint() string {
 }
 
 func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
+	// FallbackAuthLeadTime is consulted by the fallback (non-TEE) batcher and
+	// must be propagated regardless of whether --espresso.enabled is set —
+	// the fallback batcher runs with Enabled=false but still needs this knob
+	// when a BatchAuthenticator is configured on the rollup.
+	bs.FallbackAuthLeadTime = cfg.Espresso.FallbackAuthLeadTime
+
 	if !cfg.Espresso.Enabled {
 		return nil
 	}

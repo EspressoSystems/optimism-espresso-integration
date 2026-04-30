@@ -124,6 +124,7 @@ All Espresso flags are prefixed with `espresso.` and defined in `espresso/cli.go
 | `espresso.origin-height-l2` | L2 batch position at which the streamer starts emitting (operational; defaults to fork-derived value when 0) |
 | `espresso.poll-interval` | HotShot polling interval (default 250ms) |
 | `espresso.espresso-attestation-service` | Attestation verifier service URL |
+| `espresso.fallback-auth-lead-time` | How far ahead of `EspressoEnforcementTime` the fallback (non-TEE) batcher starts authenticating batches via `BatchAuthenticator.authenticateBatchInfo`. Absorbs L1 inclusion delay so the batcher's gate (decided on L1 tip) does not lag behind the verifier's gate (decided on the containing L1 block's time). Default 5min; only consulted by the fallback batcher. |
 
 ## Espresso Enforcement Hardfork
 

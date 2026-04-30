@@ -51,6 +51,12 @@ const (
 	// (Config.BatchAuthLookbackWindow) and consumed via
 	// rollup.Config.BatchAuthLookbackWindowOrDefault().
 	DefaultBatchAuthLookbackWindow uint64 = 100
+
+	// DefaultFallbackAuthLeadTime is how far ahead of EspressoEnforcementTime
+	// the fallback (non-TEE) batcher starts routing batch txs through
+	// BatchAuthenticator.authenticateBatchInfo. See
+	// op-batcher/batcher/espresso_active.go for the rationale.
+	DefaultFallbackAuthLeadTime time.Duration = 5 * time.Minute
 )
 
 var (
@@ -69,6 +75,7 @@ var (
 	VerifyReceiptMaxBlocksFlagName     = espressoFlags("verify-receipt-max-blocks")
 	VerifyReceiptSafetyTimeoutFlagName = espressoFlags("verify-receipt-safety-timeout")
 	VerifyReceiptRetryDelayFlagName    = espressoFlags("verify-receipt-retry-delay")
+	FallbackAuthLeadTimeFlagName       = espressoFlags("fallback-auth-lead-time")
 )
 
 func CLIFlags(envPrefix string, category string) []cli.Flag {
@@ -172,6 +179,19 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			EnvVars:  espressoEnvs(envPrefix, "VERIFY_RECEIPT_RETRY_DELAY"),
 			Category: category,
 		},
+		&cli.DurationFlag{
+			Name: FallbackAuthLeadTimeFlagName,
+			Usage: "Lead time for the fallback (non-TEE) batcher's EspressoEnforcement gate. " +
+				"How far ahead of the on-chain EspressoEnforcementTime the fallback batcher " +
+				"starts routing batch txs through BatchAuthenticator.authenticateBatchInfo. " +
+				"This absorbs worst-case L1 inclusion delay between the batcher's decision " +
+				"(based on L1 tip time) and the verifier's gate (based on the containing " +
+				"L1 block's time). Has no effect when running the TEE batcher and no effect " +
+				"outside the boundary window around the hardfork timestamp.",
+			Value:    DefaultFallbackAuthLeadTime,
+			EnvVars:  espressoEnvs(envPrefix, "FALLBACK_AUTH_LEAD_TIME"),
+			Category: category,
+		},
 	}
 }
 
@@ -193,6 +213,12 @@ type CLIConfig struct {
 	VerifyReceiptMaxBlocks     uint64
 	VerifyReceiptSafetyTimeout time.Duration
 	VerifyReceiptRetryDelay    time.Duration
+
+	// FallbackAuthLeadTime advances the fallback batcher's EspressoEnforcement
+	// gate so it starts authenticating before the verifier requires it; see
+	// op-batcher/batcher/espresso_active.go for the full rationale. Only
+	// consulted by the fallback (non-TEE) batcher.
+	FallbackAuthLeadTime time.Duration
 
 	// Non directly configurable option
 	allowEmptyAttestationService bool `json:"-"`
@@ -236,6 +262,9 @@ func (c CLIConfig) Check() error {
 		if c.VerifyReceiptRetryDelay <= 0 {
 			return fmt.Errorf("verify-receipt-retry-delay must be > 0")
 		}
+		if c.FallbackAuthLeadTime < 0 {
+			return fmt.Errorf("fallback-auth-lead-time must be >= 0")
+		}
 	}
 	return nil
 }
@@ -253,6 +282,7 @@ func ReadCLIConfig(c *cli.Context) CLIConfig {
 		VerifyReceiptMaxBlocks:     c.Uint64(VerifyReceiptMaxBlocksFlagName),
 		VerifyReceiptSafetyTimeout: c.Duration(VerifyReceiptSafetyTimeoutFlagName),
 		VerifyReceiptRetryDelay:    c.Duration(VerifyReceiptRetryDelayFlagName),
+		FallbackAuthLeadTime:       c.Duration(FallbackAuthLeadTimeFlagName),
 	}
 
 	config.QueryServiceURLs = c.StringSlice(QueryServiceUrlsFlagName)
