@@ -937,15 +937,24 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
-		// Espresso: skip publishing if this batcher is not the active one
+		// Espresso: skip publishing if this batcher is not the active one.
+		// Only consult the BatchAuthenticator post-EspressoEnforcement; pre-fork
+		// the chain runs upstream Optimism semantics and the contract is irrelevant.
 		if l.hasBatchAuthenticator() {
-			isActive, err := l.isBatcherActive(ctx)
+			enforcementActive, err := l.isEspressoEnforcementActive(ctx)
 			if err != nil {
-				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+				l.Log.Warn("Failed to evaluate EspressoEnforcement gate, skipping publish", "err", err)
 				return
 			}
-			if !isActive {
-				return
+			if enforcementActive {
+				isActive, err := l.isBatcherActive(ctx)
+				if err != nil {
+					l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+					return
+				}
+				if !isActive {
+					return
+				}
 			}
 		}
 
@@ -1193,15 +1202,25 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 			return
 		}
 
-		// Fallback batcher: authenticate via BatchAuthenticator if configured.
+		// Fallback batcher: authenticate via BatchAuthenticator only after the
+		// EspressoEnforcement hardfork has activated. Pre-fork, the chain runs
+		// pure upstream Optimism semantics — the verifier accepts plain
+		// sender-authenticated batches, and the BatchAuthenticator contract is
+		// irrelevant. Calling authenticateBatchInfo pre-fork would also revert
+		// against the default activeIsEspresso=true contract state.
 		if l.hasBatchAuthenticator() {
-			l.teeAuthGroup.Go(
-				func() error {
-					l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
-					return nil
-				},
-			)
-			return
+			enforcementActive, err := l.isEspressoEnforcementActive(l.killCtx)
+			if err != nil {
+				l.Log.Warn("Failed to evaluate EspressoEnforcement gate for fallback auth, falling through to plain L1 send", "err", err)
+			} else if enforcementActive {
+				l.teeAuthGroup.Go(
+					func() error {
+						l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
+						return nil
+					},
+				)
+				return
+			}
 		}
 	}
 

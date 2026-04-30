@@ -67,3 +67,13 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 func (l *BatchSubmitter) hasBatchAuthenticator() bool {
 	return l.RollupConfig.BatchAuthenticatorAddress != (common.Address{})
 }
+
+// isEspressoEnforcementActive returns true when the EspressoEnforcement hardfork
+// is active for the current L1 tip time.
+func (l *BatchSubmitter) isEspressoEnforcementActive(ctx context.Context) (bool, error) {
+	tip, err := l.l1Tip(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch L1 tip for EspressoEnforcement gate: %w", err)
+	}
+	return l.RollupConfig.IsEspressoEnforcement(tip.Time), nil
+}
