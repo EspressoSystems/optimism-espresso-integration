@@ -1,3 +1,26 @@
+# espresso: The following jobs are disabled because they require a 2xlarge resource class, which is not
+# available in this CircleCI org. To run all of them locally inside the Nix dev shell:
+#
+#   nix develop --command bash -c "
+#     cd packages/contracts-bedrock
+#     forge build --deny-warnings --skip test                                    # contracts-bedrock-build (lite)
+#     forge test --match-path 'test/**/*.t.sol' --profile liteci                 # contracts-bedrock-tests
+#     just coverage                                                              # contracts-bedrock-coverage
+#     FOUNDRY_PROFILE=ci forge test --match-path 'test/upgrades/**' \
+#       --fork-url https://ci-mainnet-l1-archive.optimism.io                    # contracts-bedrock-tests-upgrade
+#     just checks                                                                # contracts-bedrock-checks
+#     just checks-fast                                                           # contracts-bedrock-checks-fast
+#     cd ../..
+#   "
+#
+# Disabled jobs (filtered to celo-disabled-circleci-jobs-branch):
+#   - contracts-bedrock-tests (heavy-fuzz-modified, liteci)
+#   - contracts-bedrock-coverage
+#   - contracts-bedrock-tests-upgrade (develop op-mainnet, develop chain-specific)
+#   - contracts-bedrock-checks
+#   - contracts-bedrock-checks-fast
+#   - contracts-bedrock-upload
+
 version: 2.1
 
 parameters:
@@ -872,7 +895,7 @@ jobs:
   contracts-bedrock-build:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
-    resource_class: 2xlarge
+    resource_class: xlarge # espresso: downgraded from 2xlarge (unavailable in this org)
     parameters:
       build_args:
         description: Forge build arguments
@@ -1806,7 +1829,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: 2xlarge
+    resource_class: xlarge # espresso: downgraded from 2xlarge (unavailable in this org)
     parallelism: <<parameters.parallelism>>
     steps:
       - utils/checkout-with-mise:
@@ -2067,7 +2090,7 @@ jobs:
     docker:
       - image: <<pipeline.parameters.c-default_docker_image>>
     # circleci_ip_ranges: true
-    resource_class: 2xlarge
+    resource_class: xlarge # espresso: downgraded from 2xlarge (unavailable in this org)
     steps:
       - utils/checkout-with-mise:
           checkout-method: blobless
@@ -2882,6 +2905,11 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - slack
       - contracts-bedrock-tests:
+          # espresso: disabled. See comment at the top of the file.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           # Heavily fuzz any fuzz tests within added or modified test files.
           name: contracts-bedrock-tests-heavy-fuzz-modified <<matrix.features>>
           test_list: git diff origin/develop...HEAD --name-only --diff-filter=AM -- './test/**/*.t.sol' | sed 's|packages/contracts-bedrock/||'
@@ -2902,6 +2930,11 @@ workflows:
             - slack
       # On PRs, run tests with lite profile for better build times.
       - contracts-bedrock-tests:
+          # espresso: disabled. See comment at the top of the file.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           name: contracts-bedrock-tests <<matrix.features>>
           test_list: find test -name "*.t.sol"
           test_profile: liteci
@@ -2913,9 +2946,6 @@ workflows:
             - circleci-repo-readonly-authenticated-github-token
             - slack
           check_changed_patterns: contracts-bedrock,op-node
-          filters:
-            branches:
-              ignore: develop
       # On develop, run tests with ci profile to mirror production.
       - contracts-bedrock-tests:
           name: contracts-bedrock-tests-develop <<matrix.features>>
@@ -2933,6 +2963,11 @@ workflows:
             branches:
               only: develop
       - contracts-bedrock-coverage:
+          # espresso: disabled. See comment at the top of the file.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           # Generate coverage reports.
           name: contracts-bedrock-coverage <<matrix.features>>
           test_timeout: 1h
@@ -2965,6 +3000,7 @@ workflows:
             - slack
       # On develop, run upgrade tests with ci profile to mirror production.
       - contracts-bedrock-tests-upgrade:
+          # espresso: disabled. See comment at the top of the file.
           name: contracts-bedrock-tests-upgrade-develop op-mainnet <<matrix.features>>
           fork_op_chain: op
           fork_base_chain: mainnet
@@ -2979,7 +3015,8 @@ workflows:
             - slack
           filters:
             branches:
-              only: develop
+              only:
+                - celo-disabled-circleci-jobs-branch
       # On PRs, run chain-specific upgrade tests with lite profile for better build times.
       - contracts-bedrock-tests-upgrade:
           # celo disable unwanted jobs/workflows
@@ -3000,6 +3037,7 @@ workflows:
             - slack
       # On develop, run chain-specific upgrade tests with ci profile to mirror production.
       - contracts-bedrock-tests-upgrade:
+          # espresso: disabled. See comment at the top of the file.
           name: contracts-bedrock-tests-upgrade-develop <<matrix.fork_op_chain>>-mainnet
           fork_op_chain: <<matrix.fork_op_chain>>
           fork_base_chain: mainnet
@@ -3013,17 +3051,33 @@ workflows:
             - slack
           filters:
             branches:
-              only: develop
+              only:
+                - celo-disabled-circleci-jobs-branch
       - contracts-bedrock-checks:
+          # espresso: disabled. See comment at the top of the file.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           requires:
             - contracts-bedrock-build
           context:
             - circleci-repo-readonly-authenticated-github-token
             - slack
       - contracts-bedrock-checks-fast:
+          # espresso: disabled. See comment at the top of the file.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           context:
             - circleci-repo-readonly-authenticated-github-token
       - contracts-bedrock-upload:
+          # espresso: disabled. See comment at the top of the file.
+          filters:
+            branches:
+              only:
+                - celo-disabled-circleci-jobs-branch
           requires:
             - contracts-bedrock-build
           context:
