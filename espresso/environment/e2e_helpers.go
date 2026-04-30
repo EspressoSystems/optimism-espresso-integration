@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -129,6 +130,22 @@ func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 		return E2eSystemOption{
 			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)
+			},
+		}
+	}
+}
+
+// WithEspressoEnforcementOffset is an E2eDevnetLauncherOption that activates the
+// EspressoEnforcement hardfork at the given offset (in seconds; sub-second
+// resolution is dropped) after L1 genesis. By default the Espresso devnet
+// activates the hardfork at genesis (offset = 0); use this helper to test
+// pre-fork behavior of the chain.
+func WithEspressoEnforcementOffset(offset time.Duration) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
+				seconds := hexutil.Uint64(offset / time.Second)
+				cfg.DeployConfig.L2GenesisEspressoEnforcementTimeOffset = &seconds
 			},
 		}
 	}
