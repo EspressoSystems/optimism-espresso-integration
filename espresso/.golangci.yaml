@@ -1,0 +1,35 @@
+version: "2"
+linters:
+  enable:
+    - sqlclosecheck
+    - bodyclose
+    - asciicheck
+    - misspell
+    - errorlint
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: errors.As
+      - path: (.+)\.go$
+        text: errors.Is
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+run:
+  timeout: 10m

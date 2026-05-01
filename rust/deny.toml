@@ -18,6 +18,10 @@ ignore = [
   "RUSTSEC-2025-0012",
   # instant is unmaintained; pulled in by backoff (see above).
   "RUSTSEC-2024-0384",
+  # hickory-proto 0.25.2 CPU exhaustion via O(n²) name compression; transitive dep via reth.
+  "RUSTSEC-2026-0119",
+  # hickory-proto 0.25.2 NSEC3 validation DoS; no patch in hickory-proto, fixed in hickory-net 0.26.1; transitive dep via reth.
+  "RUSTSEC-2026-0118",
 ]
 
 # This section is considered when running `cargo deny check bans`.
