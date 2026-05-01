@@ -1,22 +1,16 @@
 # espresso: The following jobs are disabled because they require a 2xlarge resource class, which is not
-# available in this CircleCI org. To run all of them locally inside the Nix dev shell:
+# available in this CircleCI org. To run them locally:
 #
-#   nix develop --command bash -c "
-#     cd packages/contracts-bedrock
-#     forge build --deny-warnings --skip test                                    # contracts-bedrock-build (lite)
-#     forge test --match-path 'test/**/*.t.sol' --profile liteci                 # contracts-bedrock-tests
-#     just coverage                                                              # contracts-bedrock-coverage
-#     FOUNDRY_PROFILE=ci forge test --match-path 'test/upgrades/**' \
-#       --fork-url https://ci-mainnet-l1-archive.optimism.io                    # contracts-bedrock-tests-upgrade
-#     just checks                                                                # contracts-bedrock-checks
-#     just checks-fast                                                           # contracts-bedrock-checks-fast
-#     cd ../..
-#   "
+#   cd packages/contracts-bedrock
+#   forge build --deny-warnings --skip test                           # contracts-bedrock-build (lite)
+#   FOUNDRY_PROFILE=liteci forge test --match-path 'test/**/*.t.sol'  # contracts-bedrock-tests
+#   just check                                                        # contracts-bedrock-checks
+#   just check-fast                                                   # contracts-bedrock-checks-fast
 #
 # Disabled jobs (filtered to celo-disabled-circleci-jobs-branch):
-#   - contracts-bedrock-tests (heavy-fuzz-modified, liteci)
-#   - contracts-bedrock-coverage
-#   - contracts-bedrock-tests-upgrade (develop op-mainnet, develop chain-specific)
+#   - contracts-bedrock-tests
+#   - contracts-bedrock-coverage (slow)
+#   - contracts-bedrock-tests-upgrade (forks OP mainnet; not applicable until mainnet deployment)
 #   - contracts-bedrock-checks
 #   - contracts-bedrock-checks-fast
 #   - contracts-bedrock-upload
