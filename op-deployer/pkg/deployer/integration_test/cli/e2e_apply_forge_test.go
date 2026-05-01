@@ -18,6 +18,9 @@ import (
 
 // TestCLIEndToEndApplyForge tests the full end-to-end apply workflow via CLI using Forge
 func TestCLIEndToEndApplyForge(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping forge integration test in short mode")
+	}
 	runner := NewCLITestRunnerWithNetwork(t)
 
 	workDir := runner.GetWorkDir()
