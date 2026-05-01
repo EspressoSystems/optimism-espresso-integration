@@ -271,6 +271,7 @@ func TestE2eDevnetWithEspressoDegradedLivenessViaCaffNode(t *testing.T) {
 			0,
 			1,
 			system.RollupConfig.BatchAuthenticatorAddress,
+			false,
 		)
 		require.NoError(t, err, "failed to create Espresso streamer")
 

@@ -42,9 +42,7 @@ const (
 	ESPRESSO_RUN_ENCLAVE_TESTS     = "ESPRESSO_RUN_ENCLAVE_TESTS"
 
 	// TeeTypeNitro corresponds to IEspressoTEEVerifier.TeeType.NITRO enum value
-	TeeTypeNitro uint8 = 1
-	// ServiceTypeBatchPoster corresponds to ServiceType.BatchPoster enum value
-	ServiceTypeBatchPoster uint8 = 0
+	TeeTypeNitro uint8 = 0
 )
 
 func HasTee() (bool, error) {
@@ -316,7 +314,7 @@ func RegisterEnclaveHash(ctx context.Context, sys *e2esys.System, pcr0Bytes []by
 	// SetEnclaveHash must be called through EspressoTEEVerifier wrapper because
 	// NitroTEEVerifier.setEnclaveHash has onlyTEEVerifier modifier, restricting calls
 	// to only the TEEVerifier contract. The wrapper has onlyGuardianOrOwner permissions.
-	registrationTx, err := verifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, TeeTypeNitro, ServiceTypeBatchPoster)
+	registrationTx, err := verifier.SetEnclaveHash(opts, crypto.Keccak256Hash(pcr0Bytes), true, TeeTypeNitro)
 	if err != nil {
 		return fmt.Errorf("failed to create registration transaction: %w", err)
 	}

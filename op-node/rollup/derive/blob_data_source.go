@@ -97,7 +97,11 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 	}
 
 	// download the actual blob bodies corresponding to the versioned hashes
-	blobs, err := ds.blobsFetcher.GetBlobsByHash(ctx, ds.ref.Time, hashes)
+	blobHashes := make([]common.Hash, len(hashes))
+	for i, h := range hashes {
+		blobHashes[i] = h.Hash
+	}
+	blobs, err := ds.blobsFetcher.GetBlobsByHash(ctx, ds.ref.Time, blobHashes)
 	if errors.Is(err, ethereum.NotFound) {
 		// If the L1 block was available, then the blobs should be available too. The only
 		// exception is if the blob retention window has expired, which we will ultimately handle
@@ -118,13 +122,17 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, logger log.Logger) ([]blobOrCalldata, []common.Hash, error) {
+//
+// When batch authenticator is configured, it collects all authenticated batch hashes from a
+// lookback window once, then checks each candidate transaction against that set. For blob
+// transactions, the batch hash is computed from the concatenated blob versioned hashes.
+func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
 	// Collect authenticated batch hashes once for the entire block
 	var authenticatedHashes map[common.Hash]bool
 	if config.BatchAuthEnabled() {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
-			ctx, fetcher, ref, config.batchAuthenticatorAddress, logger,
+			ctx, fetcher, ref, config.batchAuthenticatorAddress, config.batchAuthLookbackWindow, logger,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -132,10 +140,12 @@ func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *D
 	}
 
 	data := []blobOrCalldata{}
-	var hashes []common.Hash
+	var hashes []eth.IndexedBlobHash
+	blobIndex := 0 // index of each blob in the block's blob sidecar
 	for _, tx := range txs {
-		// skip any non-batcher transactions
+		// skip any non-batcher transactions (wrong type or wrong To address)
 		if !isValidBatchTx(tx, config.batchInboxAddress, logger) {
+			blobIndex += len(tx.BlobHashes())
 			continue
 		}
 
@@ -166,8 +176,13 @@ func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *D
 			log.Warn("blob tx has calldata, which will be ignored", "txhash", tx.Hash())
 		}
 		for _, h := range tx.BlobHashes() {
-			hashes = append(hashes, h)
+			idh := eth.IndexedBlobHash{
+				Index: uint64(blobIndex),
+				Hash:  h,
+			}
+			hashes = append(hashes, idh)
 			data = append(data, blobOrCalldata{nil, nil}) // will fill in blob pointers after we download them below
+			blobIndex += 1
 		}
 	}
 	return data, hashes, nil

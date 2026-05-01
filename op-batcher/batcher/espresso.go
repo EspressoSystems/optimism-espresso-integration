@@ -856,6 +856,56 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	}
 }
 
+// peekNextBatch returns the next batch from the streamer, performing a fork check
+// against an expected parent hash.
+//
+// The expected parent is tip when tip is set. When tip is zero (channel manager was
+// just cleared), we fall back to safeL2.Hash if the batch is at exactly safeL2+1 —
+// the one position where we can set tip to the known safe head. Otherwise we accept the batch as-is.
+func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.SyncStatus) *derive.EspressoBatch {
+	l.channelMgrMutex.Lock()
+	tip := l.channelMgr.tip
+	l.channelMgrMutex.Unlock()
+
+	batch := l.EspressoStreamer().Peek(ctx)
+	if batch == nil {
+		return nil
+	}
+
+	// Check if we can set the tip if not set
+	if tip == (common.Hash{}) && (*batch).Number() == syncStatus.SafeL2.Number+1 {
+		l.Log.Info(
+			"setting tip to safe l2 hash",
+			"batchNr", (*batch).Number(),
+			"batchParent", (*batch).Header().ParentHash.Hex(),
+			"tip", tip,
+		)
+		tip = syncStatus.SafeL2.Hash
+	}
+
+	if tip == (common.Hash{}) {
+		l.Log.Warn(
+			"tip is not set, taking available batch",
+			"blockParentHash", (*batch).Header().ParentHash.Hex(),
+			"blockHash", (*batch).Header().Hash().Hex(),
+		)
+		return batch
+	}
+
+	if (*batch).Header().ParentHash != tip {
+		l.Log.Warn(
+			"head batch fork mismatch, seeking to proper head",
+			"batchNr", (*batch).Number(),
+			"batchParent", (*batch).Header().ParentHash,
+			"tip", tip,
+		)
+		l.EspressoStreamer().SetProperHead(tip)
+		return nil
+	}
+
+	return batch
+}
+
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan pubInfo) {
 	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
@@ -882,7 +932,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			for {
 
-				batch = l.EspressoStreamer().Next(ctx)
+				batch = l.peekNextBatch(ctx, newSyncStatus)
 
 				if batch == nil {
 					break
@@ -893,6 +943,7 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 				block, err := batch.ToBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
+					l.EspressoStreamer().Next(ctx)
 					continue
 				}
 
@@ -911,9 +962,11 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
 					l.clearState(ctx)
 					l.EspressoStreamer().Reset()
+					break
 				}
 
-				l.Log.Info(logmodule.AddedL2BlockToChannelManager)
+				l.EspressoStreamer().Next(ctx)
+				l.Log.Info(logmodule.AddedL2BlockToChannelManager, "blockNr", block.NumberU64())
 			}
 
 			l.tryPublishSignal(publishSignal, pubInfo{})
@@ -1368,7 +1421,7 @@ func (l *BatchSubmitter) sendTxWithEspresso(txdata txData, isCancel bool, candid
 	}
 
 	distance := new(big.Int).Sub(receipt.BlockNumber, verificationReceipt.BlockNumber)
-	lookbackWindow := new(big.Int).SetUint64(uint64(derive.BatchAuthLookbackWindow))
+	lookbackWindow := new(big.Int).SetUint64(l.RollupConfig.BatchAuthLookbackWindowOrDefault())
 	if distance.Sign() < 0 || distance.Cmp(lookbackWindow) >= 0 {
 		l.Log.Error("authenticateBatch transaction too far from batch inbox transaction", "txRef", transactionReference, "distance", distance)
 		receiptsCh <- txmgr.TxReceipt[txRef]{
