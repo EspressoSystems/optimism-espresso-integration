@@ -206,6 +206,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 			derive.CreateEspressoBatchUnmarshaler(),
 			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
 			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
+			false,
 		)
 		if err != nil {
 			panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))

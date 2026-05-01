@@ -308,5 +308,6 @@ func BatchStreamerFromCLIConfig[B op.Batch](
 		cfg.CaffeinationHeightEspresso,
 		cfg.CaffeinationHeightL2,
 		cfg.BatchAuthenticatorAddr,
+		false,
 	)
 }
