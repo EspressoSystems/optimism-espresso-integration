@@ -130,7 +130,8 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 		// When it is the attack round, send some Espresso transactions using fakeBatcherPrivateKey directly to Espresso.
 		// The L2 batch embedded in the Espresso transaction is well formed but will be ignored as the  transaction is not signed by the batcher and the batch information is not authenticated to the batch authentication contract either.
 
-		if i == attackRoundEspresso {
+		switch i {
+		case attackRoundEspresso:
 			// Create a fake Espresso transaction
 			fakeBatcherPrivateKey, err := forgedBatcherPrivateKey()
 			if err != nil {
@@ -152,7 +153,7 @@ func TestDeterministicDerivationExecutionStateWithInvalidTransaction(t *testing.
 				t.Fatalf("Espresso transaction failed to be confirmed:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", err, nil)
 			}
 
-		} else if i == attackRoundL1 {
+		case attackRoundL1:
 			// create a transaction
 			tx := geth_types.MustSignNewTx(system.Cfg.Secrets.Bob, system.RollupConfig.L1Signer(), &geth_types.DynamicFeeTx{
 				ChainID:   system.Cfg.L1ChainIDBig(),
