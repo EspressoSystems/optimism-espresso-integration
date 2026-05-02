@@ -3152,6 +3152,9 @@ workflows:
             export PARALLEL=24
             # Espresso override: use Alchemy for reliable Sepolia fork tests
             export SEPOLIA_RPC_URL="$ALCHEMY_SEPOLIA_RPC_URL"
+            # espresso: Update this list when new top-level Go packages are added to the repo.
+            # TODO: Improve CircleCI go-tests setup.
+            # <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1214457467207795?focus=true>
             export CI_TEST_PKGS="\
               ./op-alt-da/... \
               ./op-batcher/... \
