@@ -162,6 +162,7 @@ func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *D
 
 		// Check authorization (event-based or legacy sender check)
 		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, logger) {
+			blobIndex += len(tx.BlobHashes())
 			continue
 		}
 
