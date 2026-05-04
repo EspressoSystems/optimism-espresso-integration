@@ -6,7 +6,7 @@ toolchain go1.24.10
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/EspressoSystems/espresso-network/sdks/go v0.3.5-0.20260410134522-1a819609a513
+	github.com/EspressoSystems/espresso-network/sdks/go v0.3.4
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/andybalholm/brotli v1.1.0
 	github.com/base/go-bip39 v1.1.0
@@ -337,4 +337,4 @@ exclude (
 	github.com/kataras/iris/v12 v12.2.11
 )
 
-replace github.com/EspressoSystems/espresso-network/sdks/go => github.com/EspressoSystems/espresso-network/sdks/go v0.3.5-0.20260410134522-1a819609a513
+replace github.com/EspressoSystems/espresso-network/sdks/go => github.com/EspressoSystems/espresso-network/sdks/go v0.3.4
