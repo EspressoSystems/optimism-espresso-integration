@@ -196,15 +196,6 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		if batchSubmitter.EspressoLightClient != nil {
 			lightClientIface = batchSubmitter.EspressoLightClient
 		}
-		// L2 origin batch position: prefer the operator-provided CaffeinationHeightL2 (used
-		// to restart a batcher mid-chain at the current head, e.g. after a fallback batcher
-		// event). Fall back to Config.EspressoOriginBatchPos() (derived from the
-		// EspressoEnforcementTime hardfork) so fresh deployments at genesis still work
-		// without explicit configuration.
-		originBatchPos := setup.Config.CaffeinationHeightL2
-		if originBatchPos == 0 {
-			originBatchPos = batchSubmitter.RollupConfig.EspressoOriginBatchPos()
-		}
 		unbufferedStreamer, err := op.NewEspressoStreamer(
 			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
 			l1Adapter,
@@ -214,7 +205,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 			batchSubmitter.Log,
 			derive.CreateEspressoBatchUnmarshaler(),
 			setup.Config.CaffeinationHeightEspresso,
-			originBatchPos,
+			setup.Config.CaffeinationHeightL2,
 			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
 			false,
 		)

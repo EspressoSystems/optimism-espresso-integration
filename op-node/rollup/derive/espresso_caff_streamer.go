@@ -24,20 +24,10 @@ type espressoAttributesQueue struct {
 }
 
 func newEspressoAttributesQueue(logger log.Logger, cfg *rollup.Config) espressoAttributesQueue {
-	// Determine the L2 batch number at which this Caff node should start streaming from
-	// HotShot. Prefer the operator-provided CaffeinationHeightL2 (used to (re)start a Caff
-	// node mid-chain at the current head). Fall back to Config.EspressoOriginBatchPos()
-	// (derived from EspressoEnforcementTime) so fresh Caff nodes deployed at genesis still
-	// work without explicit configuration. Below this height, derivation falls back to the
-	// upstream L1-based path so a freshly-launched Caff node can catch up to the live head.
-	caffHeight := cfg.CaffNodeConfig.CaffeinationHeightL2
-	if caffHeight == 0 {
-		caffHeight = cfg.EspressoOriginBatchPos()
-	}
 	return espressoAttributesQueue{
 		cfg:                  cfg,
 		isCaffNode:           cfg.CaffNodeConfig.Enabled,
-		caffeinationHeightL2: caffHeight,
+		caffeinationHeightL2: cfg.CaffNodeConfig.CaffeinationHeightL2,
 		espressoStreamer:     initEspressoStreamer(logger, cfg),
 	}
 }
@@ -81,13 +71,7 @@ func initEspressoStreamer(log log.Logger, cfg *rollup.Config) *op.BatchStreamer[
 	}
 
 	cliCfg := cfg.CaffNodeConfig.ToCLIConfig()
-	// L2 origin batch position: prefer the operator-provided CaffeinationHeightL2 (used to
-	// (re)start a Caff node mid-chain at the current head). Fall back to
-	// Config.EspressoOriginBatchPos() (derived from EspressoEnforcementTime) so fresh Caff
-	// nodes deployed at genesis still work without explicit configuration.
-	if cliCfg.CaffeinationHeightL2 == 0 {
-		cliCfg.CaffeinationHeightL2 = cfg.EspressoOriginBatchPos()
-	}
+
 	streamer, err := espresso.BatchStreamerFromCLIConfig(cliCfg, log, func(data []byte) (*EspressoBatch, error) {
 		return UnmarshalEspressoTransaction(data)
 	})
