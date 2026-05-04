@@ -1701,9 +1701,7 @@ jobs:
             dest=/home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
             base_url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F"
             mkdir -p /home/circleci/local-lib
-            wget "${base_url}${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest" \
-              || { echo "WARN: exact version $ver not found, falling back to v0.3.4"; \
-                   wget "${base_url}v0.3.4/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest"; }
+            wget "${base_url}${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest"
       - run:
           name: Fuzz
           no_output_timeout: 15m
@@ -1910,9 +1908,7 @@ jobs:
             dest=/home/circleci/local-lib/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so
             base_url="https://github.com/EspressoSystems/espresso-network/releases/download/sdks%2Fgo%2F"
             mkdir -p /home/circleci/local-lib
-            wget "${base_url}${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest" \
-              || { echo "WARN: exact version $ver not found, falling back to v0.3.4"; \
-                   wget "${base_url}v0.3.4/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest"; }
+            wget "${base_url}${ver}/libespresso_crypto_helper-x86_64-unknown-linux-gnu.so" -O "$dest"
       - run:
           name: build op-program-client
           command: make op-program-client
