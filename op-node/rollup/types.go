@@ -69,6 +69,14 @@ type AltDAConfig struct {
 // CaffNodeConfig holds Espresso (Caff Node) configuration embedded in rollup.Config.
 // Fields mirror espresso.CLIConfig without importing the espresso package, keeping
 // the fault-proof program (op-program) import graph free of Espresso network dependencies.
+//
+// CaffeinationHeightL2 is an operational parameter (the L2 batch position at which the
+// Caff streamer should start emitting batches) and is independent of the
+// EspressoEnforcementTime hardfork on the surrounding rollup.Config: the fork timestamp
+// gates derivation semantics consensus-wide, while CaffeinationHeightL2 controls where
+// a specific Caff node deployment begins streaming. When zero, callers fall back to
+// Config.EspressoOriginBatchPos() so that fresh deployments at genesis still work
+// without explicit configuration.
 type CaffNodeConfig struct {
 	Enabled                    bool
 	PollInterval               time.Duration
@@ -185,6 +193,15 @@ type Config struct {
 	// This feature (de)activates by L1 origin timestamp, to keep a consistent L1 block info per L2
 	// epoch.
 	PectraBlobScheduleTime *uint64 `json:"pectra_blob_schedule_time,omitempty"`
+
+	// EspressoEnforcementTime sets the activation time of the Espresso enforcement upgrade.
+	// Pre-fork, the derivation pipeline behaves exactly as upstream Optimism: batches are
+	// accepted based on the L1 transaction sender matching the SystemConfig batcher address.
+	// Post-fork, all Espresso semantics are active: BatchInfoAuthenticated events emitted by
+	// the BatchAuthenticator contract are required for batch acceptance, and Caff nodes derive
+	// from the Espresso (HotShot) sequencer instead of L1.
+	// Active if EspressoEnforcementTime != nil && L2 block timestamp >= *EspressoEnforcementTime.
+	EspressoEnforcementTime *uint64 `json:"espresso_enforcement_time,omitempty"`
 
 	// Caff Node config
 	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
@@ -521,6 +538,14 @@ func (c *Config) IsInterop(timestamp uint64) bool {
 
 func (c *Config) IsCel2(timestamp uint64) bool {
 	return c.Cel2Time != nil && timestamp >= *c.Cel2Time
+}
+
+// IsEspressoEnforcement returns true if the Espresso enforcement upgrade is active at or past
+// the given L2 block timestamp. When active, the derivation pipeline runs all Espresso-specific
+// semantics (event-based batch authentication, Caff node HotShot derivation). When inactive, the
+// pipeline behaves exactly as upstream Optimism.
+func (c *Config) IsEspressoEnforcement(timestamp uint64) bool {
+	return c.EspressoEnforcementTime != nil && timestamp >= *c.EspressoEnforcementTime
 }
 
 func (c *Config) IsRegolithActivationBlock(l2BlockTime uint64) bool {
@@ -880,6 +905,10 @@ func (c *Config) forEachFork(callback func(name string, logName string, time *ui
 	callback("Isthmus", "isthmus_time", c.IsthmusTime)
 	callback("Jovian", "jovian_time", c.JovianTime)
 	callback("Interop", "interop_time", c.InteropTime)
+	if c.EspressoEnforcementTime != nil {
+		// only report if config is set
+		callback("Espresso Enforcement", "espresso_enforcement_time", c.EspressoEnforcementTime)
+	}
 }
 
 func (c *Config) ParseRollupConfig(in io.Reader) error {
