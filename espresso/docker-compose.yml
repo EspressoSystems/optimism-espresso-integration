@@ -448,7 +448,7 @@ services:
   # then deploys via forge script. Must complete before proposer/challenger start.
   fdg-deployer:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-fdg-deployer-celo:sha-b0f3121
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-fdg-deployer-celo:sha-075e0fe
     depends_on:
       l1-anvil:
         condition: service_healthy
@@ -511,7 +511,7 @@ services:
   # Succinct proposer for ZK fault proofs
   succinct-proposer:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-b0f3121
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-proposer-celo:sha-075e0fe
     depends_on:
       l1-data-init:
         condition: service_completed_successfully
@@ -604,7 +604,7 @@ services:
   # Succinct challenger for ZK fault proofs
   succinct-challenger:
     profiles: ["default"]
-    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-b0f3121
+    image: ghcr.io/espressosystems/op-succinct/op-succinct-lite-challenger-celo:sha-075e0fe
     depends_on:
       l1-anvil:
         condition: service_healthy

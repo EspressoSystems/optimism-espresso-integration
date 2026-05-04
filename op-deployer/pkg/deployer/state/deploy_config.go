@@ -24,6 +24,18 @@ var l2GenesisBlockBaseFeePerGas = hexutil.Big(*(big.NewInt(1000000000)))
 func CombineDeployConfig(intent *Intent, chainIntent *ChainIntent, state *State, chainState *ChainState) (genesis.DeployConfig, error) {
 	upgradeSchedule := standard.DefaultHardforkSchedule()
 
+	// Activate the EspressoEnforcement hardfork at genesis for Espresso-enabled chains
+	// when no offset has been provided. The BatchAuthenticator is deployed at genesis and
+	// the batcher posts via authenticated events from an EOA distinct from
+	// SystemConfig.batcherHash; the verifier must therefore derive in post-fork
+	// (event-based) mode from block 0. Production chains that want to stage Espresso onto
+	// an existing chain set L2GenesisEspressoEnforcementTimeOffset explicitly upstream of
+	// this function and that explicit value is preserved here.
+	if chainIntent.EspressoEnabled && upgradeSchedule.L2GenesisEspressoEnforcementTimeOffset == nil {
+		espressoEnforcementOffset := hexutil.Uint64(0)
+		upgradeSchedule.L2GenesisEspressoEnforcementTimeOffset = &espressoEnforcementOffset
+	}
+
 	cfg := genesis.DeployConfig{
 		L1DependenciesConfig: genesis.L1DependenciesConfig{
 			L1StandardBridgeProxy:       chainState.L1StandardBridgeProxy,

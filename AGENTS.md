@@ -121,6 +121,39 @@ All Espresso flags are prefixed with `espresso.` and defined in `espresso/cli.go
 | `espresso.light-client-addr` | Light Client contract address on L1 |
 | `espresso.namespace` | Espresso namespace (defaults to L2 chain ID) |
 | `espresso.origin-height-espresso` | First HotShot block to read from |
-| `espresso.origin-height-l2` | L2 height to switch to Espresso derivation |
+| `espresso.origin-height-l2` | L2 batch position at which the streamer starts emitting (operational; defaults to fork-derived value when 0) |
 | `espresso.poll-interval` | HotShot polling interval (default 250ms) |
 | `espresso.espresso-attestation-service` | Attestation verifier service URL |
+| `espresso.fallback-auth-lead-time` | How far ahead of `EspressoEnforcementTime` the fallback (non-TEE) batcher starts authenticating batches via `BatchAuthenticator.authenticateBatchInfo`. Absorbs L1 inclusion delay so the batcher's gate (decided on L1 tip) does not lag behind the verifier's gate (decided on the containing L1 block's time). Default 5min; only consulted by the fallback batcher. |
+
+## Espresso Enforcement Hardfork
+
+The activation of all Espresso-specific derivation behavior is gated by a single
+L2-timestamp hardfork: **`EspressoEnforcementTime`** (`rollup.Config` field
+`espresso_enforcement_time`; deploy-config offset
+`l2GenesisEspressoEnforcementTimeOffset`).
+
+- **Pre-fork:** the derivation pipeline runs upstream Optimism semantics —
+  batches are authenticated by L1 sender against the SystemConfig batcher
+  address; Caff nodes derive from L1, not HotShot.
+- **Post-fork:** all Espresso semantics activate atomically — batches must be
+  matched by `BatchInfoAuthenticated` events emitted by the `BatchAuthenticator`
+  contract; Caff nodes (when so configured via `--espresso.enabled`) derive
+  directly from HotShot.
+
+The L2 origin batch position used by the Espresso streamer defaults to
+`Config.EspressoOriginBatchPos()` (≈
+`cfg.TargetBlockNumber(*EspressoEnforcementTime)`) so fresh deployments at
+genesis work without explicit configuration. The
+`--espresso.origin-height-l2` CLI flag (`CaffeinationHeightL2`) overrides this
+default and is required when restarting a batcher or Caff node mid-chain — for
+example, after a fallback-batcher event the new TEE batcher must begin
+streaming at the current L2 head rather than reprocessing the entire chain
+history. The flag is purely operational and independent of the hardfork
+timestamp, which gates derivation semantics consensus-wide.
+
+Note that the on-chain `BatchAuthenticator.activeIsEspresso` flag (toggleable via
+`switchBatcher`) is independent of this hardfork: it controls which batcher
+(TEE vs fallback) is currently authorized to emit `BatchInfoAuthenticated`
+events on L1. The hardfork only governs whether the off-chain derivation
+pipeline consults those events at all.

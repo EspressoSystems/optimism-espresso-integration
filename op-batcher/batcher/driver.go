@@ -204,7 +204,8 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 			lightClientIface,
 			batchSubmitter.Log,
 			derive.CreateEspressoBatchUnmarshaler(),
-			setup.Config.CaffeinationHeightEspresso, setup.Config.CaffeinationHeightL2,
+			setup.Config.CaffeinationHeightEspresso,
+			setup.Config.CaffeinationHeightL2,
 			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
 			false,
 		)
@@ -372,8 +373,8 @@ func (l *BatchSubmitter) StopBatchSubmitting(ctx context.Context) error {
 	}()
 
 	l.cancelShutdownCtx()
-	l.wg.Wait()
 	l.cancelKillCtx()
+	l.wg.Wait()
 
 	l.Log.Info("Batch Submitter stopped")
 	return nil
@@ -925,15 +926,32 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
-		// Espresso: skip publishing if this batcher is not the active one
+		// Espresso: skip publishing if this batcher is not the active one.
+		// The Espresso TEE batcher always honors the on-chain activeIsEspresso
+		// flag — it is fundamentally a post-fork actor and operational
+		// discipline (idle when not active) applies uniformly. The fallback
+		// batcher honors the flag only post-EspressoEnforcement: pre-fork it
+		// must run as a vanilla upstream Optimism batcher, with no
+		// BatchAuthenticator coupling.
 		if l.hasBatchAuthenticator() {
-			isActive, err := l.isBatcherActive(ctx)
-			if err != nil {
-				l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
-				return
+			consultActiveFlag := l.Config.UseEspresso
+			if !consultActiveFlag {
+				fallbackAuthRequired, err := l.isFallbackAuthRequired(ctx)
+				if err != nil {
+					l.Log.Warn("Failed to evaluate fallback-auth gate, skipping publish", "err", err)
+					return
+				}
+				consultActiveFlag = fallbackAuthRequired
 			}
-			if !isActive {
-				return
+			if consultActiveFlag {
+				isActive, err := l.isBatcherActive(ctx)
+				if err != nil {
+					l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
+					return
+				}
+				if !isActive {
+					return
+				}
 			}
 		}
 
@@ -1169,14 +1187,43 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		candidate.GasLimit = floorGas
 	}
 
-	if l.Config.UseEspresso && !isCancel {
-		l.teeAuthGroup.Go(
-			func() error {
-				l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)
-				return nil
-			},
-		)
-		return
+	if !isCancel {
+		// Espresso batcher: authenticate via BatchAuthenticator.
+		if l.Config.UseEspresso {
+			l.teeAuthGroup.Go(
+				func() error {
+					l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)
+					return nil
+				},
+			)
+			return
+		}
+
+		// Fallback batcher: authenticate via BatchAuthenticator only after the
+		// EspressoEnforcement hardfork has activated. Pre-fork, the chain runs
+		// pure upstream Optimism semantics — the verifier accepts plain
+		// sender-authenticated batches, and the BatchAuthenticator contract is
+		// irrelevant. Calling authenticateBatchInfo pre-fork would also revert
+		// against the default activeIsEspresso=true contract state.
+		if l.hasBatchAuthenticator() {
+			fallbackAuthRequired, err := l.isFallbackAuthRequired(l.killCtx)
+			if err != nil {
+				receiptsCh <- txmgr.TxReceipt[txRef]{
+					ID:  txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()},
+					Err: fmt.Errorf("failed to evaluate fallback-auth gate: %w", err),
+				}
+				return
+			}
+			if fallbackAuthRequired {
+				l.teeAuthGroup.Go(
+					func() error {
+						l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
+						return nil
+					},
+				)
+				return
+			}
+		}
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)

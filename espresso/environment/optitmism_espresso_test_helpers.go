@@ -288,6 +288,10 @@ func (l *EspressoDevNodeLauncherDocker) GetE2eDevnetSysConfig(ctx context.Contex
 
 	sysConfig.DeployConfig.DeployCeloContracts = true
 
+	// Activate the EspressoEnforcement hardfork at genesis.
+	espressoEnforcementOffset := hexutil.Uint64(0)
+	sysConfig.DeployConfig.L2GenesisEspressoEnforcementTimeOffset = &espressoEnforcementOffset
+
 	// Ensure that we fund the dev accounts
 	sysConfig.DeployConfig.FundDevAccounts = true
 

@@ -122,6 +122,10 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 
 // TestDataAndHashesFromTxsEventAuth tests event-based batch authentication for both
 // calldata and blob transactions in the blob data source path.
+//
+// Event-based authentication is only active post-EspressoEnforcement; the fixture
+// activates the fork at L1 origin time 0 (genesis) so all test refs satisfy
+// ref.Time >= *EspressoEnforcementTime.
 func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 	rng := rand.New(rand.NewSource(9999))
 	privateKey := testutils.InsecureRandomKey(rng)
@@ -133,13 +137,14 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 	chainId := new(big.Int).SetUint64(rng.Uint64())
 	signer := types.NewPragueSigner(chainId)
+	enforcementTime := uint64(0)
 	config := DataSourceConfig{
 		l1Signer:                  signer,
 		batchInboxAddress:         batchInboxAddr,
 		batchAuthenticatorAddress: authenticatorAddr,
 		batchAuthLookbackWindow:   espresso.DefaultBatchAuthLookbackWindow,
+		espressoEnforcementTime:   &enforcementTime,
 	}
-	require.True(t, config.BatchAuthEnabled())
 
 	ctx := context.Background()
 
@@ -214,7 +219,7 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 		l1F.AssertExpectations(t)
 	})
 
-	t.Run("fallback batcher (SystemConfig batcherAddr) accepted without auth event", func(t *testing.T) {
+	t.Run("fallback batcher without auth event rejected", func(t *testing.T) {
 		l1F := &testutils.MockL1Source{}
 		txData := &types.LegacyTx{
 			Nonce:    rng.Uint64(),
@@ -224,7 +229,8 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 			Value:    big.NewInt(10),
 			Data:     testutils.RandomData(rng, 200),
 		}
-		// Signed by batcher key (SystemConfig batcherAddr), no auth event — should be accepted via sender
+		// Signed by batcher key (SystemConfig batcherAddr), no auth event — should be rejected
+		// because all batchers now require event-based authentication
 		calldataTx, _ := types.SignNewTx(privateKey, signer, txData)
 
 		ref := eth.L1BlockRef{Number: 1, Hash: testutils.RandomHash(rng)}
@@ -232,9 +238,8 @@ func TestDataAndHashesFromTxsEventAuth(t *testing.T) {
 
 		data, blobHashes, err := dataAndHashesFromTxs(ctx, types.Transactions{calldataTx}, &config, batcherAddr, l1F, ref, logger)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(data), "fallback batcher (SystemConfig batcherAddr) tx should be accepted via sender verification")
+		require.Equal(t, 0, len(data), "fallback batcher without auth event should be rejected")
 		require.Equal(t, 0, len(blobHashes))
-		require.NotNil(t, data[0].calldata)
 		l1F.AssertExpectations(t)
 	})
 

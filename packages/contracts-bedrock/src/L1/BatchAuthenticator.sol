@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
+import { ECDSA } from "@openzeppelin/contracts-v5/utils/cryptography/ECDSA.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 // espresso: use direct paths (not @espresso-tee-contracts/ remapping) so that Foundry's
 // context-specific remappings correctly apply to files within lib/espresso-tee-contracts/.
@@ -23,8 +24,8 @@ contract BatchAuthenticator is
     ReinitializableBase
 {
     /// @notice Semantic version.
-    /// @custom:semver 1.1.0
-    string public constant version = "1.1.0";
+    /// @custom:semver 1.2.0
+    string public constant version = "1.2.0";
 
     /// @notice Address of the Espresso batcher whose signatures may authenticate batches.
     address public espressoBatcher;
@@ -99,8 +100,16 @@ contract BatchAuthenticator is
     function authenticateBatchInfo(bytes32 _commitment, bytes calldata _signature) external {
         if (paused()) revert BatchAuthenticator_Paused();
 
-        // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently
-        espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO);
+        if (activeIsEspresso) {
+            // TEE batcher path: verify via registered TEE signer.
+            // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently.
+            espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO);
+        } else {
+            // Fallback batcher path: the caller must be the SystemConfig batcher address.
+            // No signature verification needed — the transaction itself is already signed by msg.sender.
+            address fallbackBatcher = address(uint160(uint256(systemConfig.batcherHash())));
+            if (msg.sender != fallbackBatcher) revert UnauthorizedFallbackBatcher(msg.sender, fallbackBatcher);
+        }
 
         emit BatchInfoAuthenticated(_commitment);
     }
