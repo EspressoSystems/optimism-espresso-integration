@@ -86,13 +86,20 @@ func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 // that are sent to the batch inbox address from the batch sender address.
 // This will return an empty array if no valid transactions are found.
 //
-// When batch authenticator is configured, it collects all authenticated batch hashes from a
-// lookback window once, then checks each candidate transaction against that set. This avoids
-// rescanning the lookback window for every individual batch transaction.
+// Pre-EspressoEnforcement (the L1 origin time of `ref` is < *EspressoEnforcementTime,
+// or unset), this runs upstream Optimism semantics: filter by batch inbox + sender ==
+// batcher.
+//
+// Post-EspressoEnforcement, it collects all authenticated batch hashes from a
+// lookback window once and rejects any batch whose commitment hash is not in the
+// authenticated set.
 func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batcherAddr common.Address, txs types.Transactions, fetcher L1Fetcher, ref eth.L1BlockRef, log log.Logger) ([]eth.Data, error) {
-	// Collect authenticated batch hashes once for the entire block
+	// Only collect authenticated batch hashes when the Espresso enforcement fork
+	// is active at the L1 origin time of the block we're scanning. Pre-fork, the
+	// upstream sender-based authorization path inside isBatchTxAuthorized is used
+	// and the authenticatedHashes map is unused.
 	var authenticatedHashes map[common.Hash]bool
-	if dsCfg.BatchAuthEnabled() {
+	if dsCfg.isEspressoEnforcement(ref.Time) {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
 			ctx, fetcher, ref, dsCfg.batchAuthenticatorAddress, dsCfg.batchAuthLookbackWindow, log,
@@ -109,7 +116,7 @@ func DataFromEVMTransactions(ctx context.Context, dsCfg DataSourceConfig, batche
 		}
 
 		batchHash := ComputeCalldataBatchHash(tx.Data())
-		if !isBatchTxAuthorized(tx, dsCfg, batcherAddr, batchHash, authenticatedHashes, log) {
+		if !isBatchTxAuthorized(tx, dsCfg, batcherAddr, batchHash, authenticatedHashes, ref.Time, log) {
 			continue
 		}
 

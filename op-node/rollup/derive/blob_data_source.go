@@ -123,13 +123,21 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
 //
-// When batch authenticator is configured, it collects all authenticated batch hashes from a
-// lookback window once, then checks each candidate transaction against that set. For blob
-// transactions, the batch hash is computed from the concatenated blob versioned hashes.
+// Pre-EspressoEnforcement (the L1 origin time of `ref` is < *EspressoEnforcementTime,
+// or unset), this runs upstream Optimism semantics: filter by batch inbox + sender ==
+// batcher.
+//
+// Post-EspressoEnforcement, it collects all authenticated batch hashes from a
+// lookback window once and rejects any batch whose commitment hash is not in the
+// authenticated set. For blob transactions, the batch hash is computed from the
+// concatenated blob versioned hashes.
 func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, fetcher L1Fetcher, ref eth.L1BlockRef, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash, error) {
-	// Collect authenticated batch hashes once for the entire block
+	// Only collect authenticated batch hashes when the Espresso enforcement fork
+	// is active at the L1 origin time of the block we're scanning. Pre-fork, the
+	// upstream sender-based authorization path is used and authenticatedHashes is
+	// unused.
 	var authenticatedHashes map[common.Hash]bool
-	if config.BatchAuthEnabled() {
+	if config.isEspressoEnforcement(ref.Time) {
 		var err error
 		authenticatedHashes, err = CollectAuthenticatedBatches(
 			ctx, fetcher, ref, config.batchAuthenticatorAddress, config.batchAuthLookbackWindow, logger,
@@ -160,8 +168,8 @@ func dataAndHashesFromTxs(ctx context.Context, txs types.Transactions, config *D
 			batchHash = ComputeCalldataBatchHash(tx.Data())
 		}
 
-		// Check authorization (event-based or legacy sender check)
-		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, logger) {
+		// Check authorization (sender-based pre-fork; event-based post-fork).
+		if !isBatchTxAuthorized(tx, *config, batcherAddr, batchHash, authenticatedHashes, ref.Time, logger) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}

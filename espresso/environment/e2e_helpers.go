@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -129,6 +130,45 @@ func WithL2BlockTime(blockTime time.Duration) E2eDevnetLauncherOption {
 		return E2eSystemOption{
 			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
 				cfg.DeployConfig.L2BlockTime = uint64(blockTime / time.Second)
+			},
+		}
+	}
+}
+
+// WithEspressoEnforcementOffset is an E2eDevnetLauncherOption that activates the
+// EspressoEnforcement hardfork at the given offset (in seconds; sub-second
+// resolution is dropped) after L1 genesis. By default the Espresso devnet
+// activates the hardfork at genesis (offset = 0); use this helper to test
+// pre-fork behavior of the chain.
+func WithEspressoEnforcementOffset(offset time.Duration) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			SystemConfigOption: func(cfg *e2esys.SystemConfig) {
+				seconds := hexutil.Uint64(offset / time.Second)
+				cfg.DeployConfig.L2GenesisEspressoEnforcementTimeOffset = &seconds
+			},
+		}
+	}
+}
+
+// WithFallbackAuthLeadTime is an E2eDevnetLauncherOption that sets the
+// Espresso CLIConfig.FallbackAuthLeadTime on the batcher CLI config. The
+// fallback batcher inherits this value from the TEE batcher's config struct
+// (it is copied from the TEE batcher's CLIConfig in the e2e setup, before
+// Espresso.Enabled is flipped to false), so a single launcher option suffices
+// to configure both. Useful for tests that exercise the EspressoEnforcement
+// hardfork boundary with a tighter lead time than the production default.
+func WithFallbackAuthLeadTime(leadTime time.Duration) E2eDevnetLauncherOption {
+	return func(c *E2eDevnetLauncherContext) E2eSystemOption {
+		return E2eSystemOption{
+			StartOptions: []e2esys.StartOption{
+				{
+					Key:  "fallbackAuthLeadTime",
+					Role: e2esys.RoleSeq,
+					BatcherMod: func(batchConfig *bss.CLIConfig, sys *e2esys.System) {
+						batchConfig.Espresso.FallbackAuthLeadTime = leadTime
+					},
+				},
 			},
 		}
 	}

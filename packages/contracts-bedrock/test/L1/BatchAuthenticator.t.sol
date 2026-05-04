@@ -28,9 +28,11 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/acces
 import { OwnableWithGuardiansUpgradeable } from "lib/espresso-tee-contracts/src/OwnableWithGuardiansUpgradeable.sol";
 import { ECDSA } from "@openzeppelin/contracts-v5/utils/cryptography/ECDSA.sol";
 
-/// @notice Minimal mock of SystemConfig that exposes a settable paused() flag.
+/// @notice Minimal mock of SystemConfig that exposes a settable paused() flag
+///         and a configurable batcherHash() used by the fallback batcher path.
 contract MockSystemConfig {
     bool private _paused;
+    bytes32 private _batcherHash;
 
     function setPaused(bool val) external {
         _paused = val;
@@ -38,6 +40,14 @@ contract MockSystemConfig {
 
     function paused() external view returns (bool) {
         return _paused;
+    }
+
+    function setBatcherHash(bytes32 val) external {
+        _batcherHash = val;
+    }
+
+    function batcherHash() external view returns (bytes32) {
+        return _batcherHash;
     }
 }
 
@@ -412,6 +422,73 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         assertFalse(authenticator.activeIsEspresso());
     }
 
+    /// @notice Test that authenticateBatchInfo succeeds in fallback mode when called by
+    ///         the SystemConfig batcher address.
+    function test_authenticateBatchInfo_fallback_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Switch to fallback mode.
+        vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
+        assertFalse(authenticator.activeIsEspresso());
+
+        // Configure the SystemConfig batcher to a known address.
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        bytes32 commitment = keccak256("fallback commitment");
+
+        // The fallback batcher path ignores the signature; pass empty bytes.
+        vm.expectEmit(true, false, false, false);
+        emit BatchInfoAuthenticated(commitment);
+
+        vm.prank(fallbackBatcher);
+        authenticator.authenticateBatchInfo(commitment, "");
+    }
+
+    /// @notice Test that authenticateBatchInfo reverts in fallback mode when called by
+    ///         a sender that is not the SystemConfig batcher address.
+    function test_authenticateBatchInfo_fallback_revertsOnWrongSender() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Switch to fallback mode.
+        vm.prank(proxyAdminOwner);
+        authenticator.switchBatcher();
+        assertFalse(authenticator.activeIsEspresso());
+
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        bytes32 commitment = keccak256("fallback commitment");
+
+        // An unauthorized sender must be rejected.
+        vm.prank(unauthorized);
+        vm.expectRevert(
+            abi.encodeWithSelector(IBatchAuthenticator.UnauthorizedFallbackBatcher.selector, unauthorized, fallbackBatcher)
+        );
+        authenticator.authenticateBatchInfo(commitment, "");
+    }
+
+    /// @notice Test that in Espresso (default) mode, the TEE path is taken — calling with
+    ///         the fallback-batcher address but no valid TEE signature must revert.
+    function test_authenticateBatchInfo_espresso_revertsOnFallbackSender() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        // Sanity: still in Espresso mode.
+        assertTrue(authenticator.activeIsEspresso());
+
+        // Configure a fallback batcher; Espresso mode must NOT use it.
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        bytes32 commitment = keccak256("espresso commitment");
+
+        // Calling with empty signature — TEE path runs ECDSA.recover, which rejects the
+        // zero-length input as ECDSAInvalidSignatureLength(0).
+        vm.prank(fallbackBatcher);
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, uint256(0)));
+        authenticator.authenticateBatchInfo(commitment, "");
+    }
+
     /// @notice Test that paused() delegates to SystemConfig.
     function test_paused_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
@@ -631,7 +708,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
         assertTrue(authenticator.activeIsEspresso());
-        assertEq(authenticator.version(), "1.1.0");
+        assertEq(authenticator.version(), "1.2.0");
 
         // Verify proxy admin.
         address admin = EIP1967Helper.getAdmin(address(proxy));
@@ -707,7 +784,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(block.chainid, Chains.Sepolia);
 
         // Verify contract is functional.
-        assertEq(authenticator.version(), "1.1.0");
+        assertEq(authenticator.version(), "1.2.0");
         assertTrue(authenticator.activeIsEspresso());
 
         // Verify the fork is working by testing that we can read the block number.
