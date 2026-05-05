@@ -23,10 +23,9 @@ import (
 // DriverSetup field block compact (see driver.go).
 //
 // All fields are nil/zero when --espresso.enabled is false except for the
-// fallback batcher's ChainSigner/SequencerAddress (always populated by
-// applyEspressoDriverSetup), and ActiveSeqChanged which is always optional.
+// fallback batcher's ChainSigner/SequencerAddress, which are always populated
+// by applyEspressoDriverSetup.
 type EspressoDriverSetup struct {
-	ActiveSeqChanged chan struct{}
 	Client           *espressoClient.MultipleNodesClient
 	LightClient      *espressoLightClient.LightclientCaller
 	ChainSigner      opcrypto.ChainSigner

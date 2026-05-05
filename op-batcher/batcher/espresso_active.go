@@ -55,7 +55,7 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 		l.Log.Info("Batcher is not the active batcher, skipping publish",
 			"batcherAddr", batcherAddr,
 			"activeIsEspresso", activeIsEspresso,
-			"UseEspresso", l.Config.Espresso.Enabled,
+			"EspressoEnabled", l.Config.Espresso.Enabled,
 		)
 	}
 
