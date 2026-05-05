@@ -173,6 +173,11 @@ type BatchSubmitter struct {
 
 	// degradedLog throttles repeated warnings from tick-driven loops so the
 	// log debouncer doesn't see the same message every poll interval.
+	// Note: tick-loop failures previously logged at Error are routed through
+	// degradedLog.Warn and emit at Warn level. They are transient and retried
+	// on the next tick; reminders + recovery logs keep sustained outages
+	// visible. Alerting that keys on level >= Error for these messages will
+	// no longer fire on the first occurrence.
 	degradedLog *oplog.RepeatStateLogger
 }
 
