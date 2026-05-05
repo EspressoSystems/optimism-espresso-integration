@@ -166,7 +166,7 @@ var (
 	}
 	ChallengerFlag = &cli.StringFlag{
 		Name:    "challenger",
-		Usage:   "Challenger address.",
+		Usage:   "Challenger.",
 		EnvVars: deployer.PrefixEnvVar("CHALLENGER"),
 	}
 )
