@@ -74,16 +74,6 @@ func (ev LocalSafeUpdateEvent) String() string {
 	return "local-safe-update"
 }
 
-// CrossSafeUpdateEvent signals that cross-safe and local-safe heads have been updated.
-type CrossSafeUpdateEvent struct {
-	CrossSafe eth.L2BlockRef
-	LocalSafe eth.L2BlockRef
-}
-
-func (ev CrossSafeUpdateEvent) String() string {
-	return "cross-safe-update"
-}
-
 // SafeDerivedEvent signals that a block was determined to be safe, and derived from the given L1 block.
 // This is signaled upon procedural call of PromoteSafe method
 type SafeDerivedEvent struct {

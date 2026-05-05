@@ -161,23 +161,6 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("WAIT_NODE_SYNC"),
 	}
-	EspressoUrlFlag = &cli.StringFlag{
-		Name:    "espresso-url",
-		Usage:   "URL of Espresso query service",
-		EnvVars: prefixEnvVars("ESPRESSO_URL"),
-	}
-	EspressoLCAddrFlag = &cli.StringFlag{
-		Name:    "espresso-light-client-addr",
-		Usage:   "Address of Espresso Light Client contract proxy",
-		Value:   "",
-		EnvVars: prefixEnvVars("ESPRESSO_LIGHT_CLIENT_ADDR"),
-	}
-	TestingEspressoBatcherPrivateKeyFlag = &cli.StringFlag{
-		Name:    "testing-espresso-batcher-private-key",
-		Usage:   "Private key of batcher in Espresso mode: ONLY FOR TESTING",
-		Value:   "",
-		EnvVars: prefixEnvVars("TESTING_ESPRESSO_BATCHER_PRIVATE_KEY"),
-	}
 	PreferLocalSafeL2Flag = &cli.BoolFlag{
 		Name:    "prefer-local-safe-l2",
 		Usage:   "Load unsafe blocks higher than the sequencer's LocalSafeL2 instead of SafeL2",
@@ -212,9 +195,6 @@ var optionalFlags = []cli.Flag{
 	DataAvailabilityTypeFlag,
 	ActiveSequencerCheckDurationFlag,
 	CompressionAlgoFlag,
-	EspressoUrlFlag,
-	EspressoLCAddrFlag,
-	TestingEspressoBatcherPrivateKeyFlag,
 	PreferLocalSafeL2Flag,
 }
 

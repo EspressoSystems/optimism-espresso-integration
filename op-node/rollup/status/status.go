@@ -67,12 +67,6 @@ func (st *StatusTracker) OnEvent(ctx context.Context, ev event.Event) bool {
 	case engine.LocalSafeUpdateEvent:
 		st.log.Debug("Local safe head updated", "local_safe", x.Ref)
 		st.data.LocalSafeL2 = x.Ref
-	case engine.CrossSafeUpdateEvent:
-		// TODO: Fix upstream compatibility for logs.
-		// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
-		st.log.Info(logmodule.CrossSafeHeadUpdated, "cross_safe", x.CrossSafe, "local_safe", x.LocalSafe)
-		st.data.SafeL2 = x.CrossSafe
-		st.data.LocalSafeL2 = x.LocalSafe
 	case derive.DeriverL1StatusEvent:
 		st.data.CurrentL1 = x.Origin
 	case rollup.ResetEvent:
@@ -169,7 +163,9 @@ func (st *StatusTracker) OnCrossSafeUpdate(ctx context.Context, crossSafe eth.L2
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
-	st.log.Debug("Cross safe head updated", "cross_safe", crossSafe, "local_safe", localSafe)
+	// TODO: Fix upstream compatibility for logs.
+	// <https://app.asana.com/1/1208976916964769/project/1209392461754458/task/1211175327473209?focus=true>
+	st.log.Info(logmodule.CrossSafeHeadUpdated, "cross_safe", crossSafe, "local_safe", localSafe)
 	st.data.SafeL2 = crossSafe
 	st.data.LocalSafeL2 = localSafe
 

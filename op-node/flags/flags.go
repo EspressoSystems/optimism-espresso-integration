@@ -34,7 +34,6 @@ const (
 	AltDACategory      = "6. ALT-DA (EXPERIMENTAL)"
 	MiscCategory       = "7. MISC"
 	InteropCategory    = "8. INTEROP (SUPER EXPERIMENTAL)"
-	CaffCategory       = "9. ESPRESSO CAFFEINATED NODE (EXPERIMENTAL)"
 )
 
 func init() {
