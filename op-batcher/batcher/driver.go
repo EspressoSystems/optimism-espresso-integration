@@ -36,6 +36,7 @@ import (
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
@@ -169,6 +170,15 @@ type BatchSubmitter struct {
 	teeAuthGroup errgroup.Group
 
 	teeVerifierAddress common.Address
+
+	// degradedLog throttles repeated warnings from tick-driven loops so the
+	// log debouncer doesn't see the same message every poll interval.
+	// Note: tick-loop failures previously logged at Error are routed through
+	// degradedLog.Warn and emit at Warn level. They are transient and retried
+	// on the next tick; reminders + recovery logs keep sustained outages
+	// visible. Alerting that keys on level >= Error for these messages will
+	// no longer fire on the first occurrence.
+	degradedLog *oplog.RepeatStateLogger
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -181,6 +191,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	batchSubmitter := &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
+		degradedLog: oplog.NewRepeatStateLogger(),
 	}
 
 	err := batchSubmitter.SetThrottleController(setup.Config.ThrottleParams.ControllerType, setup.Config.ThrottleParams.PIDConfig)
@@ -560,8 +571,9 @@ func (l *BatchSubmitter) sendToThrottlingLoop(unsafeBytesUpdated chan int64) {
 func (l *BatchSubmitter) tryPublishSignal(c chan pubInfo, value pubInfo) {
 	select {
 	case c <- value:
+		l.degradedLog.Clear(l.Log, "publishSignalFull", "publishing loop caught up, signals flowing")
 	default:
-		l.Log.Warn("publishSignal channel is full, skipping signal")
+		l.degradedLog.Warn(l.Log, "publishSignalFull", "publishSignal channel is full, skipping signal")
 	}
 }
 
@@ -586,9 +598,10 @@ func (l *BatchSubmitter) syncAndPrune(syncStatus *eth.SyncStatus) *inclusiveBloc
 		// If the sequencer is out of sync
 		// do nothing and wait to see if it has
 		// got in sync on the next tick.
-		l.Log.Warn("Sequencer is out of sync, retrying next tick.")
+		l.degradedLog.Warn(l.Log, "sequencerOutOfSync", "Sequencer is out of sync, retrying next tick.")
 		return syncActions.blocksToLoad
 	}
+	l.degradedLog.Clear(l.Log, "sequencerOutOfSync", "Sequencer back in sync")
 
 	l.prevCurrentL1 = syncStatus.CurrentL1
 
@@ -662,9 +675,10 @@ func (l *BatchSubmitter) blockLoadingLoop(ctx context.Context, wg *sync.WaitGrou
 		case <-ticker.C:
 			syncStatus, err := l.getSyncStatus(ctx)
 			if err != nil {
-				l.Log.Warn("could not get sync status, retrying on next tick", "err", err)
+				l.degradedLog.Warn(l.Log, "syncStatusErr/blockLoading", "could not get sync status, retrying on next tick", "err", err)
 				continue
 			}
+			l.degradedLog.Clear(l.Log, "syncStatusErr/blockLoading", "sync status fetch recovered")
 
 			blocksToLoad := l.syncAndPrune(syncStatus)
 
@@ -677,9 +691,10 @@ func (l *BatchSubmitter) blockLoadingLoop(ctx context.Context, wg *sync.WaitGrou
 					l.waitNodeSyncAndClearState()
 					continue
 				case err != nil:
-					l.Log.Warn("error loading blocks, retrying on next tick", "err", err)
+					l.degradedLog.Warn(l.Log, "loadBlocksErr", "error loading blocks, retrying on next tick", "err", err)
 					continue
 				default:
+					l.degradedLog.Clear(l.Log, "loadBlocksErr", "block loading recovered")
 					l.sendToThrottlingLoop(unsafeBytesUpdated) // we have increased the unsafe data. Signal the throttling loop to check if it should throttle.
 				}
 			}
@@ -761,17 +776,18 @@ func (l *BatchSubmitter) singleEndpointThrottler(wg *sync.WaitGroup, throttleSig
 			return
 		} else if err != nil {
 			// Transport-level errors are retried.
-			l.Log.Warn("SetMaxDASize RPC failed for endpoint, retrying.", "endpoint", endpoint, "err", err)
+			l.degradedLog.Warn(l.Log, "setMaxDASizeFailed/"+endpoint, "SetMaxDASize RPC call failed for endpoint, retrying.", "endpoint", endpoint, "err", err)
 			retryTimer.Reset(retryInterval)
 			return
 		}
 
 		if !success {
-			l.Log.Warn("Result of SetMaxDASize was false for endpoint, retrying.", "endpoint", endpoint)
+			l.degradedLog.Warn(l.Log, "setMaxDASizeFailed/"+endpoint, "Result of SetMaxDASize was false for endpoint, retrying.", "endpoint", endpoint)
 			retryTimer.Reset(retryInterval)
 			return
 		}
 
+		l.degradedLog.Clear(l.Log, "setMaxDASizeFailed/"+endpoint, "SetMaxDASize recovered for endpoint", "endpoint", endpoint)
 		l.Log.Debug("Successfully set max DA size on endpoint",
 			"endpoint", endpoint,
 			"max_tx_size", params.MaxTxSize,

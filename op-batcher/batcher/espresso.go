@@ -836,16 +836,19 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
 	err := l.EspressoStreamer().Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.FinalizedL2.L1Origin)
 	if err != nil {
-		l.Log.Warn("Failed to refresh Espresso streamer", "err", err)
+		l.degradedLog.Warn(l.Log, "espressoStreamerRefreshErr", "Failed to refresh Espresso streamer", "err", err)
+	} else {
+		l.degradedLog.Clear(l.Log, "espressoStreamerRefreshErr", "Espresso streamer refresh recovered")
 	}
 
 	l.channelMgrMutex.Lock()
 	defer l.channelMgrMutex.Unlock()
 	syncActions, outOfSync := computeSyncActions(*newSyncStatus, l.prevCurrentL1, l.channelMgr.blocks, l.channelMgr.channelQueue, l.Log)
 	if outOfSync {
-		l.Log.Warn("Sequencer is out of sync, retrying next tick.")
+		l.degradedLog.Warn(l.Log, "sequencerOutOfSync", "Sequencer is out of sync, retrying next tick.")
 		return
 	}
+	l.degradedLog.Clear(l.Log, "sequencerOutOfSync", "Sequencer back in sync")
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
@@ -920,9 +923,10 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 		case <-ticker.C:
 			newSyncStatus, err := l.getSyncStatus(ctx)
 			if err != nil {
-				l.Log.Error("failed to refresh sync status", "err", err)
+				l.degradedLog.Warn(l.Log, "syncStatusErr/espressoBatchLoading", "failed to refresh sync status", "err", err)
 				continue
 			}
+			l.degradedLog.Clear(l.Log, "syncStatusErr/espressoBatchLoading", "sync status fetch recovered")
 
 			l.espressoSyncAndRefresh(ctx, newSyncStatus)
 
@@ -973,9 +977,10 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 			// A failure in the streamer Update can happen after the buffer has been partially filled
 			if err != nil {
-				l.Log.Error("failed to update Espresso streamer", "err", err)
+				l.degradedLog.Warn(l.Log, "espressoStreamerUpdateErr", "failed to update Espresso streamer", "err", err)
 				continue
 			}
+			l.degradedLog.Clear(l.Log, "espressoStreamerUpdateErr", "Espresso streamer update recovered")
 
 		case <-ctx.Done():
 			l.Log.Info("espressoBatchLoadingLoop returning")
@@ -1001,9 +1006,10 @@ func (l *BlockLoader) EnqueueBlocks(ctx context.Context, blocksToQueue inclusive
 	for i := blocksToQueue.start; i <= blocksToQueue.end; i++ {
 		block, err := l.batcher.fetchBlock(ctx, i)
 		if err != nil {
-			l.batcher.Log.Warn("Failed to fetch block", "err", err)
+			l.batcher.degradedLog.Warn(l.batcher.Log, "fetchBlockErr", "Failed to fetch block", "err", err)
 			break
 		}
+		l.batcher.degradedLog.Clear(l.batcher.Log, "fetchBlockErr", "Block fetching recovered")
 
 		for _, txn := range block.Transactions() {
 			l.batcher.Log.Debug("tx hash before submitting to Espresso", "hash", txn.Hash().String())
@@ -1063,9 +1069,10 @@ func (l *BlockLoader) nextBlockRange(newSyncStatus *eth.SyncStatus) (inclusiveBl
 
 	if newSyncStatus.CurrentL1.Number < l.prevSyncStatus.CurrentL1.Number {
 		// sequencer restarted and hasn't caught up yet
-		l.batcher.Log.Warn("sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1.Number)
+		l.batcher.degradedLog.Warn(l.batcher.Log, "sequencerCurrentL1Reversed", "sequencer currentL1 reversed", "new currentL1", newSyncStatus.CurrentL1.Number, "previous currentL1", l.prevSyncStatus.CurrentL1.Number)
 		return inclusiveBlockRange{}, ActionRetry
 	}
+	l.batcher.degradedLog.Clear(l.batcher.Log, "sequencerCurrentL1Reversed", "sequencer currentL1 caught up")
 
 	safeL2 := newSyncStatus.SafeL2
 
@@ -1155,9 +1162,10 @@ func (l *BatchSubmitter) espressoBatchQueueingLoop(ctx context.Context, wg *sync
 		case <-ticker.C:
 			newSyncStatus, err := l.getSyncStatus(ctx)
 			if err != nil {
-				l.Log.Error("Couldn't get sync status", "error", err)
+				l.degradedLog.Warn(l.Log, "syncStatusErr/espressoBatchQueueing", "Couldn't get sync status", "error", err)
 				continue
 			}
+			l.degradedLog.Clear(l.Log, "syncStatusErr/espressoBatchQueueing", "sync status fetch recovered")
 
 			blocksToQueue, action := loader.nextBlockRange(newSyncStatus)
 
