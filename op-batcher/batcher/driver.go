@@ -199,7 +199,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		panic(err)
 	}
 
-	if setup.Config.UseEspresso {
+	if setup.Config.Espresso.Enabled {
 		l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
 		// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
 		// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
@@ -215,8 +215,8 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 			lightClientIface,
 			batchSubmitter.Log,
 			derive.CreateEspressoBatchUnmarshaler(),
-			setup.Config.CaffeinationHeightEspresso,
-			setup.Config.CaffeinationHeightL2,
+			setup.Config.Espresso.CaffeinationHeightEspresso,
+			setup.Config.Espresso.CaffeinationHeightL2,
 			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
 			false,
 		)
@@ -279,7 +279,7 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 		l.Log.Warn("Throttling loop is DISABLED due to 0 throttle-threshold. This should not be disabled in prod.")
 	}
 
-	if l.Config.UseEspresso {
+	if l.Config.Espresso.Enabled {
 
 		err := l.registerBatcher(l.killCtx)
 		if err != nil {
@@ -295,9 +295,9 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 			WithContext(l.shutdownCtx),
 			WithWaitGroup(l.wg),
 			WithEspressoClient(l.Espresso),
-			WithVerifyReceiptMaxBlocks(l.Config.VerifyReceiptMaxBlocks),
-			WithVerifyReceiptSafetyTimeout(l.Config.VerifyReceiptSafetyTimeout),
-			WithVerifyReceiptRetryDelay(l.Config.VerifyReceiptRetryDelay),
+			WithVerifyReceiptMaxBlocks(l.Config.Espresso.VerifyReceiptMaxBlocks),
+			WithVerifyReceiptSafetyTimeout(l.Config.Espresso.VerifyReceiptSafetyTimeout),
+			WithVerifyReceiptRetryDelay(l.Config.Espresso.VerifyReceiptRetryDelay),
 		)
 		l.espressoSubmitter.SpawnWorkers(4, 4)
 		l.espressoSubmitter.Start()
@@ -950,7 +950,7 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 		// must run as a vanilla upstream Optimism batcher, with no
 		// BatchAuthenticator coupling.
 		if l.hasBatchAuthenticator() {
-			consultActiveFlag := l.Config.UseEspresso
+			consultActiveFlag := l.Config.Espresso.Enabled
 			if !consultActiveFlag {
 				fallbackAuthRequired, err := l.isFallbackAuthRequired(ctx)
 				if err != nil {
@@ -996,7 +996,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
-			if l.Config.UseEspresso {
+			if l.Config.Espresso.Enabled {
 				l.EspressoStreamer().Reset()
 			}
 			return true
@@ -1207,7 +1207,7 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 
 	if !isCancel {
 		// Espresso batcher: authenticate via BatchAuthenticator.
-		if l.Config.UseEspresso {
+		if l.Config.Espresso.Enabled {
 			l.teeAuthGroup.Go(
 				func() error {
 					l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)

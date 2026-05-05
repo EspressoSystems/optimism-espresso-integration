@@ -48,14 +48,14 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 
 	batcherAddr := l.Txmgr.From()
 
-	isActive := (activeIsEspresso && l.Config.UseEspresso) ||
-		(!activeIsEspresso && !l.Config.UseEspresso)
+	isActive := (activeIsEspresso && l.Config.Espresso.Enabled) ||
+		(!activeIsEspresso && !l.Config.Espresso.Enabled)
 
 	if !isActive {
 		l.Log.Info("Batcher is not the active batcher, skipping publish",
 			"batcherAddr", batcherAddr,
 			"activeIsEspresso", activeIsEspresso,
-			"UseEspresso", l.Config.UseEspresso,
+			"UseEspresso", l.Config.Espresso.Enabled,
 		)
 	}
 
@@ -86,7 +86,7 @@ func (l *BatchSubmitter) hasBatchAuthenticator() bool {
 // tx lands in a post-fork block — would require the resulting
 // BatchInfoAuthenticated event, silently dropping the batch.
 //
-// To prevent this, we add Config.FallbackAuthLeadTime to the L1 tip's
+// To prevent this, we add Config.Espresso.FallbackAuthLeadTime to the L1 tip's
 // timestamp before evaluating the fork predicate. This makes the batcher
 // start authenticating slightly before the verifier requires it. The reverse
 // asymmetry (authenticated tx lands pre-fork) is harmless: pre-fork the
@@ -101,6 +101,6 @@ func (l *BatchSubmitter) isFallbackAuthRequired(ctx context.Context) (bool, erro
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch L1 tip for fallback-auth gate: %w", err)
 	}
-	leadSec := uint64(l.Config.FallbackAuthLeadTime / time.Second)
+	leadSec := uint64(l.Config.Espresso.FallbackAuthLeadTime / time.Second)
 	return l.RollupConfig.IsEspressoEnforcement(tip.Time + leadSec), nil
 }

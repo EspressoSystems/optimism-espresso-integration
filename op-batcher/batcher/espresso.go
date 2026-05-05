@@ -911,10 +911,10 @@ func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.Sync
 
 // Periodically refreshes the sync status and polls Espresso streamer for new batches
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan pubInfo) {
-	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.EspressoPollInterval)
+	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.Espresso.PollInterval)
 
 	defer wg.Done()
-	ticker := time.NewTicker(l.Config.EspressoPollInterval)
+	ticker := time.NewTicker(l.Config.Espresso.PollInterval)
 	defer ticker.Stop()
 	defer close(publishSignal)
 
@@ -1243,7 +1243,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	if l.Config.EspressoAttestationService == "" {
+	if l.Config.Espresso.AttestationService == "" {
 		l.Log.Warn("EspressoAttestationServices is not set, skipping registration")
 		return nil
 	}
@@ -1302,7 +1302,7 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 }
 
 func (l *BatchSubmitter) GenerateZKProof(ctx context.Context, attestationBytes []byte) (*EspressoOnchainProof, error) {
-	attestationServiceURL := strings.TrimSuffix(l.Config.EspressoAttestationService, "/")
+	attestationServiceURL := strings.TrimSuffix(l.Config.Espresso.AttestationService, "/")
 	url := attestationServiceURL + "/generate_proof"
 	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(attestationBytes))
 	if err != nil {
@@ -1465,7 +1465,7 @@ func (l *BatchSubmitter) signEIP712Commitment(commitment [32]byte) ([]byte, erro
 		return nil, fmt.Errorf("failed to calculate EIP-712 hash: %w", err)
 	}
 
-	signature, err := crypto.Sign(hash, l.Config.BatcherPrivateKey)
+	signature, err := crypto.Sign(hash, l.Config.Espresso.BatcherPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign EIP-712 hash: %w", err)
 	}

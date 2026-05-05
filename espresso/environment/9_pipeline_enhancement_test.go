@@ -97,7 +97,7 @@ func TestPipelineEnhancement(t *testing.T) {
 
 	factory := derive.NewDataSourceFactory(l, system.RollupConfig, l1RefClient, c, nil)
 
-	batcherAddress := crypto.PubkeyToAddress(*system.BatchSubmitter.BatcherPublicKey)
+	batcherAddress := crypto.PubkeyToAddress(*system.BatchSubmitter.Espresso.BatcherPublicKey)
 	l1Block, err := l1Client.BlockByNumber(ctx, receipt.BlockNumber)
 	require.NoError(t, err)
 	l1BlockRef := eth.L1BlockRef{

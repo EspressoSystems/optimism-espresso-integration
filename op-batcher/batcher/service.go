@@ -2,7 +2,6 @@ package batcher
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"io"
@@ -11,24 +10,18 @@ import (
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
-	"github.com/ethereum-optimism/optimism/espresso"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/hf/nitrite"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/config"
-	"github.com/ethereum-optimism/optimism/op-batcher/enclave"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-batcher/rpc"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/params"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/cliapp"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -43,63 +36,39 @@ import (
 var ErrAlreadyStopped = errors.New("already stopped")
 
 type BatcherConfig struct {
-	NetworkTimeout             time.Duration
-	PollInterval               time.Duration
-	EspressoPollInterval       time.Duration
-	EspressoAttestationService string
-	MaxPendingTransactions     uint64
+	NetworkTimeout         time.Duration
+	PollInterval           time.Duration
+	MaxPendingTransactions uint64
 
 	// UseAltDA is true if the rollup config has a DA challenge address so the batcher
 	// will post inputs to the DA server and post commitments to blobs or calldata.
 	UseAltDA bool
 	// GenericDA is true if the DA server generates commitments for the input
-	GenericDA   bool
-	UseEspresso bool
+	GenericDA bool
 	// maximum number of concurrent blob put requests to the DA server
 	MaxConcurrentDARequests uint64
-	WaitNodeSync            bool
-	CheckRecentTxsDepth     int
+
+	WaitNodeSync        bool
+	CheckRecentTxsDepth int
 
 	// For throttling DA. See CLIConfig in config.go for details on these parameters.
 	ThrottleParams config.ThrottleParams
 
-	// public key and private key of the batcher
-	BatcherPublicKey  *ecdsa.PublicKey
-	BatcherPrivateKey *ecdsa.PrivateKey
-
-	// Starting HotShot height for the Espresso streamer.
-	CaffeinationHeightEspresso uint64
-	// L2 batch position at which the Espresso streamer should start emitting batches.
-	// Operational parameter for restarting batchers mid-chain (e.g. after a fallback batcher
-	// event). When zero, the driver falls back to RollupConfig.EspressoOriginBatchPos().
-	CaffeinationHeightL2 uint64
-
-	// Receipt verification tuning for the Espresso transaction submitter.
-	VerifyReceiptMaxBlocks     uint64
-	VerifyReceiptSafetyTimeout time.Duration
-	VerifyReceiptRetryDelay    time.Duration
-
-	// FallbackAuthLeadTime is consulted only by the fallback (non-TEE)
-	// batcher's EspressoEnforcement gate. It advances the fallback batcher's
-	// switch to authenticated batches relative to the on-chain
-	// EspressoEnforcementTime, absorbing the worst-case L1 inclusion delay
-	// between batcher decision time (L1 tip) and verifier evaluation time
-	// (containing L1 block). See isFallbackAuthRequired for details.
-	FallbackAuthLeadTime time.Duration
+	// Espresso groups all Espresso-specific configuration. Defined in
+	// service_espresso.go to keep the upstream Optimism field block compact.
+	Espresso EspressoBatcherConfig
 }
 
 // BatcherService represents a full batch-submitter instance and its resources,
 // and conforms to the op-service CLI Lifecycle interface.
 type BatcherService struct {
-	closeApp            context.CancelCauseFunc
-	Log                 log.Logger
-	Metrics             metrics.Metricer
-	L1Client            *ethclient.Client
-	EndpointProvider    dial.L2EndpointProvider
-	TxManager           txmgr.TxManager
-	AltDA               *altda.DAClient
-	Espresso            *espressoClient.MultipleNodesClient
-	EspressoLightClient *espressoLightClient.LightclientCaller
+	closeApp         context.CancelCauseFunc
+	Log              log.Logger
+	Metrics          metrics.Metricer
+	L1Client         *ethclient.Client
+	EndpointProvider dial.L2EndpointProvider
+	TxManager        txmgr.TxManager
+	AltDA            *altda.DAClient
 
 	BatcherConfig
 
@@ -119,12 +88,13 @@ type BatcherService struct {
 
 	NotSubmittingOnStart bool
 
+	// Espresso runtime state. Defined in service_espresso.go to keep the
+	// upstream Optimism field block compact. EspressoClient and
+	// EspressoLightClient are nil when --espresso.enabled=false.
+	EspressoClient      *espressoClient.MultipleNodesClient
+	EspressoLightClient *espressoLightClient.LightclientCaller
 	opcrypto.ChainSigner
 	Attestation []byte
-}
-
-func (bs *BatcherService) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
-	return bs.driver.espressoStreamer
 }
 
 type DriverSetupOption func(setup *DriverSetup)
@@ -302,15 +272,6 @@ func (bs *BatcherService) initRollupConfig(ctx context.Context) error {
 	return nil
 }
 
-func (bs *BatcherService) initKeyPair() error {
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("failed to generate key pair for batcher: %w", err)
-	}
-	bs.BatcherPrivateKey = key
-	bs.BatcherPublicKey = &key.PublicKey
-	return nil
-}
 func (bs *BatcherService) initChannelConfig(cfg *CLIConfig) error {
 	channelTimeout := bs.RollupConfig.ChannelTimeoutBedrock
 	// Use lower channel timeout if granite is scheduled.
@@ -415,14 +376,9 @@ func (bs *BatcherService) initTxManager(_ context.Context, cfg *CLIConfig) error
 		return err
 	}
 	bs.TxManager = txManager
-
-	// We want to be able to access the signer
-	cast, castOk := bs.TxManager.(opcrypto.ChainSigner)
-	if !castOk {
-		return fmt.Errorf("tx manager does not implement ChainSigner")
+	if err := bs.initChainSigner(); err != nil {
+		return err
 	}
-	bs.ChainSigner = cast
-
 	return nil
 }
 
@@ -464,22 +420,18 @@ func (bs *BatcherService) initMetricsServer(cfg *CLIConfig) error {
 
 func (bs *BatcherService) initDriver(opts ...DriverSetupOption) {
 	ds := DriverSetup{
-		closeApp:            bs.closeApp,
-		Log:                 bs.Log,
-		Metr:                bs.Metrics,
-		RollupConfig:        bs.RollupConfig,
-		Config:              bs.BatcherConfig,
-		Txmgr:               bs.TxManager,
-		L1Client:            bs.L1Client,
-		EndpointProvider:    bs.EndpointProvider,
-		ChannelConfig:       bs.ChannelConfig,
-		AltDA:               bs.AltDA,
-		SequencerAddress:    bs.TxManager.From(),
-		ChainSigner:         bs.ChainSigner,
-		Espresso:            bs.Espresso,
-		EspressoLightClient: bs.EspressoLightClient,
-		Attestation:         bs.Attestation,
+		closeApp:         bs.closeApp,
+		Log:              bs.Log,
+		Metr:             bs.Metrics,
+		RollupConfig:     bs.RollupConfig,
+		Config:           bs.BatcherConfig,
+		Txmgr:            bs.TxManager,
+		L1Client:         bs.L1Client,
+		EndpointProvider: bs.EndpointProvider,
+		ChannelConfig:    bs.ChannelConfig,
+		AltDA:            bs.AltDA,
 	}
+	bs.applyEspressoDriverSetup(&ds)
 	for _, opt := range opts {
 		opt(&ds)
 	}
@@ -627,96 +579,4 @@ func (bs *BatcherService) HTTPEndpoint() string {
 		return ""
 	}
 	return "http://" + bs.rpcServer.Endpoint()
-}
-
-func (bs *BatcherService) initEspresso(cfg *CLIConfig) error {
-	// FallbackAuthLeadTime is consulted by the fallback (non-TEE) batcher and
-	// must be propagated regardless of whether --espresso.enabled is set —
-	// the fallback batcher runs with Enabled=false but still needs this knob
-	// when a BatchAuthenticator is configured on the rollup.
-	bs.FallbackAuthLeadTime = cfg.Espresso.FallbackAuthLeadTime
-
-	if !cfg.Espresso.Enabled {
-		return nil
-	}
-
-	if cfg.Espresso.RollupL1URL == "" {
-		cfg.Espresso.RollupL1URL = cfg.L1EthRpc
-	}
-
-	if cfg.Espresso.RollupL1URL != cfg.L1EthRpc {
-		log.Warn("Espresso Rollup L1 URL differs from batcher's L1EthRpc")
-	}
-
-	if cfg.Espresso.L1URL == "" {
-		log.Warn("Espresso L1 URL not provided, using batcher's L1EthRpc")
-		cfg.Espresso.L1URL = cfg.L1EthRpc
-	}
-	if cfg.Espresso.Namespace == 0 {
-		log.Info("Using L2 chain ID as namespace by default")
-		cfg.Espresso.Namespace = bs.RollupConfig.L2ChainID.Uint64()
-	}
-	if cfg.Espresso.BatchAuthenticatorAddr == (common.Address{}) {
-		cfg.Espresso.BatchAuthenticatorAddr = bs.RollupConfig.BatchAuthenticatorAddress
-	}
-
-	if err := cfg.Espresso.Check(); err != nil {
-		return fmt.Errorf("invalid Espresso config: %w", err)
-	}
-
-	bs.UseEspresso = true
-	bs.EspressoPollInterval = cfg.Espresso.PollInterval
-	bs.EspressoAttestationService = cfg.Espresso.EspressoAttestationService
-	bs.CaffeinationHeightEspresso = cfg.Espresso.CaffeinationHeightEspresso
-	bs.CaffeinationHeightL2 = cfg.Espresso.CaffeinationHeightL2
-	bs.VerifyReceiptMaxBlocks = cfg.Espresso.VerifyReceiptMaxBlocks
-	bs.VerifyReceiptSafetyTimeout = cfg.Espresso.VerifyReceiptSafetyTimeout
-	bs.VerifyReceiptRetryDelay = cfg.Espresso.VerifyReceiptRetryDelay
-
-	client, err := espressoClient.NewMultipleNodesClient(cfg.Espresso.QueryServiceURLs)
-	if err != nil {
-		return fmt.Errorf("failed to create Espresso client: %w", err)
-	}
-	bs.Espresso = client
-
-	lightClient, err := espressoLightClient.NewLightclientCaller(cfg.Espresso.LightClientAddr, bs.L1Client)
-	if err != nil {
-		return fmt.Errorf("failed to create Espresso light client: %w", err)
-	}
-	bs.EspressoLightClient = lightClient
-
-	if err := bs.initKeyPair(); err != nil {
-		return fmt.Errorf("failed to create key pair for batcher: %w", err)
-	}
-
-	// try to generate attestationBytes on public key when start batcher
-	attestationBytes, err := enclave.AttestationWithPublicKey(bs.BatcherPublicKey)
-	if err != nil {
-		bs.Log.Info("Not running in enclave, skipping attestation", "info", err)
-
-		// Replace ephemeral keys with configured keys, as in devnet they'll be pre-approved for batching
-		privateKey := cfg.Espresso.TestingBatcherPrivateKey
-		if privateKey == nil {
-			return fmt.Errorf("when not running in enclave, testing batcher private key should be set")
-		}
-
-		publicKey := privateKey.Public()
-		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-		if !ok {
-			return fmt.Errorf("error casting public key to ECDSA")
-		}
-
-		bs.BatcherPrivateKey = privateKey
-		bs.BatcherPublicKey = publicKeyECDSA
-	} else {
-		// output length of attestation
-		bs.Log.Info("Successfully got attestation. Attestation length", "length", len(attestationBytes))
-		_, err := nitrite.Verify(attestationBytes, nitrite.VerifyOptions{})
-		if err != nil {
-			return fmt.Errorf("Couldn't verify attestation: %w", err)
-		}
-		bs.Attestation = attestationBytes
-	}
-
-	return nil
 }
