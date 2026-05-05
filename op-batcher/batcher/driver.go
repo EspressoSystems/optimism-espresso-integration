@@ -36,6 +36,7 @@ import (
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 )
 
@@ -172,7 +173,7 @@ type BatchSubmitter struct {
 
 	// degradedLog throttles repeated warnings from tick-driven loops so the
 	// log debouncer doesn't see the same message every poll interval.
-	degradedLog *repeatStateLogger
+	degradedLog *oplog.RepeatStateLogger
 }
 
 // NewBatchSubmitter initializes the BatchSubmitter driver from a preconfigured DriverSetup
@@ -185,7 +186,7 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	batchSubmitter := &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
-		degradedLog: newRepeatStateLogger(),
+		degradedLog: oplog.NewRepeatStateLogger(),
 	}
 
 	err := batchSubmitter.SetThrottleController(setup.Config.ThrottleParams.ControllerType, setup.Config.ThrottleParams.PIDConfig)

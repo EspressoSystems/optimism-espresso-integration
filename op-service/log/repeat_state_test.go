@@ -1,14 +1,15 @@
-package batcher
+package log
 
 import (
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-service/testlog"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // fakeClock returns the time stored at *t, allowing the test to advance time
@@ -17,10 +18,44 @@ func fakeClock(now *time.Time) func() time.Time {
 	return func() time.Time { return *now }
 }
 
+// matchingRecords returns records whose level and message match the given
+// level and msg. Pass an empty msg to match any message.
+func matchingRecords(records []slog.Record, level slog.Level, msg string) []slog.Record {
+	var out []slog.Record
+	for _, r := range records {
+		if r.Level != level {
+			continue
+		}
+		if msg != "" && r.Message != msg {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// attrValue extracts the value of the named attribute, or nil if absent.
+func attrValue(r slog.Record, key string) any {
+	var v any
+	r.Attrs(func(a slog.Attr) bool {
+		if a.Key == key {
+			v = a.Value.Any()
+			return false
+		}
+		return true
+	})
+	return v
+}
+
+func newCapturingLogger() (log.Logger, *safeTestRecorder) {
+	rec := new(safeTestRecorder)
+	return log.NewLogger(rec), rec
+}
+
 func TestRepeatStateLogger_FirstWarnEmitsThenSuppresses(t *testing.T) {
-	lgr, capt := testlog.CaptureLogger(t, log.LevelTrace)
+	lgr, rec := newCapturingLogger()
 	now := time.Unix(0, 0)
-	r := newRepeatStateLogger()
+	r := NewRepeatStateLogger()
 	r.clock = fakeClock(&now)
 
 	r.Warn(lgr, "k1", "degraded", "err", "boom")
@@ -29,17 +64,17 @@ func TestRepeatStateLogger_FirstWarnEmitsThenSuppresses(t *testing.T) {
 	now = now.Add(1 * time.Second)
 	r.Warn(lgr, "k1", "degraded", "err", "boom")
 
-	warns := capt.FindLogs(testlog.NewLevelFilter(log.LevelWarn), testlog.NewMessageFilter("degraded"))
+	warns := matchingRecords(rec.GetRecords(), slog.LevelWarn, "degraded")
 	require.Len(t, warns, 1, "only the first observation should emit a log")
 
-	require.Equal(t, "boom", warns[0].AttrValue("err"))
-	require.Nil(t, warns[0].AttrValue("suppressed"), "first emission should not carry a suppressed count")
+	require.Equal(t, "boom", attrValue(warns[0], "err"))
+	require.Nil(t, attrValue(warns[0], "suppressed"), "first emission should not carry a suppressed count")
 }
 
 func TestRepeatStateLogger_ReminderAfterInterval(t *testing.T) {
-	lgr, capt := testlog.CaptureLogger(t, log.LevelTrace)
+	lgr, rec := newCapturingLogger()
 	now := time.Unix(0, 0)
-	r := newRepeatStateLogger()
+	r := NewRepeatStateLogger()
 	r.clock = fakeClock(&now)
 
 	// Initial emission.
@@ -50,26 +85,26 @@ func TestRepeatStateLogger_ReminderAfterInterval(t *testing.T) {
 		now = now.Add(30 * time.Second)
 		r.Warn(lgr, "k1", "degraded")
 	}
-	warns := capt.FindLogs(testlog.NewLevelFilter(log.LevelWarn), testlog.NewMessageFilter("degraded"))
+	warns := matchingRecords(rec.GetRecords(), slog.LevelWarn, "degraded")
 	require.Len(t, warns, 1, "no reminder before the interval has elapsed")
 
 	// Cross the threshold.
 	now = now.Add(31 * time.Second)
 	r.Warn(lgr, "k1", "degraded")
 
-	warns = capt.FindLogs(testlog.NewLevelFilter(log.LevelWarn), testlog.NewMessageFilter("degraded"))
+	warns = matchingRecords(rec.GetRecords(), slog.LevelWarn, "degraded")
 	require.Len(t, warns, 2, "reminder should fire once the interval has elapsed")
 
 	// Reminder includes 10 suppressed observations (9 silent + the one that triggered the reminder).
-	require.EqualValues(t, 10, warns[1].AttrValue("suppressed"))
+	require.EqualValues(t, int64(10), attrValue(warns[1], "suppressed"))
 	// Duration since firstSeen is 9*30s + 31s = 5m1s, rounded to nearest second.
-	require.Equal(t, 5*time.Minute+1*time.Second, warns[1].AttrValue("duration"))
+	require.Equal(t, 5*time.Minute+1*time.Second, attrValue(warns[1], "duration"))
 }
 
 func TestRepeatStateLogger_KeysAreIndependent(t *testing.T) {
-	lgr, capt := testlog.CaptureLogger(t, log.LevelTrace)
+	lgr, rec := newCapturingLogger()
 	now := time.Unix(0, 0)
-	r := newRepeatStateLogger()
+	r := NewRepeatStateLogger()
 	r.clock = fakeClock(&now)
 
 	r.Warn(lgr, "k1", "first state")
@@ -78,19 +113,19 @@ func TestRepeatStateLogger_KeysAreIndependent(t *testing.T) {
 	r.Warn(lgr, "k1", "first state")
 	r.Warn(lgr, "k2", "second state")
 
-	require.Len(t, capt.FindLogs(testlog.NewMessageFilter("first state")), 1)
-	require.Len(t, capt.FindLogs(testlog.NewMessageFilter("second state")), 1)
+	require.Len(t, matchingRecords(rec.GetRecords(), slog.LevelWarn, "first state"), 1)
+	require.Len(t, matchingRecords(rec.GetRecords(), slog.LevelWarn, "second state"), 1)
 
 	// Clearing one key must not affect the other.
 	r.Clear(lgr, "k1", "first recovered")
 	r.Warn(lgr, "k2", "second state") // still suppressed
-	require.Len(t, capt.FindLogs(testlog.NewMessageFilter("second state")), 1)
+	require.Len(t, matchingRecords(rec.GetRecords(), slog.LevelWarn, "second state"), 1)
 }
 
 func TestRepeatStateLogger_ClearEmitsRecoveryWhenActive(t *testing.T) {
-	lgr, capt := testlog.CaptureLogger(t, log.LevelTrace)
+	lgr, rec := newCapturingLogger()
 	now := time.Unix(0, 0)
-	r := newRepeatStateLogger()
+	r := NewRepeatStateLogger()
 	r.clock = fakeClock(&now)
 
 	r.Warn(lgr, "k1", "degraded")
@@ -99,28 +134,28 @@ func TestRepeatStateLogger_ClearEmitsRecoveryWhenActive(t *testing.T) {
 	now = now.Add(3 * time.Second)
 	r.Clear(lgr, "k1", "recovered", "extra", "ctx")
 
-	infos := capt.FindLogs(testlog.NewLevelFilter(log.LevelInfo), testlog.NewMessageFilter("recovered"))
+	infos := matchingRecords(rec.GetRecords(), slog.LevelInfo, "recovered")
 	require.Len(t, infos, 1)
-	require.Equal(t, 5*time.Second, infos[0].AttrValue("duration"))
-	require.EqualValues(t, 2, infos[0].AttrValue("occurrences"))
-	require.Equal(t, "ctx", infos[0].AttrValue("extra"))
+	require.Equal(t, 5*time.Second, attrValue(infos[0], "duration"))
+	require.EqualValues(t, int64(2), attrValue(infos[0], "occurrences"))
+	require.Equal(t, "ctx", attrValue(infos[0], "extra"))
 }
 
 func TestRepeatStateLogger_ClearWhenInactiveIsNoop(t *testing.T) {
-	lgr, capt := testlog.CaptureLogger(t, log.LevelTrace)
+	lgr, rec := newCapturingLogger()
 	now := time.Unix(0, 0)
-	r := newRepeatStateLogger()
+	r := NewRepeatStateLogger()
 	r.clock = fakeClock(&now)
 
 	r.Clear(lgr, "k1", "recovered")
 
-	require.Empty(t, capt.FindLogs(testlog.NewMessageFilter("recovered")))
+	require.Empty(t, matchingRecords(rec.GetRecords(), slog.LevelInfo, "recovered"))
 }
 
 func TestRepeatStateLogger_FreshAfterClear(t *testing.T) {
-	lgr, capt := testlog.CaptureLogger(t, log.LevelTrace)
+	lgr, rec := newCapturingLogger()
 	now := time.Unix(0, 0)
-	r := newRepeatStateLogger()
+	r := NewRepeatStateLogger()
 	r.clock = fakeClock(&now)
 
 	r.Warn(lgr, "k1", "degraded")
@@ -130,14 +165,14 @@ func TestRepeatStateLogger_FreshAfterClear(t *testing.T) {
 	// After Clear, the next Warn should emit again as a fresh first observation.
 	r.Warn(lgr, "k1", "degraded")
 
-	warns := capt.FindLogs(testlog.NewLevelFilter(log.LevelWarn), testlog.NewMessageFilter("degraded"))
+	warns := matchingRecords(rec.GetRecords(), slog.LevelWarn, "degraded")
 	require.Len(t, warns, 2, "first Warn after Clear should emit")
-	require.Nil(t, warns[1].AttrValue("suppressed"), "fresh emission should not carry a suppressed count")
+	require.Nil(t, attrValue(warns[1], "suppressed"), "fresh emission should not carry a suppressed count")
 }
 
 func TestRepeatStateLogger_ConcurrentCallersDoNotRace(t *testing.T) {
-	lgr := testlog.Logger(t, log.LevelTrace)
-	r := newRepeatStateLogger()
+	lgr, _ := newCapturingLogger()
+	r := NewRepeatStateLogger()
 
 	const goroutines = 32
 	const callsPerG = 200
