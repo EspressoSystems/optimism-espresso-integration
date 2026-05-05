@@ -51,7 +51,7 @@ func init() {
 	optionalFlags = append(optionalFlags, DeprecatedFlags...)
 	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix, RollupCategory)...)
 	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, AltDACategory)...)
-	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, CaffCategory)...)
+	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, "9. ESPRESSO CAFFEINATED NODE (EXPERIMENTAL)")...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 
