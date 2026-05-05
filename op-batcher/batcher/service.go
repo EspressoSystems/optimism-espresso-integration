@@ -55,7 +55,7 @@ type BatcherConfig struct {
 	ThrottleParams config.ThrottleParams
 
 	// Espresso groups all Espresso-specific configuration. Defined in
-	// service_espresso.go to keep the upstream Optimism field block compact.
+	// espresso_service.go to keep the upstream Optimism field block compact.
 	Espresso EspressoBatcherConfig
 }
 
@@ -88,7 +88,7 @@ type BatcherService struct {
 
 	NotSubmittingOnStart bool
 
-	// Espresso runtime state. Defined in service_espresso.go to keep the
+	// Espresso runtime state. Defined in espresso_service.go to keep the
 	// upstream Optimism field block compact. EspressoClient and
 	// EspressoLightClient are nil when --espresso.enabled=false.
 	EspressoClient      *espressoClient.MultipleNodesClient
