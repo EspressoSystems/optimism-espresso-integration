@@ -47,7 +47,7 @@ build-devnet: stop-containers
   (cd espresso && ./scripts/prepare-allocs.sh && docker compose build)
 
 golint:
- golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 5m -e "errors.As" -e "errors.Is" ./...
+ golangci-lint run --config espresso/.golangci.yaml --timeout 10m ./espresso/...
 
 
 compile-contracts:

@@ -34,7 +34,6 @@ const (
 	AltDACategory      = "6. ALT-DA (EXPERIMENTAL)"
 	MiscCategory       = "7. MISC"
 	InteropCategory    = "8. INTEROP (SUPER EXPERIMENTAL)"
-	CaffCategory       = "9. ESPRESSO CAFFEINATED NODE (EXPERIMENTAL)"
 )
 
 func init() {
@@ -52,7 +51,7 @@ func init() {
 	optionalFlags = append(optionalFlags, DeprecatedFlags...)
 	optionalFlags = append(optionalFlags, opflags.CLIFlags(EnvVarPrefix, RollupCategory)...)
 	optionalFlags = append(optionalFlags, altda.CLIFlags(EnvVarPrefix, AltDACategory)...)
-	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, CaffCategory)...)
+	optionalFlags = append(optionalFlags, espresso.CLIFlags(EnvVarPrefix, "9. ESPRESSO CAFFEINATED NODE (EXPERIMENTAL)")...)
 	Flags = append(requiredFlags, optionalFlags...)
 }
 
@@ -308,13 +307,13 @@ var (
 		EnvVars:  prefixEnvVars("FINALITY_DELAY"),
 		Category: RollupCategory,
 	}
+	// SequencerUseFinalizedL1Flag is set to false by default, but setting it to true would
+	// improve the performance on the batcher and the Caff node sides because they would no
+	// longer need extra time to wait for the L1 finality.
 	SequencerUseFinalizedL1Flag = &cli.BoolFlag{
-		Name:    "sequencer.use-finalized",
-		Usage:   "Enable use of only finalized L1 blocks as L1 origin. Overwrites the value of 'sequencer.l1-confs'.",
-		EnvVars: prefixEnvVars("SEQUENCER_USE_FINALIZED"),
-		// It's set to false by default, but setting it to true would improve the performance on
-		// the batcher and the Caff node sides because they would no longer need extra time to wait
-		// for the L1 finality.
+		Name:     "sequencer.use-finalized",
+		Usage:    "Enable use of only finalized L1 blocks as L1 origin. Overwrites the value of 'sequencer.l1-confs'.",
+		EnvVars:  prefixEnvVars("SEQUENCER_USE_FINALIZED"),
 		Value:    false,
 		Category: SequencerCategory,
 	}
@@ -479,6 +478,7 @@ var (
 		Category: RollupCategory,
 		Hidden:   true,
 	}
+
 	ExperimentalOPStackAPI = &cli.BoolFlag{
 		Name:     "experimental.sequencer-api",
 		Usage:    "Enables experimental test sequencer RPC functionality",

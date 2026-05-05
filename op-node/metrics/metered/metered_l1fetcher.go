@@ -30,6 +30,8 @@ type MeteredL1Fetcher struct {
 	now     func() time.Time
 }
 
+var _ L1Fetcher = (*MeteredL1Fetcher)(nil)
+
 func NewMeteredL1Fetcher(inner L1Fetcher, metrics L1FetcherMetrics) *MeteredL1Fetcher {
 	return &MeteredL1Fetcher{
 		inner:   inner,

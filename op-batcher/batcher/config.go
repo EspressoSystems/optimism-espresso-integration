@@ -141,9 +141,6 @@ type CLIConfig struct {
 	// ActiveSequencerCheckDuration is the duration between checks to determine the active sequencer endpoint.
 	ActiveSequencerCheckDuration time.Duration
 
-	// PreferLocalSafeL2 triggers the batcher to load blocks from the sequencer based on the LocalSafeL2 SyncStatus field (instead of the SafeL2 field).
-	PreferLocalSafeL2 bool
-
 	// TestUseMaxTxSizeForBlobs allows to set the blob size with MaxL1TxSize.
 	// Should only be used for testing purposes.
 	TestUseMaxTxSizeForBlobs bool
@@ -220,7 +217,6 @@ func (c *CLIConfig) Check() error {
 	if err := c.RPC.Check(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -271,7 +267,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 			PidOutputMax:        ctx.Float64(flags.ThrottlePidOutputMaxFlag.Name),
 			PidSampleTime:       ctx.Duration(flags.ThrottlePidSampleTimeFlag.Name),
 		},
-		Espresso:          espresso.ReadCLIConfig(ctx),
-		PreferLocalSafeL2: ctx.Bool(flags.PreferLocalSafeL2Flag.Name),
+		Espresso: espresso.ReadCLIConfig(ctx),
 	}
 }

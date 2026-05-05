@@ -54,14 +54,12 @@ const (
 type AllocType string
 
 const (
-	AllocTypeStandard               AllocType = "standard"
-	AllocTypeAltDA                  AllocType = "alt-da"
-	AllocTypeAltDAGeneric           AllocType = "alt-da-generic"
-	AllocTypeL2OO                   AllocType = "l2oo"
-	AllocTypeMTCannon               AllocType = "mt-cannon"
-	AllocTypeMTCannonNext           AllocType = "mt-cannon-next"
-	AllocTypeFastGame               AllocType = "fast-game"
-	AllocTypeEspresso               AllocType = "espresso"
+	AllocTypeAltDA        AllocType = "alt-da"
+	AllocTypeAltDAGeneric AllocType = "alt-da-generic"
+	AllocTypeMTCannon     AllocType = "mt-cannon"
+	AllocTypeMTCannonNext AllocType = "mt-cannon-next"
+	AllocTypeFastGame     AllocType = "fast-game"
+
 	AllocTypeEspressoWithoutEnclave AllocType = "espresso-no-enclave"
 	AllocTypeEspressoWithEnclave    AllocType = "espresso-enclave"
 
@@ -77,7 +75,7 @@ func (a AllocType) Check() error {
 
 func (a AllocType) UsesProofs() bool {
 	switch a {
-	case AllocTypeStandard, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave:
+	case AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave:
 		return true
 	default:
 		return false
@@ -88,7 +86,7 @@ func (a AllocType) IsEspresso() bool {
 	return a == AllocTypeEspressoWithEnclave || a == AllocTypeEspressoWithoutEnclave
 }
 
-var allocTypes = []AllocType{AllocTypeStandard, AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeL2OO, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame, AllocTypeEspresso, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave}
+var allocTypes = []AllocType{AllocTypeAltDA, AllocTypeAltDAGeneric, AllocTypeMTCannon, AllocTypeMTCannonNext, AllocTypeFastGame, AllocTypeEspressoWithEnclave, AllocTypeEspressoWithoutEnclave}
 
 var (
 	// All of the following variables are set in the init function
