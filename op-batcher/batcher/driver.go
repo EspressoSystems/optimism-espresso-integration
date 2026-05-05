@@ -12,8 +12,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	op "github.com/EspressoSystems/espresso-streamers/op"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -23,8 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
-	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	"github.com/ethereum-optimism/optimism/espresso"
 	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
@@ -33,7 +29,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
@@ -97,47 +92,24 @@ type AltDAClient interface {
 	SetInput(ctx context.Context, data []byte) (altda.CommitmentData, error)
 }
 
-// batcherL1Adapter wraps the batcher's L1Client to implement espresso.L1Client
-// (HeaderHashByNumber + bind.ContractCaller).
-type batcherL1Adapter struct {
-	L1Client L1Client
-}
-
-func (a *batcherL1Adapter) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
-	h, err := a.L1Client.HeaderByNumber(ctx, number)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	return h.Hash(), nil
-}
-
-func (a *batcherL1Adapter) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
-	return a.L1Client.CodeAt(ctx, contract, blockNumber)
-}
-
-func (a *batcherL1Adapter) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return a.L1Client.CallContract(ctx, call, blockNumber)
-}
-
 // DriverSetup is the collection of input/output interfaces and configuration that the driver operates on.
 type DriverSetup struct {
-	closeApp            context.CancelCauseFunc
-	Log                 log.Logger
-	Metr                metrics.Metricer
-	RollupConfig        *rollup.Config
-	Config              BatcherConfig
-	Txmgr               txmgr.TxManager
-	L1Client            L1Client
-	EndpointProvider    dial.L2EndpointProvider
-	ChannelConfig       ChannelConfigProvider
-	AltDA               AltDAClient
-	ChannelOutFactory   ChannelOutFactory
-	ActiveSeqChanged    chan struct{} // optional
-	Espresso            *espressoClient.MultipleNodesClient
-	EspressoLightClient *espressoLightClient.LightclientCaller
-	ChainSigner         opcrypto.ChainSigner
-	SequencerAddress    common.Address
-	Attestation         []byte
+	closeApp          context.CancelCauseFunc
+	Log               log.Logger
+	Metr              metrics.Metricer
+	RollupConfig      *rollup.Config
+	Config            BatcherConfig
+	Txmgr             txmgr.TxManager
+	L1Client          L1Client
+	EndpointProvider  dial.L2EndpointProvider
+	ChannelConfig     ChannelConfigProvider
+	AltDA             AltDAClient
+	ChannelOutFactory ChannelOutFactory
+
+	// Espresso groups all Espresso-specific runtime state plumbed from
+	// BatcherService. Defined in espresso_driver.go to keep the upstream
+	// Optimism field block compact.
+	Espresso EspressoDriverSetup
 }
 
 // BatchSubmitter encapsulates a service responsible for submitting L2 tx
@@ -188,51 +160,19 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 		state.SetChannelOutFactory(setup.ChannelOutFactory)
 	}
 
-	batchSubmitter := &BatchSubmitter{
+	batcher := &BatchSubmitter{
 		DriverSetup: setup,
 		channelMgr:  state,
 		degradedLog: oplog.NewRepeatStateLogger(),
 	}
 
-	err := batchSubmitter.SetThrottleController(setup.Config.ThrottleParams.ControllerType, setup.Config.ThrottleParams.PIDConfig)
+	err := batcher.SetThrottleController(setup.Config.ThrottleParams.ControllerType, setup.Config.ThrottleParams.PIDConfig)
 	if err != nil {
 		panic(err)
 	}
+	batcher.setupEspressoStreamer()
 
-	if setup.Config.Espresso.Enabled {
-		l1Adapter := &batcherL1Adapter{L1Client: batchSubmitter.L1Client}
-		// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
-		// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
-		var lightClientIface op.LightClientCallerInterface
-		if batchSubmitter.EspressoLightClient != nil {
-			lightClientIface = batchSubmitter.EspressoLightClient
-		}
-		unbufferedStreamer, err := op.NewEspressoStreamer(
-			batchSubmitter.RollupConfig.L2ChainID.Uint64(),
-			l1Adapter,
-			l1Adapter,
-			batchSubmitter.Espresso,
-			lightClientIface,
-			batchSubmitter.Log,
-			derive.CreateEspressoBatchUnmarshaler(),
-			setup.Config.Espresso.CaffeinationHeightEspresso,
-			setup.Config.Espresso.CaffeinationHeightL2,
-			batchSubmitter.RollupConfig.BatchAuthenticatorAddress,
-			false,
-		)
-		if err != nil {
-			panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))
-		}
-		batchSubmitter.espressoStreamer = op.NewBufferedEspressoStreamer(unbufferedStreamer)
-		batchSubmitter.Log.Info("Streamer started", "streamer", batchSubmitter.espressoStreamer)
-	}
-
-	return batchSubmitter
-}
-
-// EspressoStreamer returns the Espresso batch streamer for use by the service and tests.
-func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
-	return l.espressoStreamer
+	return batcher
 }
 
 func (l *BatchSubmitter) StartBatchSubmitting() error {
@@ -280,39 +220,9 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.Espresso.Enabled {
-
-		err := l.registerBatcher(l.killCtx)
-		if err != nil {
-			return fmt.Errorf("could not register with BatchAuthenticator contract: %w", err)
+		if err := l.startEspressoLoops(receiptsCh, publishSignal); err != nil {
+			return err
 		}
-
-		// Resolve the TEE verifier address from the BatchAuthenticator contract.
-		if err := l.resolveTEEVerifierAddress(); err != nil {
-			return fmt.Errorf("could not resolve TEE verifier address: %w", err)
-		}
-
-		l.espressoSubmitter = NewEspressoTransactionSubmitter(
-			WithContext(l.shutdownCtx),
-			WithWaitGroup(l.wg),
-			WithEspressoClient(l.Espresso),
-			WithVerifyReceiptMaxBlocks(l.Config.Espresso.VerifyReceiptMaxBlocks),
-			WithVerifyReceiptSafetyTimeout(l.Config.Espresso.VerifyReceiptSafetyTimeout),
-			WithVerifyReceiptRetryDelay(l.Config.Espresso.VerifyReceiptRetryDelay),
-		)
-		l.espressoSubmitter.SpawnWorkers(4, 4)
-		l.espressoSubmitter.Start()
-
-		// Limit teeAuthGroup to at most 128 concurrent goroutines as an arbitrary
-		// not-too-big limit for the number of BatchInbox transactions that can be
-		// simultaneously waiting for corresponding BatchAuthenticator transaction to be
-		// confirmed before submission to L1.
-		l.teeAuthGroup.SetLimit(128)
-
-		l.wg.Add(4)
-		go l.receiptsLoop(l.wg, receiptsCh) // ranges over receiptsCh channel
-		go l.espressoBatchQueueingLoop(l.shutdownCtx, l.wg)
-		go l.espressoBatchLoadingLoop(l.shutdownCtx, l.wg, publishSignal)
-		go l.publishingLoop(l.killCtx, l.wg, receiptsCh, publishSignal) // ranges over publishSignal, spawns routines which send on receiptsCh. Closes receiptsCh when done.
 	} else {
 		l.wg.Add(3)
 		go l.receiptsLoop(l.wg, receiptsCh)                                           // ranges over receiptsCh channel
@@ -645,11 +555,7 @@ func (l *BatchSubmitter) publishingLoop(ctx context.Context, wg *sync.WaitGroup,
 
 	// Wait for all transactions requiring TEE authentication to complete to prevent new
 	// transactions being queued
-	if err := l.teeAuthGroup.Wait(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			l.Log.Error("error waiting for transaction authentication requests to complete", "err", err)
-		}
-	}
+	l.waitForTEEAuthGroup()
 
 	// We _must_ wait for all senders on receiptsCh to finish before we can close it.
 	if err := txQueue.Wait(); err != nil {
@@ -942,33 +848,8 @@ func (l *BatchSubmitter) publishStateToL1(ctx context.Context, queue *txmgr.Queu
 			return
 		}
 
-		// Espresso: skip publishing if this batcher is not the active one.
-		// The Espresso TEE batcher always honors the on-chain activeIsEspresso
-		// flag — it is fundamentally a post-fork actor and operational
-		// discipline (idle when not active) applies uniformly. The fallback
-		// batcher honors the flag only post-EspressoEnforcement: pre-fork it
-		// must run as a vanilla upstream Optimism batcher, with no
-		// BatchAuthenticator coupling.
-		if l.hasBatchAuthenticator() {
-			consultActiveFlag := l.Config.Espresso.Enabled
-			if !consultActiveFlag {
-				fallbackAuthRequired, err := l.isFallbackAuthRequired(ctx)
-				if err != nil {
-					l.Log.Warn("Failed to evaluate fallback-auth gate, skipping publish", "err", err)
-					return
-				}
-				consultActiveFlag = fallbackAuthRequired
-			}
-			if consultActiveFlag {
-				isActive, err := l.isBatcherActive(ctx)
-				if err != nil {
-					l.Log.Warn("Failed to check if batcher is active, skipping publish", "err", err)
-					return
-				}
-				if !isActive {
-					return
-				}
-			}
+		if l.shouldSkipPublishForActiveSeq(ctx) {
+			return
 		}
 
 		err := l.publishTxToL1(ctx, queue, receiptsCh, daGroup, pi)
@@ -996,9 +877,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
-			if l.Config.Espresso.Enabled {
-				l.EspressoStreamer().Reset()
-			}
+			l.resetEspressoStreamer()
 			return true
 		}
 	}
@@ -1205,43 +1084,8 @@ func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.T
 		candidate.GasLimit = floorDataGas
 	}
 
-	if !isCancel {
-		// Espresso batcher: authenticate via BatchAuthenticator.
-		if l.Config.Espresso.Enabled {
-			l.teeAuthGroup.Go(
-				func() error {
-					l.sendTxWithEspresso(txdata, isCancel, candidate, queue, receiptsCh)
-					return nil
-				},
-			)
-			return
-		}
-
-		// Fallback batcher: authenticate via BatchAuthenticator only after the
-		// EspressoEnforcement hardfork has activated. Pre-fork, the chain runs
-		// pure upstream Optimism semantics — the verifier accepts plain
-		// sender-authenticated batches, and the BatchAuthenticator contract is
-		// irrelevant. Calling authenticateBatchInfo pre-fork would also revert
-		// against the default activeIsEspresso=true contract state.
-		if l.hasBatchAuthenticator() {
-			fallbackAuthRequired, err := l.isFallbackAuthRequired(l.killCtx)
-			if err != nil {
-				receiptsCh <- txmgr.TxReceipt[txRef]{
-					ID:  txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()},
-					Err: fmt.Errorf("failed to evaluate fallback-auth gate: %w", err),
-				}
-				return
-			}
-			if fallbackAuthRequired {
-				l.teeAuthGroup.Go(
-					func() error {
-						l.sendTxWithFallbackAuth(txdata, isCancel, candidate, queue, receiptsCh)
-						return nil
-					},
-				)
-				return
-			}
-		}
+	if l.dispatchAuthenticatedSendTx(txdata, isCancel, candidate, queue, receiptsCh) {
+		return
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.daType == DaTypeBlob, daType: txdata.daType, size: txdata.Len()}, *candidate, receiptsCh)

@@ -37,7 +37,7 @@ func TestE2eDevnetWithInvalidAttestation(t *testing.T) {
 	}
 
 	batchDriver := system.BatchSubmitter.TestDriver()
-	batchDriver.Attestation = []byte("this is an invalid attestation")
+	batchDriver.Espresso.Attestation = []byte("this is an invalid attestation")
 	err = batchDriver.StartBatchSubmitting()
 
 	if err == nil {

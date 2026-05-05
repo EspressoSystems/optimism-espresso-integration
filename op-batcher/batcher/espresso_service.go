@@ -85,11 +85,11 @@ func (bs *BatcherService) initChainSigner() error {
 // shape — minimizing cherry-pick churn when upstream renames or reorders
 // fields.
 func (bs *BatcherService) applyEspressoDriverSetup(ds *DriverSetup) {
-	ds.SequencerAddress = bs.TxManager.From()
-	ds.ChainSigner = bs.ChainSigner
-	ds.Espresso = bs.EspressoClient
-	ds.EspressoLightClient = bs.EspressoLightClient
-	ds.Attestation = bs.Attestation
+	ds.Espresso.SequencerAddress = bs.TxManager.From()
+	ds.Espresso.ChainSigner = bs.ChainSigner
+	ds.Espresso.Client = bs.EspressoClient
+	ds.Espresso.LightClient = bs.EspressoLightClient
+	ds.Espresso.Attestation = bs.Attestation
 }
 
 // initKeyPair generates an ephemeral ECDSA key pair for the batcher's
