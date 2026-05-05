@@ -68,7 +68,7 @@ func TestRepeatStateLogger_FirstWarnEmitsThenSuppresses(t *testing.T) {
 	require.Len(t, warns, 1, "only the first observation should emit a log")
 
 	require.Equal(t, "boom", attrValue(warns[0], "err"))
-	require.Nil(t, attrValue(warns[0], "suppressed"), "first emission should not carry a suppressed count")
+	require.Nil(t, attrValue(warns[0], "occurrences"), "first emission should not carry an occurrences count")
 }
 
 func TestRepeatStateLogger_ReminderAfterInterval(t *testing.T) {
@@ -95,8 +95,8 @@ func TestRepeatStateLogger_ReminderAfterInterval(t *testing.T) {
 	warns = matchingRecords(rec.GetRecords(), slog.LevelWarn, "degraded")
 	require.Len(t, warns, 2, "reminder should fire once the interval has elapsed")
 
-	// Reminder includes 10 suppressed observations (9 silent + the one that triggered the reminder).
-	require.EqualValues(t, int64(10), attrValue(warns[1], "suppressed"))
+	// Reminder reports cumulative occurrences: 1 initial + 9 silent + 1 reminder = 11.
+	require.EqualValues(t, int64(11), attrValue(warns[1], "occurrences"))
 	// Duration since firstSeen is 9*30s + 31s = 5m1s, rounded to nearest second.
 	require.Equal(t, 5*time.Minute+1*time.Second, attrValue(warns[1], "duration"))
 }
@@ -167,7 +167,7 @@ func TestRepeatStateLogger_FreshAfterClear(t *testing.T) {
 
 	warns := matchingRecords(rec.GetRecords(), slog.LevelWarn, "degraded")
 	require.Len(t, warns, 2, "first Warn after Clear should emit")
-	require.Nil(t, attrValue(warns[1], "suppressed"), "fresh emission should not carry a suppressed count")
+	require.Nil(t, attrValue(warns[1], "occurrences"), "fresh emission should not carry an occurrences count")
 }
 
 func TestRepeatStateLogger_ConcurrentCallersDoNotRace(t *testing.T) {

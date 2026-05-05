@@ -30,10 +30,9 @@ type RepeatStateLogger struct {
 }
 
 type repeatStateEntry struct {
-	firstSeen        time.Time
-	lastLogged       time.Time
-	suppressed       int
-	totalOccurrences int
+	firstSeen   time.Time
+	lastLogged  time.Time
+	occurrences int
 }
 
 func NewRepeatStateLogger() *RepeatStateLogger {
@@ -47,35 +46,29 @@ func NewRepeatStateLogger() *RepeatStateLogger {
 // the most recent Clear (or first ever for the key) emits at warn level.
 // Subsequent observations within RepeatStateReminderInterval are silently
 // counted; once the interval has elapsed a single reminder warn is emitted
-// with the suppressed count and total duration.
+// with the cumulative occurrence count and the total duration since the state
+// became active.
 func (r *RepeatStateLogger) Warn(l log.Logger, key, msg string, ctx ...any) {
 	now := r.clock()
 	r.mu.Lock()
 	e, active := r.states[key]
 	if !active {
-		r.states[key] = &repeatStateEntry{
-			firstSeen:        now,
-			lastLogged:       now,
-			totalOccurrences: 1,
-		}
+		r.states[key] = &repeatStateEntry{firstSeen: now, lastLogged: now, occurrences: 1}
 		r.mu.Unlock()
 		l.Warn(msg, ctx...)
 		return
 	}
-	e.suppressed++
-	e.totalOccurrences++
+	e.occurrences++
 	if now.Sub(e.lastLogged) < RepeatStateReminderInterval {
 		r.mu.Unlock()
 		return
 	}
-	suppressed := e.suppressed
+	occurrences := e.occurrences
 	duration := now.Sub(e.firstSeen).Round(time.Second)
-	e.suppressed = 0
 	e.lastLogged = now
 	r.mu.Unlock()
 
-	args := append([]any{"suppressed", suppressed, "duration", duration}, ctx...)
-	l.Warn(msg, args...)
+	l.Warn(msg, append([]any{"occurrences", occurrences, "duration", duration}, ctx...)...)
 }
 
 // Clear marks the named state as resolved. If the state was active a single
@@ -85,16 +78,14 @@ func (r *RepeatStateLogger) Warn(l log.Logger, key, msg string, ctx ...any) {
 func (r *RepeatStateLogger) Clear(l log.Logger, key, recoveryMsg string, ctx ...any) {
 	r.mu.Lock()
 	e, active := r.states[key]
-	if active {
-		delete(r.states, key)
-	}
+	delete(r.states, key)
 	r.mu.Unlock()
 	if !active {
 		return
 	}
 	args := append([]any{
 		"duration", r.clock().Sub(e.firstSeen).Round(time.Second),
-		"occurrences", e.totalOccurrences,
+		"occurrences", e.occurrences,
 	}, ctx...)
 	l.Info(recoveryMsg, args...)
 }
