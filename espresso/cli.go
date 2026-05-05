@@ -309,7 +309,7 @@ func BatchStreamerFromCLIConfig[B op.Batch](
 	unmarshalBatch func([]byte) (*B, error),
 ) (*op.BatchStreamer[B], error) {
 	if !cfg.Enabled {
-		return nil, fmt.Errorf("Espresso is not enabled")
+		return nil, fmt.Errorf("espresso is not enabled")
 	}
 
 	l1Client, err := ethclient.Dial(cfg.L1URL)

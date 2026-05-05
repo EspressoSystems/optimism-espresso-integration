@@ -384,7 +384,7 @@ func (h *Host) Call(from common.Address, to common.Address, input []byte, gas ui
 					ok = true
 				}
 			}
-			if !ok || !strings.Contains(strings.ToLower(rStr), "revision id" && !strings.Contains(rStr, "cannot be reverted")) {
+			if !ok || (!strings.Contains(strings.ToLower(rStr), "revision id") && !strings.Contains(rStr, "cannot be reverted")) {
 				fmt.Println("panic", rStr)
 				panic(r)
 			}

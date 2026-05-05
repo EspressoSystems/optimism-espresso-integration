@@ -51,7 +51,7 @@ func TestE2eDevnetWithoutAuthenticatingBatches(t *testing.T) {
 
 	batchDriver := system.BatchSubmitter.TestDriver()
 	// Set mock batcher authenticator address
-	batchDriver.BatchSubmitter.RollupConfig.BatchAuthenticatorAddress = common.Address{}
+	batchDriver.RollupConfig.BatchAuthenticatorAddress = common.Address{}
 
 	// Substitute batcher's transaction manager with one that always sends transactions, even
 	// if they won't succeed. Otherwise batcher wouldn't submit transactions that would revert to

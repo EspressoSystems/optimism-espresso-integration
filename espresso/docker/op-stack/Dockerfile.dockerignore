@@ -35,6 +35,7 @@
 !/op-supernode
 !/op-supervisor
 !/op-test-sequencer
+!/op-validator
 !/op-wheel
 
 # Go package embedded in contracts-bedrock (imported by op-node)

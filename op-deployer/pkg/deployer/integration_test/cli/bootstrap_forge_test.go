@@ -20,6 +20,9 @@ import (
 
 // TestCLIBootstrapForge tests the bootstrap commands via CLI using Forge
 func TestCLIBootstrapForge(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping forge integration test in short mode")
+	}
 	// Use the same chain ID that anvil runs on
 	l1ChainID := uint64(devnet.DefaultChainID)
 	l1ChainIDBig := big.NewInt(int64(l1ChainID))

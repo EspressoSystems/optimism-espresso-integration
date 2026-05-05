@@ -48,6 +48,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 # Copy source code
 COPY . /app
+COPY ./op-validator/ /app/op-validator/
 
 # Build arguments for git metadata
 ARG GIT_COMMIT

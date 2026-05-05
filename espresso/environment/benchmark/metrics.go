@@ -86,7 +86,7 @@ func SplitIndividualTransactionMetrics(
 	var zeroTime time.Time
 
 	for _, tx := range transactions {
-		if tx.Receipt != nil && tx.CaffReceipt != zeroTime && tx.VerifyReceipt != zeroTime {
+		if tx.Receipt != nil && !tx.CaffReceipt.Equal(zeroTime) && !tx.VerifyReceipt.Equal(zeroTime) {
 			complete = append(complete, tx)
 		} else {
 			incomplete = append(incomplete, tx)
@@ -203,35 +203,35 @@ func ComputeCompletedTransactionStatistics(completed []SingleL2TransactionMetric
 	var receiptToVerifySamples []time.Duration
 
 	for _, tx := range completed {
-		if tx.LocalCreated == zeroTime {
+		if tx.LocalCreated.Equal(zeroTime) {
 			continue
 		}
 
-		if tx.LocalSubmitted == zeroTime {
+		if tx.LocalSubmitted.Equal(zeroTime) {
 			continue
 		}
 
 		createdToSubmittedSample := tx.LocalReceipt.Sub(tx.LocalSubmitted)
 		createdToSubmittedSamples = append(createdToSubmittedSamples, createdToSubmittedSample)
 
-		if tx.LocalReceipt == zeroTime {
+		if tx.LocalReceipt.Equal(zeroTime) {
 			continue
 		}
 
 		submittedToReceiptSample := tx.LocalReceipt.Sub(tx.LocalSubmitted)
 		submittedToReceiptSamples = append(submittedToReceiptSamples, submittedToReceiptSample)
 
-		if tx.SeqReceipt != zeroTime {
+		if !tx.SeqReceipt.Equal(zeroTime) {
 			submittedToLocalReceiptSample := tx.SeqReceipt.Sub(tx.LocalSubmitted)
 			submittedToLocalReceiptSamples = append(submittedToLocalReceiptSamples, submittedToLocalReceiptSample)
 		}
 
-		if tx.CaffReceipt != zeroTime {
+		if !tx.CaffReceipt.Equal(zeroTime) {
 			receiptToCaffSample := tx.CaffReceipt.Sub(tx.SeqReceipt)
 			receiptToCaffSamples = append(receiptToCaffSamples, receiptToCaffSample)
 		}
 
-		if tx.VerifyReceipt != zeroTime {
+		if !tx.VerifyReceipt.Equal(zeroTime) {
 			receiptToVerifySample := tx.VerifyReceipt.Sub(tx.SeqReceipt)
 			receiptToVerifySamples = append(receiptToVerifySamples, receiptToVerifySample)
 		}

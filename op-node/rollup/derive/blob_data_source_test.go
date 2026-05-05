@@ -403,10 +403,7 @@ func TestBlobDataSourceL1FetcherErrors(t *testing.T) {
 
 	// Open with valid txs — should succeed and fetch blobs
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
-	blobF.ExpectOnGetBlobs(ctx, ref, []eth.IndexedBlobHash{{
-		Index: 0,
-		Hash:  blobHashes[0],
-	}}, []*eth.Blob{(*eth.Blob)(blob)}, nil)
+	blobF.ExpectOnGetBlobsByHash(ctx, ref.Time, []common.Hash{blobHashes[0]}, []*eth.Blob{(*eth.Blob)(blob)}, nil)
 
 	src, err := factory.OpenData(ctx, ref, batcherAddr)
 	require.IsType(t, &BlobDataSource{}, src, src)

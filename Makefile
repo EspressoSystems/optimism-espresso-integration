@@ -25,12 +25,12 @@ build-customlint:
 .PHONY: build-customlint
 
 lint-go: ## Lints Go code with specific linters (espresso only; op-service/op-node/op-chain-ops have typecheck errors).
-	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./espresso/...
+	golangci-lint run --config espresso/.golangci.yaml --timeout 10m ./espresso/...
 	go mod tidy -diff
 .PHONY: lint-go
 
 lint-go-fix: ## Lints Go code with specific linters and fixes reported issues
-	golangci-lint run -E goimports,sqlclosecheck,bodyclose,asciicheck,misspell,errorlint --timeout 10m -e "errors.As" -e "errors.Is" ./espresso/... --fix
+	golangci-lint run --config espresso/.golangci.yaml --timeout 10m ./espresso/... --fix
 .PHONY: lint-go-fix
 
 check-op-geth-version: ## Checks that op-geth version in go.mod is valid

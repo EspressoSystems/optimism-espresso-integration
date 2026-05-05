@@ -18,13 +18,15 @@ COPY ./go.sum /app/go.sum
 WORKDIR /app
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build go mod download
 COPY . /app
+COPY ./op-validator/ /app/op-validator/
 
 # Build op-deployer
 FROM op-cgo-builder AS op-deployer-builder
 ARG OP_DEPLOYER_VERSION=v0.0.0
 ENV GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-deployer && \
-  go build -ldflags '-linkmode external -extldflags "-static"' -o /op-deployer ./cmd/op-deployer
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+  go build -ldflags '-linkmode external -extldflags "-static"' -o /op-deployer \
+  ./op-deployer/cmd/op-deployer
 
 # Build geth from Celo fork (go.mod replaces github.com/ethereum/go-ethereum with github.com/celo-org/op-geth)
 # Required because the devnet uses Jovian eip-1559 params (17-byte extraData) which the OP Labs geth does not support.

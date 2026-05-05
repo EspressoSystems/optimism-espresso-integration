@@ -23,6 +23,9 @@ import (
 
 // TestDeployScriptsForge tests deployment scripts via Forge with Anvil
 func TestDeployScriptsForge(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping forge integration test in short mode")
+	}
 	l1ChainID := uint64(devnet.DefaultChainID)
 	l1ChainIDBig := big.NewInt(int64(l1ChainID))
 
