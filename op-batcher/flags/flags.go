@@ -161,12 +161,7 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("WAIT_NODE_SYNC"),
 	}
-	PreferLocalSafeL2Flag = &cli.BoolFlag{
-		Name:    "prefer-local-safe-l2",
-		Usage:   "Load unsafe blocks higher than the sequencer's LocalSafeL2 instead of SafeL2",
-		Value:   false,
-		EnvVars: prefixEnvVars("PREFER_LOCAL_SAFE_L2"),
-	}
+
 	// Legacy Flags
 	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
 )
@@ -195,7 +190,6 @@ var optionalFlags = []cli.Flag{
 	DataAvailabilityTypeFlag,
 	ActiveSequencerCheckDurationFlag,
 	CompressionAlgoFlag,
-	PreferLocalSafeL2Flag,
 }
 
 func init() {

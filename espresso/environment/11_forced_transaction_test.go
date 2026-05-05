@@ -66,7 +66,7 @@ func ForcedTransaction(t *testing.T, withSmallSequencerWindow bool, withEspresso
 		defer env.Stop(t, system)
 		defer env.Stop(t, espressoDevNode)
 	} else {
-		sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.AllocTypeStandard))
+		sysConfig := e2esys.DefaultSystemConfig(t, e2esys.WithAllocType(config.DefaultAllocType))
 		sysConfig.DeployConfig.SequencerWindowSize = sequencer_window_size(withSmallSequencerWindow)
 		system, err = sysConfig.Start(t)
 		require.NoError(t, err, "failed to launch without Espresso dev node")
