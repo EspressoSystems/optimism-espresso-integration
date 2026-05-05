@@ -776,7 +776,7 @@ func (l *BatchSubmitter) singleEndpointThrottler(wg *sync.WaitGroup, throttleSig
 			return
 		} else if err != nil {
 			// Transport-level errors are retried.
-			l.degradedLog.Warn(l.Log, "setMaxDASizeFailed/"+endpoint, "SetMaxDASize RPC failed for endpoint, retrying.", "endpoint", endpoint, "err", err)
+			l.degradedLog.Warn(l.Log, "setMaxDASizeFailed/"+endpoint, "SetMaxDASize RPC call failed for endpoint, retrying.", "endpoint", endpoint, "err", err)
 			retryTimer.Reset(retryInterval)
 			return
 		}
