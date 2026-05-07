@@ -41,3 +41,9 @@
 [submodule "rollup-boost"]
 	path = rollup-boost
 	url = https://github.com/flashbots/rollup-boost
+[submodule "packages/contracts-bedrock/lib/espresso-tee-contracts"]
+	path = packages/contracts-bedrock/lib/espresso-tee-contracts
+	url = https://github.com/EspressoSystems/espresso-tee-contracts
+[submodule "packages/contracts-bedrock/lib/openzeppelin-contracts-upgradeable-v5"]
+	path = packages/contracts-bedrock/lib/openzeppelin-contracts-upgradeable-v5
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
