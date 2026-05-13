@@ -36,13 +36,13 @@ git fetch kona-upstream
 
 - If Celo's [default Kona branch](https://github.com/celo-org/kona/tree/replace-max-sequencer-drift-v1.1.7) has no updates since our last code sync, proceed to [1.2 Sync Celo-Kona Fork Repo](#12-sync-celo-kona-fork-repo).
     - Note: The default upstream branch is `replace-max-sequencer-drift-v1.1.7` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1765799738195899?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
-- Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Kona branch.
+- Otherwise, if the default Kona fork branch is `espresso-integration-x`, create a new branch `espresso-integration-y` where `y = x + 1`.
 
 ```bash
 git checkout -b espresso-integration-y kona-upstream/replace-max-sequencer-drift-v1.1.7
 ```
 
-- Cherry-pick commits from the original Kona branch `espresso-integration-x` onto Celo’s Kona branch.
+- Cherry-pick commits from the default Kona fork branch onto Celo’s Kona branch.
 
 ```bash
 git cherry-pick espresso-integration-x ^kona-upstream/replace-max-sequencer-drift-v1.1.7
@@ -70,13 +70,13 @@ git fetch celo-kona-upstream
 
 - If Celo's [Celo-Kona release](https://github.com/celo-org/celo-kona/releases) has no updates since our last code sync and Celo has not informed us of a new version, proceed to [1.3 Sync Succinct Repo](#13-sync-succinct-repo).
   - Note: The release we should use is `v1.0.0` as mentioned on [Slack](https://espressosys.slack.com/archives/C06LEU0LCN8/p1769002077899559?thread_ts=1765209556.168279&cid=C06LEU0LCN8).
-- Otherwise, create a sync branch `espresso-integration-y` where `y` is new version on Celo’s Celo-Kona branch.
+- Otherwise, if the default Celo-Kona fork branch is `espresso-integration-x`, create a new branch `espresso-integration-y` where `y = x + 1`.
 
 ```bash
 git checkout -b espresso-integration-y celo-kona-upstream/release/v1.0.0-rc.4
 ```
 
-- Cherry-pick commits from the original Celo-Kona fork branch `espresso-integration-x` onto Celo’s Celo-Kona branch.
+- Cherry-pick commits from the default Celo-Kona fork branch onto Celo’s Celo-Kona branch.
 
 ```bash
 git cherry-pick espresso-integration-x ^celo-kona-upstream/release/v1.0.0-rc.4
@@ -103,13 +103,13 @@ git fetch succinct-upstream
 ```
 
 - If Celo’s [default OP Succinct branch](https://github.com/celo-org/op-succinct) has no updates since our last code sync, proceed to [1.4 Update Imports in Succinct Repo](#14-update-imports-in-succinct-repo).
-- Otherwise, create a sync branch `espresso-integration-y` where `y` is the commit on Celo’s Succinct branch.
+- Otherwise, if the default Succinct branch is `espresso-integration-x`, create a new branch `espresso-integration-y` where `y = x + 1`.
 
 ```bash
 git checkout -b espresso-integration-y succinct-upstream/develop
 ```
 
-- Cherry-pick commits from the original Succinct branch `espresso-integration-x` onto Celo’s Succinct branch.
+- Cherry-pick commits from the default Succinct branch onto Celo’s Succinct branch.
 
 ```bash
 git cherry-pick espresso-integration-x ^succinct-upstream/develop
@@ -258,5 +258,5 @@ Changes to the derivation pipeline are made in the [kona-celo-fork](https://gith
 4. After CI, check for new Docker images for the proposer and challenger:
    - [op-succinct-lite-proposer-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-proposer-celo)
    - [op-succinct-lite-challenger-celo](https://github.com/espressosystems/op-succinct/pkgs/container/op-succinct%2Fop-succinct-lite-challenger-celo)
-   
+
    Update the image tags in [`espresso/docker-compose.yml`](../../espresso/docker-compose.yml). E.g.: [bd90858](https://github.com/EspressoSystems/optimism-espresso-integration/pull/293/commits/bd90858b0f871441785d4ac6437ff78b76d4b1f8).
