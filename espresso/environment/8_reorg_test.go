@@ -243,6 +243,8 @@ func TestE2eDevnetWithL1Reorg(t *testing.T) {
 	if have, want := err, error(nil); have != want {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
+	defer env.Stop(t, system)
+	defer env.Stop(t, devNode)
 
 	caffNode, err := env.LaunchCaffNode(t, system, devNode)
 	if have, want := err, error(nil); have != want {
@@ -253,4 +255,36 @@ func TestE2eDevnetWithL1Reorg(t *testing.T) {
 	defer env.Stop(t, caffNode)
 
 	runL1Reorg(ctx, t, system)
+}
+
+// TestE2eEspressoStreamerSyncStatusTainting is a test that is meant to ensure
+// that a tainted `SyncStatus` coming in to set the `safeBatchNumber` of the
+// `Refresh` call to something like `0`, will ultimately not result in halting
+// the progression of the chain through `Espresso`.
+func TestE2eEspressoStreamerSyncStatusTainting(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	launcher := new(env.EspressoDevNodeLauncherDocker)
+
+	system, devNode, err := launcher.StartE2eDevnet(ctx, t)
+	require.NoError(t, err)
+
+	defer env.Stop(t, system)
+	defer env.Stop(t, devNode)
+
+	l2Seq := system.NodeClient(e2esys.RoleSeq)
+	// l1Client := system.NodeClient(e2esys.RoleL1)
+	// caffClient := system.NodeClient(env.RoleCaffNode)
+	geth.WaitForBlockToBeFinalized(big.NewInt(5), l2Seq, time.Minute*2)
+
+	l2Node := system.RollupClient(e2esys.RoleSeq)
+
+	status, err := l2Node.SyncStatus(ctx)
+	require.NoError(t, err)
+
+	err = system.BatchSubmitter.EspressoStreamer().Refresh(ctx, status.FinalizedL1, 0, status.FinalizedL2.L1Origin)
+	require.NoError(t, err)
+
+	geth.WaitForBlockToBeFinalized(big.NewInt(int64(status.UnsafeL2.Number)+2), l2Seq, time.Minute*5)
 }
