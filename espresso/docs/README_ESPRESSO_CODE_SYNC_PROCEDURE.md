@@ -13,9 +13,9 @@
 - *Celo tip branch*, or *tip branch*: `celo-tip-rebase-x` branch in the Celo integration repo, where `x` corresponds to the index Celo uses in their `celo-rebase-x` branch name. The Celo tip branch is directly synced from Celo.
 - *Celo integration branch*: `celo-integration-rebase-x.y` branch in the Celo integration repo, where `x` corresponds to the index in the tip branch, and `y` corresponds to the index of our biweekly sync. The Celo integration branch contains our changes and Celo’s.
 - *Terraform repo*: [tee-op-deploy](https://github.com/EspressoSystems/tee-op-deploy) repo, deployment code based on the Celo integration branch.
-- *Kona fork repo*: [kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork/tree/espresso-integration) repo, forked from the `celo-org/kona` repo which is a fork of `op-rs/kona`, and contains our derivation changes.
-- *Celo-Kona fork repo*: [celo-kona](https://github.com/EspressoSystems/celo-kona/tree/espresso-integration) repo, forked from the `celo-org/celo-kona` repo.
-- *Succinct repo*: [op-succinct](https://github.com/EspressoSystems/op-succinct/tree/espresso-integration) repo, forked from the `celo-org/op-succinct` repo and dependent on the Kona fork and Celo Kona fork repos.
+- *Kona fork repo*: [kona-celo-fork](https://github.com/EspressoSystems/kona-celo-fork) repo, forked from the `celo-org/kona` repo which is a fork of `op-rs/kona`, and contains our derivation changes.
+- *Celo-Kona fork repo*: [celo-kona](https://github.com/EspressoSystems/celo-kona) repo, forked from the `celo-org/celo-kona` repo.
+- *Succinct repo*: [op-succinct](https://github.com/EspressoSystems/op-succinct) repo, forked from the `celo-org/op-succinct` repo and dependent on the Kona fork and Celo Kona fork repos.
 
 (Refer to [op-succinct-repos.png](https://github.com/EspressoSystems/optimism-espresso-integration/blob/celo-integration-rebase-14.1/docs/op-succinct-repos.png) for the relationship among Espresso and Celo repos.)
 
