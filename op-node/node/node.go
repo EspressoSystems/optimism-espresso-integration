@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	op "github.com/EspressoSystems/espresso-streamers/op"
+
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/ethereum/go-ethereum"
@@ -28,6 +30,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/conductor"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/interop/indexing"
@@ -87,6 +90,7 @@ type L1Source interface {
 	L1BlockRefByLabel(ctx context.Context, label eth.BlockLabel) (eth.L1BlockRef, error)
 	L1BlockRefByNumber(ctx context.Context, num uint64) (eth.L1BlockRef, error)
 	L1BlockRefByHash(ctx context.Context, hash common.Hash) (eth.L1BlockRef, error)
+	L1FinalizedBlock() (eth.L1BlockRef, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	ReadStorageAt(ctx context.Context, address common.Address, storageSlot common.Hash, blockHash common.Hash) (common.Hash, error)
 	InfoByHash(ctx context.Context, hash common.Hash) (eth.BlockInfo, error)
@@ -765,6 +769,10 @@ func initP2PSigner(ctx context.Context, cfg *config.Config, node *OpNode) (p2p.S
 	return p2pSigner, err
 }
 
+func (n *OpNode) EspressoStreamer() *op.BatchStreamer[derive.EspressoBatch] {
+	return n.l2Driver.SyncDeriver.Derivation.EspressoStreamer()
+}
+
 func (n *OpNode) Start(ctx context.Context) error {
 	// If n.cfg.Driver.SequencerUseFinalized is true, the sequencer uses only finalized L1 blocks
 	// for the L1 origin blocks. This is handled by finalized.finalized block fetcher which only
@@ -1075,4 +1083,9 @@ func (n *OpNode) SyncStatus() *eth.SyncStatus {
 		return &eth.SyncStatus{}
 	}
 	return n.l2Driver.StatusTracker.SyncStatus()
+}
+
+func (n *OpNode) EngineState() derive.L2Source {
+	// we use this as Engine State as it contains Engine interface
+	return n.l2Driver.SyncDeriver.L2
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
+	"github.com/ethereum-optimism/optimism/espresso"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/config"
@@ -33,6 +34,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
+	"github.com/urfave/cli/v2"
 )
 
 // NewConfig creates a Config from the provided flags or environment variables.
@@ -76,6 +78,14 @@ func NewConfig(ctx cliiface.Context, log log.Logger) (*config.Config, error) {
 	}
 
 	l1Endpoint := NewL1EndpointConfig(ctx)
+
+	if rollupConfig.CaffNodeConfig.RollupL1URL == "" {
+		rollupConfig.CaffNodeConfig.RollupL1URL = l1Endpoint.L1NodeAddr
+	}
+
+	if l1Endpoint.L1NodeAddr != rollupConfig.CaffNodeConfig.RollupL1URL {
+		log.Warn("Espresso streamer rollup L1 URL does not match L1 node address of caff node", "rollupL1URL", rollupConfig.CaffNodeConfig.RollupL1URL, "l1NodeAddr", l1Endpoint.L1NodeAddr)
+	}
 
 	l2Endpoint, err := NewL2EndpointConfig(ctx, log)
 	if err != nil {
@@ -250,6 +260,11 @@ func NewRollupConfigFromCLI(log log.Logger, ctx cliiface.Context) (*rollup.Confi
 		return nil, err
 	}
 	applyOverrides(ctx, rollupConfig)
+
+	if cliCtx, ok := ctx.(*cli.Context); ok {
+		rollupConfig.CaffNodeConfig = rollup.CaffNodeConfigFromCLIConfig(espresso.ReadCLIConfig(cliCtx))
+	}
+
 	return rollupConfig, nil
 }
 
