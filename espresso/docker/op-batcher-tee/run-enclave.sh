@@ -75,6 +75,8 @@ echo "Debug Mode: $ENCLAVE_DEBUG"
 echo "Monitor Interval: $MONITOR_INTERVAL seconds"
 echo "Memory: ${MEMORY_MB}MB"
 echo "CPU Count: $CPU_COUNT"
+echo "KMS Signer Endpoint: ${SIGNER_ENDPOINT:-[not set]}"
+echo "KMS Signer Address: ${SIGNER_ADDRESS:-[not set]}"
 echo "Max Channel Duration: $MAX_CHANNEL_DURATION"
 echo "Target Num Frames: $TARGET_NUM_FRAMES"
 echo "Max L1 Tx Size Bytes: $MAX_L1_TX_SIZE_BYTES"
@@ -93,8 +95,17 @@ BATCHER_ARGS="$BATCHER_ARGS,--espresso.batch-authenticator-addr=$BATCH_AUTHENTIC
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.origin-height-espresso=$ESPRESSO_ORIGIN_HEIGHT_ESPRESSO"
 BATCHER_ARGS="$BATCHER_ARGS,--espresso.origin-height-l2=$ESPRESSO_ORIGIN_HEIGHT_L2"
 
-# Use private key if provided, otherwise fall back to test mnemonic
-if [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
+# Use KMS signer if endpoint+address are provided, otherwise fall back to private key or test mnemonic.
+if [ -n "${SIGNER_ENDPOINT:-}" ] || [ -n "${SIGNER_ADDRESS:-}" ]; then
+    if [ -n "${SIGNER_ENDPOINT:-}" ] && [ -n "${SIGNER_ADDRESS:-}" ]; then
+        echo "Using KMS signer at $SIGNER_ENDPOINT (address: $SIGNER_ADDRESS)"
+        BATCHER_ARGS="$BATCHER_ARGS,--signer.endpoint=$SIGNER_ENDPOINT"
+        BATCHER_ARGS="$BATCHER_ARGS,--signer.address=$SIGNER_ADDRESS"
+    else
+        echo "ERROR: Both SIGNER_ENDPOINT and SIGNER_ADDRESS must be set to use KMS signer"
+        exit 1
+    fi
+elif [ -n "$OP_BATCHER_PRIVATE_KEY" ]; then
     echo "Using OP_BATCHER_PRIVATE_KEY for authentication"
     BATCHER_ARGS="$BATCHER_ARGS,--private-key=$OP_BATCHER_PRIVATE_KEY"
 else
@@ -123,6 +134,10 @@ BATCHER_ARGS="$BATCHER_ARGS,--data-availability-type=calldata"
 if [ "$ENCLAVE_DEBUG" = "true" ]; then
     BATCHER_ARGS="$BATCHER_ARGS,--log.level=debug"
     echo "Debug logging enabled"
+fi
+
+if [ -n "${SIGNER_TLS_ENABLED:-}" ]; then
+    BATCHER_ARGS="$BATCHER_ARGS,--signer.tls.enabled=$SIGNER_TLS_ENABLED"
 fi
 
 # Remove any stale enclave containers from previous runs.
@@ -233,6 +248,19 @@ echo "Starting enclave with image: $TAG (args contain sensitive data and are not
 
 enclave-tools run --image "$TAG" --args "$BATCHER_ARGS" &
 ENCLAVE_TOOLS_PID=$!
+
+# Start log capture early so we see crash output before --rm wipes the container.
+for _ in $(seq 1 20); do
+    EARLY_CID=$(docker ps -aq --filter "name=batcher-enclaver-" | head -1)
+    [ -n "$EARLY_CID" ] && break
+    sleep 0.5
+done
+if [ -n "$EARLY_CID" ]; then
+    echo "Early log capture attached to container $EARLY_CID"
+    docker logs -f "$EARLY_CID" 2>&1 | sed 's/^/[ENCLAVE-EARLY] /' | tee /tmp/enclave-early.log &
+else
+    echo "WARNING: enclave container did not appear within 10s for early log capture"
+fi
 
 if [ "$DEPLOYMENT_MODE" = "local" ]; then
     echo "$ENCLAVE_TOOLS_PID" > "$PID_FILE"
