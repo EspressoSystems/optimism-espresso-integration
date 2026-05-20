@@ -24,12 +24,6 @@ var excludeContracts = []string{
 	// Generic interfaces
 	"IHasSuperchainConfig",
 
-	// Espresso dependencies
-	"IBatchAuthenticator", "IEspressoTEEVerifier", "IEspressoNitroTEEVerifier",
-	"ICertManager", "BatchAuthenticator", "INitroValidator",
-	// Espresso TEE submodule deep dependency interfaces (vendor-controlled pragma)
-	"IDaoAttestationResolver", "IPCCSRouter", "IQuoteVerifier",
-
 	// EAS
 	"IEAS", "ISchemaResolver", "ISchemaRegistry",
 
@@ -74,6 +68,18 @@ var excludeContracts = []string{
 	"IReleaseGold",
 	"IUniswapV2FactoryMin",
 	"IFederatedAttestations",
+
+	// Espresso dependencies
+	"IBatchAuthenticator",
+	"IEspressoTEEVerifier",
+	"IEspressoNitroTEEVerifier",
+	"ICertManager",
+	"BatchAuthenticator",
+	"INitroValidator",
+	// Espresso TEE submodule deep dependency interfaces (vendor-controlled pragma)
+	"IDaoAttestationResolver",
+	"IPCCSRouter",
+	"IQuoteVerifier",
 }
 
 // excludeSourceContracts is a list of contracts that are allowed to not have interfaces
