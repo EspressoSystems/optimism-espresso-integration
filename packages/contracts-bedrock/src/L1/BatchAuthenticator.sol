@@ -101,8 +101,8 @@ contract BatchAuthenticator is
         if (paused()) revert BatchAuthenticator_Paused();
 
         if (activeIsEspresso) {
-            // TEE batcher path: verify via registered TEE signer.
-            // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently.
+            // Espresso batcher path: caller must be the configured espressoBatcher.
+            if (msg.sender != espressoBatcher) revert UnauthorizedEspressoBatcher(msg.sender, espressoBatcher);
             espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO);
         } else {
             // Fallback batcher path: the caller must be the SystemConfig batcher address.
