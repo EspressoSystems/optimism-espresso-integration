@@ -3,11 +3,17 @@
 use crate::{
     BlobData, BlobProvider, BlobProviderError, ChainProvider, DataAvailabilityProvider,
     PipelineError, PipelineErrorKind, PipelineResult,
+    sources::batch_auth::{
+        BatchAuthCache, BatchAuthConfig, collect_authenticated_batches, compute_blob_batch_hash,
+        compute_calldata_batch_hash, is_batch_authorized,
+    },
 };
-use alloc::{boxed::Box, vec::Vec};
-use alloy_consensus::{
-    Transaction, TxEip4844Variant, TxEnvelope, TxType, transaction::SignerRecoverable,
+use alloc::{
+    boxed::Box,
+    collections::BTreeSet,
+    vec::Vec,
 };
+use alloy_consensus::{Transaction, TxEip4844Variant, TxEnvelope, TxType};
 use alloy_primitives::{Address, B256, Bytes};
 use async_trait::async_trait;
 use kona_protocol::BlockInfo;
@@ -29,6 +35,21 @@ where
     pub data: Vec<BlobData>,
     /// Whether the source is open.
     pub open: bool,
+    /// Batch authentication configuration. When `Some` and Espresso is active for the L1 origin
+    /// time of the block being scanned, event-based batch authentication is used. Otherwise
+    /// (pre-fork or no auth contract configured) the source falls back to vanilla OP Stack
+    /// sender verification.
+    pub batch_auth_config: Option<BatchAuthConfig>,
+    /// Number of L1 blocks to scan for `BatchInfoAuthenticated` events when batch auth is
+    /// enabled. Configured per-chain via [`kona_genesis::RollupConfig::batch_auth_lookback_window`].
+    pub batch_auth_lookback_window: u64,
+    /// Activation timestamp for the Espresso event-only batch authorization. Sourced from
+    /// [`kona_genesis::HardForkConfig::espresso_time`]. The fork is conceptually an L2-timestamp
+    /// hardfork but the per-L1-block decision in the data source is gated on the L1 origin time,
+    /// mirroring the upstream `ecotoneTime` precedent.
+    pub espresso_time: Option<u64>,
+    /// LRU caches for batch auth lookback window traversal (receipts + headers).
+    pub(crate) auth_cache: BatchAuthCache,
 }
 
 impl<F, B> BlobSource<F, B>
@@ -37,15 +58,47 @@ where
     B: BlobProvider + Send,
 {
     /// Creates a new blob source.
-    pub const fn new(chain_provider: F, blob_fetcher: B, batcher_address: Address) -> Self {
-        Self { chain_provider, blob_fetcher, batcher_address, data: Vec::new(), open: false }
+    pub fn new(
+        chain_provider: F,
+        blob_fetcher: B,
+        batcher_address: Address,
+        batch_auth_config: Option<BatchAuthConfig>,
+        batch_auth_lookback_window: u64,
+        espresso_time: Option<u64>,
+    ) -> Self {
+        Self {
+            chain_provider,
+            blob_fetcher,
+            batcher_address,
+            data: Vec::new(),
+            open: false,
+            batch_auth_config,
+            batch_auth_lookback_window,
+            espresso_time,
+            auth_cache: BatchAuthCache::new(batch_auth_lookback_window),
+        }
     }
 
+    /// Returns true when Espresso event-only batch authorization is active at the given L1
+    /// origin time.
+    fn is_espresso_active(&self, l1_origin_time: u64) -> bool {
+        self.espresso_time.is_some_and(|t| l1_origin_time >= t)
+    }
+
+    /// Extracts blob data and indexed blob hashes from the given transactions.
+    ///
+    /// `espresso_active` is computed from the L1 origin time by the caller. When `true`, each
+    /// transaction is authorized via the `authenticated_hashes` set; when `false`, vanilla OP
+    /// Stack sender verification against `batcher_address` is used.
     fn extract_blob_data(
         &self,
         txs: Vec<TxEnvelope>,
         batcher_address: Address,
+        authenticated_hashes: Option<&BTreeSet<B256>>,
+        espresso_active: bool,
     ) -> (Vec<BlobData>, Vec<B256>) {
+        let empty_set = BTreeSet::new();
+        let auth_hashes = authenticated_hashes.unwrap_or(&empty_set);
         let mut data = Vec::new();
         let mut hashes = Vec::new();
         for tx in txs {
@@ -69,7 +122,23 @@ where
             if to != self.batcher_address {
                 continue;
             }
-            if tx.recover_signer().unwrap_or_default() != batcher_address {
+
+            // Compute the batch hash and check authorization.
+            // For blob txs: hash is keccak256(concat(blob_versioned_hashes))
+            // For calldata txs: hash is keccak256(calldata)
+            let batch_hash = blob_hashes.as_ref().map_or_else(
+                || compute_calldata_batch_hash(&calldata),
+                |bh| compute_blob_batch_hash(bh),
+            );
+
+            if !is_batch_authorized(
+                &tx,
+                batch_hash,
+                self.batch_auth_config.as_ref(),
+                auth_hashes,
+                batcher_address,
+                espresso_active,
+            ) {
                 continue;
             }
             if tx.tx_type() != TxType::Eip4844 {
@@ -122,7 +191,36 @@ where
             .await
             .map_err(Into::into)?;
 
-        let (mut data, blob_hashes) = self.extract_blob_data(info.1, batcher_address);
+        let espresso_active = self.is_espresso_active(block_ref.timestamp);
+
+        // Pre-fork the lookback walk is bypassed entirely so derivation is byte-identical to
+        // upstream OP Stack (the BatchAuthenticator events are still emitted on L1 but ignored).
+        let authenticated_hashes: Option<BTreeSet<B256>> = if espresso_active {
+            if let Some(ref config) = self.batch_auth_config {
+                Some(
+                    collect_authenticated_batches(
+                        &mut self.chain_provider,
+                        block_ref,
+                        config.authenticator_address,
+                        self.batch_auth_lookback_window,
+                        &mut self.auth_cache,
+                    )
+                    .await
+                    .map_err(Into::<PipelineErrorKind>::into)?,
+                )
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let (mut data, blob_hashes) = self.extract_blob_data(
+            info.1,
+            batcher_address,
+            authenticated_hashes.as_ref(),
+            espresso_active,
+        );
 
         // If there are no hashes, set the calldata and return.
         if blob_hashes.is_empty() {
@@ -239,7 +337,14 @@ pub(crate) mod tests {
         let chain_provider = TestChainProvider::default();
         let blob_fetcher = TestBlobProvider::default();
         let batcher_address = Address::default();
-        BlobSource::new(chain_provider, blob_fetcher, batcher_address)
+        BlobSource::new(
+            chain_provider,
+            blob_fetcher,
+            batcher_address,
+            None,
+            kona_genesis::DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW,
+            None,
+        )
     }
 
     pub(crate) fn valid_blob_txs() -> Vec<TxEnvelope> {
@@ -478,7 +583,14 @@ pub(crate) mod tests {
     async fn test_load_blobs_block_not_found_triggers_reset() {
         let chain_provider = BlockNotFoundChainProvider;
         let blob_fetcher = crate::test_utils::TestBlobProvider::default();
-        let mut source = BlobSource::new(chain_provider, blob_fetcher, Address::ZERO);
+        let mut source = BlobSource::new(
+            chain_provider,
+            blob_fetcher,
+            Address::ZERO,
+            None,
+            kona_genesis::DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW,
+            None,
+        );
 
         let err = source.load_blobs(&BlockInfo::default(), Address::ZERO).await.unwrap_err();
         assert!(

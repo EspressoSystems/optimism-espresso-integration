@@ -99,6 +99,7 @@ mod tests {
                     isthmus_time: None,
                     jovian_time: None,
                     interop_time: None,
+                    espresso_time: None,
                 },
                 protocol_versions_addr: None,
                 superchain_config_addr: None,

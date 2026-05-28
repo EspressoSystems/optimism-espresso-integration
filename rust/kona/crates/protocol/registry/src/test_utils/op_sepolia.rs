@@ -61,6 +61,7 @@ pub const OP_SEPOLIA_CONFIG: RollupConfig = RollupConfig {
         isthmus_time: Some(OP_SEPOLIA_ISTHMUS_TIMESTAMP),
         jovian_time: Some(OP_SEPOLIA_JOVIAN_TIMESTAMP),
         interop_time: None,
+        espresso_time: None,
     },
     batch_inbox_address: address!("ff00000000000000000000000000000011155420"),
     deposit_contract_address: address!("16fc5058f25648194471939df75cf27a2fdc48bc"),
@@ -70,4 +71,6 @@ pub const OP_SEPOLIA_CONFIG: RollupConfig = RollupConfig {
     da_challenge_address: None,
     blobs_enabled_l1_timestamp: None,
     interop_message_expiry_window: DEFAULT_INTEROP_MESSAGE_EXPIRY_WINDOW,
+    batch_authenticator_address: None,
+    batch_auth_lookback_window: None,
 };

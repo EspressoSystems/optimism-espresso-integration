@@ -68,6 +68,7 @@ impl OverrideArgs {
             isthmus_time: self.isthmus_override.map(Some).unwrap_or(config.hardforks.isthmus_time),
             jovian_time: self.jovian_override.map(Some).unwrap_or(config.hardforks.jovian_time),
             interop_time: self.interop_override.map(Some).unwrap_or(config.hardforks.interop_time),
+            espresso_time: config.hardforks.espresso_time,
         };
         RollupConfig { hardforks, ..config }
     }
@@ -127,6 +128,7 @@ mod tests {
                 isthmus_time: Some(1740000000),
                 jovian_time: Some(1745000001),
                 interop_time: Some(1750000000),
+                espresso_time: Default::default(),
             }
         );
     }

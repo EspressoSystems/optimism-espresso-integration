@@ -21,6 +21,14 @@ pub const GRANITE_CHANNEL_TIMEOUT: u64 = 50;
 /// The default interop message expiry window. (1 hour, in seconds)
 pub const DEFAULT_INTEROP_MESSAGE_EXPIRY_WINDOW: u64 = 60 * 60;
 
+/// The default number of L1 blocks to scan for `BatchInfoAuthenticated` events when
+/// authenticating a batch. Roughly 20 minutes on Ethereum mainnet (12s blocks).
+///
+/// This parameter affects derivation consensus, so it must remain a single value across all
+/// participants for the lifetime of the chain. It is configured per-chain via `rollup.json`
+/// rather than as a per-operator CLI flag.
+pub const DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW: u64 = 100;
+
 #[cfg(feature = "serde")]
 const fn default_granite_channel_timeout() -> u64 {
     GRANITE_CHANNEL_TIMEOUT
@@ -94,6 +102,20 @@ pub struct RollupConfig {
     /// `chain_op_config` is the chain-specific EIP1559 config for the rollup.
     #[cfg_attr(feature = "serde", serde(default = "BaseFeeConfig::optimism"))]
     pub chain_op_config: BaseFeeConfig,
+    /// Address of the BatchAuthenticator contract on L1. When set, enables
+    /// event-based batch authentication instead of sender verification.
+    /// The derivation pipeline scans L1 receipts for `BatchInfoAuthenticated` events
+    /// emitted by this contract in a lookback window to authenticate batches.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub batch_authenticator_address: Option<Address>,
+    /// Number of L1 blocks before the batch submission to scan for a
+    /// `BatchInfoAuthenticated` event. When `None`, defaults to
+    /// [`DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW`] via [`RollupConfig::batch_auth_lookback_window`].
+    ///
+    /// This must remain a single value across all participants for the chain's lifetime, so it
+    /// is configured per-chain in `rollup.json` rather than via a CLI flag.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub batch_auth_lookback_window: Option<u64>,
 }
 
 #[cfg(feature = "arbitrary")]
@@ -128,6 +150,8 @@ impl<'a> arbitrary::Arbitrary<'a> for RollupConfig {
             interop_message_expiry_window: u.arbitrary()?,
             chain_op_config,
             alt_da_config: Option::<AltDAConfig>::arbitrary(u)?,
+            batch_authenticator_address: Option::<Address>::arbitrary(u)?,
+            batch_auth_lookback_window: Option::<u64>::arbitrary(u)?,
         })
     }
 }
@@ -155,6 +179,8 @@ impl Default for RollupConfig {
             interop_message_expiry_window: DEFAULT_INTEROP_MESSAGE_EXPIRY_WINDOW,
             alt_da_config: None,
             chain_op_config: OP_MAINNET_BASE_FEE_CONFIG,
+            batch_authenticator_address: None,
+            batch_auth_lookback_window: None,
         }
     }
 }
@@ -326,6 +352,33 @@ impl RollupConfig {
     /// address is not zero.
     pub fn is_alt_da_enabled(&self) -> bool {
         self.da_challenge_address.is_some_and(|addr| !addr.is_zero())
+    }
+
+    /// Returns true if event-based batch authentication is configured.
+    /// When enabled, the derivation pipeline scans L1 receipts for `BatchInfoAuthenticated`
+    /// events instead of relying on sender verification.
+    pub fn is_batch_auth_enabled(&self) -> bool {
+        self.batch_authenticator_address.is_some_and(|addr| !addr.is_zero())
+    }
+
+    /// Returns the configured batch auth lookback window, falling back to
+    /// [`DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW`] when unset.
+    pub fn batch_auth_lookback_window(&self) -> u64 {
+        self.batch_auth_lookback_window.unwrap_or(DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW)
+    }
+
+    /// Returns true if Espresso event-only batch authorization is active at the
+    /// given L1 origin timestamp.
+    ///
+    /// Pre-fork the derivation pipeline runs vanilla OP Stack semantics (sender-based
+    /// authorization, no `BatchAuthenticator` event lookup). Post-fork batches must be
+    /// authenticated by `BatchInfoAuthenticated` events; sender-based fallback is rejected.
+    ///
+    /// This is intentionally orthogonal to the chained OP Stack hardforks and to
+    /// [`Self::is_batch_auth_enabled`] (which only signals that a `BatchAuthenticator`
+    /// contract address is configured).
+    pub fn is_espresso_active(&self, timestamp: u64) -> bool {
+        self.hardforks.espresso_time.is_some_and(|t| timestamp >= t)
     }
 
     /// Returns the max sequencer drift for the given timestamp.
@@ -681,6 +734,7 @@ mod tests {
                 isthmus_time: Some(90),
                 jovian_time: Some(100),
                 interop_time: Some(110),
+                espresso_time: None,
             },
             block_time: 2,
             ..Default::default()
@@ -750,6 +804,23 @@ mod tests {
         assert!(!config.is_alt_da_enabled());
         config.da_challenge_address = Some(address!("0000000000000000000000000000000000000001"));
         assert!(config.is_alt_da_enabled());
+    }
+
+    #[test]
+    fn test_is_espresso_active() {
+        let mut cfg = RollupConfig::default();
+        // Unset: never active.
+        assert!(!cfg.is_espresso_active(0));
+        assert!(!cfg.is_espresso_active(u64::MAX));
+        // Set: boundary semantics match the other forks.
+        cfg.hardforks.espresso_time = Some(100);
+        assert!(!cfg.is_espresso_active(99));
+        assert!(cfg.is_espresso_active(100));
+        assert!(cfg.is_espresso_active(101));
+        // Espresso is independent of any other fork timestamp.
+        cfg.hardforks.interop_time = Some(50);
+        assert!(!cfg.is_espresso_active(99));
+        assert!(cfg.is_interop_active(99));
     }
 
     #[test]
@@ -881,6 +952,8 @@ mod tests {
             interop_message_expiry_window: DEFAULT_INTEROP_MESSAGE_EXPIRY_WINDOW,
             chain_op_config: OP_MAINNET_BASE_FEE_CONFIG,
             alt_da_config: None,
+            batch_authenticator_address: None,
+            batch_auth_lookback_window: None,
         };
 
         let deserialized: RollupConfig = serde_json::from_str(raw).unwrap();

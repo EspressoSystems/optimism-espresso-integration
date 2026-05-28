@@ -29,7 +29,7 @@ pub use pipeline::{
 };
 
 mod sources;
-pub use sources::{BlobData, BlobSource, CalldataSource, EthereumDataSource};
+pub use sources::{BatchAuthConfig, BlobData, BlobSource, CalldataSource, EthereumDataSource};
 
 mod stages;
 pub use stages::{

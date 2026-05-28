@@ -61,6 +61,7 @@ pub const OP_MAINNET_CONFIG: RollupConfig = RollupConfig {
         isthmus_time: Some(OP_MAINNET_ISTHMUS_TIMESTAMP),
         jovian_time: Some(OP_MAINNET_JOVIAN_TIMESTAMP),
         interop_time: None,
+        espresso_time: None,
     },
     batch_inbox_address: address!("ff00000000000000000000000000000000000010"),
     deposit_contract_address: address!("beb5fc579115071764c7423a4f12edde41f106ed"),
@@ -70,4 +71,6 @@ pub const OP_MAINNET_CONFIG: RollupConfig = RollupConfig {
     da_challenge_address: None,
     blobs_enabled_l1_timestamp: None,
     interop_message_expiry_window: DEFAULT_INTEROP_MESSAGE_EXPIRY_WINDOW,
+    batch_authenticator_address: None,
+    batch_auth_lookback_window: None,
 };

@@ -3,7 +3,7 @@
 
 use crate::{
     BlobProvider, BlobSource, CalldataSource, ChainProvider, DataAvailabilityProvider,
-    PipelineResult,
+    PipelineResult, sources::batch_auth::BatchAuthConfig,
 };
 use alloc::{boxed::Box, fmt::Debug};
 use alloy_primitives::{Address, Bytes};
@@ -42,10 +42,28 @@ where
 
     /// Instantiates a new [`EthereumDataSource`] from parts.
     pub fn new_from_parts(provider: C, blobs: B, cfg: &RollupConfig) -> Self {
+        let batch_auth_config = cfg.is_batch_auth_enabled().then(|| BatchAuthConfig {
+            authenticator_address: cfg.batch_authenticator_address.unwrap(),
+        });
+        let batch_auth_lookback_window = cfg.batch_auth_lookback_window();
+        let espresso_time = cfg.hardforks.espresso_time;
         Self {
             ecotone_timestamp: cfg.hardforks.ecotone_time,
-            blob_source: BlobSource::new(provider.clone(), blobs, cfg.batch_inbox_address),
-            calldata_source: CalldataSource::new(provider, cfg.batch_inbox_address),
+            blob_source: BlobSource::new(
+                provider.clone(),
+                blobs,
+                cfg.batch_inbox_address,
+                batch_auth_config.clone(),
+                batch_auth_lookback_window,
+                espresso_time,
+            ),
+            calldata_source: CalldataSource::new(
+                provider,
+                cfg.batch_inbox_address,
+                batch_auth_config,
+                batch_auth_lookback_window,
+                espresso_time,
+            ),
         }
     }
 }
@@ -96,7 +114,14 @@ mod tests {
         let chain_provider = TestChainProvider::default();
         let blob_fetcher = TestBlobProvider::default();
         let batcher_address = Address::default();
-        BlobSource::new(chain_provider, blob_fetcher, batcher_address)
+        BlobSource::new(
+            chain_provider,
+            blob_fetcher,
+            batcher_address,
+            None,
+            kona_genesis::DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW,
+            None,
+        )
     }
 
     #[tokio::test]
@@ -104,10 +129,23 @@ mod tests {
         let chain = TestChainProvider::default();
         let blob = TestBlobProvider::default();
         let cfg = RollupConfig::default();
-        let mut calldata = CalldataSource::new(chain.clone(), Address::ZERO);
+        let mut calldata = CalldataSource::new(
+            chain.clone(),
+            Address::ZERO,
+            None,
+            kona_genesis::DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW,
+            None,
+        );
         calldata.calldata.insert(0, Default::default());
         calldata.open = true;
-        let mut blob = BlobSource::new(chain, blob, Address::ZERO);
+        let mut blob = BlobSource::new(
+            chain,
+            blob,
+            Address::ZERO,
+            None,
+            kona_genesis::DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW,
+            None,
+        );
         blob.data = vec![Default::default()];
         blob.open = true;
         let mut data_source = EthereumDataSource::new(blob, calldata, &cfg);
@@ -125,7 +163,13 @@ mod tests {
         let mut blob = default_test_blob_source();
         blob.open = true;
         blob.data.push(BlobData { data: None, calldata: Some(Bytes::default()) });
-        let calldata = CalldataSource::new(chain.clone(), Address::ZERO);
+        let calldata = CalldataSource::new(
+            chain.clone(),
+            Address::ZERO,
+            None,
+            kona_genesis::DEFAULT_BATCH_AUTH_LOOKBACK_WINDOW,
+            None,
+        );
         let cfg = RollupConfig {
             hardforks: HardForkConfig { ecotone_time: Some(0), ..Default::default() },
             ..Default::default()

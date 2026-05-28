@@ -5601,6 +5601,7 @@ dependencies = [
  "kona-macros",
  "kona-protocol",
  "kona-registry",
+ "lru 0.16.3",
  "metrics",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",

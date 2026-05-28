@@ -32,6 +32,10 @@ pub trait DataAvailabilityProvider {
     /// Returns the next data for the given [`BlockInfo`], looking for transactions sent by the
     /// `batcher_addr`. Returns a `PipelineError::Eof` if there is no more data for the given
     /// block ref.
+    ///
+    /// Data sources that gate hardfork-dependent behavior on a timestamp (e.g. Espresso
+    /// event-only batch authorization) read it from `block_ref.timestamp` (the L1 origin time
+    /// of the block being scanned), mirroring the `ecotoneTime` precedent.
     async fn next(
         &mut self,
         block_ref: &BlockInfo,
