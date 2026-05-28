@@ -97,32 +97,34 @@
         };
 
         # Fetch the pre-built enclaver binary from GitHub releases.
-        enclaver = pkgs.stdenv.mkDerivation rec {
-          pname = "enclaver";
-          version = "0.6.1";
+        enclaver =
+          let
+            version = "0.6.1";
+            platformMap = {
+              "x86_64-linux"   = { platform = "linux-x86_64";  sha256 = "sha256-lvKcruw4U+cJUAEOp/LeGiLJX7+SHngL6K3iFgflNy8="; };
+              "aarch64-linux"  = { platform = "linux-aarch64"; sha256 = "sha256-qsUFqYQ445ngQtC+ncG8i/9LAr7uPrFJ5TAa9qKJcw8="; };
+              "x86_64-darwin"  = { platform = "macos-x86_64";  sha256 = "sha256-Ru4s+mfy+jaerqDO2c2wQFjf5Ph+aZJa0+Y9YG1K3Sk="; };
+              "aarch64-darwin" = { platform = "macos-aarch64"; sha256 = "sha256-LeLg9oxe5LTGXCLMDuaY3MujC4cu15oycd8hPLjcp+I="; };
+            };
+            platformInfo = platformMap."${system}";
+          in
+          pkgs.stdenv.mkDerivation {
+            pname = "enclaver";
+            inherit version;
 
-          platformMap = {
-            "x86_64-linux"   = { platform = "linux-x86_64";  sha256 = "sha256-lvKcruw4U+cJUAEOp/LeGiLJX7+SHngL6K3iFgflNy8="; };
-            "aarch64-linux"  = { platform = "linux-aarch64"; sha256 = "sha256-qsUFqYQ445ngQtC+ncG8i/9LAr7uPrFJ5TAa9qKJcw8="; };
-            "x86_64-darwin"  = { platform = "macos-x86_64";  sha256 = "sha256-Ru4s+mfy+jaerqDO2c2wQFjf5Ph+aZJa0+Y9YG1K3Sk="; };
-            "aarch64-darwin" = { platform = "macos-aarch64"; sha256 = "sha256-LeLg9oxe5LTGXCLMDuaY3MujC4cu15oycd8hPLjcp+I="; };
+            src = pkgs.fetchurl {
+              url = "https://github.com/enclaver-io/enclaver/releases/download/v${version}/enclaver-${platformInfo.platform}-v${version}.tar.gz";
+              sha256 = platformInfo.sha256;
+            };
+
+            sourceRoot = ".";
+
+            installPhase = ''
+              mkdir -p $out/bin
+              cp enclaver-*/enclaver $out/bin/enclaver
+              chmod +x $out/bin/enclaver
+            '';
           };
-
-          platformInfo = platformMap."${system}";
-
-          src = pkgs.fetchurl {
-            url = "https://github.com/enclaver-io/enclaver/releases/download/v${version}/enclaver-${platformInfo.platform}-v${version}.tar.gz";
-            sha256 = platformInfo.sha256;
-          };
-
-          sourceRoot = ".";
-
-          installPhase = ''
-            mkdir -p $out/bin
-            cp enclaver-*/enclaver $out/bin/enclaver
-            chmod +x $out/bin/enclaver
-          '';
-        };
 
       in
       let
