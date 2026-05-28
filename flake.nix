@@ -96,20 +96,32 @@
           doCheck = false;
         };
 
-        enclaver = pkgs.rustPlatform.buildRustPackage rec {
+        # Fetch the pre-built enclaver binary from GitHub releases.
+        enclaver = pkgs.stdenv.mkDerivation rec {
           pname = "enclaver";
           version = "0.6.1";
 
-          src = pkgs.fetchFromGitHub {
-            owner = "enclaver-io";
-            repo = pname;
-            rev = "v${version}";
-            hash = "sha256-TdwfTJR2k3/y01l6fuke5MUxQLH8DU0nqfq3mGY1C9Y=";
+          platformMap = {
+            "x86_64-linux"   = { platform = "linux-x86_64";  sha256 = "sha256-lvKcruw4U+cJUAEOp/LeGiLJX7+SHngL6K3iFgflNy8="; };
+            "aarch64-linux"  = { platform = "linux-aarch64"; sha256 = "sha256-qsUFqYQ445ngQtC+ncG8i/9LAr7uPrFJ5TAa9qKJcw8="; };
+            "x86_64-darwin"  = { platform = "macos-x86_64";  sha256 = "sha256-Ru4s+mfy+jaerqDO2c2wQFjf5Ph+aZJa0+Y9YG1K3Sk="; };
+            "aarch64-darwin" = { platform = "macos-aarch64"; sha256 = "sha256-LeLg9oxe5LTGXCLMDuaY3MujC4cu15oycd8hPLjcp+I="; };
           };
 
-          cargoHash = "sha256-qhZBxj1lAY6vRe3/3mRHKhPk+mrUW/99ZPaVKOAnHj8=";
-          cargoRoot = "enclaver";
-          buildAndTestSubdir = cargoRoot;
+          platformInfo = platformMap."${system}";
+
+          src = pkgs.fetchurl {
+            url = "https://github.com/enclaver-io/enclaver/releases/download/v${version}/enclaver-${platformInfo.platform}-v${version}.tar.gz";
+            sha256 = platformInfo.sha256;
+          };
+
+          sourceRoot = ".";
+
+          installPhase = ''
+            mkdir -p $out/bin
+            cp enclaver-*/enclaver $out/bin/enclaver
+            chmod +x $out/bin/enclaver
+          '';
         };
 
       in
