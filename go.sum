@@ -36,6 +36,8 @@ github.com/EspressoSystems/espresso-network/sdks/go v0.3.5-0.20260410134522-1a81
 github.com/EspressoSystems/espresso-network/sdks/go v0.3.5-0.20260410134522-1a819609a513/go.mod h1:kaxR08mJb5Mijy7a2RhWCIWOevFI4PcXwDkzoEbsVTk=
 github.com/EspressoSystems/espresso-streamers v1.1.0 h1:+35Y9I3BCMyVIyFX6DNO6tq8ZKeuyOAve4DrgIhaY2s=
 github.com/EspressoSystems/espresso-streamers v1.1.0/go.mod h1:eDGUEvlyxNey9gdpQhKaswAOp5ZWHPVbhNtWfHkpJvU=
+github.com/EspressoSystems/espresso-streamers v1.1.1-0.20260527183602-39374e760e79 h1:d+lrRfOs96+epErHfHkG2wujL+vOQZN3p70stwZ4UH0=
+github.com/EspressoSystems/espresso-streamers v1.1.1-0.20260527183602-39374e760e79/go.mod h1:eDGUEvlyxNey9gdpQhKaswAOp5ZWHPVbhNtWfHkpJvU=
 github.com/Masterminds/semver/v3 v3.3.1 h1:QtNSWtVZ3nBfk8mAOu/B6v7FMJ+NHTIgUPi7rj+4nv4=
 github.com/Masterminds/semver/v3 v3.3.1/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
