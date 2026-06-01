@@ -96,61 +96,91 @@
           doCheck = false;
         };
 
-        enclaver = pkgs.rustPlatform.buildRustPackage rec {
-          pname = "enclaver";
-          version = "0.6.1";
+        # Fetch the pre-built enclaver binary from GitHub releases.
+        enclaver =
+          let
+            version = "0.6.1";
+            platformMap = {
+              "x86_64-linux"   = { platform = "linux-x86_64";  sha256 = "sha256-lvKcruw4U+cJUAEOp/LeGiLJX7+SHngL6K3iFgflNy8="; };
+              "aarch64-linux"  = { platform = "linux-aarch64"; sha256 = "sha256-qsUFqYQ445ngQtC+ncG8i/9LAr7uPrFJ5TAa9qKJcw8="; };
+              "x86_64-darwin"  = { platform = "macos-x86_64";  sha256 = "sha256-Ru4s+mfy+jaerqDO2c2wQFjf5Ph+aZJa0+Y9YG1K3Sk="; };
+              "aarch64-darwin" = { platform = "macos-aarch64"; sha256 = "sha256-LeLg9oxe5LTGXCLMDuaY3MujC4cu15oycd8hPLjcp+I="; };
+            };
+            platformInfo = platformMap."${system}";
+          in
+          pkgs.stdenv.mkDerivation {
+            pname = "enclaver";
+            inherit version;
 
-          src = pkgs.fetchFromGitHub {
-            owner = "enclaver-io";
-            repo = pname;
-            rev = "v${version}";
-            hash = "sha256-TdwfTJR2k3/y01l6fuke5MUxQLH8DU0nqfq3mGY1C9Y=";
+            src = pkgs.fetchurl {
+              url = "https://github.com/enclaver-io/enclaver/releases/download/v${version}/enclaver-${platformInfo.platform}-v${version}.tar.gz";
+              sha256 = platformInfo.sha256;
+            };
+
+            sourceRoot = ".";
+
+            installPhase = ''
+              mkdir -p $out/bin
+              cp enclaver-*/enclaver $out/bin/enclaver
+              chmod +x $out/bin/enclaver
+            '';
           };
 
-          cargoHash = "sha256-qhZBxj1lAY6vRe3/3mRHKhPk+mrUW/99ZPaVKOAnHj8=";
-          cargoRoot = "enclaver";
-          buildAndTestSubdir = cargoRoot;
-        };
+      in
+      let
+        # Exclude enclaver because buildRustPackage requires fetching Rust crates from crates.io at
+        # build time, which CI is routinely blocked from. Workflows that need enclaver use
+        # devShells.enclave instead.
+        commonBuildInputs = [
+          pkgs.zlib
+          espressoGoLibFile
+        ];
 
+        commonPackages = [
+          go_1_23_8
+          foundry_1_2_3
+          anvil_1_5_1
+
+          eth-beacon-genesis
+          eth2-val-tools
+
+          pkgs.awscli2
+          pkgs.cargo
+          (import inputs.pkgs-go { inherit system; }).dasel
+          pkgs.go-ethereum
+          pkgs.jq
+          pkgs.just
+          pkgs.pnpm
+          pkgs.python311
+          pkgs.shellcheck
+          pkgs.uv
+          pkgs.yq-go
+          pkgs.tmux
+          pkgs.golangci-lint
+        ];
+
+        commonShellHook = ''
+          export MACOSX_DEPLOYMENT_TARGET=14.5
+          export PATH=$PATH:$PWD/op-deployer/bin
+        '';
       in
       {
         formatter = pkgs.nixfmt-rfc-style;
 
         devShells = {
+          # Default shell.
           default = pkgs.mkShell {
-            buildInputs = [
-              pkgs.zlib
-              espressoGoLibFile
-            ];
+            buildInputs = commonBuildInputs;
+            packages = commonPackages;
+            shellHook = commonShellHook;
+          };
 
-            packages = [
-              go_1_23_8
-              foundry_1_2_3
-              anvil_1_5_1
-
-              enclaver
-              eth-beacon-genesis
-              eth2-val-tools
-
-              pkgs.awscli2
-              pkgs.cargo
-              (import inputs.pkgs-go { inherit system; }).dasel
-              pkgs.go-ethereum
-              pkgs.jq
-              pkgs.just
-              pkgs.pnpm
-              pkgs.python311
-              pkgs.shellcheck
-              pkgs.uv
-              pkgs.yq-go
-              pkgs.tmux
-              pkgs.golangci-lint
-            ];
-
-            shellHook = ''
-              export MACOSX_DEPLOYMENT_TARGET=14.5
-              export PATH=$PATH:$PWD/op-deployer/bin
-            '';
+          # Enclave shell. Use with:
+          #   nix develop .#enclave --command <cmd>
+          enclave = pkgs.mkShell {
+            buildInputs = commonBuildInputs;
+            packages = commonPackages ++ [ enclaver ];
+            shellHook = commonShellHook;
           };
         };
       }

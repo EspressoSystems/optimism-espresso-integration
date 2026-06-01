@@ -303,6 +303,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         vm.expectEmit(true, false, false, false);
         emit BatchInfoAuthenticated(commitment);
 
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
@@ -321,6 +322,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
 
         // Should revert because signer is not registered.
         vm.expectRevert(abi.encodeWithSelector(IEspressoTEEVerifier.InvalidSignature.selector));
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
@@ -337,6 +339,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         // OZ v5 ECDSA.recover reverts with ECDSAInvalidSignature() when ecrecover returns address(0)
         // (not ECDSAInvalidSignatureLength, which only fires when length != 65)
         vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignature.selector));
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, invalidSignature);
     }
 
@@ -400,6 +403,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         _registerNitroSigner(privateKey);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
 
         // Switch batcher to test boolean flag preservation.
@@ -469,9 +473,9 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         authenticator.authenticateBatchInfo(commitment, "");
     }
 
-    /// @notice Test that in Espresso (default) mode, the TEE path is taken — calling with
-    ///         the fallback-batcher address but no valid TEE signature must revert.
-    function test_authenticateBatchInfo_espresso_revertsOnFallbackSender() external {
+    /// @notice Test that in Espresso (default) mode, any sender (including the fallback batcher)
+    ///         other than espressoBatcher is rejected before signature verification.
+    function test_authenticateBatchInfo_espresso_revertsOnUnauthorizedSender() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
         // Sanity: still in Espresso mode.
         assertTrue(authenticator.activeIsEspresso());
@@ -482,10 +486,11 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
 
         bytes32 commitment = keccak256("espresso commitment");
 
-        // Calling with empty signature — TEE path runs ECDSA.recover, which rejects the
-        // zero-length input as ECDSAInvalidSignatureLength(0).
+        // Any non-espressoBatcher sender must revert with UnauthorizedEspressoBatcher.
         vm.prank(fallbackBatcher);
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, uint256(0)));
+        vm.expectRevert(
+            abi.encodeWithSelector(IBatchAuthenticator.UnauthorizedEspressoBatcher.selector, fallbackBatcher, espressoBatcher)
+        );
         authenticator.authenticateBatchInfo(commitment, "");
     }
 
@@ -543,6 +548,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         // Should succeed.
         vm.expectEmit(true, false, false, false);
         emit BatchInfoAuthenticated(commitment);
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
@@ -746,6 +752,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         // Authenticate.
         vm.expectEmit(true, false, false, false);
         emit BatchInfoAuthenticated(commitment);
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
@@ -760,6 +767,7 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
+        vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
 
         // Switch batcher
