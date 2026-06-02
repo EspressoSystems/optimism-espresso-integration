@@ -48,6 +48,7 @@ build-devnet: stop-containers
 
 golint:
  golangci-lint run --config espresso/.golangci.yaml --timeout 10m ./espresso/...
+ go mod tidy -diff
 
 
 compile-contracts:
