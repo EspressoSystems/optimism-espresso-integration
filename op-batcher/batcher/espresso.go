@@ -859,6 +859,28 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	}
 }
 
+// skipStreamerToTargetBlockHeight will consume batches from the
+// `EspressoStreamer` until we reach the target block height, or run out
+// of batches to consume.
+//
+// NOTE: this is **NOT** guaranteed to ensure that the next `Batch` will
+// be the expected height, it's just a best effort.
+func (l *BatchSubmitter) skipStreamerToTargetBlockHeight(ctx context.Context, targetHeight uint64) {
+	streamer := l.EspressoStreamer()
+	batch := streamer.Peek(ctx)
+	for batch != nil && batch.Number() < targetHeight {
+		// Consume the Batch
+		streamer.Next(ctx)
+		batch = streamer.Peek(ctx)
+	}
+}
+
+// isHashNoptSet is a helper function to check if a hash is the zero
+// value (not set).
+func isHashEmpty(hash common.Hash) bool {
+	return hash == (common.Hash{})
+}
+
 // peekNextBatch returns the next batch from the streamer, performing a fork check
 // against an expected parent hash.
 //
@@ -867,26 +889,36 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 // the one position where we can set tip to the known safe head. Otherwise we accept the batch as-is.
 func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.SyncStatus) *derive.EspressoBatch {
 	l.channelMgrMutex.Lock()
-	tip := l.channelMgr.tip
+	var tipBlock SizedBlock
+	if len(l.channelMgr.blocks) > 0 {
+		tipBlock = l.channelMgr.blocks[len(l.channelMgr.blocks)-1]
+	}
 	l.channelMgrMutex.Unlock()
 
+	targetBlock := syncStatus.SafeL2.Number + 1
+	tipHash := syncStatus.SafeL2.Hash
+	if tipBlock != (SizedBlock{}) && tipBlock.Block != nil {
+		targetBlock = tipBlock.NumberU64() + 1
+		tipHash = tipBlock.Hash()
+	} else if batch := l.EspressoStreamer().Peek(ctx); batch != nil && batch.Number() == targetBlock {
+		// Log indicating that we utilized the SafeL2 Hash as the next
+		// Streamer entry matched our expected Safe L2, and we didn't
+		// have any tip information from the Channel Manager.
+		l.Log.Debug(
+			"setting tip to safe l2 hash",
+			"batchNr", batch.Number(),
+			"batchParent", batch.Header().ParentHash.Hex(),
+			"tip", tipHash,
+		)
+	}
+
+	l.skipStreamerToTargetBlockHeight(ctx, targetBlock)
 	batch := l.EspressoStreamer().Peek(ctx)
 	if batch == nil {
 		return nil
 	}
 
-	// Check if we can set the tip if not set
-	if tip == (common.Hash{}) && (*batch).Number() == syncStatus.SafeL2.Number+1 {
-		l.Log.Info(
-			"setting tip to safe l2 hash",
-			"batchNr", (*batch).Number(),
-			"batchParent", (*batch).Header().ParentHash.Hex(),
-			"tip", tip,
-		)
-		tip = syncStatus.SafeL2.Hash
-	}
-
-	if tip == (common.Hash{}) {
+	if isHashEmpty(tipHash) {
 		l.Log.Warn(
 			"tip is not set, taking available batch",
 			"blockParentHash", (*batch).Header().ParentHash.Hex(),
@@ -895,14 +927,14 @@ func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.Sync
 		return batch
 	}
 
-	if (*batch).Header().ParentHash != tip {
+	if batch.Header().ParentHash != tipHash {
 		l.Log.Warn(
 			"head batch fork mismatch, seeking to proper head",
 			"batchNr", (*batch).Number(),
 			"batchParent", (*batch).Header().ParentHash,
-			"tip", tip,
+			"tip", tipHash,
 		)
-		l.EspressoStreamer().SetProperHead(tip)
+		l.EspressoStreamer().SetProperHead(tipHash)
 		return nil
 	}
 
