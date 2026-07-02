@@ -152,8 +152,8 @@ streaming at the current L2 head rather than reprocessing the entire chain
 history. The flag is purely operational and independent of the hardfork
 timestamp, which gates derivation semantics consensus-wide.
 
-Note that the on-chain `BatchAuthenticator.activeIsEspresso` flag (toggleable via
-`switchBatcher`) is independent of this hardfork: it controls which batcher
+Note that the on-chain `BatchAuthenticator.activeIsEspresso` flag (settable via
+`setActiveIsEspresso`) is independent of this hardfork: it controls which batcher
 (TEE vs fallback) is currently authorized to emit `BatchInfoAuthenticated`
 events on L1. The hardfork only governs whether the off-chain derivation
 pipeline consults those events at all.

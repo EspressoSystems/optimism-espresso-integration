@@ -20,7 +20,8 @@ import {
     Pcr
 } from "aws-nitro-enclave-attestation/interfaces/INitroEnclaveVerifier.sol";
 
-import { Chains } from "scripts/libraries/Chains.sol";
+import { Config } from "scripts/libraries/Config.sol";
+import { DeployUtils } from "scripts/libraries/DeployUtils.sol";
 import { ISystemConfig } from "interfaces/L1/ISystemConfig.sol";
 import { IBatchAuthenticator } from "interfaces/L1/IBatchAuthenticator.sol";
 
@@ -96,9 +97,9 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         teeVerifier = new EspressoTEEVerifierMock(IEspressoNitroTEEVerifier(address(nitroVerifier)));
         implementation = new BatchAuthenticator();
 
-        // Deploy the proxy admin via vm.getCode to avoid duplicate ProxyAdmin artifacts.
+        // Deploy the proxy admin via DeployUtils.getCode to avoid duplicate ProxyAdmin artifacts.
         {
-            bytes memory _code = vm.getCode("ProxyAdmin");
+            bytes memory _code = DeployUtils.getCode("forge-artifacts/ProxyAdmin.sol/ProxyAdmin.json");
             bytes memory _args = abi.encode(proxyAdminOwner);
             bytes memory _initCode = abi.encodePacked(_code, _args);
             address _addr;
@@ -144,7 +145,9 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
                 IEspressoTEEVerifier(address(teeVerifier)),
                 espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
-                proxyAdminOwner
+                proxyAdminOwner,
+                // First deployment: start with the Espresso batcher active.
+                true
             )
         );
         vm.prank(proxyAdminOwner);
@@ -165,7 +168,8 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
                 IEspressoTEEVerifier(address(teeVerifier)),
                 espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
-                proxyAdminOwner
+                proxyAdminOwner,
+                true
             )
         );
 
@@ -194,7 +198,8 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
                 IEspressoTEEVerifier(address(teeVerifier)),
                 address(0),
                 ISystemConfig(address(mockSystemConfig)),
-                proxyAdminOwner
+                proxyAdminOwner,
+                true
             )
         );
 
@@ -215,7 +220,8 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
                 IEspressoTEEVerifier(address(0)),
                 espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
-                proxyAdminOwner
+                proxyAdminOwner,
+                true
             )
         );
 
@@ -233,22 +239,47 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         assertTrue(authenticator.activeIsEspresso());
     }
 
-    /// @notice Test that switchBatcher can be called by owner or guardian.
-    function test_switchBatcher_ownerOrGuardian_succeeds() external {
+    /// @notice Test that initialize honors the explicit `_activeIsEspresso` parameter.
+    ///         Guards against the non-idempotent-init footgun: if a future `initVersion()` bump
+    ///         re-runs `initialize` with `_activeIsEspresso = false`, the contract must reflect
+    ///         that — not silently revert to a hardcoded default.
+    function test_constructor_respectsActiveIsEspressoFalse_succeeds() external {
+        IProxy proxy = _newProxy(address(proxyAdmin));
+        vm.prank(proxyAdminOwner);
+        proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
+
+        bytes memory initData = abi.encodeCall(
+            BatchAuthenticator.initialize,
+            (
+                IEspressoTEEVerifier(address(teeVerifier)),
+                espressoBatcher,
+                ISystemConfig(address(mockSystemConfig)),
+                proxyAdminOwner,
+                false
+            )
+        );
+        vm.prank(proxyAdminOwner);
+        proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
+
+        assertFalse(BatchAuthenticator(address(proxy)).activeIsEspresso());
+    }
+
+    /// @notice Test that setActiveIsEspresso can be called by owner or guardian.
+    function test_setActiveIsEspresso_ownerOrGuardian_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
-        // ProxyAdmin owner (now contract owner) can switch.
+        // ProxyAdmin owner (now contract owner) can set.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(false);
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
 
-        // Switch back.
+        // Set back.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(true);
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(true);
         assertTrue(authenticator.activeIsEspresso());
 
         // Add a guardian.
@@ -256,33 +287,63 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         authenticator.addGuardian(guardian);
         assertTrue(authenticator.isGuardian(guardian));
 
-        // Guardian can switch.
+        // Guardian can set.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(false);
         vm.prank(guardian);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
 
-        // Guardian can switch back.
+        // Guardian can set back.
         vm.expectEmit(true, false, false, false);
         emit BatcherSwitched(true);
         vm.prank(guardian);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(true);
         assertTrue(authenticator.activeIsEspresso());
 
-        // Unauthorized cannot switch.
+        // Unauthorized cannot set.
         vm.prank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(OwnableWithGuardiansUpgradeable.NotGuardianOrOwner.selector, unauthorized)
         );
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
 
-        // ProxyAdmin cannot switch.
+        // ProxyAdmin cannot set.
         vm.prank(address(proxyAdmin));
         vm.expectRevert(
             abi.encodeWithSelector(OwnableWithGuardiansUpgradeable.NotGuardianOrOwner.selector, address(proxyAdmin))
         );
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
+    }
+
+    /// @notice `setActiveIsEspresso` is a no-op (and emits no event) when the
+    ///         desired value already matches the current state.
+    function test_setActiveIsEspresso_noChange_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Initial state is `activeIsEspresso == true`.
+        assertTrue(authenticator.activeIsEspresso());
+
+        // Re-setting to `true` must NOT emit `BatcherSwitched`. `vm.recordLogs`
+        // captures every emitted log; asserting zero entries proves no event
+        // fired (a narrower `expectEmit(false)` doesn't exist).
+        vm.recordLogs();
+        vm.prank(proxyAdminOwner);
+        authenticator.setActiveIsEspresso(true);
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertTrue(authenticator.activeIsEspresso());
+
+        // Flip to `false` so we can re-test the no-op from the other state.
+        vm.prank(proxyAdminOwner);
+        authenticator.setActiveIsEspresso(false);
+        assertFalse(authenticator.activeIsEspresso());
+
+        // Re-setting to `false` is also a no-op.
+        vm.recordLogs();
+        vm.prank(proxyAdminOwner);
+        authenticator.setActiveIsEspresso(false);
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertFalse(authenticator.activeIsEspresso());
     }
 
     /// @notice Test that authenticateBatchInfo works correctly.
@@ -300,8 +361,8 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
-        vm.expectEmit(true, false, false, false);
-        emit BatchInfoAuthenticated(commitment);
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(commitment, espressoBatcher);
 
         vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
@@ -362,9 +423,12 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
         address newEspressoBatcher = address(0x9999);
 
+        // Roll forward so the new entry lands in a new block (avoid same-block overwrite).
+        vm.roll(block.number + 1);
+
         // ProxyAdmin owner can set.
-        vm.expectEmit(true, true, false, false);
-        emit EspressoBatcherUpdated(espressoBatcher, newEspressoBatcher);
+        vm.expectEmit(true, true, true, false);
+        emit EspressoBatcherUpdated(espressoBatcher, newEspressoBatcher, uint64(block.number));
         vm.prank(proxyAdminOwner);
         authenticator.setEspressoBatcher(newEspressoBatcher);
         assertEq(authenticator.espressoBatcher(), newEspressoBatcher);
@@ -382,13 +446,208 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         authenticator.setEspressoBatcher(address(0x8888));
     }
 
-    /// @notice Test that setEspressoBatcher reverts when zero address is provided.
-    function test_setEspressoBatcher_whenZeroAddress_reverts() external {
+    /// @notice `setEspressoBatcher(address(0))` is allowed and represents an
+    ///         explicit revocation without replacement.
+    function test_setEspressoBatcher_zeroAddress_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
+        vm.roll(block.number + 1);
+        uint64 revokeBlock = uint64(block.number);
+
+        vm.expectEmit(true, true, true, false);
+        emit EspressoBatcherUpdated(espressoBatcher, address(0), revokeBlock);
         vm.prank(proxyAdminOwner);
-        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.InvalidAddress.selector, address(0)));
         authenticator.setEspressoBatcher(address(0));
+
+        assertEq(authenticator.espressoBatcher(), address(0));
+        assertEq(authenticator.espressoBatcherHistoryLength(), 2);
+    }
+
+    /// @notice `setEspressoBatcher` reverts with `NoChange` when called with
+    ///         the value that is already the active batcher.
+    function test_setEspressoBatcher_noChange_reverts() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Replacing with the same non-zero address reverts.
+        vm.roll(block.number + 1);
+        vm.prank(proxyAdminOwner);
+        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.NoChange.selector, espressoBatcher));
+        authenticator.setEspressoBatcher(espressoBatcher);
+
+        // Revoking-when-already-revoked also reverts.
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(address(0));
+
+        vm.roll(block.number + 1);
+        vm.prank(proxyAdminOwner);
+        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.NoChange.selector, address(0)));
+        authenticator.setEspressoBatcher(address(0));
+    }
+
+    /// @notice History length is 1 immediately after initialize, with the seed
+    ///         entry's `fromBlock` equal to the deployment block.
+    function test_history_seededByInitialize_succeeds() external {
+        uint256 deployBlock = block.number;
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        assertEq(authenticator.espressoBatcherHistoryLength(), 1);
+        (address b0, uint64 f0) = authenticator.espressoBatcherAt(0);
+        assertEq(b0, espressoBatcher);
+        assertEq(uint256(f0), deployBlock);
+        assertEq(authenticator.espressoBatcher(), espressoBatcher);
+    }
+
+    /// @notice Two `setEspressoBatcher` calls in different blocks append two
+    ///         new history entries.
+    function test_setEspressoBatcher_appendsAcrossBlocks_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        address b1 = address(0x1111);
+        address b2 = address(0x2222);
+
+        vm.roll(block.number + 5);
+        uint64 f1 = uint64(block.number);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(b1);
+
+        vm.roll(block.number + 7);
+        uint64 f2 = uint64(block.number);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(b2);
+
+        assertEq(authenticator.espressoBatcherHistoryLength(), 3);
+        (address a0,) = authenticator.espressoBatcherAt(0);
+        (address a1, uint64 ff1) = authenticator.espressoBatcherAt(1);
+        (address a2, uint64 ff2) = authenticator.espressoBatcherAt(2);
+        assertEq(a0, espressoBatcher);
+        assertEq(a1, b1);
+        assertEq(uint256(ff1), uint256(f1));
+        assertEq(a2, b2);
+        assertEq(uint256(ff2), uint256(f2));
+        assertEq(authenticator.espressoBatcher(), b2);
+    }
+
+    /// @notice A second `setEspressoBatcher` call in the same L1 block reverts
+    ///         rather than overwriting the prior entry, preventing history
+    ///         corruption.
+    function test_setEspressoBatcher_sameBlock_reverts() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        address b1 = address(0x1111);
+        address b2 = address(0x2222);
+
+        vm.roll(block.number + 1);
+        uint64 fBlock = uint64(block.number);
+
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(b1);
+        // After first call: length=2.
+        assertEq(authenticator.espressoBatcherHistoryLength(), 2);
+
+        // A second change in the same block reverts.
+        vm.prank(proxyAdminOwner);
+        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.BatcherChangedThisBlock.selector, fBlock));
+        authenticator.setEspressoBatcher(b2);
+
+        // History is unchanged: still length=2 with b1 as the latest entry.
+        assertEq(authenticator.espressoBatcherHistoryLength(), 2);
+        (address a1, uint64 f1) = authenticator.espressoBatcherAt(1);
+        assertEq(a1, b1);
+        assertEq(uint256(f1), uint256(fBlock));
+        assertEq(authenticator.espressoBatcher(), b1);
+    }
+
+    /// @notice `setEspressoBatcher` reverts when called in the same block as
+    ///         `initialize` seeded the first history entry, since that would
+    ///         overwrite the seed entry.
+    function test_setEspressoBatcher_sameBlockAsInit_reverts() external {
+        // `_deployAndInitializeProxy` initializes at the current block, seeding
+        // the first history entry at `block.number`.
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        uint64 initBlock = uint64(block.number);
+
+        vm.prank(proxyAdminOwner);
+        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.BatcherChangedThisBlock.selector, initBlock));
+        authenticator.setEspressoBatcher(address(0x1111));
+    }
+
+    /// @notice Revoking then setting a new non-zero address succeeds and
+    ///         appends both entries.
+    function test_setEspressoBatcher_revokeThenReplace_succeeds() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        vm.roll(block.number + 1);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(address(0));
+        assertEq(authenticator.espressoBatcher(), address(0));
+        assertEq(authenticator.espressoBatcherHistoryLength(), 2);
+
+        address b1 = address(0x1111);
+        vm.roll(block.number + 1);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(b1);
+
+        assertEq(authenticator.espressoBatcher(), b1);
+        assertEq(authenticator.espressoBatcherHistoryLength(), 3);
+    }
+
+    /// @notice `espressoBatcherAtBlock` returns the correct historical address
+    ///         across the whole timeline.
+    function test_espressoBatcherAtBlock_lookup_succeeds() external {
+        // Move forward a bit so f0 > 0 (lets us test "before first entry").
+        vm.roll(block.number + 10);
+        uint64 f0 = uint64(block.number);
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+
+        // Append b1.
+        vm.roll(block.number + 5);
+        uint64 f1 = uint64(block.number);
+        address b1 = address(0x1111);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(b1);
+
+        // Revoke.
+        vm.roll(block.number + 4);
+        uint64 f2 = uint64(block.number);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(address(0));
+
+        // Append b3.
+        vm.roll(block.number + 3);
+        uint64 f3 = uint64(block.number);
+        address b3 = address(0x3333);
+        vm.prank(proxyAdminOwner);
+        authenticator.setEspressoBatcher(b3);
+
+        // Before the first entry → address(0).
+        assertEq(authenticator.espressoBatcherAtBlock(f0 - 1), address(0));
+
+        // At exactly f0 → seed batcher.
+        assertEq(authenticator.espressoBatcherAtBlock(f0), espressoBatcher);
+
+        // In [f0, f1) → seed batcher.
+        assertEq(authenticator.espressoBatcherAtBlock(f1 - 1), espressoBatcher);
+
+        // In [f1, f2) → b1.
+        assertEq(authenticator.espressoBatcherAtBlock(f1), b1);
+        assertEq(authenticator.espressoBatcherAtBlock(f2 - 1), b1);
+
+        // In [f2, f3) → address(0) (revoked).
+        assertEq(authenticator.espressoBatcherAtBlock(f2), address(0));
+        assertEq(authenticator.espressoBatcherAtBlock(f3 - 1), address(0));
+
+        // At and after f3 → b3.
+        assertEq(authenticator.espressoBatcherAtBlock(f3), b3);
+        assertEq(authenticator.espressoBatcherAtBlock(f3 + 100), b3);
+    }
+
+    /// @notice `espressoBatcherAt` reverts on out-of-bounds index. The revert is the
+    ///         default Solidity array-out-of-bounds panic (0x32) from `Checkpoints.at`.
+    function test_espressoBatcherAt_outOfBounds_reverts() external {
+        BatchAuthenticator authenticator = _deployAndInitializeProxy();
+        // length == 1, so index 1 is out of bounds.
+        vm.expectRevert(abi.encodeWithSelector(bytes4(0x4e487b71), uint256(0x32)));
+        authenticator.espressoBatcherAt(1);
     }
 
     /// @notice Test upgrade to new implementation with comprehensive state preservation.
@@ -408,7 +667,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
 
         // Switch batcher to test boolean flag preservation.
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
 
         // Deploy new implementation and upgrade.
@@ -433,7 +692,7 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
 
         // Switch to fallback mode.
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
 
         // Configure the SystemConfig batcher to a known address.
@@ -443,8 +702,8 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         bytes32 commitment = keccak256("fallback commitment");
 
         // The fallback batcher path ignores the signature; pass empty bytes.
-        vm.expectEmit(true, false, false, false);
-        emit BatchInfoAuthenticated(commitment);
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(commitment, fallbackBatcher);
 
         vm.prank(fallbackBatcher);
         authenticator.authenticateBatchInfo(commitment, "");
@@ -452,12 +711,12 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
 
     /// @notice Test that authenticateBatchInfo reverts in fallback mode when called by
     ///         a sender that is not the SystemConfig batcher address.
-    function test_authenticateBatchInfo_fallback_revertsOnWrongSender() external {
+    function test_authenticateBatchInfo_fallbackWrongSender_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         // Switch to fallback mode.
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
 
         address fallbackBatcher = address(0xCAFE);
@@ -468,14 +727,16 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         // An unauthorized sender must be rejected.
         vm.prank(unauthorized);
         vm.expectRevert(
-            abi.encodeWithSelector(IBatchAuthenticator.UnauthorizedFallbackBatcher.selector, unauthorized, fallbackBatcher)
+            abi.encodeWithSelector(
+                IBatchAuthenticator.UnauthorizedFallbackBatcher.selector, unauthorized, fallbackBatcher
+            )
         );
         authenticator.authenticateBatchInfo(commitment, "");
     }
 
     /// @notice Test that in Espresso (default) mode, any sender (including the fallback batcher)
     ///         other than espressoBatcher is rejected before signature verification.
-    function test_authenticateBatchInfo_espresso_revertsOnUnauthorizedSender() external {
+    function test_authenticateBatchInfo_espressoUnauthorizedSender_reverts() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
         // Sanity: still in Espresso mode.
         assertTrue(authenticator.activeIsEspresso());
@@ -489,29 +750,16 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         // Any non-espressoBatcher sender must revert with UnauthorizedEspressoBatcher.
         vm.prank(fallbackBatcher);
         vm.expectRevert(
-            abi.encodeWithSelector(IBatchAuthenticator.UnauthorizedEspressoBatcher.selector, fallbackBatcher, espressoBatcher)
+            abi.encodeWithSelector(
+                IBatchAuthenticator.UnauthorizedEspressoBatcher.selector, fallbackBatcher, espressoBatcher
+            )
         );
         authenticator.authenticateBatchInfo(commitment, "");
     }
 
-    /// @notice Test that paused() delegates to SystemConfig.
-    function test_paused_succeeds() external {
-        BatchAuthenticator authenticator = _deployAndInitializeProxy();
-
-        // Initially not paused.
-        assertFalse(authenticator.paused());
-
-        // Pause the mock SystemConfig.
-        mockSystemConfig.setPaused(true);
-        assertTrue(authenticator.paused());
-
-        // Unpause.
-        mockSystemConfig.setPaused(false);
-        assertFalse(authenticator.paused());
-    }
-
-    /// @notice Test that authenticateBatchInfo reverts when paused.
-    function test_authenticateBatchInfo_whenPaused_reverts() external {
+    /// @notice Test that authenticateBatchInfo ignores the SystemConfig paused flag.
+    ///         The pause domain of the optimism stack must not gate batch authentication.
+    function test_authenticateBatchInfo_ignoresPause_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
@@ -522,75 +770,111 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        // Pause the system.
+        // Pause the SystemConfig — authentication must still succeed.
         mockSystemConfig.setPaused(true);
 
-        // Should revert with BatchAuthenticator_Paused.
-        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.BatchAuthenticator_Paused.selector));
-        authenticator.authenticateBatchInfo(commitment, signature);
-    }
-
-    /// @notice Test that authenticateBatchInfo succeeds when not paused.
-    function test_authenticateBatchInfo_whenNotPaused_succeeds() external {
-        BatchAuthenticator authenticator = _deployAndInitializeProxy();
-
-        uint256 privateKey = 1;
-        bytes32 commitment = keccak256("test commitment");
-
-        // Register signer and create valid signature.
-        _registerNitroSigner(privateKey);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(commitment));
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        // Ensure not paused.
-        mockSystemConfig.setPaused(false);
-
-        // Should succeed.
-        vm.expectEmit(true, false, false, false);
-        emit BatchInfoAuthenticated(commitment);
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(commitment, espressoBatcher);
         vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
-    /// @notice Test that registerSigner reverts when paused.
-    function test_registerSigner_whenPaused_reverts() external {
+    /// @notice Test that registerSigner ignores the SystemConfig paused flag.
+    function test_registerSigner_ignoresPause_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
         uint256 privateKey = 1;
         bytes memory signerData = _nitroRegistrationOutputForPrivateKey(privateKey);
         bytes memory proofBytes = "";
 
-        // Pause the system.
+        // Pause the SystemConfig — registration must still succeed.
         mockSystemConfig.setPaused(true);
 
-        // Should revert with BatchAuthenticator_Paused.
-        vm.expectRevert(abi.encodeWithSelector(IBatchAuthenticator.BatchAuthenticator_Paused.selector));
+        vm.expectEmit(true, false, false, false);
+        emit SignerRegistrationInitiated(address(this));
         authenticator.registerSigner(signerData, proofBytes);
     }
 
-    /// @notice Test that switchBatcher still works when paused (emergency recovery).
-    function test_switchBatcher_whenPaused_succeeds() external {
+    /// @notice End-to-end coverage of the dual-batcher flow: authenticate via Espresso, switch
+    ///         to fallback, authenticate via the SystemConfig batcher, switch back, authenticate
+    ///         via Espresso again. Verifies that switching doesn't corrupt either path and that
+    ///         each mode rejects the other mode's caller.
+    function test_switchAndAuthenticate_endToEnd_succeeds() external {
         BatchAuthenticator authenticator = _deployAndInitializeProxy();
 
-        // Pause the system.
-        mockSystemConfig.setPaused(true);
+        // 1. Espresso path: register signer and authenticate one commitment.
+        uint256 privateKey = 1;
+        _registerNitroSigner(privateKey);
 
-        // Owner can still switch batcher while paused.
+        bytes32 espressoCommitment1 = keccak256("espresso-1");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _computeEIP712Digest(espressoCommitment1));
+        bytes memory espressoSig1 = abi.encodePacked(r, s, v);
+
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(espressoCommitment1, espressoBatcher);
+        vm.prank(espressoBatcher);
+        authenticator.authenticateBatchInfo(espressoCommitment1, espressoSig1);
+
+        // 2. Switch to fallback and configure the SystemConfig batcher.
+        address fallbackBatcher = address(0xCAFE);
+        mockSystemConfig.setBatcherHash(bytes32(uint256(uint160(fallbackBatcher))));
+
+        vm.expectEmit(true, false, false, false);
+        emit BatcherSwitched(false);
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
+
+        // 3. Fallback path: only the configured batcher may authenticate; signature is ignored.
+        bytes32 fallbackCommitment = keccak256("fallback");
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(fallbackCommitment, fallbackBatcher);
+        vm.prank(fallbackBatcher);
+        authenticator.authenticateBatchInfo(fallbackCommitment, "");
+
+        // Re-issue the exact same call that succeeded in step 1 — same sender, same commitment,
+        // same signature — and assert it now reverts. Demonstrates that the mode switch alone
+        // is sufficient to change the outcome; the previously-valid Espresso signature is no
+        // longer consulted at all.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IBatchAuthenticator.UnauthorizedFallbackBatcher.selector, address(this), fallbackBatcher
+            )
+        );
+        authenticator.authenticateBatchInfo(espressoCommitment1, espressoSig1);
+
+        // 4. Switch back to Espresso.
+        vm.expectEmit(true, false, false, false);
+        emit BatcherSwitched(true);
+        vm.prank(proxyAdminOwner);
+        authenticator.setActiveIsEspresso(true);
+        assertTrue(authenticator.activeIsEspresso());
+
+        // 5. Espresso path again with a new commitment — registration must have survived
+        //    the switch round-trip.
+        bytes32 espressoCommitment2 = keccak256("espresso-2");
+        (v, r, s) = vm.sign(privateKey, _computeEIP712Digest(espressoCommitment2));
+        bytes memory espressoSig2 = abi.encodePacked(r, s, v);
+
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(espressoCommitment2, espressoBatcher);
+        vm.prank(espressoBatcher);
+        authenticator.authenticateBatchInfo(espressoCommitment2, espressoSig2);
     }
 
     // Event declarations for expectEmit.
-    event BatchInfoAuthenticated(bytes32 indexed commitment);
+    event BatchInfoAuthenticated(bytes32 commitment, address indexed caller);
     event SignerRegistrationInitiated(address indexed caller);
-    event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
+    event EspressoBatcherUpdated(
+        address indexed oldEspressoBatcher, address indexed newEspressoBatcher, uint64 indexed fromBlock
+    );
     event BatcherSwitched(bool indexed activeIsEspresso);
 
     /// @notice Deploy a Proxy without importing Proxy.sol to avoid duplicate compilation artifacts
-    ///         that break vm.getCode("Proxy") disambiguation in tests.
+    ///         that break Proxy artifact disambiguation in tests.
     function _newProxy(address _admin) internal returns (IProxy) {
-        bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
+        bytes memory initCode =
+            abi.encodePacked(DeployUtils.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
         address payable proxyAddr;
         assembly {
             proxyAddr := create(0, add(initCode, 0x20), mload(initCode))
@@ -600,7 +884,9 @@ contract BatchAuthenticator_Uncategorized_Test is Test {
     }
 }
 
-/// @notice Fork tests for BatchAuthenticator on Sepolia.
+/// @notice Fork tests for BatchAuthenticator. Runs against the FORK_RPC_URL fork when FORK_TEST=true,
+///         using the repo's standard fork-test env vars (FORK_TEST, FORK_RPC_URL, FORK_BLOCK_NUMBER)
+///         exposed via the Config library.
 contract BatchAuthenticator_Fork_Test is Test {
     address public proxyAdminOwner = address(0xBEEF);
     address public espressoBatcher = address(0x1234);
@@ -634,23 +920,24 @@ contract BatchAuthenticator_Fork_Test is Test {
     }
 
     function setUp() public {
-        // Create a fork of Sepolia using the execution layer RPC endpoint.
-        string memory forkUrl = "https://theserversroom.com/sepolia/54cmzzhcj1o/";
-        vm.createSelectFork(forkUrl);
+        // Skip unless fork tests are explicitly enabled.
+        if (!Config.l1ForkTest()) {
+            vm.skip(true);
+            return;
+        }
 
-        // Verify we're on Sepolia.
-        require(block.chainid == Chains.Sepolia, "BatchAuthenticatorForkTest: fork test must run on Sepolia");
-        console.log("Forked Sepolia at block:", block.number);
+        vm.createSelectFork(Config.forkRpcUrl(), Config.forkBlockNumber());
 
-        // Deploy mock SystemConfig and TEE verifier (standalone mode) and authenticator implementation.
+        console.log("BatchAuthenticator_Fork_Test: forked at block", block.number);
+
         mockSystemConfig = new MockSystemConfig();
         nitroVerifier = new EspressoNitroTEEVerifierMock();
         teeVerifier = new EspressoTEEVerifierMock(IEspressoNitroTEEVerifier(address(nitroVerifier)));
         implementation = new BatchAuthenticator();
 
-        // Deploy proxy admin via vm.getCode to avoid duplicate ProxyAdmin artifacts.
+        // Deploy ProxyAdmin via DeployUtils.getCode to avoid duplicate ProxyAdmin artifacts.
         {
-            bytes memory _code = vm.getCode("ProxyAdmin");
+            bytes memory _code = DeployUtils.getCode("forge-artifacts/ProxyAdmin.sol/ProxyAdmin.json");
             bytes memory _args = abi.encode(proxyAdminOwner);
             bytes memory _initCode = abi.encodePacked(_code, _args);
             address _addr;
@@ -663,20 +950,19 @@ contract BatchAuthenticator_Fork_Test is Test {
         vm.prank(proxyAdminOwner);
         proxyAdmin.setProxyType(address(proxy), IProxyAdmin.ProxyType.ERC1967);
 
-        // Initialize the proxy.
         bytes memory initData = abi.encodeCall(
             BatchAuthenticator.initialize,
             (
                 IEspressoTEEVerifier(address(teeVerifier)),
                 espressoBatcher,
                 ISystemConfig(address(mockSystemConfig)),
-                proxyAdminOwner
+                proxyAdminOwner,
+                true
             )
         );
         vm.prank(proxyAdminOwner);
         proxyAdmin.upgradeAndCall(payable(address(proxy)), address(implementation), initData);
 
-        // Get the proxied contract instance.
         authenticator = BatchAuthenticator(address(proxy));
     }
 
@@ -709,7 +995,7 @@ contract BatchAuthenticator_Fork_Test is Test {
         nitroVerifier.registerService(_nitroRegistrationOutputForPrivateKey(privateKey), "");
     }
 
-    /// @notice Test deployment and initialization on Sepolia fork.
+    /// @notice Test deployment and initialization on the fork.
     function test_deployment_succeeds() external view {
         assertEq(address(authenticator.espressoTEEVerifier()), address(teeVerifier));
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
@@ -721,24 +1007,24 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(admin, address(proxyAdmin));
     }
 
-    /// @notice Test switchBatcher on Sepolia fork.
-    function test_switchBatcher_succeeds() external {
+    /// @notice Test setActiveIsEspresso on the fork.
+    function test_setActiveIsEspresso_succeeds() external {
         assertTrue(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
 
         assertFalse(authenticator.activeIsEspresso());
 
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(true);
 
         assertTrue(authenticator.activeIsEspresso());
     }
 
-    /// @notice Test authenticateBatchInfo on Sepolia fork.
+    /// @notice Test authenticateBatchInfo on the fork.
     function test_authenticateBatchInfo_succeeds() external {
-        bytes32 commitment = keccak256("test commitment on sepolia");
+        bytes32 commitment = keccak256("test commitment on fork");
 
         // Create a signature.
         uint256 privateKey = 1;
@@ -750,13 +1036,13 @@ contract BatchAuthenticator_Fork_Test is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         // Authenticate.
-        vm.expectEmit(true, false, false, false);
-        emit BatchInfoAuthenticated(commitment);
+        vm.expectEmit(true, false, false, true);
+        emit BatchInfoAuthenticated(commitment, espressoBatcher);
         vm.prank(espressoBatcher);
         authenticator.authenticateBatchInfo(commitment, signature);
     }
 
-    /// @notice Test upgrade on Sepolia fork preserves state.
+    /// @notice Test upgrade on the fork preserves state.
     function test_upgrade_succeeds() external {
         // Initialize the authenticator.
         bytes32 commitment = keccak256("test commitment");
@@ -772,7 +1058,7 @@ contract BatchAuthenticator_Fork_Test is Test {
 
         // Switch batcher
         vm.prank(proxyAdminOwner);
-        authenticator.switchBatcher();
+        authenticator.setActiveIsEspresso(false);
         assertFalse(authenticator.activeIsEspresso());
 
         // Deploy new implementation and upgrade.
@@ -786,30 +1072,28 @@ contract BatchAuthenticator_Fork_Test is Test {
         assertEq(authenticator.espressoBatcher(), espressoBatcher);
     }
 
-    /// @notice Test that contract works with real Sepolia state.
-    function test_integrationWithSepolia_succeeds() external view {
-        // Verify we're on Sepolia.
-        assertEq(block.chainid, Chains.Sepolia);
-
-        // Verify contract is functional.
+    /// @notice Test that the contract works against live forked L1 state.
+    function test_integrationWithFork_succeeds() external view {
         assertEq(authenticator.version(), "1.2.0");
         assertTrue(authenticator.activeIsEspresso());
 
-        // Verify the fork is working by testing that we can read the block number.
         uint256 blockNum = block.number;
         assertGt(blockNum, 0);
-        console.log("Sepolia block number:", blockNum);
+        console.log("Fork block number:", blockNum);
     }
 
     // Event declarations for expectEmit.
-    event BatchInfoAuthenticated(bytes32 indexed commitment);
+    event BatchInfoAuthenticated(bytes32 commitment, address indexed caller);
     event SignerRegistrationInitiated(address indexed caller);
-    event EspressoBatcherUpdated(address indexed oldEspressoBatcher, address indexed newEspressoBatcher);
+    event EspressoBatcherUpdated(
+        address indexed oldEspressoBatcher, address indexed newEspressoBatcher, uint64 indexed fromBlock
+    );
     event BatcherSwitched(bool indexed activeIsEspresso);
 
     /// @notice Deploy a Proxy without importing Proxy.sol to avoid duplicate compilation artifacts.
     function _newProxy(address _admin) internal returns (IProxy) {
-        bytes memory initCode = abi.encodePacked(vm.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
+        bytes memory initCode =
+            abi.encodePacked(DeployUtils.getCode("src/universal/Proxy.sol:Proxy"), abi.encode(_admin));
         address payable proxyAddr;
         assembly {
             proxyAddr := create(0, add(initCode, 0x20), mload(initCode))

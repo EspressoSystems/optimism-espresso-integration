@@ -69,6 +69,62 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "_index",
+        "type": "uint32"
+      }
+    ],
+    "name": "espressoBatcherAt",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "batcher_",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "fromBlock_",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "_l1Block",
+        "type": "uint64"
+      }
+    ],
+    "name": "espressoBatcherAtBlock",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "espressoBatcherHistoryLength",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "espressoTEEVerifier",
     "outputs": [
@@ -141,6 +197,11 @@
         "internalType": "address",
         "name": "_owner",
         "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "_activeIsEspresso",
+        "type": "bool"
       }
     ],
     "name": "initialize",
@@ -188,19 +249,6 @@
         "internalType": "address",
         "name": "",
         "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "paused",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -286,19 +334,25 @@
   {
     "inputs": [
       {
+        "internalType": "bool",
+        "name": "_desired",
+        "type": "bool"
+      }
+    ],
+    "name": "setActiveIsEspresso",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_newEspressoBatcher",
         "type": "address"
       }
     ],
     "name": "setEspressoBatcher",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "switchBatcher",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -346,10 +400,16 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes32",
         "name": "commitment",
         "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "caller",
+        "type": "address"
       }
     ],
     "name": "BatchInfoAuthenticated",
@@ -382,6 +442,12 @@
         "internalType": "address",
         "name": "newEspressoBatcher",
         "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "fromBlock",
+        "type": "uint64"
       }
     ],
     "name": "EspressoBatcherUpdated",
@@ -478,8 +544,19 @@
     "type": "event"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "blockNumber",
+        "type": "uint64"
+      }
+    ],
+    "name": "BatcherChangedThisBlock",
+    "type": "error"
+  },
+  {
     "inputs": [],
-    "name": "BatchAuthenticator_Paused",
+    "name": "CheckpointUnorderedInsertion",
     "type": "error"
   },
   {
@@ -501,6 +578,22 @@
   {
     "inputs": [],
     "name": "InvalidInitialization",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "batcher",
+        "type": "address"
+      }
+    ],
+    "name": "NoChange",
     "type": "error"
   },
   {
@@ -590,6 +683,38 @@
   {
     "inputs": [],
     "name": "ReinitializableBase_ZeroInitVersion",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "expected",
+        "type": "address"
+      }
+    ],
+    "name": "UnauthorizedEspressoBatcher",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "expected",
+        "type": "address"
+      }
+    ],
+    "name": "UnauthorizedFallbackBatcher",
     "type": "error"
   }
 ]

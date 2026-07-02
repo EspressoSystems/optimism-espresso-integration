@@ -16,8 +16,11 @@ import (
 )
 
 var (
-	// BatchInfoAuthenticatedABI is the event signature for BatchInfoAuthenticated(bytes32 indexed commitment).
-	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32)"
+	// BatchInfoAuthenticatedABI is the event signature for
+	// BatchInfoAuthenticated(bytes32 commitment, address indexed caller).
+	// The commitment is not indexed, so it lives in the log data; the caller is
+	// the sole indexed parameter (Topics[1]).
+	BatchInfoAuthenticatedABI     = "BatchInfoAuthenticated(bytes32,address)"
 	BatchInfoAuthenticatedABIHash = crypto.Keccak256Hash([]byte(BatchInfoAuthenticatedABI))
 
 	// batchAuthCache is a global LRU cache mapping L1 block hash to the set of
@@ -91,10 +94,12 @@ func FindBatchAuthEvent(receipts types.Receipts, authenticatorAddr common.Addres
 			if lg.Address != authenticatorAddr {
 				continue
 			}
-			// BatchInfoAuthenticated has 2 topics: event sig, indexed commitment
-			if len(lg.Topics) >= 2 &&
+			// BatchInfoAuthenticated has 2 topics (event sig, indexed caller);
+			// the commitment is the first 32 bytes of the log data.
+			if len(lg.Topics) >= 1 &&
 				lg.Topics[0] == BatchInfoAuthenticatedABIHash &&
-				lg.Topics[1] == batchHash {
+				len(lg.Data) >= 32 &&
+				common.BytesToHash(lg.Data[:32]) == batchHash {
 				return true
 			}
 		}
@@ -114,8 +119,9 @@ func collectAuthEventsFromReceipts(receipts types.Receipts, authenticatorAddr co
 			if lg.Address != authenticatorAddr {
 				continue
 			}
-			if len(lg.Topics) >= 2 && lg.Topics[0] == BatchInfoAuthenticatedABIHash {
-				result[lg.Topics[1]] = true
+			// The commitment is not indexed: read it from the first 32 bytes of the log data.
+			if len(lg.Topics) >= 1 && lg.Topics[0] == BatchInfoAuthenticatedABIHash && len(lg.Data) >= 32 {
+				result[common.BytesToHash(lg.Data[:32])] = true
 			}
 		}
 	}

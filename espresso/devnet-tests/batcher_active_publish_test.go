@@ -124,7 +124,7 @@ func TestBatcherActivePublishOnly(t *testing.T) {
 
 		// 2. Switch state
 		t.Logf("Switching batcher state...")
-		switchTx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
+		switchTx, err := batchAuthenticator.SetActiveIsEspresso(deployerOpts, !activeIsEspresso)
 		require.NoError(t, err)
 		receipt, err := wait.ForReceiptOK(ctx, d.L1, switchTx.Hash())
 		require.NoError(t, err)

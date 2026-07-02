@@ -51,6 +51,22 @@ func TestComputeBlobBatchHashSingle(t *testing.T) {
 	require.Equal(t, expected, hash)
 }
 
+// testAuthCaller is the batcher address used as the indexed `caller` topic in mock logs.
+var testAuthCaller = common.HexToAddress("0xcccccccccccccccccccccccccccccccccccccccc")
+
+// batchAuthLog builds a BatchInfoAuthenticated log in the event's on-chain layout:
+// Topics = [event sig, indexed caller], Data = 32-byte (non-indexed) commitment.
+func batchAuthLog(addr common.Address, commitment common.Hash) *types.Log {
+	return &types.Log{
+		Address: addr,
+		Topics: []common.Hash{
+			BatchInfoAuthenticatedABIHash,
+			common.BytesToHash(testAuthCaller.Bytes()),
+		},
+		Data: commitment.Bytes(),
+	}
+}
+
 func TestFindBatchAuthEvent(t *testing.T) {
 	authenticatorAddr := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	batchHash := crypto.Keccak256Hash([]byte("test batch data"))
@@ -59,15 +75,7 @@ func TestFindBatchAuthEvent(t *testing.T) {
 		receipts := types.Receipts{
 			{
 				Status: types.ReceiptStatusSuccessful,
-				Logs: []*types.Log{
-					{
-						Address: authenticatorAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							batchHash,
-						},
-					},
-				},
+				Logs:   []*types.Log{batchAuthLog(authenticatorAddr, batchHash)},
 			},
 		}
 		require.True(t, FindBatchAuthEvent(receipts, authenticatorAddr, batchHash))
@@ -78,15 +86,7 @@ func TestFindBatchAuthEvent(t *testing.T) {
 		receipts := types.Receipts{
 			{
 				Status: types.ReceiptStatusSuccessful,
-				Logs: []*types.Log{
-					{
-						Address: authenticatorAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							wrongHash,
-						},
-					},
-				},
+				Logs:   []*types.Log{batchAuthLog(authenticatorAddr, wrongHash)},
 			},
 		}
 		require.False(t, FindBatchAuthEvent(receipts, authenticatorAddr, batchHash))
@@ -97,15 +97,7 @@ func TestFindBatchAuthEvent(t *testing.T) {
 		receipts := types.Receipts{
 			{
 				Status: types.ReceiptStatusSuccessful,
-				Logs: []*types.Log{
-					{
-						Address: wrongAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							batchHash,
-						},
-					},
-				},
+				Logs:   []*types.Log{batchAuthLog(wrongAddr, batchHash)},
 			},
 		}
 		require.False(t, FindBatchAuthEvent(receipts, authenticatorAddr, batchHash))
@@ -115,15 +107,7 @@ func TestFindBatchAuthEvent(t *testing.T) {
 		receipts := types.Receipts{
 			{
 				Status: types.ReceiptStatusFailed,
-				Logs: []*types.Log{
-					{
-						Address: authenticatorAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							batchHash,
-						},
-					},
-				},
+				Logs:   []*types.Log{batchAuthLog(authenticatorAddr, batchHash)},
 			},
 		}
 		require.False(t, FindBatchAuthEvent(receipts, authenticatorAddr, batchHash))
@@ -131,6 +115,28 @@ func TestFindBatchAuthEvent(t *testing.T) {
 
 	t.Run("event not found - empty receipts", func(t *testing.T) {
 		require.False(t, FindBatchAuthEvent(types.Receipts{}, authenticatorAddr, batchHash))
+	})
+
+	t.Run("event not found - legacy layout with indexed commitment", func(t *testing.T) {
+		// Old event layout: BatchInfoAuthenticated(bytes32 indexed commitment) placed the
+		// commitment in Topics[1] with no data. Its signature hash differs, and even with
+		// a topic collision the empty data must not match.
+		legacySigHash := crypto.Keccak256Hash([]byte("BatchInfoAuthenticated(bytes32)"))
+		receipts := types.Receipts{
+			{
+				Status: types.ReceiptStatusSuccessful,
+				Logs: []*types.Log{
+					{
+						Address: authenticatorAddr,
+						Topics: []common.Hash{
+							legacySigHash,
+							batchHash,
+						},
+					},
+				},
+			},
+		}
+		require.False(t, FindBatchAuthEvent(receipts, authenticatorAddr, batchHash))
 	})
 
 	t.Run("event found among multiple receipts", func(t *testing.T) {
@@ -146,15 +152,7 @@ func TestFindBatchAuthEvent(t *testing.T) {
 			},
 			{
 				Status: types.ReceiptStatusSuccessful,
-				Logs: []*types.Log{
-					{
-						Address: authenticatorAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							batchHash,
-						},
-					},
-				},
+				Logs:   []*types.Log{batchAuthLog(authenticatorAddr, batchHash)},
 			},
 		}
 		require.True(t, FindBatchAuthEvent(receipts, authenticatorAddr, batchHash))
@@ -192,15 +190,7 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 	matchingReceipts := types.Receipts{
 		{
 			Status: types.ReceiptStatusSuccessful,
-			Logs: []*types.Log{
-				{
-					Address: authenticatorAddr,
-					Topics: []common.Hash{
-						BatchInfoAuthenticatedABIHash,
-						batchHash,
-					},
-				},
-			},
+			Logs:   []*types.Log{batchAuthLog(authenticatorAddr, batchHash)},
 		},
 	}
 	emptyReceipts := types.Receipts{}
@@ -303,20 +293,8 @@ func TestCollectAuthenticatedBatches(t *testing.T) {
 			{
 				Status: types.ReceiptStatusSuccessful,
 				Logs: []*types.Log{
-					{
-						Address: authenticatorAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							batchHash,
-						},
-					},
-					{
-						Address: authenticatorAddr,
-						Topics: []common.Hash{
-							BatchInfoAuthenticatedABIHash,
-							batchHash2,
-						},
-					},
+					batchAuthLog(authenticatorAddr, batchHash),
+					batchAuthLog(authenticatorAddr, batchHash2),
 				},
 			},
 		}
@@ -389,6 +367,6 @@ func TestCollectAuthenticatedBatchesBlockRefCache(t *testing.T) {
 
 func TestBatchInfoAuthenticatedABIHash(t *testing.T) {
 	// Verify the ABI hash matches what Solidity would compute
-	expected := crypto.Keccak256Hash([]byte("BatchInfoAuthenticated(bytes32)"))
+	expected := crypto.Keccak256Hash([]byte("BatchInfoAuthenticated(bytes32,address)"))
 	require.Equal(t, expected, BatchInfoAuthenticatedABIHash)
 }

@@ -74,13 +74,7 @@ func mockAuthEvents(l1F *testutils.MockL1Source, rng *rand.Rand, ref eth.L1Block
 	// Build the auth receipts for the ref block
 	var authLogs []*types.Log
 	for _, bh := range authenticated {
-		authLogs = append(authLogs, &types.Log{
-			Address: authenticatorAddr,
-			Topics: []common.Hash{
-				BatchInfoAuthenticatedABIHash,
-				bh,
-			},
-		})
+		authLogs = append(authLogs, batchAuthLog(authenticatorAddr, bh))
 	}
 	authReceipts := types.Receipts{}
 	if len(authLogs) > 0 {
