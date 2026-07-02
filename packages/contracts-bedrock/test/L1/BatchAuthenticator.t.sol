@@ -921,7 +921,8 @@ contract BatchAuthenticator_Fork_Test is Test {
 
     function setUp() public {
         // Skip unless fork tests are explicitly enabled.
-        if (!Config.l1ForkTest()) {
+        // (celo's Config exposes this as l1ForkTest(); ours as forkTest() — same FORK_TEST env var.)
+        if (!Config.forkTest()) {
             vm.skip(true);
             return;
         }
