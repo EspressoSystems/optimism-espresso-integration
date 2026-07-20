@@ -83,13 +83,13 @@ func TestEspressoEnforcementHardfork(t *testing.T) {
 	// Flip to fallback before Phase 1 so the fallback batcher's
 	// `isBatcherActive` check (consulted post-lead-time) sees itself as
 	// active and continues publishing across the boundary.
-	switchTx, err := batchAuthenticator.SwitchBatcher(deployerTransactor)
+	switchTx, err := batchAuthenticator.SetActiveIsEspresso(deployerTransactor, false)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, switchTx.Hash())
 	require.NoError(t, err)
 	activeIsEspresso, err = batchAuthenticator.ActiveIsEspresso(nil)
 	require.NoError(t, err)
-	require.False(t, activeIsEspresso, "first SwitchBatcher should set activeIsEspresso=false")
+	require.False(t, activeIsEspresso, "setActiveIsEspresso(false) should set activeIsEspresso=false")
 
 	// Phase 1 (pre-fork): fallback batcher publishes plain BatchInbox txs.
 	require.NoError(t, system.FallbackBatchSubmitter.TestDriver().StartBatchSubmitting())
@@ -141,13 +141,13 @@ func TestEspressoEnforcementHardfork(t *testing.T) {
 	// Phase 3: stop fallback, flip back to TEE, start TEE batcher.
 	require.NoError(t, system.FallbackBatchSubmitter.TestDriver().StopBatchSubmitting(ctx))
 
-	switchTx, err = batchAuthenticator.SwitchBatcher(deployerTransactor)
+	switchTx, err = batchAuthenticator.SetActiveIsEspresso(deployerTransactor, true)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, switchTx.Hash())
 	require.NoError(t, err)
 	activeIsEspresso, err = batchAuthenticator.ActiveIsEspresso(nil)
 	require.NoError(t, err)
-	require.True(t, activeIsEspresso, "second SwitchBatcher should set activeIsEspresso=true")
+	require.True(t, activeIsEspresso, "setActiveIsEspresso(true) should set activeIsEspresso=true")
 
 	// Stream from the live head, not from genesis.
 	l2Height, err := waitForRollupToMovePastL1Block(ctx, verifRollup, status.CurrentL1.Number)

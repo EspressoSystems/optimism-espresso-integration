@@ -106,8 +106,8 @@ func TestBatcherSwitching(t *testing.T) {
 	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
 	require.NoError(t, err)
 
-	// Switch active batcher
-	tx, err := batchAuthenticator.SwitchBatcher(deployerTransactor)
+	// Switch active batcher to the fallback batcher
+	tx, err := batchAuthenticator.SetActiveIsEspresso(deployerTransactor, false)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestBatcherSwitching(t *testing.T) {
 	require.NoError(t, err)
 
 	// Switch batcher back to the "TEE" batcher
-	tx, err = batchAuthenticator.SwitchBatcher(deployerTransactor)
+	tx, err = batchAuthenticator.SetActiveIsEspresso(deployerTransactor, true)
 	require.NoError(t, err)
 	switchReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
@@ -562,14 +562,14 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
 	require.NoError(t, err)
 
-	// Switch active batcher
+	// Switch active batcher to the fallback batcher
 	options, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
 	require.NoError(t, err)
 
 	batchAuthenticator, err := bindings.NewBatchAuthenticator(system.RollupConfig.BatchAuthenticatorAddress, l1Client)
 	require.NoError(t, err)
 
-	tx, err := batchAuthenticator.SwitchBatcher(options)
+	tx, err := batchAuthenticator.SetActiveIsEspresso(options, false)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)

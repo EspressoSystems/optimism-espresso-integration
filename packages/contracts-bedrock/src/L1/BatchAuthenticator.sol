@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-v5/access/OwnableUpgradeable.sol";
-import { ECDSA } from "@openzeppelin/contracts-v5/utils/cryptography/ECDSA.sol";
+import { Checkpoints } from "@openzeppelin/contracts-v5/utils/structs/Checkpoints.sol";
 import { ISemver } from "interfaces/universal/ISemver.sol";
 // espresso: use direct paths (not @espresso-tee-contracts/ remapping) so that Foundry's
 // context-specific remappings correctly apply to files within lib/espresso-tee-contracts/.
@@ -23,12 +23,11 @@ contract BatchAuthenticator is
     ProxyAdminOwnedBase,
     ReinitializableBase
 {
+    using Checkpoints for Checkpoints.Trace160;
+
     /// @notice Semantic version.
     /// @custom:semver 1.2.0
     string public constant version = "1.2.0";
-
-    /// @notice Address of the Espresso batcher whose signatures may authenticate batches.
-    address public espressoBatcher;
 
     /// @notice Address of the Espresso TEE Verifier contract.
     IEspressoTEEVerifier public espressoTEEVerifier;
@@ -37,19 +36,29 @@ contract BatchAuthenticator is
     /// @dev When true the Espresso batcher is active; when false the fallback batcher is active.
     bool public activeIsEspresso;
 
-    /// @notice The SystemConfig contract, used to check the paused status.
+    /// @notice The SystemConfig contract, used to resolve the fallback batcher address.
     ISystemConfig public systemConfig;
+
+    /// @notice Append-only history of authorized Espresso batcher addresses keyed by the L1 block
+    ///         at which each became active.
+    /// @dev    `Trace160` is OZ's `(uint96 key, uint160 value)` checkpoint variant — `uint160`
+    ///         exactly fits an address with no waste, and `uint96` easily covers L1 block numbers.
+    ///         An entry remains the authorized batcher until the next entry's key, or — for the
+    ///         last entry — indefinitely.
+    Checkpoints.Trace160 internal _espressoBatcherHistory;
 
     /// @notice Constructor disables initializers on implementation
     constructor() ReinitializableBase(1) {
         _disableInitializers();
     }
 
+    /// @notice Initializes the contract.
     function initialize(
         IEspressoTEEVerifier _espressoTEEVerifier,
         address _espressoBatcher,
         ISystemConfig _systemConfig,
-        address _owner
+        address _owner,
+        bool _activeIsEspresso
     )
         external
         reinitializer(initVersion())
@@ -67,10 +76,20 @@ contract BatchAuthenticator is
         }
 
         espressoTEEVerifier = _espressoTEEVerifier;
-        espressoBatcher = _espressoBatcher;
         systemConfig = _systemConfig;
-        // By default, start with the Espresso batcher active.
-        activeIsEspresso = true;
+        activeIsEspresso = _activeIsEspresso;
+
+        // Seed the history with the initial Espresso batcher. Skip the append
+        // on re-initialization (e.g., a future `initVersion()` bump) so the
+        // initializer stays idempotent — appending here would create duplicate
+        // history entries and emit a misleading `EspressoBatcherUpdated` event.
+        // To update the batcher after deployment, callers must use
+        // `setEspressoBatcher`.
+        if (_espressoBatcherHistory.length() == 0) {
+            uint96 fromBlock = uint96(block.number);
+            _espressoBatcherHistory.push(fromBlock, uint160(_espressoBatcher));
+            emit EspressoBatcherUpdated(address(0), _espressoBatcher, uint64(fromBlock));
+        }
     }
 
     /// @notice Returns the owner of the contract.
@@ -78,35 +97,77 @@ contract BatchAuthenticator is
         return super.owner();
     }
 
-    /// @notice Getter for the current paused status.
-    function paused() public view returns (bool) {
-        return systemConfig.paused();
-    }
-
-    /// @notice Toggles the active batcher between the Espresso and fallback batcher.
-    function switchBatcher() external onlyGuardianOrOwner {
-        activeIsEspresso = !activeIsEspresso;
-        emit BatcherSwitched(activeIsEspresso);
+    /// @notice Sets which batcher is active. Pass `true` to activate the Espresso batcher, or
+    ///         `false` to activate the fallback batcher. This is intentionally a setter rather
+    ///         than a toggle so that guardian/owner intent is explicit at the call site — the
+    ///         caller must name the target mode rather than rely on the contract's current state.
+    ///         No-ops (and skips the `BatcherSwitched` event) when `_desired` already matches
+    ///         the current state, so off-chain indexers only ever see real transitions.
+    function setActiveIsEspresso(bool _desired) external onlyGuardianOrOwner {
+        if (activeIsEspresso == _desired) return;
+        activeIsEspresso = _desired;
+        emit BatcherSwitched(_desired);
     }
 
     /// @notice Updates the Espresso batcher address.
+    /// @dev    Reverts if a history entry already exists for the current block
+    ///         (from `initialize` or an earlier `setEspressoBatcher` in the same
+    ///         block). The history is keyed by block number, so a second push in
+    ///         the same block would overwrite the prior entry instead of
+    ///         appending, corrupting the record of which batcher was authorized.
     function setEspressoBatcher(address _newEspressoBatcher) external onlyOwner {
-        if (_newEspressoBatcher == address(0)) revert InvalidAddress(_newEspressoBatcher);
-        address oldEspressoBatcher = espressoBatcher;
-        espressoBatcher = _newEspressoBatcher;
-        emit EspressoBatcherUpdated(oldEspressoBatcher, _newEspressoBatcher);
+        address oldEspressoBatcher = espressoBatcher();
+        if (_newEspressoBatcher == oldEspressoBatcher) revert NoChange(_newEspressoBatcher);
+
+        uint96 fromBlock = uint96(block.number);
+        // The latest entry's key is the block of the most recent change. If it
+        // equals the current block, another change already happened this block.
+        (, uint96 latestBlock,) = _espressoBatcherHistory.latestCheckpoint();
+        if (latestBlock == fromBlock) revert BatcherChangedThisBlock(uint64(fromBlock));
+
+        _espressoBatcherHistory.push(fromBlock, uint160(_newEspressoBatcher));
+        emit EspressoBatcherUpdated(oldEspressoBatcher, _newEspressoBatcher, uint64(fromBlock));
+    }
+
+    /// @notice Returns the currently-active Espresso batcher address (the value of the most
+    ///         recent history entry).
+    function espressoBatcher() public view returns (address) {
+        return address(_espressoBatcherHistory.latest());
+    }
+
+    /// @notice Number of entries in the Espresso batcher history.
+    function espressoBatcherHistoryLength() external view returns (uint256) {
+        return _espressoBatcherHistory.length();
+    }
+
+    /// @notice Returns the Espresso batcher history entry at `_index` (oldest first).
+    ///         Reverts on out-of-bounds index.
+    function espressoBatcherAt(uint32 _index) external view returns (address batcher_, uint64 fromBlock_) {
+        Checkpoints.Checkpoint160 memory ckpt = _espressoBatcherHistory.at(_index);
+        return (address(ckpt._value), uint64(ckpt._key));
+    }
+
+    /// @notice Returns the Espresso batcher address that was authorized at
+    ///         L1 block `_l1Block`. Returns `address(0)` if `_l1Block` precedes
+    ///         the first entry.
+    function espressoBatcherAtBlock(uint64 _l1Block) external view returns (address) {
+        return address(_espressoBatcherHistory.upperLookupRecent(uint96(_l1Block)));
     }
 
     function authenticateBatchInfo(bytes32 _commitment, bytes calldata _signature) external {
-        if (paused()) revert BatchAuthenticator_Paused();
-
         if (activeIsEspresso) {
-            // Espresso batcher path: the caller should be the configured espressoBatcher.
-            // This is a sanity check for permissioned batching.
-            if (msg.sender != espressoBatcher) revert UnauthorizedEspressoBatcher(msg.sender, espressoBatcher);
-
+            // Espresso batcher path: caller must be the configured espressoBatcher.
+            address activeEspressoBatcher = espressoBatcher();
+            if (msg.sender != activeEspressoBatcher) {
+                revert UnauthorizedEspressoBatcher(msg.sender, activeEspressoBatcher);
+            }
+            // TEE batcher path: verify via registered TEE signer.
             // Setting TEEType as Nitro because OP integration only supports AWS Nitro currently.
-            espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO);
+            // `verify` is expected to revert on failure, but we still check the return value as a
+            // defensive measure just in case.
+            if (!espressoTEEVerifier.verify(_signature, _commitment, IEspressoTEEVerifier.TeeType.NITRO)) {
+                revert IEspressoTEEVerifier.InvalidSignature();
+            }
         } else {
             // Fallback batcher path: the caller must be the SystemConfig batcher address.
             // No signature verification needed — the transaction itself is already signed by msg.sender.
@@ -114,12 +175,19 @@ contract BatchAuthenticator is
             if (msg.sender != fallbackBatcher) revert UnauthorizedFallbackBatcher(msg.sender, fallbackBatcher);
         }
 
-        emit BatchInfoAuthenticated(_commitment);
+        emit BatchInfoAuthenticated(_commitment, msg.sender);
     }
 
+    /// @notice Permissionless registration of a TEE-generated signer.
+    ///         Anyone may call this; safety is enforced by the verifier:
+    ///           1. `verificationData` must contain a valid AWS Nitro attestation, verified via Succinct ZK proof.
+    ///           2. The attestation's PCR0 measurement must match an enclave hash pre-approved by the TEE
+    ///              verifier's owner/guardian.
+    ///           3. The registered signer address is derived from the public key inside the attestation
+    ///              — the caller cannot choose it.
+    ///         An attacker would need to compromise governance (to whitelist a malicious enclave hash), forge
+    ///         an AWS Nitro signature, or break the Succinct ZK proof — all outside the contract's threat model.
     function registerSigner(bytes calldata _verificationData, bytes calldata _data) external {
-        if (paused()) revert BatchAuthenticator_Paused();
-
         espressoTEEVerifier.registerService(_verificationData, _data, IEspressoTEEVerifier.TeeType.NITRO);
         emit SignerRegistrationInitiated(msg.sender);
     }

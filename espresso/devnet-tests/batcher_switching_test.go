@@ -66,14 +66,14 @@ func TestBatcherSwitching(t *testing.T) {
 		}
 
 		// Switch active batcher via BatchAuthenticator contract
-		tx, err := batchAuthenticator.SwitchBatcher(deployerOpts)
+		tx, err := batchAuthenticator.SetActiveIsEspresso(deployerOpts, !activeIsEspresso)
 		require.NoError(t, err)
-		t.Logf("Submitted switchBatcher transaction: %s", tx.Hash().Hex())
+		t.Logf("Submitted setActiveIsEspresso transaction: %s", tx.Hash().Hex())
 
 		// Wait for transaction receipt
 		receipt, err := wait.ForReceiptOK(ctx, d.L1, tx.Hash())
 		require.NoError(t, err)
-		t.Logf("SwitchBatcher transaction confirmed in block %d", receipt.BlockNumber.Uint64())
+		t.Logf("SetActiveIsEspresso transaction confirmed in block %d", receipt.BlockNumber.Uint64())
 
 		// Verify the switch happened
 		activeIsEspressoAfter, err := batchAuthenticator.ActiveIsEspresso(&bind.CallOpts{})
