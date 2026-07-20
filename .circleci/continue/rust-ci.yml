@@ -890,10 +890,11 @@ jobs:
           no_output_timeout: 40m
           command: |
             just llvm-cov-tests
-      - codecov/upload:
-          disable_search: true
-          files: rust/kona/lcov.info
-          flags: unit
+      # espresso: disable codecov upload — no CODECOV_TOKEN configured on CI.
+      # - codecov/upload:
+      #     disable_search: true
+      #     files: rust/kona/lcov.info
+      #     flags: unit
       - rust-save-build-cache: *kona-coverage-cache
 
   # Unified Rust Docs Build

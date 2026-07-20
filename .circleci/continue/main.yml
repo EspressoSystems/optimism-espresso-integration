@@ -871,10 +871,11 @@ jobs:
             gotestsum --format=testname --junitfile=../tmp/test-results/cannon-64.xml --jsonfile=../tmp/testlogs/log-64.json \
             -- -timeout=$TIMEOUT -parallel=$(nproc) -coverpkg=github.com/ethereum-optimism/optimism/cannon/... -coverprofile=coverage-64.out ./...
           working_directory: cannon
-      - codecov/upload:
-          disable_search: true
-          files: ./cannon/coverage-64.out
-          flags: cannon-go-tests-64
+      # espresso: disable codecov upload — no CODECOV_TOKEN configured on CI.
+      # - codecov/upload:
+      #     disable_search: true
+      #     files: ./cannon/coverage-64.out
+      #     flags: cannon-go-tests-64
       - store_test_results:
           path: ./tmp/test-results
       - store_artifacts:
@@ -1450,10 +1451,11 @@ jobs:
             ETH_RPC_URL: https://ci-mainnet-l1-archive.optimism.io
           working_directory: packages/contracts-bedrock
           when: on_fail
-      - codecov/upload:
-          disable_search: true
-          files: ./packages/contracts-bedrock/lcov-all.info
-          flags: contracts-bedrock-tests
+      # espresso: disable codecov upload — no CODECOV_TOKEN configured on CI.
+      # - codecov/upload:
+      #     disable_search: true
+      #     files: ./packages/contracts-bedrock/lcov-all.info
+      #     flags: contracts-bedrock-tests
       - save_cache:
           name: Save forked state
           key: forked-state-contracts-bedrock-tests-upgrade-{{ checksum "packages/contracts-bedrock/pinnedBlockNumber.txt" }}
@@ -1943,9 +1945,10 @@ jobs:
             <<parameters.environment_overrides>>
             export TEST_TIMEOUT=<<parameters.test_timeout>>
             make go-tests-fraud-proofs-ci
-      - codecov/upload:
-          disable_search: true
-          files: ./coverage.out
+      # espresso: disable codecov upload — no CODECOV_TOKEN configured on CI.
+      # - codecov/upload:
+      #     disable_search: true
+      #     files: ./coverage.out
       - store_test_results:
           path: ./tmp/test-results
       - run:
