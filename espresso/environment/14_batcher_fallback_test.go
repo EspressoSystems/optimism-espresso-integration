@@ -6,21 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"sync"
 	"testing"
 	"time"
 
-	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	"github.com/ethereum-optimism/optimism/espresso/bindings"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
-	"github.com/ethereum-optimism/optimism/op-node/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive/params"
+	"github.com/ethereum-optimism/optimism/op-service/bigs"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -63,10 +61,8 @@ func waitForRollupToMovePastL1Block(ctx context.Context, rollupCli *sources.Roll
 // sends switch action to the Batch Authenticator contract and switches to the
 // fallback batcher, verifies transactions continue to go through. Next, it switches
 // back to the Espresso batcher by restarting it with proper caffeination heights
-// (both Espresso and L2 heights set to ensure correct sync points). Finally, it
-// launches a Caff node with the same caffeination heights and verifies it
-// derives the same chain state as the verifier by comparing block hashes at the
-// same height.
+// (both Espresso and L2 heights set to ensure correct sync points) and verifies
+// that transactions continue to go through.
 func TestBatcherSwitching(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -77,15 +73,26 @@ func TestBatcherSwitching(t *testing.T) {
 	// with parameters tweaked.
 	batcherConfig := &batcher.CLIConfig{}
 	// L1FinalizedDistance(0) to avoid long delays after batcher switch.
+	// The batcher-config options run before GetBatcherConfig so the snapshot it
+	// takes into batcherConfig reflects them. Small frames + a long channel
+	// duration force multi-frame channels split across L1 blocks.
 	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t,
 		env.WithL1FinalizedDistance(0),
 		env.WithSequencerUseFinalized(true),
+		env.WithBatcherTargetNumFrames(10),
+		env.WithBatcherMaxL1TxSize(250),
+		env.WithBatcherMaxChannelDuration(1000),
+		// Unbounded pending L1 txs so the Espresso auth+batch pairs (routed
+		// through the ordered txmgr queue) publish concurrently instead of
+		// one-per-L1-block; otherwise L1 data availability lags far behind the
+		// sequencer and the verifier cannot derive recent blocks within the
+		// test's confirmation windows.
+		env.WithBatcherMaxPendingTransactions(0),
 		env.GetBatcherConfig(batcherConfig))
 	require.NoError(t, err)
 
 	l1Client := system.NodeClient(e2esys.RoleL1)
-	verifClient := system.NodeClient(e2esys.RoleVerif)
-	espClient := espressoClient.NewClient(espressoDevNode.EspressoUrls()[0])
+	espClient := espressoDevNode.Client()
 
 	deployerTransactor, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
 	require.NoError(t, err)
@@ -106,7 +113,7 @@ func TestBatcherSwitching(t *testing.T) {
 	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
 	require.NoError(t, err)
 
-	// Switch active batcher to the fallback batcher
+	// Switch active batcher to the fallback (non-Espresso) path
 	tx, err := batchAuthenticator.SetActiveIsEspresso(deployerTransactor, false)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l1Client, tx.Hash())
@@ -123,14 +130,14 @@ func TestBatcherSwitching(t *testing.T) {
 	err = system.FallbackBatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
 	require.NoError(t, err)
 
-	// Switch batcher back to the "TEE" batcher
+	// Switch batcher back to the "TEE" (Espresso) batcher
 	tx, err = batchAuthenticator.SetActiveIsEspresso(deployerTransactor, true)
 	require.NoError(t, err)
 	switchReceipt, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
 	require.NoError(t, err)
 
 	// Give things time to settle
-	l2Height, err := waitForRollupToMovePastL1Block(ctx, system.RollupClient(e2esys.RoleVerif), switchReceipt.BlockNumber.Uint64())
+	l2Height, err := waitForRollupToMovePastL1Block(ctx, system.RollupClient(e2esys.RoleVerif), bigs.Uint64Strict(switchReceipt.BlockNumber))
 	require.NoError(t, err)
 
 	espHeight, err := espClient.FetchLatestBlockHeight(ctx)
@@ -142,10 +149,16 @@ func TestBatcherSwitching(t *testing.T) {
 	batcherConfig.MaxChannelDuration = 10
 	batcherConfig.TargetNumFrames = 1
 	batcherConfig.MaxL1TxSize = 120_000
-	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight
+	// Caffeinate at espHeight-1 (last already-sealed block) so the streamer reads from
+	// espHeight inclusive and picks up the batches this batcher re-submits there.
+	batcherConfig.Espresso.CaffeinationHeightEspresso = espHeight - 1
 	batcherConfig.Espresso.CaffeinationHeightL2 = l2Height
 	batcherCtx, cancelBatcher := context.WithCancelCause(ctx)
 	defer cancelBatcher(nil)
+	// Unlike the upstream mock-client harness, this repo runs against a real
+	// Espresso dev node: the replacement batcher builds its own client from
+	// batcherConfig's QueryServiceURLs (snapshotted from the running system),
+	// so no client override is needed.
 	newBatcher, err := batcher.BatcherServiceFromCLIConfig(batcherCtx, cancelBatcher, "0.0.1", batcherConfig, system.BatchSubmitter.Log)
 	require.NoError(t, err)
 	err = newBatcher.Start(batcherCtx)
@@ -153,28 +166,6 @@ func TestBatcherSwitching(t *testing.T) {
 
 	// Everything should still work (use longer timeout after batcher switch)
 	env.RunSimpleL2BurnWithTimeout(ctx, t, system, 5*time.Minute)
-
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode, func(c *config.Config) {
-		c.Rollup.CaffNodeConfig.CaffeinationHeightEspresso = espHeight
-		c.Rollup.CaffNodeConfig.CaffeinationHeightL2 = l2Height
-	})
-	require.NoError(t, err)
-	defer env.Stop(t, caffNode)
-
-	caffClient := system.NodeClient(env.RoleCaffNode)
-
-	verifHeight, err := verifClient.BlockNumber(ctx)
-	require.NoError(t, err)
-	verifBlock, err := verifClient.BlockByNumber(ctx, new(big.Int).SetUint64(verifHeight))
-	require.NoError(t, err)
-
-	err = wait.ForBlock(ctx, caffClient, verifHeight)
-	require.NoError(t, err)
-
-	caffBlock, err := caffClient.BlockByNumber(ctx, new(big.Int).SetUint64(verifHeight))
-	require.NoError(t, err)
-
-	require.Equal(t, verifBlock.Hash(), caffBlock.Hash())
 }
 
 // TxManagerIntercept is a txmgr.TxManager that wraps another txmgr.TxManager
@@ -483,6 +474,13 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 		// Setting this to 0 explicitly disables the feature, and as a result
 		// it will only send the data when the previous conditions are met.
 		env.WithBatcherMaxChannelDuration(0),
+
+		// Unbounded pending L1 txs so the Espresso auth+batch pairs (routed
+		// through the ordered txmgr queue) publish concurrently instead of
+		// one-per-L1-block; otherwise L1 data availability lags far behind the
+		// sequencer and the verifier cannot derive recent blocks within the
+		// test's confirmation windows.
+		env.WithBatcherMaxPendingTransactions(0),
 	)
 
 	require.NoError(t, err)
@@ -562,7 +560,7 @@ func TestFallbackMechanismIntegrationTestChannelNotClosed(t *testing.T) {
 	err = system.BatchSubmitter.TestDriver().StopBatchSubmitting(ctx)
 	require.NoError(t, err)
 
-	// Switch active batcher to the fallback batcher
+	// Switch active batcher
 	options, err := bind.NewKeyedTransactorWithChainID(system.Config().Secrets.Deployer, system.Cfg.L1ChainIDBig())
 	require.NoError(t, err)
 

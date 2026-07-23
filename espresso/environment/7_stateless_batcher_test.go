@@ -26,13 +26,12 @@ import (
 // We don't need to clear persistent storage because the original Optimism code isn't and our integration work shouldn't use any.
 // More specifically the test is defined as follows
 //	Arrange:
-//		Running Sequencer, Batcher in Espresso mode, Caff node  OP node.
+//		Running Sequencer, Batcher in Espresso mode, OP node.
 //	Act:
 //		Loop over n iterations
 //      Randomly pick one iteration to stop the batcher and another to start the batcher
 //      For all the other iterations send one coin to Alice.
 //	Assert:
-//		Query the Caff node to check that Alice balance has been increased by n-2
 //		Query the OP node to check that Alice balance has been increased by n-2
 
 func TestStatelessBatcher(t *testing.T) {
@@ -50,19 +49,10 @@ func TestStatelessBatcher(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
-
 	addressAlice := system.Cfg.Secrets.Addresses().Alice
 	rollupClient := system.RollupClient(e2esys.RoleVerif)
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
-	caffVerif := system.NodeClient(env.RoleCaffNode)
 
 	// Fund Alice
 	env.RunSimpleL1TransferAndVerifier(ctx, t, system)
@@ -82,8 +72,6 @@ func TestStatelessBatcher(t *testing.T) {
 	amount := new(big.Int).SetUint64(1)
 	numTransfers := 0
 	bobOptions.Value = amount
-
-	var caffBalanceNew *big.Int
 
 	driver := system.BatchSubmitter.TestDriver()
 	safeBlockInclusionDuration := time.Duration(6*system.Cfg.DeployConfig.L1BlockTime) * time.Second
@@ -169,9 +157,7 @@ func TestStatelessBatcher(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	caffBalanceNew, _ = caffVerif.BalanceAt(ctx, addressAlice, nil)
 	l2BalanceNew, _ := l2Verif.BalanceAt(ctx, addressAlice, nil)
 
 	assert.Equal(t, expectedAmount, l2BalanceNew)
-	assert.Equal(t, expectedAmount, caffBalanceNew)
 }

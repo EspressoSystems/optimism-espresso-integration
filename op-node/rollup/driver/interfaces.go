@@ -3,7 +3,6 @@ package driver
 import (
 	"context"
 
-	op "github.com/EspressoSystems/espresso-streamers/op"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/metrics/metered"
@@ -60,7 +59,6 @@ type DerivationPipeline interface {
 	Origin() eth.L1BlockRef
 	DerivationReady() bool
 	ConfirmEngineReset()
-	EspressoStreamer() *op.BatchStreamer[derive.EspressoBatch]
 }
 
 type AttributesHandler interface {

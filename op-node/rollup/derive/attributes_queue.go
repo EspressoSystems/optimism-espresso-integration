@@ -59,8 +59,6 @@ type AttributesQueue struct {
 	batch       *SingularBatch
 	concluding  bool
 	lastAttribs *AttributesWithParent
-
-	espresso espressoAttributesQueue
 }
 
 type SingularBatchProvider interface {
@@ -72,11 +70,10 @@ type SingularBatchProvider interface {
 
 func NewAttributesQueue(log log.Logger, cfg *rollup.Config, builder AttributesBuilder, prev SingularBatchProvider) *AttributesQueue {
 	return &AttributesQueue{
-		log:      log,
-		config:   cfg,
-		builder:  builder,
-		prev:     prev,
-		espresso: newEspressoAttributesQueue(log, cfg),
+		log:     log,
+		config:  cfg,
+		builder: builder,
+		prev:    prev,
 	}
 }
 
@@ -84,14 +81,10 @@ func (aq *AttributesQueue) Origin() eth.L1BlockRef {
 	return aq.prev.Origin()
 }
 
-func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef, l1Fetcher L1Fetcher) (*AttributesWithParent, error) {
+func (aq *AttributesQueue) NextAttributes(ctx context.Context, parent eth.L2BlockRef) (*AttributesWithParent, error) {
 	// Get a batch if we need it
 	if aq.batch == nil {
-		var batch *SingularBatch
-		var concluding bool
-		var err error
-		batch, concluding, err = aq.espresso.nextBatch(ctx, parent, aq.config.BlockTime, l1Fetcher, aq.prev, aq.log)
-
+		batch, concluding, err := aq.prev.NextBatch(ctx, parent)
 		if err != nil {
 			return nil, err
 		}

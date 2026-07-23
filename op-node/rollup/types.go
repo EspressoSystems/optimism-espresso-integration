@@ -174,13 +174,9 @@ type Config struct {
 	// Pre-fork, the derivation pipeline behaves exactly as upstream Optimism: batches are
 	// accepted based on the L1 transaction sender matching the SystemConfig batcher address.
 	// Post-fork, all Espresso semantics are active: BatchInfoAuthenticated events emitted by
-	// the BatchAuthenticator contract are required for batch acceptance, and Caff nodes derive
-	// from the Espresso (HotShot) sequencer instead of L1.
+	// the BatchAuthenticator contract are required for batch acceptance.
 	// Active if EspressoEnforcementTime != nil && L2 block timestamp >= *EspressoEnforcementTime.
 	EspressoEnforcementTime *uint64 `json:"espresso_enforcement_time,omitempty"`
-
-	// Caff Node config
-	CaffNodeConfig CaffNodeConfig `json:"caff_node_config,omitempty"`
 
 	BatchAuthenticatorAddress common.Address `json:"batch_authenticator_address,omitempty,omitzero"`
 
