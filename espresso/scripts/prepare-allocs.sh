@@ -111,6 +111,41 @@ BATCH_AUTHENTICATOR_OWNER_ADDRESS="${BATCH_AUTHENTICATOR_OWNER_ADDRESS}" op-depl
                   --workdir "${DEPLOYER_DIR}" \
                   --private-key="${OPERATOR_PRIVATE_KEY}"
 
+# ---------------------------------------------------------------------
+# Authorize the Espresso batcher from L1 genesis (block 0).
+#
+# BatchAuthenticator.initialize() records the batcher in a Checkpoints.Trace160
+# history keyed by block.number at deploy time (some block N > 0 on this
+# throwaway anvil). That state is then reloaded as the devnet L1 genesis starting
+# at block 0, so espressoBatcherAtBlock() returns address(0) for every L1 block in
+# [0, N) -- a dead zone where the streamer drops all batches with "invalid
+# espresso batcher". Zero the checkpoint's fromBlock key so the batcher is
+# authorized from genesis. Affects both the plain-devnet and TEE deployments,
+# which share this genesis. (In production the contract is deployed on a
+# persistent L1 and never reloaded from block 0, so this gap does not arise.)
+#
+# _espressoBatcherHistory is at storage slot 2; its dynamic array element 0 lives
+# at keccak256(bytes32(2)). The word is packed big-endian as
+# [uint160 batcher | uint96 fromBlock], so keep the high 20 bytes and zero the
+# low 12. A before/after check fails loudly if the storage layout ever changes.
+BATCH_AUTH_PROXY=$(jq -r '.opChainDeployments[0].batchAuthenticatorAddress' "${DEPLOYER_DIR}/state.json")
+CKPT_SLOT=$(cast keccak 0x0000000000000000000000000000000000000000000000000000000000000002)
+CKPT_VAL=$(cast storage "${BATCH_AUTH_PROXY}" "${CKPT_SLOT}" --rpc-url "${ANVIL_URL}")
+CKPT_BATCHER=${CKPT_VAL:0:42}
+if [ "${CKPT_BATCHER}" = "0x0000000000000000000000000000000000000000" ]; then
+    echo "ERROR: BatchAuthenticator checkpoint at slot ${CKPT_SLOT} is empty; storage layout changed?" >&2
+    exit 1
+fi
+cast rpc anvil_setStorageAt "${BATCH_AUTH_PROXY}" "${CKPT_SLOT}" \
+     "${CKPT_BATCHER}000000000000000000000000" --rpc-url "${ANVIL_URL}" > /dev/null
+GOT0=$(cast call "${BATCH_AUTH_PROXY}" 'espressoBatcherAtBlock(uint64)(address)' 0 --rpc-url "${ANVIL_URL}")
+LATEST=$(cast call "${BATCH_AUTH_PROXY}" 'espressoBatcher()(address)' --rpc-url "${ANVIL_URL}")
+if [ "${GOT0}" != "${LATEST}" ]; then
+    echo "ERROR: after zeroing checkpoint, espressoBatcherAtBlock(0)=${GOT0} != espressoBatcher()=${LATEST}" >&2
+    exit 1
+fi
+echo "Espresso batcher authorized from block 0: ${LATEST}"
+
 # =====================================================================
 # Generate succinct.env with contract addresses for the fdg-deployer
 # container and the succinct-proposer/challenger services.
