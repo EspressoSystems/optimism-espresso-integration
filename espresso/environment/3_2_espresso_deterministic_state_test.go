@@ -282,7 +282,7 @@ func TestValidEspressoTransactionCreation(t *testing.T) {
 		// same way it would a batcher-produced one, recovering the batcher
 		// address from the prepended signature.
 		batchSubmitter := system.BatchSubmitter
-		batch, err := batchSubmitter.EspressoStreamer().UnmarshalBatch(realEspressoTransaction.Payload)
+		batch, err := batchSubmitter.EspressoStreamer().UnmarshalBatch(realEspressoTransaction.Payload, 100)
 		if have, want := err, error(nil); have != want {
 			t.Fatalf("Failed to unmarshal batch:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 		}

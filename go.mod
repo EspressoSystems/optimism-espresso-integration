@@ -84,7 +84,7 @@ require (
 )
 
 require (
-	github.com/EspressoSystems/espresso-streamers v1.2.1-0.20260720200345-ea918620e28b
+	github.com/EspressoSystems/espresso-streamers v1.2.1-0.20260724035247-425f7a5b46eb
 	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 // indirect
 	github.com/joho/godotenv v1.5.1
 )
