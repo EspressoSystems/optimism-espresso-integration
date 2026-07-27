@@ -4,7 +4,7 @@
 // Rollup when compared against the confirmations being provided by
 // Espresso/HotShot. The derivation from the L2 / L1 should not be compromised
 // or result in different results than the derivation provided by the
-// Caff Node.
+// sequencer.
 //
 // Assumption: The rollup sequencer is correct, online, and honest. It
 // produces a valid sequence of rollup blocks every few seconds or faster,
@@ -25,17 +25,16 @@ import (
 	crypto_rand "crypto/rand"
 	"encoding/hex"
 	"math/big"
-	"net"
-	"net/url"
 	"testing"
 	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoCommon "github.com/EspressoSystems/espresso-network/sdks/go/types/common"
+	"github.com/EspressoSystems/espresso-streamers/op/derivation"
 	env "github.com/ethereum-optimism/optimism/espresso/environment"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/bigs"
 	op_crypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	op_signer "github.com/ethereum-optimism/optimism/op-service/signer"
 	ethereum "github.com/ethereum/go-ethereum"
@@ -118,11 +117,10 @@ func setupHeaderStreamSubscription(ctx context.Context, t *testing.T, cli *ethcl
 }
 
 // setupHeaderStreamSubscriptions sets up subscriptions to the new head
-// event on the given Ethereum clients (sequencer, verifier, and caff).
-func setupHeaderStreamSubscriptions(ctx context.Context, t *testing.T, l2Seq, l2Verif, caff *ethclient.Client) (
+// event on the given Ethereum clients (sequencer and verifier).
+func setupHeaderStreamSubscriptions(ctx context.Context, t *testing.T, l2Seq, l2Verif *ethclient.Client) (
 	seqStream timestampedHeaderStream,
 	verifStream timestampedHeaderStream,
-	caffStream timestampedHeaderStream,
 ) {
 
 	seqStream, err := setupHeaderStreamSubscription(ctx, t, l2Seq)
@@ -135,18 +133,13 @@ func setupHeaderStreamSubscriptions(ctx context.Context, t *testing.T, l2Seq, l2
 		t.Fatalf("Failed to subscribe to verifier new head:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	caffStream, err = setupHeaderStreamSubscription(ctx, t, caff)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("Failed to subscribe to caff new head:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	return seqStream, verifStream, caffStream
+	return seqStream, verifStream
 }
 
 // nextStreamEntries is a helper function that retrieves the next entries
-// from the sequencer, verifier, and caff streams.
-func nextStreamEntries[T any](ctx context.Context, seqCh, verifCh, caffCh <-chan messageWithTimestamp[T]) (
-	seqHeader, verifHeader, caffHeader messageWithTimestamp[T],
+// from the sequencer and verifier streams.
+func nextStreamEntries[T any](ctx context.Context, seqCh, verifCh <-chan messageWithTimestamp[T]) (
+	seqHeader, verifHeader messageWithTimestamp[T],
 ) {
 	select {
 	case <-ctx.Done():
@@ -161,13 +154,7 @@ func nextStreamEntries[T any](ctx context.Context, seqCh, verifCh, caffCh <-chan
 	case verifHeader = <-verifCh:
 	}
 
-	select {
-	case <-ctx.Done():
-		return
-	case caffHeader = <-caffCh:
-	}
-
-	return seqHeader, verifHeader, caffHeader
+	return seqHeader, verifHeader
 }
 
 // advanceStreamToHeight is a helper function that advances the
@@ -195,28 +182,25 @@ func advanceStreamToHeight(
 }
 
 // EnsureStreamsAreSynced is a helper function that ensures that the
-// sequencer, verifier, and caff streams are all at the same block height.
+// sequencer and verifier streams are all at the same block height.
 // It does this by advancing each stream to the largest block number
-// among the three streams.
+// among the two streams.
 //
 // Advancing the streams to the same block height is necessary as it ensures
-// that we are comparing the same block across all three streams.
+// that we are comparing the same block across both streams.
 //
 // Advancing in this way does skip over existing blocks, so there is a
 // potential for missing blocks in this way.
 func ensureStreamsAreSynced(
 	ctx context.Context,
-	seqStream, verifStream, caffStream timestampedHeaderStream,
+	seqStream, verifStream timestampedHeaderStream,
 ) {
-	seqHeader, verifHeader, caffHeader := nextStreamEntries(ctx, seqStream.ch, verifStream.ch, caffStream.ch)
+	seqHeader, verifHeader := nextStreamEntries(ctx, seqStream.ch, verifStream.ch)
 
-	// Determine the largest block from the three streams
+	// Determine the largest block from the two streams
 	var largestNumber = seqHeader.entry.Number
 	if verifHeader.entry.Number.Cmp(largestNumber) > 0 {
 		largestNumber = verifHeader.entry.Number
-	}
-	if caffHeader.entry.Number.Cmp(largestNumber) > 0 {
-		largestNumber = caffHeader.entry.Number
 	}
 
 	// Now advance all of these streams so that the last entry consumed
@@ -225,18 +209,17 @@ func ensureStreamsAreSynced(
 	// Advance the Sequencer Stream
 	advanceStreamToHeight(ctx, seqStream, seqHeader, largestNumber)
 	advanceStreamToHeight(ctx, verifStream, verifHeader, largestNumber)
-	advanceStreamToHeight(ctx, caffStream, caffHeader, largestNumber)
 }
 
 // verifyStreamSequenceForNextN is a helper function that verifies
-// the sequence of blocks being produced by the sequencer, verifier, and caff
+// the sequence of blocks being produced by the sequencer and verifier
 // streams all match for the next N blocks.
 //
 // It does this by waiting for the next entry from each stream and
 // comparing their header values.
 //
-// The sequence being consumed should be ordered, and the same across all
-// three streams.
+// The sequence being consumed should be ordered, and the same across both
+// streams.
 //
 // The streams are assumed to be synced before this function is called.
 // This means that they should be at the same block height before this
@@ -245,16 +228,16 @@ func ensureStreamsAreSynced(
 func verifyStreamSequenceForNextN(
 	ctx context.Context,
 	t *testing.T,
-	seqStream, verifStream, caffStream timestampedHeaderStream,
+	seqStream, verifStream timestampedHeaderStream,
 	count int,
 ) {
 	for i := 0; i < count; i++ {
 		// The easiest way to verify this is to just wait for each of these
 		// streams entries in turn, then compare their header hashes.
 
-		seqHeader, verifHeader, caffHeader := nextStreamEntries(ctx, seqStream.ch, verifStream.ch, caffStream.ch)
+		seqHeader, verifHeader := nextStreamEntries(ctx, seqStream.ch, verifStream.ch)
 
-		// Alright, we should have all three next headers now.
+		// Alright, we should have both next headers now.
 		// Let's compare them to make sure they are the same.
 		select {
 		case <-ctx.Done():
@@ -265,17 +248,6 @@ func verifyStreamSequenceForNextN(
 
 		if have, want := seqHeader.entry.Hash(), verifHeader.entry.Hash(); have.Cmp(want) != 0 {
 			t.Fatalf("Sequencer and Verifier headers do not match:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-			return
-		}
-
-		if have, want := seqHeader.entry.Hash(), caffHeader.entry.Hash(); have.Cmp(want) != 0 {
-			t.Fatalf("Sequencer and Caff headers do not match:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-			return
-		}
-
-		// This check should be redundant.
-		if have, want := verifHeader.entry.Hash(), caffHeader.entry.Hash(); have.Cmp(want) != 0 {
-			t.Fatalf("Verifier and Caff headers do not match:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 			return
 		}
 	}
@@ -317,8 +289,8 @@ func submitRandomDataToSequencerNamespace(ctx context.Context, espCli espressoCl
 // constructing a block with a deposit transaction. It uses the latest
 // block from the sequencer to create a new block with a deposit
 // transaction. The block is then converted to an Espresso batch using
-// the derive.BlockToEspressoBatch function.
-func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, rollupCfg *rollup.Config) (*derive.EspressoBatch, error) {
+// the derivation.BlockToEspressoBatch function.
+func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, rollupCfg *rollup.Config) (*derivation.EspressoBatch, error) {
 	// / Determine what the latest block in the sequencer is, so we can
 	// hope to create a valid transaction, to get something out of it.
 	latestBlock, err := cli.BlockByNumber(ctx, nil)
@@ -353,7 +325,7 @@ func createMaliciousEspressoBatch(ctx context.Context, cli *ethclient.Client, ro
 	}
 	block := geth_types.NewBlockWithHeader(header).WithBody(body)
 
-	return derive.BlockToEspressoBatch(rollupCfg, block)
+	return derivation.BlockToEspressoBatch(rollupCfg, block)
 }
 
 // SUBMIT_VALID_DATA_WITH_WRONG_SIGNATURE_INTERVAlL is the interval / frequency
@@ -474,15 +446,14 @@ func submitValidDataWithRandomSignature(
 }
 
 // TestSequencerFeedConsistency is a test that ensures that the sequence of
-// blocks being produced by the feeds from the Sequencer, the Caff Node, and
-// another L2 Verifier are consistent with each other.
+// blocks being produced by the feeds from the Sequencer and another L2
+// Verifier are consistent with each other.
 //
 // The criteria / goal of this test are outlined by the following requirement:
 //
-// Run the rollup and subscribe to the sequencer feed, a feed which derives
-// from Espresso, and a feed which derives the finalized block sequence from
-// L1. All of these should yield the same blocks in the same order (but at
-// different times).
+// Run the rollup and subscribe to the sequencer feed and a feed which derives
+// the finalized block sequence from L1. All of these should yield the same
+// blocks in the same order (but at different times).
 func TestSequencerFeedConsistency(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -498,47 +469,36 @@ func TestSequencerFeedConsistency(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
-
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
-	caff := system.NodeClient(env.RoleCaffNode)
 
-	seqStream, verifStream, caffStream := setupHeaderStreamSubscriptions(ctx, t, l2Seq, l2Verif, caff)
+	seqStream, verifStream := setupHeaderStreamSubscriptions(ctx, t, l2Seq, l2Verif)
 	defer seqStream.sub.Unsubscribe()
 	defer verifStream.sub.Unsubscribe()
-	defer caffStream.sub.Unsubscribe()
 
 	// We need to sync these streams up.  We created them at different points
 	// in their life times. so we need to wait for them all to be at the same
 	// block height before we start comparing them.
 	//
 	// It is most likely going to be the case that the sequencer is ahead of
-	// the verifier and the caff node.  We would expect the caff node to be
-	// ahead of the verifier, but we will play it safe, and just make no
-	// assumptions by grabbing the largest block
-	ensureStreamsAreSynced(ctx, seqStream, verifStream, caffStream)
+	// the verifier.  We will play it safe, and just make no assumptions by
+	// grabbing the largest block
+	ensureStreamsAreSynced(ctx, seqStream, verifStream)
 
 	// Let's verify that these streams are producing the same blocks
 	// in the same order. We will do this by waiting for a few blocks to
-	verifyStreamSequenceForNextN(ctx, t, seqStream, verifStream, caffStream, 100)
+	verifyStreamSequenceForNextN(ctx, t, seqStream, verifStream, 100)
 }
 
 // TestSequencerFeedConsistencyWithAttackOnEspresso is a test that expands
 // upon the previous test by introducing attacks against Espresso with the
 // specific goal of arriving at a state where the Espresso feed is producing
-// different blocks than the sequencer and the caff node, for a variety of
-// different potential reasons.
+// different blocks than the sequencer, for a variety of different potential
+// reasons.
 //
 // These attacks are designed to cover some different use cases, and may
 // reflect attempts of third parties to attack or manipulate the data being
-// consumed by the Caff Node for individual gain, or disruption.
+// consumed for individual gain, or disruption.
 //
 // The criteria / goal of this test are outlined by the following requirement:
 // Consider rollup-specific adversarial behavior which could break sequencer
@@ -560,28 +520,9 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
-
-	_, port, err := net.SplitHostPort(espressoDevNode.SequencerPort())
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to parse sequencer port URL:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	espressoSequencerURL := url.URL{
-		Scheme: "http",
-		Host:   net.JoinHostPort("localhost", port),
-		Path:   "/",
-	}
-
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
-	espCli := espressoClient.NewClient(espressoSequencerURL.String())
-	namespace := system.RollupConfig.L2ChainID.Uint64()
+	espCli := espressoDevNode.Client()
+	namespace := bigs.Uint64Strict(system.RollupConfig.L2ChainID)
 
 	// Attack Espresso Integrity by Submitting Garbage Data to the Same
 	// namespace as the Sequencer's namespace.
@@ -597,16 +538,14 @@ func TestSequencerFeedConsistencyWithAttackOnEspresso(t *testing.T) {
 	go submitValidDataWithRandomSignature(ctx, system.RollupConfig, l2Seq, espCli, namespace)
 
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
-	caff := system.NodeClient(env.RoleCaffNode)
 
-	seqStream, verifStream, caffStream := setupHeaderStreamSubscriptions(ctx, t, l2Seq, l2Verif, caff)
+	seqStream, verifStream := setupHeaderStreamSubscriptions(ctx, t, l2Seq, l2Verif)
 	defer seqStream.sub.Unsubscribe()
 	defer verifStream.sub.Unsubscribe()
-	defer caffStream.sub.Unsubscribe()
 
 	// Sync the Streams to the same block height
-	ensureStreamsAreSynced(ctx, seqStream, verifStream, caffStream)
+	ensureStreamsAreSynced(ctx, seqStream, verifStream)
 
 	// Verify the sequence of blocks being produced.
-	verifyStreamSequenceForNextN(ctx, t, seqStream, verifStream, caffStream, 100)
+	verifyStreamSequenceForNextN(ctx, t, seqStream, verifStream, 100)
 }

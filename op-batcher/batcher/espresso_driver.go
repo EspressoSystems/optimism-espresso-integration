@@ -9,13 +9,11 @@ import (
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
 	op "github.com/EspressoSystems/espresso-streamers/op"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/ethereum-optimism/optimism/espresso"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/EspressoSystems/espresso-streamers/op/derivation"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // EspressoDriverSetup groups all Espresso-specific runtime state plumbed from
@@ -56,7 +54,7 @@ func (a *batcherL1Adapter) CallContract(ctx context.Context, call ethereum.CallM
 }
 
 // EspressoStreamer returns the Espresso batch streamer for use by the service and tests.
-func (l *BatchSubmitter) EspressoStreamer() espresso.EspressoStreamer[derive.EspressoBatch] {
+func (l *BatchSubmitter) EspressoStreamer() op.EspressoStreamer[derivation.EspressoBatch] {
 	return l.espressoStreamer
 }
 
@@ -82,7 +80,7 @@ func (l *BatchSubmitter) setupEspressoStreamer() {
 		l.Espresso.Client,
 		lightClientIface,
 		l.Log,
-		derive.CreateEspressoBatchUnmarshaler(),
+		derivation.CreateEspressoBatchUnmarshaler(),
 		l.Config.Espresso.CaffeinationHeightEspresso,
 		l.Config.Espresso.CaffeinationHeightL2,
 		l.RollupConfig.BatchAuthenticatorAddress,

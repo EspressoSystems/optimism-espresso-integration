@@ -21,7 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/ethereum-optimism/optimism/espresso"
+	op "github.com/EspressoSystems/espresso-streamers/op"
+	"github.com/EspressoSystems/espresso-streamers/op/derivation"
 	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
@@ -136,7 +137,7 @@ type BatchSubmitter struct {
 	publishSignal chan pubInfo
 
 	espressoSubmitter *espressoTransactionSubmitter
-	espressoStreamer  espresso.EspressoStreamer[derive.EspressoBatch]
+	espressoStreamer  op.EspressoStreamer[derivation.EspressoBatch]
 	// Group to limit number of concurrent batches waiting for approval
 	// from BatchAuthenticator contract, only relevant when running with Espresso enabled
 	teeAuthGroup errgroup.Group

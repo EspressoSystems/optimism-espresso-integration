@@ -10,12 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/dial"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	rpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,12 +42,6 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	defer env.Stop(t, system)
 	defer env.Stop(t, espressoDevNode)
 
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-	defer env.Stop(t, caffNode)
-
 	rollupClient := system.RollupClient(e2esys.RoleVerif)
 
 	initialStatus, err := rollupClient.SyncStatus(context.Background())
@@ -83,86 +72,9 @@ func TestBatcherWaitForFinality(t *testing.T) {
 	}
 }
 
-// TestCaffNodeWaitForFinality is a test that attempts to make sure that the Caff node waits for
-// the derived L1 block to be finalized before advancing its safe head.
-//
-// This tests is designed to evaluate Test 8.2.1 as outlined within the Espresso Celo Integration
-// plan. It has stated task definition as follows:
-//
-//	Arrange:
-//		Run the sequencer and the Caff node in Espresso mode.
-//	Act:
-//		Wait until the Caff node's safe L2 head advances.
-//	Assert:
-//		The Caff node's safe L2 head always has a finalized L1 origin.
-func TestCaffNodeWaitForFinality(t *testing.T) {
-	// Basic test setup.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	launcher := new(env.EspressoDevNodeLauncherDocker)
-
-	// Set L1FinalizedDistance to nonzero, NonFinalizedProposals to true, and SequencerUseFinalized
-	// to false, to make sure we are testing how the Caff node handles the finality.
-	system, espressoDevNode, err := launcher.StartE2eDevnet(ctx, t, env.WithL1FinalizedDistance(4), env.WithNonFinalizedProposals(true), env.WithSequencerUseFinalized(false))
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-	defer env.Stop(t, system)
-	defer env.Stop(t, espressoDevNode)
-
-	caffNode, err := env.LaunchCaffNode(t, system, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-	defer env.Stop(t, caffNode)
-
-	l1Client := system.NodeClient(e2esys.RoleL1)
-
-	// Create a RollupClient for the caff node
-	caffRpcClient, err := dial.DialRPCClientWithTimeout(ctx, log.New(), caffNode.OpNode.UserRPC().RPC())
-	require.NoError(t, err)
-	caffRollupClient := sources.NewRollupClient(client.NewBaseRPCClient(caffRpcClient))
-
-	initialStatus, err := caffRollupClient.SyncStatus(ctx)
-	require.NoError(t, err)
-	initialSafeL2 := initialStatus.SafeL2.Number
-
-	// Wait for the Caff node's safe L2 head to advance, and verify that
-	// its L1 origin is always finalized.
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "Timeout: Caff node safe L2 head did not advance")
-		case <-ticker.C:
-			status, err := caffRollupClient.SyncStatus(ctx)
-			require.NoError(t, err)
-
-			// Check that the safe L2 head's L1 origin is finalized
-			safeL2Origin := status.SafeL2.L1Origin
-			finalizedL1, err := l1Client.BlockByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
-			require.NoError(t, err)
-
-			require.LessOrEqual(t, safeL2Origin.Number, finalizedL1.NumberU64(),
-				"Caff node safe L2 head has non-finalized L1 origin: origin=%d, finalized=%d",
-				safeL2Origin.Number, finalizedL1.NumberU64())
-
-			// Test passes once safe L2 head has advanced
-			if status.SafeL2.Number > initialSafeL2 {
-				t.Logf("Caff node safe L2 head advanced from %d to %d with finalized L1 origin %d",
-					initialSafeL2, status.SafeL2.Number, safeL2Origin.Number)
-				return
-			}
-		}
-	}
-}
-
 func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 	l2Seq := system.NodeClient(e2esys.RoleSeq)
 	l1Client := system.NodeClient(e2esys.RoleL1)
-	caffClient := system.NodeClient(env.RoleCaffNode)
 
 	// Wait for batcher to start advancing L2 head
 	_, err := geth.WaitForBlockToBeSafe(big.NewInt(2), l2Seq, 2*time.Minute)
@@ -207,22 +119,17 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 	newL2Head, err := l2Seq.BlockByNumber(ctx, new(big.Int).SetUint64(unsafeL2Height))
 	require.NoError(t, err)
 	require.NotEqual(t, newL2Head.Hash(), l2Head.Hash())
-
-	// Check that Caff node came to the same conclusion
-	caffL2Head, err := caffClient.BlockByNumber(ctx, new(big.Int).SetUint64(unsafeL2Height))
-	require.NoError(t, err)
-	require.Equal(t, caffL2Head.Hash(), newL2Head.Hash())
 }
 
-// TestE2eDevnetWithL1Reorg tests how the batcher and Caff node handle an L1 reorg.
+// TestE2eDevnetWithL1Reorg tests how the batcher handles an L1 reorg.
 // Specifically, it focuses on cases where unsafe L2 chain contains blocks that
 // reference unfinalized L1 blocks as their origin.
 //
-// This tests is designed to evaluate Test 8.1.2 and 8.2.2 as outlined within the Espresso Celo
+// This tests is designed to evaluate Test 8.1.2 as outlined within the Espresso Celo
 // Integration plan. The test is defined as follows:
 // Arrange:
 //
-//	Running Sequencer, Batcher in Espresso mode, Caff node & OP node.
+//	Running Sequencer, Batcher in Espresso mode & OP node.
 //
 // Act:
 //
@@ -232,7 +139,7 @@ func runL1Reorg(ctx context.Context, t *testing.T, system *e2esys.System) {
 // Assert:
 //
 //	Assert that derivation pipeline still progresses
-//	Assert that Caff and OP node report a new block at the target L2 height
+//	Assert that the OP node reports a new block at the target L2 height
 func TestE2eDevnetWithL1Reorg(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -244,13 +151,8 @@ func TestE2eDevnetWithL1Reorg(t *testing.T) {
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	caffNode, err := env.LaunchCaffNode(t, system, devNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
+	defer env.Stop(t, system)
+	defer env.Stop(t, devNode)
 
 	runL1Reorg(ctx, t, system)
 }

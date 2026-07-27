@@ -211,6 +211,11 @@ func (e *EspressoDevNodeContainerInfo) EspressoUrls() []string {
 	return e.espressoUrls
 }
 
+// Client returns an Espresso query-service client for this dev node.
+func (e *EspressoDevNodeContainerInfo) Client() espressoClient.EspressoClient {
+	return espressoClient.NewClient(e.EspressoUrls()[0])
+}
+
 var _ EspressoDevNode = (*EspressoDevNodeContainerInfo)(nil)
 
 // getPort is a helper function that takes the original port and returns
@@ -450,6 +455,11 @@ type EspressoDevNodeDockerContainerInfo struct {
 // EspressoUrl returns the URL of the Espresso node
 func (e *EspressoDevNodeDockerContainerInfo) EspressoUrls() []string {
 	return e.espressoUrls
+}
+
+// Client returns an Espresso query-service client for this dev node.
+func (e *EspressoDevNodeDockerContainerInfo) Client() espressoClient.EspressoClient {
+	return espressoClient.NewClient(e.EspressoUrls()[0])
 }
 
 var _ EspressoDevNode = (*EspressoDevNodeDockerContainerInfo)(nil)
@@ -977,7 +987,7 @@ func Stop(t *testing.T, toStop any, options ...StopOption) {
 }
 
 // Waits for an Espresso transaction to be confirmed using its hash.
-func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, espressoClient *espressoClient.MultipleNodesClient) error {
+func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64, client espressoClient.EspressoClient) error {
 	const transactionFetchTimeout = 4 * time.Second
 	const transactionFetchInterval = 100 * time.Millisecond
 
@@ -991,7 +1001,7 @@ func WaitForEspressoTx(ctx context.Context, txHash *espressoCommon.TaggedBase64,
 	for {
 		select {
 		case <-ticker.C:
-			_, err := espressoClient.FetchTransactionByHash(ctx, txHash)
+			_, err := client.FetchTransactionByHash(ctx, txHash)
 			if err == nil {
 				return nil
 			}

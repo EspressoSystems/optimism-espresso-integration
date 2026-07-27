@@ -53,29 +53,13 @@ func runWithMultiClient(t *testing.T, numGoodUrls int, numBadUrls int, expectedE
 		t.Fatalf("failed to start dev environment with espresso dev node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
 	}
 
-	caffNode, err := env.LaunchCaffNode(t, system, devNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
+	defer env.Stop(t, system)
+	defer env.Stop(t, devNode)
 
 	l2Verif := system.NodeClient(e2esys.RoleVerif)
 
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
-
-	caffClient := system.NodeClient(e2esys.RoleVerif)
-
 	// Wait for batcher to start advancing L2 head
 	blockNumber := int64(2)
-
-	// Check the caff node can/cannot make progress
-	_, err = geth.WaitForBlockToBeSafe(big.NewInt(blockNumber), caffClient, 60*time.Second)
-
-	if expectedError {
-		require.Error(t, err, "The L2 should not be progressing")
-	} else {
-		require.NoError(t, err, "The L2 should be progressing")
-	}
 
 	// Check the l2Verif node can/cannot make progress
 	_, err = geth.WaitForBlockToBeSafe(big.NewInt(blockNumber), l2Verif, 60*time.Second)

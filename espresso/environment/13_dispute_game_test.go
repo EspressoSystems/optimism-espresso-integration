@@ -60,18 +60,6 @@ func TestOutputAlphabetGameWithEspresso_ChallengerWins(t *testing.T) {
 		}
 	}()
 
-	// Launch a Caff Node and check it can still make progress
-	caffNode, err := env.LaunchCaffNode(t, sys, espressoDevNode)
-	if have, want := err, error(nil); have != want {
-		t.Fatalf("failed to start caff node:\nhave:\n\t\"%v\"\nwant:\n\t\"%v\"\n", have, want)
-	}
-
-	// Shut down the Caff Node
-	defer env.Stop(t, caffNode)
-	caffClient := sys.NodeClient(env.RoleCaffNode)
-	// Make sure Caff Node still make progress
-	require.NoError(t, wait.ForNextBlock(ctx, caffClient))
-
 	// All the following testing code is pasted from `TestOutputAlphabetGame_ChallengerWins` in `op-e2e/faultproofs/output_alphabet_test.go`
 	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
 	game := disputeGameFactory.StartOutputAlphabetGame(ctx, "sequencer", 3, common.Hash{0xff})
