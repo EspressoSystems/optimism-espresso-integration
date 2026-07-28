@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	espressoClient "github.com/EspressoSystems/espresso-network/sdks/go/client"
 	espressoLightClient "github.com/EspressoSystems/espresso-network/sdks/go/light-client"
@@ -12,6 +13,7 @@ import (
 	"github.com/EspressoSystems/espresso-streamers/op/derivation"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -113,7 +115,45 @@ func (l *BatchSubmitter) setupEspressoStreamer(ctx context.Context) error {
 		return fmt.Errorf("failed to create Espresso streamer: %w", err)
 	}
 	l.espressoStreamer = streamer
+
+	// Re-anchor to the safe L2 head.
+	if err := l.anchorEspressoStreamerAtSafeHead(ctx); err != nil {
+		return err
+	}
 	return nil
+}
+
+const (
+	espressoAnchorTimeout       = 1 * time.Minute
+	espressoAnchorRetryInterval = 1 * time.Second
+)
+
+func (l *BatchSubmitter) anchorEspressoStreamerAtSafeHead(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, espressoAnchorTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(espressoAnchorRetryInterval)
+	defer ticker.Stop()
+
+	for {
+		syncStatus, err := l.getSyncStatus(ctx)
+		switch {
+		case err != nil:
+			l.Log.Warn("Failed to fetch sync status to anchor the Espresso streamer, retrying", "err", err)
+		case syncStatus.SafeL2 == (eth.L2BlockRef{}):
+			l.Log.Warn("Sync status has no safe L2 head yet, retrying")
+		default:
+			l.espressoStreamer.ResetToSafeBatch(syncStatus)
+			l.Log.Info("Anchored the Espresso streamer at the safe L2 head", "safeL2", syncStatus.SafeL2)
+			return nil
+		}
+
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return fmt.Errorf("could not anchor the Espresso streamer at the safe L2 head within %s: %w", espressoAnchorTimeout, ctx.Err())
+		}
+	}
 }
 
 // startEspressoLoops registers the batcher with the BatchAuthenticator
@@ -209,10 +249,11 @@ func (l *BatchSubmitter) shouldSkipPublishForActiveSeq(ctx context.Context) bool
 // resetEspressoStreamer re-anchors the Espresso streamer to the safe L2 head when
 // --espresso.enabled is set; no-op otherwise. Called from clearState alongside the
 // upstream channel-manager reset so the streamer's view of "next batch" matches the
-// freshly-cleared channel state.
+// freshly-cleared channel state, and from setupEspressoStreamer so a newly built
+// streamer starts from the safe head rather than the configured origin.
 //
-// The streamer is nil until StartBatchSubmitting constructs it, and clearState runs
-// before that on the startup path, so the nil check is load-bearing.
+// The nil check covers the startup path: clearState runs before the streamer is
+// constructed, so the first call of a start cycle finds nothing to re-anchor.
 func (l *BatchSubmitter) resetEspressoStreamer(ctx context.Context) {
 	if !l.Config.Espresso.Enabled || l.espressoStreamer == nil {
 		return
