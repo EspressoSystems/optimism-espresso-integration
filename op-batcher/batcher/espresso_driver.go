@@ -11,6 +11,7 @@ import (
 	op "github.com/EspressoSystems/espresso-streamers/op"
 	"github.com/EspressoSystems/espresso-streamers/op/derivation"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
+	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -53,44 +54,66 @@ func (a *batcherL1Adapter) CallContract(ctx context.Context, call ethereum.CallM
 	return a.L1Client.CallContract(ctx, call, blockNumber)
 }
 
-// EspressoStreamer returns the Espresso batch streamer for use by the service and tests.
-func (l *BatchSubmitter) EspressoStreamer() op.EspressoStreamer[derivation.EspressoBatch] {
-	return l.espressoStreamer
+// batcherL2Adapter wraps the batcher's L2 eth client to implement op.L2Client.
+// The streamer uses it once, at construction, to resolve the block hash of the
+// batch position it is anchored to. dial.EthClientInterface exposes no
+// header-only accessor, so this fetches the full block and takes its hash.
+type batcherL2Adapter struct {
+	EthClient dial.EthClientInterface
 }
 
-// setupEspressoStreamer constructs the Espresso streamer (and its buffered
-// wrapper) for a freshly-built BatchSubmitter. Called from NewBatchSubmitter
-// only when --espresso.enabled is set; no-op otherwise. Panics on streamer
-// construction failure to mirror the existing NewBatchSubmitter behavior.
-func (l *BatchSubmitter) setupEspressoStreamer() {
-	if !l.Config.Espresso.Enabled {
-		return
+func (a *batcherL2Adapter) HeaderHashByNumber(ctx context.Context, number *big.Int) (common.Hash, error) {
+	block, err := a.EthClient.BlockByNumber(ctx, number)
+	if err != nil {
+		return common.Hash{}, err
 	}
-	l1Adapter := &batcherL1Adapter{L1Client: l.L1Client}
+	return block.Hash(), nil
+}
+
+// setupEspressoStreamer constructs the Espresso streamer for a BatchSubmitter that
+// is starting up; no-op when --espresso.enabled is false.
+//
+// Called from StartBatchSubmitting rather than NewBatchSubmitter: the streamer
+// resolves its anchor batch's hash from the L2 client while constructing, so it
+// needs a context and an L2 node that has reached genesis. It also returns an error
+// rather than panicking, which construction inside NewBatchSubmitter could not do.
+func (l *BatchSubmitter) setupEspressoStreamer(ctx context.Context) error {
+	if !l.Config.Espresso.Enabled {
+		return nil
+	}
+
+	ethClient, err := l.EndpointProvider.EthClient(ctx)
+	if err != nil {
+		return fmt.Errorf("getting the L2 eth client for the Espresso streamer: %w", err)
+	}
+
 	// Convert typed nil pointer to untyped nil interface to avoid typed-nil interface panic
 	// in confirmEspressoBlockHeight when EspressoLightClient is not configured.
 	var lightClientIface op.LightClientCallerInterface
 	if l.Espresso.LightClient != nil {
 		lightClientIface = l.Espresso.LightClient
 	}
-	unbufferedStreamer, err := op.NewEspressoStreamer(
-		l.RollupConfig.L2ChainID.Uint64(),
-		l1Adapter,
-		l1Adapter,
+
+	streamer, err := op.NewStreamer(
+		ctx,
 		l.Espresso.Client,
+		&batcherL1Adapter{L1Client: l.L1Client},
+		&batcherL2Adapter{EthClient: ethClient},
 		lightClientIface,
-		l.Log,
+		l.RollupConfig.BatchAuthenticatorAddress,
+		l.RollupConfig.L2ChainID.Uint64(),
 		derivation.CreateEspressoBatchUnmarshaler(),
+		l.getSyncStatus,
+		l.Config.Espresso.PollInterval,
+		l.Log,
 		l.Config.Espresso.CaffeinationHeightEspresso,
 		l.Config.Espresso.CaffeinationHeightL2,
-		l.RollupConfig.BatchAuthenticatorAddress,
-		false,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create Espresso streamer: %v", err))
+		return fmt.Errorf("failed to create Espresso streamer: %w", err)
 	}
-	l.espressoStreamer = op.NewBufferedEspressoStreamer(unbufferedStreamer)
-	l.Log.Info("Streamer started", "streamer", l.espressoStreamer)
+	l.espressoStreamer = streamer
+	return nil
 }
 
 // startEspressoLoops registers the batcher with the BatchAuthenticator
@@ -101,6 +124,13 @@ func (l *BatchSubmitter) setupEspressoStreamer() {
 func (l *BatchSubmitter) startEspressoLoops(receiptsCh chan txmgr.TxReceipt[txRef], publishSignal chan pubInfo) error {
 	if err := l.registerBatcher(l.killCtx); err != nil {
 		return fmt.Errorf("could not register with BatchAuthenticator contract: %w", err)
+	}
+
+	// The streamer drives itself from its own poll loop, so it is started here rather
+	// than being pumped by espressoBatchLoadingLoop. Bound to shutdownCtx so it stops
+	// fetching before the publish path winds down.
+	if err := l.espressoStreamer.Start(l.shutdownCtx); err != nil {
+		return fmt.Errorf("could not start the Espresso streamer: %w", err)
 	}
 
 	// Resolve the TEE verifier address from the BatchAuthenticator contract.
@@ -176,14 +206,23 @@ func (l *BatchSubmitter) shouldSkipPublishForActiveSeq(ctx context.Context) bool
 	return !isActive
 }
 
-// resetEspressoStreamer resets the Espresso streamer when --espresso.enabled
-// is set; no-op otherwise. Called from clearState alongside the upstream
-// channel-manager reset so the streamer's view of "next batch" matches the
+// resetEspressoStreamer re-anchors the Espresso streamer to the safe L2 head when
+// --espresso.enabled is set; no-op otherwise. Called from clearState alongside the
+// upstream channel-manager reset so the streamer's view of "next batch" matches the
 // freshly-cleared channel state.
-func (l *BatchSubmitter) resetEspressoStreamer() {
-	if l.Config.Espresso.Enabled {
-		l.EspressoStreamer().Reset()
+//
+// The streamer is nil until StartBatchSubmitting constructs it, and clearState runs
+// before that on the startup path, so the nil check is load-bearing.
+func (l *BatchSubmitter) resetEspressoStreamer(ctx context.Context) {
+	if !l.Config.Espresso.Enabled || l.espressoStreamer == nil {
+		return
 	}
+	syncStatus, err := l.getSyncStatus(ctx)
+	if err != nil {
+		l.Log.Warn("Failed to fetch sync status to re-anchor the Espresso streamer, keeping the current tip", "err", err)
+		return
+	}
+	l.espressoStreamer.ResetToSafeBatch(syncStatus)
 }
 
 // dispatchAuthenticatedSendTx routes sendTx through the Espresso (TEE) auth

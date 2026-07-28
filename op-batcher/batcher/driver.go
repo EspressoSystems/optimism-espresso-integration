@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	op "github.com/EspressoSystems/espresso-streamers/op"
-	"github.com/EspressoSystems/espresso-streamers/op/derivation"
 	"github.com/ethereum-optimism/optimism/espresso/logmodule"
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher/throttler"
@@ -137,7 +136,7 @@ type BatchSubmitter struct {
 	publishSignal chan pubInfo
 
 	espressoSubmitter *espressoTransactionSubmitter
-	espressoStreamer  op.EspressoStreamer[derivation.EspressoBatch]
+	espressoStreamer  *op.Streamer
 	// Group to limit number of concurrent batches waiting for approval
 	// from BatchAuthenticator contract, only relevant when running with Espresso enabled
 	teeAuthGroup errgroup.Group
@@ -171,7 +170,6 @@ func NewBatchSubmitter(setup DriverSetup) *BatchSubmitter {
 	if err != nil {
 		panic(err)
 	}
-	batcher.setupEspressoStreamer()
 
 	return batcher
 }
@@ -221,6 +219,11 @@ func (l *BatchSubmitter) StartBatchSubmitting() error {
 	}
 
 	if l.Config.Espresso.Enabled {
+		// Constructed here rather than in NewBatchSubmitter: it performs an L2 lookup, so
+		// it has to run after waitForL2Genesis and needs a context to do it with.
+		if err := l.setupEspressoStreamer(l.shutdownCtx); err != nil {
+			return fmt.Errorf("could not set up the Espresso streamer: %w", err)
+		}
 		if err := l.startEspressoLoops(receiptsCh, publishSignal); err != nil {
 			return err
 		}
@@ -297,6 +300,10 @@ func (l *BatchSubmitter) StopBatchSubmitting(ctx context.Context) error {
 	l.cancelShutdownCtx()
 	l.cancelKillCtx()
 	l.wg.Wait()
+
+	if l.espressoStreamer != nil {
+		l.espressoStreamer.Stop()
+	}
 
 	l.Log.Info("Batch Submitter stopped")
 	return nil
@@ -878,7 +885,7 @@ func (l *BatchSubmitter) clearState(ctx context.Context) {
 			l.channelMgrMutex.Lock()
 			defer l.channelMgrMutex.Unlock()
 			l.channelMgr.Clear(l1SafeOrigin)
-			l.resetEspressoStreamer()
+			l.resetEspressoStreamer(ctx)
 			return true
 		}
 	}
