@@ -849,7 +849,7 @@ func (l *BatchSubmitter) espressoSyncChannelManager(newSyncStatus *eth.SyncStatu
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		l.espressoStreamer.ResetToSafeBatch(newSyncStatus)
+		l.espressoStreamer.SetBatchPosition(newSyncStatus.SafeL2)
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)

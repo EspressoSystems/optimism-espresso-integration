@@ -143,7 +143,7 @@ func (l *BatchSubmitter) anchorEspressoStreamerAtSafeHead(ctx context.Context) e
 		case syncStatus.SafeL2 == (eth.L2BlockRef{}):
 			l.Log.Warn("Sync status has no safe L2 head yet, retrying")
 		default:
-			l.espressoStreamer.ResetToSafeBatch(syncStatus)
+			l.espressoStreamer.SetBatchPosition(syncStatus.SafeL2)
 			l.Log.Info("Anchored the Espresso streamer at the safe L2 head", "safeL2", syncStatus.SafeL2)
 			return nil
 		}
@@ -263,7 +263,7 @@ func (l *BatchSubmitter) resetEspressoStreamer(ctx context.Context) {
 		l.Log.Warn("Failed to fetch sync status to re-anchor the Espresso streamer, keeping the current tip", "err", err)
 		return
 	}
-	l.espressoStreamer.ResetToSafeBatch(syncStatus)
+	l.espressoStreamer.SetBatchPosition(syncStatus.SafeL2)
 }
 
 // dispatchAuthenticatedSendTx routes sendTx through the Espresso (TEE) auth
