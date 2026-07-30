@@ -11,13 +11,14 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 )
 
 // This is a reliable way to determine if we are running on Linux as a runtime
 // check.
-var isRunningOnLinux = false
+var isRunningOnLinux = runtime.GOOS == "linux"
 
 // DockerContainerInfo is a struct that contains information about a Docker
 // Container that was launched by the DockerCli struct.
