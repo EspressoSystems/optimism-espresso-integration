@@ -834,14 +834,10 @@ func (l *BatchSubmitter) queueBlockToEspresso(ctx context.Context, block *types.
 	return nil
 }
 
-func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStatus *eth.SyncStatus) {
-	err := l.EspressoStreamer().Refresh(ctx, newSyncStatus.FinalizedL1, newSyncStatus.SafeL2.Number, newSyncStatus.FinalizedL2.L1Origin)
-	if err != nil {
-		l.degradedLog.Warn(l.Log, "espressoStreamerRefreshErr", "Failed to refresh Espresso streamer", "err", err)
-	} else {
-		l.degradedLog.Clear(l.Log, "espressoStreamerRefreshErr", "Espresso streamer refresh recovered")
-	}
-
+// espressoSyncChannelManager reconciles the channel manager with the latest sync
+// status. The streamer no longer needs pumping here: it refreshes L1 finality and
+// fetches HotShot blocks from its own poll loop.
+func (l *BatchSubmitter) espressoSyncChannelManager(newSyncStatus *eth.SyncStatus) {
 	l.channelMgrMutex.Lock()
 	defer l.channelMgrMutex.Unlock()
 	syncActions, outOfSync := computeSyncActions(*newSyncStatus, l.prevCurrentL1, l.channelMgr.blocks, l.channelMgr.channelQueue, l.Log)
@@ -853,64 +849,15 @@ func (l *BatchSubmitter) espressoSyncAndRefresh(ctx context.Context, newSyncStat
 	l.prevCurrentL1 = newSyncStatus.CurrentL1
 	if syncActions.clearState != nil {
 		l.channelMgr.Clear(*syncActions.clearState)
-		l.EspressoStreamer().Reset()
+		l.espressoStreamer.SetBatchPosition(newSyncStatus.SafeL2)
 	} else {
 		l.channelMgr.PruneSafeBlocks(syncActions.blocksToPrune)
 		l.channelMgr.PruneChannels(syncActions.channelsToPrune)
 	}
 }
 
-// peekNextBatch returns the next batch from the streamer, performing a fork check
-// against an expected parent hash.
-//
-// The expected parent is tip when tip is set. When tip is zero (channel manager was
-// just cleared), we fall back to safeL2.Hash if the batch is at exactly safeL2+1 —
-// the one position where we can set tip to the known safe head. Otherwise we accept the batch as-is.
-func (l *BatchSubmitter) peekNextBatch(ctx context.Context, syncStatus *eth.SyncStatus) *derivation.EspressoBatch {
-	l.channelMgrMutex.Lock()
-	tip := l.channelMgr.tip
-	l.channelMgrMutex.Unlock()
-
-	batch := l.EspressoStreamer().Peek(ctx)
-	if batch == nil {
-		return nil
-	}
-
-	// Check if we can set the tip if not set
-	if tip == (common.Hash{}) && (*batch).Number() == syncStatus.SafeL2.Number+1 {
-		l.Log.Info(
-			"setting tip to safe l2 hash",
-			"batchNr", (*batch).Number(),
-			"batchParent", (*batch).Header().ParentHash.Hex(),
-			"tip", tip,
-		)
-		tip = syncStatus.SafeL2.Hash
-	}
-
-	if tip == (common.Hash{}) {
-		l.Log.Warn(
-			"tip is not set, taking available batch",
-			"blockParentHash", (*batch).Header().ParentHash.Hex(),
-			"blockHash", (*batch).Header().Hash().Hex(),
-		)
-		return batch
-	}
-
-	if (*batch).Header().ParentHash != tip {
-		l.Log.Warn(
-			"head batch fork mismatch, seeking to proper head",
-			"batchNr", (*batch).Number(),
-			"batchParent", (*batch).Header().ParentHash,
-			"tip", tip,
-		)
-		l.EspressoStreamer().SetProperHead(tip)
-		return nil
-	}
-
-	return batch
-}
-
-// Periodically refreshes the sync status and polls Espresso streamer for new batches
+// Periodically refreshes the sync status and drains the Espresso streamer of any
+// batches that extend the tip it is tracking.
 func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.WaitGroup, publishSignal chan pubInfo) {
 	l.Log.Info("Starting EspressoBatchLoadingLoop", "polling interval", l.Config.Espresso.PollInterval)
 
@@ -929,27 +876,23 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 			}
 			l.degradedLog.Clear(l.Log, "syncStatusErr/espressoBatchLoading", "sync status fetch recovered")
 
-			l.espressoSyncAndRefresh(ctx, newSyncStatus)
-
-			err = l.EspressoStreamer().Update(ctx)
-
-			var batch *derivation.EspressoBatch
+			l.espressoSyncChannelManager(newSyncStatus)
 
 			for {
-
-				batch = l.peekNextBatch(ctx, newSyncStatus)
-
+				batch := l.espressoStreamer.Peek(ctx)
 				if batch == nil {
 					break
 				}
 
 				// This should happen ONLY if the batch is malformed. ToBlock has to guarantee no
-				// transient errors.
+				// transient errors. Advancing past it would promote a block the channel manager
+				// never received to the streamer's tip, stalling every later batch, so re-anchor
+				// instead of skipping.
 				block, err := batch.ToBlock(l.RollupConfig)
 				if err != nil {
 					l.Log.Error("failed to convert singular batch to block", "err", err)
-					l.EspressoStreamer().Next(ctx)
-					continue
+					l.clearState(ctx)
+					break
 				}
 
 				l.Log.Info(
@@ -965,23 +908,16 @@ func (l *BatchSubmitter) espressoBatchLoadingLoop(ctx context.Context, wg *sync.
 
 				if err != nil {
 					l.Log.Error("failed to add L2 block to channel manager", "err", err)
+					// clearState re-anchors the streamer to the safe head.
 					l.clearState(ctx)
-					l.EspressoStreamer().Reset()
 					break
 				}
 
-				l.EspressoStreamer().Next(ctx)
+				l.espressoStreamer.AdvancePosition()
 				l.Log.Info(logmodule.AddedL2BlockToChannelManager, "blockNr", block.NumberU64())
 			}
 
 			l.tryPublishSignal(publishSignal, pubInfo{})
-
-			// A failure in the streamer Update can happen after the buffer has been partially filled
-			if err != nil {
-				l.degradedLog.Warn(l.Log, "espressoStreamerUpdateErr", "failed to update Espresso streamer", "err", err)
-				continue
-			}
-			l.degradedLog.Clear(l.Log, "espressoStreamerUpdateErr", "Espresso streamer update recovered")
 
 		case <-ctx.Done():
 			l.Log.Info("espressoBatchLoadingLoop returning")
