@@ -91,10 +91,18 @@ parameters:
 orbs:
   path-filtering: circleci/path-filtering@3.0.0
 
+# espresso: CircleCI is disabled for this fork. All CI that we rely on runs on
+# GitHub Actions (see .github/workflows/); the inherited upstream Optimism
+# CircleCI jobs need resource classes, contexts and credentials this org does
+# not have, so every one of them fails on every PR. Gating both setup workflows
+# off means no continuation config is ever emitted, so none of the main /
+# rust-ci / rust-e2e pipelines run and no `ci/circleci: *` statuses are posted.
+#
+# To re-enable, restore the original `when:` blocks marked below.
 workflows:
   setup:
-    when:
-      equal: ["", << pipeline.git.tag >>]
+    # espresso: disabled. Original: equal: ["", << pipeline.git.tag >>]
+    when: false
     jobs:
       - path-filtering/filter: &path_filter
           base-revision: develop
@@ -134,9 +142,11 @@ workflows:
             (rust|\.circleci)/.* c-go-cache-version << pipeline.parameters.go-cache-version >> .circleci/continue/rust-e2e.yml
 
   setup-tag:
-    when:
-      not:
-        equal: ["", << pipeline.git.tag >>]
+    # espresso: disabled. Original:
+    #   when:
+    #     not:
+    #       equal: ["", << pipeline.git.tag >>]
+    when: false
     jobs:
       - path-filtering/filter:
           <<: *path_filter
