@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 // EspressoDriverSetup groups all Espresso-specific runtime state plumbed from
@@ -35,7 +36,7 @@ type EspressoDriverSetup struct {
 }
 
 // batcherL1Adapter wraps the batcher's L1Client to implement espresso.L1Client
-// (HeaderHashByNumber + bind.ContractCaller).
+// (HeaderHashByNumber + HeaderByNumber + bind.ContractCaller).
 type batcherL1Adapter struct {
 	L1Client L1Client
 }
@@ -46,6 +47,10 @@ func (a *batcherL1Adapter) HeaderHashByNumber(ctx context.Context, number *big.I
 		return common.Hash{}, err
 	}
 	return h.Hash(), nil
+}
+
+func (a *batcherL1Adapter) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	return a.L1Client.HeaderByNumber(ctx, number)
 }
 
 func (a *batcherL1Adapter) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
