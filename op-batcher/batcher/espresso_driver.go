@@ -106,7 +106,7 @@ func (l *BatchSubmitter) startEspressoLoops(receiptsCh chan txmgr.TxReceipt[txRe
 	}
 
 	// Resolve the TEE verifier address from the BatchAuthenticator contract.
-	if err := l.resolveTEEVerifierAddress(); err != nil {
+	if err := l.resolveTEEVerifierAddress(l.killCtx); err != nil {
 		return fmt.Errorf("could not resolve TEE verifier address: %w", err)
 	}
 

@@ -1219,18 +1219,14 @@ func (l *BatchSubmitter) fetchBlock(ctx context.Context, blockNumber uint64) (*t
 
 // resolveTEEVerifierAddress queries the BatchAuthenticator contract to get the
 // EspressoTEEVerifier address.
-func (l *BatchSubmitter) resolveTEEVerifierAddress() error {
-	if l.RollupConfig.BatchAuthenticatorAddress == (common.Address{}) {
+func (l *BatchSubmitter) resolveTEEVerifierAddress(ctx context.Context) error {
+	if l.batchAuth == nil {
 		// If batcher authenticator address is nil, we will keep teeVerifierAddress to nil as well
 		return nil
 	}
-	auth, err := bindings.NewBatchAuthenticatorCaller(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
+	addr, err := l.batchAuth.EspressoTEEVerifier(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create BatchAuthenticator caller: %w", err)
-	}
-	addr, err := auth.EspressoTEEVerifier(nil)
-	if err != nil {
-		return fmt.Errorf("failed to query EspressoTEEVerifier address: %w", err)
+		return err
 	}
 	l.teeVerifierAddress = addr
 	l.Log.Info("Resolved TEE verifier address", "address", addr.Hex())
@@ -1248,13 +1244,12 @@ func (l *BatchSubmitter) registerBatcher(ctx context.Context) error {
 		return nil
 	}
 
-	l.Log.Info("Batch authenticator address", "value", l.RollupConfig.BatchAuthenticatorAddress)
-	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
-	if err != nil {
-		return fmt.Errorf("failed to check code at contract address: %w", err)
+	if l.batchAuth == nil {
+		return errors.New("cannot register batcher: no BatchAuthenticator address configured")
 	}
-	if len(code) == 0 {
-		return fmt.Errorf("no contract deployed at this address %w", err)
+	l.Log.Info("Batch authenticator address", "value", l.batchAuth.Address())
+	if err := l.batchAuth.ensureDeployed(ctx); err != nil {
+		return err
 	}
 
 	abi, err := bindings.BatchAuthenticatorMetaData.GetAbi()

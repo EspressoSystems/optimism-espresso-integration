@@ -2,13 +2,9 @@ package batcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/ethereum-optimism/optimism/espresso/bindings"
 )
 
 // isBatcherActive checks if the current batcher is the active one by querying
@@ -19,41 +15,22 @@ import (
 //   - If activeIsEspresso is true, the Espresso batcher address is active
 //   - If activeIsEspresso is false, the fallback batcher address is active
 //
-// This method compares the batcher's own address (from TxMgr) against the
-// contract's registered Espresso batcher address and the SystemConfig batcher address.
+// The check is a comparison of the on-chain flag against the
+// --espresso.enabled flag.
 func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
-	// Check if contract code exists at the address
-	code, err := l.L1Client.CodeAt(ctx, l.RollupConfig.BatchAuthenticatorAddress, nil)
+	if l.batchAuth == nil {
+		return false, errors.New("no BatchAuthenticator configured")
+	}
+
+	activeIsEspresso, err := l.batchAuth.ActiveIsEspresso(ctx)
 	if err != nil {
-		return false, fmt.Errorf("failed to check code at BatchAuthenticator address: %w", err)
-	}
-	if len(code) == 0 {
-		return false, fmt.Errorf("no contract code at BatchAuthenticator address %s", l.RollupConfig.BatchAuthenticatorAddress.Hex())
+		return false, err
 	}
 
-	batchAuthenticator, err := bindings.NewBatchAuthenticator(l.RollupConfig.BatchAuthenticatorAddress, l.L1Client)
-	if err != nil {
-		return false, fmt.Errorf("failed to create BatchAuthenticator binding: %w", err)
-	}
-
-	cCtx, cancel := context.WithTimeout(ctx, l.Config.NetworkTimeout)
-	defer cancel()
-
-	callOpts := &bind.CallOpts{Context: cCtx}
-
-	activeIsEspresso, err := batchAuthenticator.ActiveIsEspresso(callOpts)
-	if err != nil {
-		return false, fmt.Errorf("failed to check activeIsEspresso: %w", err)
-	}
-
-	batcherAddr := l.Txmgr.From()
-
-	isActive := (activeIsEspresso && l.Config.Espresso.Enabled) ||
-		(!activeIsEspresso && !l.Config.Espresso.Enabled)
-
+	isActive := activeIsEspresso == l.Config.Espresso.Enabled
 	if !isActive {
 		l.Log.Info("Batcher is not the active batcher, skipping publish",
-			"batcherAddr", batcherAddr,
+			"batcherAddr", l.Txmgr.From(),
 			"activeIsEspresso", activeIsEspresso,
 			"EspressoEnabled", l.Config.Espresso.Enabled,
 		)
@@ -62,11 +39,10 @@ func (l *BatchSubmitter) isBatcherActive(ctx context.Context) (bool, error) {
 	return isActive, nil
 }
 
-// hasBatchAuthenticator returns true if the rollup config has a non-zero
-// BatchAuthenticatorAddress, indicating that batcher active/idle checking
-// should be performed before publishing.
+// hasBatchAuthenticator returns true if a BatchAuthenticator reader was bound
+// at construction.
 func (l *BatchSubmitter) hasBatchAuthenticator() bool {
-	return l.RollupConfig.BatchAuthenticatorAddress != (common.Address{})
+	return l.batchAuth != nil
 }
 
 // isFallbackAuthRequired reports whether the fallback (non-TEE) batcher must
