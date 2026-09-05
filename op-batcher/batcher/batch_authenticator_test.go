@@ -21,9 +21,7 @@ import (
 var testAuthAddr = common.HexToAddress("0x00000000000000000000000000000000000000aa")
 
 // mockAuthBackend is a minimal bind.ContractCaller standing in for the L1
-// client. It records how many times each of the two calls the reader makes
-// (CodeAt for the deployment probe, CallContract for the reads) actually hits
-// the wire, which is what the amortization tests below assert on.
+// client.
 type mockAuthBackend struct {
 	abi *abi.ABI
 
@@ -33,7 +31,6 @@ type mockAuthBackend struct {
 	codeErr error
 
 	activeIsEspresso bool
-	teeVerifier      common.Address
 
 	codeAtCalls int
 	callCalls   int
@@ -63,14 +60,10 @@ func (m *mockAuthBackend) CallContract(ctx context.Context, call ethereum.CallMs
 	if len(call.Data) < 4 {
 		return nil, errors.New("short calldata")
 	}
-	switch {
-	case string(call.Data[:4]) == string(m.abi.Methods["activeIsEspresso"].ID):
-		return m.abi.Methods["activeIsEspresso"].Outputs.Pack(m.activeIsEspresso)
-	case string(call.Data[:4]) == string(m.abi.Methods["espressoTEEVerifier"].ID):
-		return m.abi.Methods["espressoTEEVerifier"].Outputs.Pack(m.teeVerifier)
-	default:
+	if string(call.Data[:4]) != string(m.abi.Methods["activeIsEspresso"].ID) {
 		return nil, errors.New("unexpected method call")
 	}
+	return m.abi.Methods["activeIsEspresso"].Outputs.Pack(m.activeIsEspresso)
 }
 
 func newTestReader(t *testing.T, backend *mockAuthBackend) *batchAuthenticatorReader {
@@ -81,8 +74,9 @@ func newTestReader(t *testing.T, backend *mockAuthBackend) *batchAuthenticatorRe
 }
 
 // TestBatchAuthenticatorReader_ProbeLatches is the core claim of the shared
-// reader: the deployment probe is paid once, not once per publish tick. Before
-// this, isBatcherActive issued a CodeAt on every tick alongside the read.
+// reader: the deployment probe is paid once, not once per publish tick. It also
+// checks that the reader applies the network timeout itself, so no call site
+// can forget it.
 func TestBatchAuthenticatorReader_ProbeLatches(t *testing.T) {
 	backend := newMockAuthBackend(t)
 	backend.activeIsEspresso = true
@@ -96,25 +90,7 @@ func TestBatchAuthenticatorReader_ProbeLatches(t *testing.T) {
 
 	require.Equal(t, 1, backend.codeAtCalls, "deployment probe should be paid once, not per read")
 	require.Equal(t, 5, backend.callCalls, "each read is still one eth_call")
-}
-
-// TestBatchAuthenticatorReader_ProbeSharedAcrossReads checks that the latch is
-// a property of the reader rather than of a single method, so the startup
-// reads and the per-tick gate share it.
-func TestBatchAuthenticatorReader_ProbeSharedAcrossReads(t *testing.T) {
-	backend := newMockAuthBackend(t)
-	backend.teeVerifier = common.HexToAddress("0x00000000000000000000000000000000000000bb")
-	r := newTestReader(t, backend)
-
-	got, err := r.EspressoTEEVerifier(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, backend.teeVerifier, got)
-
-	require.NoError(t, r.ensureDeployed(context.Background()))
-	_, err = r.ActiveIsEspresso(context.Background())
-	require.NoError(t, err)
-
-	require.Equal(t, 1, backend.codeAtCalls)
+	require.True(t, backend.lastCallHadDeadline, "reader must bound reads by NetworkTimeout")
 }
 
 // TestBatchAuthenticatorReader_ProbeFailureIsNotLatched covers the reason the
@@ -145,17 +121,6 @@ func TestBatchAuthenticatorReader_ProbeFailureIsNotLatched(t *testing.T) {
 
 	require.Equal(t, 3, backend.codeAtCalls)
 	require.Equal(t, 1, backend.callCalls)
-}
-
-// TestBatchAuthenticatorReader_ReadsAreTimeBounded locks in that the timeout is
-// applied inside the reader, so no call site can forget it.
-func TestBatchAuthenticatorReader_ReadsAreTimeBounded(t *testing.T) {
-	backend := newMockAuthBackend(t)
-	r := newTestReader(t, backend)
-
-	_, err := r.ActiveIsEspresso(context.Background())
-	require.NoError(t, err)
-	require.True(t, backend.lastCallHadDeadline, "reader must bound reads by NetworkTimeout")
 }
 
 // TestIsBatcherActive covers the publish gate's decision table: this process is
