@@ -31,6 +31,7 @@ type mockAuthBackend struct {
 	codeErr error
 
 	activeIsEspresso bool
+	teeVerifier      common.Address
 
 	codeAtCalls int
 	callCalls   int
@@ -60,10 +61,14 @@ func (m *mockAuthBackend) CallContract(ctx context.Context, call ethereum.CallMs
 	if len(call.Data) < 4 {
 		return nil, errors.New("short calldata")
 	}
-	if string(call.Data[:4]) != string(m.abi.Methods["activeIsEspresso"].ID) {
+	switch {
+	case string(call.Data[:4]) == string(m.abi.Methods["activeIsEspresso"].ID):
+		return m.abi.Methods["activeIsEspresso"].Outputs.Pack(m.activeIsEspresso)
+	case string(call.Data[:4]) == string(m.abi.Methods["espressoTEEVerifier"].ID):
+		return m.abi.Methods["espressoTEEVerifier"].Outputs.Pack(m.teeVerifier)
+	default:
 		return nil, errors.New("unexpected method call")
 	}
-	return m.abi.Methods["activeIsEspresso"].Outputs.Pack(m.activeIsEspresso)
 }
 
 func newTestReader(t *testing.T, backend *mockAuthBackend) *batchAuthenticatorReader {
@@ -121,6 +126,25 @@ func TestBatchAuthenticatorReader_ProbeFailureIsNotLatched(t *testing.T) {
 
 	require.Equal(t, 3, backend.codeAtCalls)
 	require.Equal(t, 1, backend.callCalls)
+}
+
+// TestBatchAuthenticatorReader_EspressoTEEVerifier refuses to read from an
+// undeployed address and bounds the call with NetworkTimeout.
+func TestBatchAuthenticatorReader_EspressoTEEVerifier(t *testing.T) {
+	backend := newMockAuthBackend(t)
+	backend.teeVerifier = common.HexToAddress("0x00000000000000000000000000000000000000bb")
+	backend.code = nil // not deployed yet
+	r := newTestReader(t, backend)
+
+	_, err := r.EspressoTEEVerifier(context.Background())
+	require.ErrorContains(t, err, "no contract code at BatchAuthenticator address")
+	require.Zero(t, backend.callCalls, "should not read from an undeployed address")
+
+	backend.code = []byte{0x60, 0x00}
+	got, err := r.EspressoTEEVerifier(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, backend.teeVerifier, got)
+	require.True(t, backend.lastCallHadDeadline, "reader must bound reads by NetworkTimeout")
 }
 
 // TestIsBatcherActive covers the publish gate's decision table: this process is
